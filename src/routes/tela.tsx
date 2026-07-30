@@ -13,6 +13,12 @@ type PlayerItem = {
 type SyncResponse = {
   device: { id: string; name: string; canvasPreset: string };
   playlist: { id: string; name: string; revision: number; items: PlayerItem[] } | null;
+  branding: {
+    name: string | null;
+    splashText: string | null;
+    color: string | null;
+    logoUrl: string | null;
+  } | null;
   commands: string[];
   syncIntervalMs: number;
 };
@@ -200,19 +206,15 @@ function PlayerScreen() {
 
   if (!linked) return <ActivationScreen code={activationCode} message={error} />;
 
+  if (!sync) return <SplashScreen branding={null} />;
+
   return (
     <div className="relative min-h-screen overflow-hidden bg-black">
       {items.length === 0 ? (
-        <div className="grid min-h-screen place-items-center px-8 text-center">
-          <div>
-            <p className="text-2xl font-semibold text-white">
-              {sync?.device.name ?? "Tela conectada"}
-            </p>
-            <p className="mt-2 text-sm text-white/60">
-              {error ?? "Nenhuma playlist programada para este horário."}
-            </p>
-          </div>
-        </div>
+        <SplashScreen
+          branding={sync.branding}
+          message={error ?? "Nenhuma playlist programada para este horário."}
+        />
       ) : current?.kind === "video" ? (
         <video
           key={`${current.id}-${index}`}
