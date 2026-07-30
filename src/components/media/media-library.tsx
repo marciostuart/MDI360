@@ -16,7 +16,6 @@ import {
   SelectValue,
 } from "@/components/ui/select";
 import {
-  confirmMediaUpload,
   createMediaUploadTicket,
   deleteMediaAsset,
   listMediaAssets,
@@ -33,7 +32,6 @@ export function MediaLibrary() {
   const queryClient = useQueryClient();
   const listFn = useServerFn(listMediaAssets);
   const ticketFn = useServerFn(createMediaUploadTicket);
-  const confirmFn = useServerFn(confirmMediaUpload);
   const deleteFn = useServerFn(deleteMediaAsset);
 
   const [presetId, setPresetId] = useState(DEFAULT_CANVAS_PRESET.id);
