@@ -64,7 +64,7 @@ sub runLoop()
                 m.top.activationCode = res.body.activationCode
                 m.top.statusText = ""
             else
-                m.top.statusText = "Sem conexao com o servidor. Tentando novamente..."
+                m.top.statusText = "Sem conexao com o servidor (HTTP " + res.code.ToStr() + ") - " + baseUrl + ". Tentando novamente..."
                 sleep(5000)
             end if
         else
@@ -83,7 +83,8 @@ sub runLoop()
                     intervalMs = res.body.syncIntervalMs
                 end if
             else
-                m.top.statusText = "Sem conexao com o servidor. Tentando novamente..."
+                m.top.statusText = "Sem conexao com o servidor (HTTP " + res.code.ToStr() + "). Tentando novamente..."
+                sleep(10000)
             end if
             sleep(intervalMs)
         end if
