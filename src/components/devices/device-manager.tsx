@@ -200,7 +200,6 @@ export function DeviceManager() {
                     </Button>
                     <Button
                       size="sm"
-                      variant="outline"
                       variant="ghost"
                       className="text-muted-foreground"
                       onClick={() => removeMutation.mutate(device.id)}
