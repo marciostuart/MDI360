@@ -20,6 +20,7 @@ import { Route as StudioConteudosRouteImport } from './routes/studio/conteudos'
 import { Route as StudioPlaylistsRouteImport } from './routes/studio/playlists'
 import { Route as StudioTelasRouteImport } from './routes/studio/telas'
 import { Route as TorreIndexRouteImport } from './routes/torre/index'
+import { Route as ApiBrandingLogoRouteImport } from './routes/api/branding/logo'
 import { Route as ApiMediaUploadRouteImport } from './routes/api/media/upload'
 import { Route as ApiPublicPlayerRegisterRouteImport } from './routes/api/public/player/register'
 import { Route as ApiPublicPlayerStatusRouteImport } from './routes/api/public/player/status'
@@ -80,6 +81,11 @@ const TorreIndexRoute = TorreIndexRouteImport.update({
   path: '/',
   getParentRoute: () => TorreRouteRoute,
 } as any)
+const ApiBrandingLogoRoute = ApiBrandingLogoRouteImport.update({
+  id: '/api/branding/logo',
+  path: '/api/branding/logo',
+  getParentRoute: () => rootRouteImport,
+} as any)
 const ApiMediaUploadRoute = ApiMediaUploadRouteImport.update({
   id: '/api/media/upload',
   path: '/api/media/upload',
@@ -113,6 +119,7 @@ export interface FileRoutesByFullPath {
   '/studio/telas': typeof StudioTelasRoute
   '/studio/': typeof StudioIndexRoute
   '/torre/': typeof TorreIndexRoute
+  '/api/branding/logo': typeof ApiBrandingLogoRoute
   '/api/media/upload': typeof ApiMediaUploadRoute
   '/api/public/player/register': typeof ApiPublicPlayerRegisterRoute
   '/api/public/player/status': typeof ApiPublicPlayerStatusRoute
@@ -128,6 +135,7 @@ export interface FileRoutesByTo {
   '/studio/telas': typeof StudioTelasRoute
   '/studio': typeof StudioIndexRoute
   '/torre': typeof TorreIndexRoute
+  '/api/branding/logo': typeof ApiBrandingLogoRoute
   '/api/media/upload': typeof ApiMediaUploadRoute
   '/api/public/player/register': typeof ApiPublicPlayerRegisterRoute
   '/api/public/player/status': typeof ApiPublicPlayerStatusRoute
@@ -146,6 +154,7 @@ export interface FileRoutesById {
   '/studio/telas': typeof StudioTelasRoute
   '/studio/': typeof StudioIndexRoute
   '/torre/': typeof TorreIndexRoute
+  '/api/branding/logo': typeof ApiBrandingLogoRoute
   '/api/media/upload': typeof ApiMediaUploadRoute
   '/api/public/player/register': typeof ApiPublicPlayerRegisterRoute
   '/api/public/player/status': typeof ApiPublicPlayerStatusRoute
@@ -165,6 +174,7 @@ export interface FileRouteTypes {
     | '/studio/telas'
     | '/studio/'
     | '/torre/'
+    | '/api/branding/logo'
     | '/api/media/upload'
     | '/api/public/player/register'
     | '/api/public/player/status'
@@ -180,6 +190,7 @@ export interface FileRouteTypes {
     | '/studio/telas'
     | '/studio'
     | '/torre'
+    | '/api/branding/logo'
     | '/api/media/upload'
     | '/api/public/player/register'
     | '/api/public/player/status'
@@ -197,6 +208,7 @@ export interface FileRouteTypes {
     | '/studio/telas'
     | '/studio/'
     | '/torre/'
+    | '/api/branding/logo'
     | '/api/media/upload'
     | '/api/public/player/register'
     | '/api/public/player/status'
@@ -209,6 +221,7 @@ export interface RootRouteChildren {
   TorreRouteRoute: typeof TorreRouteRouteWithChildren
   EntrarRoute: typeof EntrarRoute
   TelaRoute: typeof TelaRoute
+  ApiBrandingLogoRoute: typeof ApiBrandingLogoRoute
   ApiMediaUploadRoute: typeof ApiMediaUploadRoute
   ApiPublicPlayerRegisterRoute: typeof ApiPublicPlayerRegisterRoute
   ApiPublicPlayerStatusRoute: typeof ApiPublicPlayerStatusRoute
@@ -294,6 +307,13 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof TorreIndexRouteImport
       parentRoute: typeof TorreRouteRoute
     }
+    '/api/branding/logo': {
+      id: '/api/branding/logo'
+      path: '/api/branding/logo'
+      fullPath: '/api/branding/logo'
+      preLoaderRoute: typeof ApiBrandingLogoRouteImport
+      parentRoute: typeof rootRouteImport
+    }
     '/api/media/upload': {
       id: '/api/media/upload'
       path: '/api/media/upload'
@@ -363,6 +383,7 @@ const rootRouteChildren: RootRouteChildren = {
   TorreRouteRoute: TorreRouteRouteWithChildren,
   EntrarRoute: EntrarRoute,
   TelaRoute: TelaRoute,
+  ApiBrandingLogoRoute: ApiBrandingLogoRoute,
   ApiMediaUploadRoute: ApiMediaUploadRoute,
   ApiPublicPlayerRegisterRoute: ApiPublicPlayerRegisterRoute,
   ApiPublicPlayerStatusRoute: ApiPublicPlayerStatusRoute,
