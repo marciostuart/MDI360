@@ -18,7 +18,7 @@ import {
 /* ------------------------------------------------------------------ */
 
 export const appRoleEnum = pgEnum("app_role", ["owner", "admin", "operator"]);
-export const mediaKindEnum = pgEnum("media_kind", ["image", "video", "web"]);
+export const mediaKindEnum = pgEnum("media_kind", ["image", "video", "web", "widget"]);
 export const mediaStatusEnum = pgEnum("media_status", ["uploading", "ready", "failed"]);
 export const deviceStatusEnum = pgEnum("device_status", ["pending", "active", "blocked"]);
 export const commandKindEnum = pgEnum("command_kind", [
@@ -178,6 +178,10 @@ export const mediaAssets = pgTable(
     storageKey: text("storage_key"),
     /** External URL for `web` assets. */
     sourceUrl: text("source_url"),
+    /** Information widget type (clock/weather/currency/news) for `widget` assets. */
+    widgetType: text("widget_type"),
+    /** Widget settings (city, feed, currency pairs...). Validated before saving. */
+    widgetConfig: jsonb("widget_config"),
     mimeType: text("mime_type"),
     byteSize: integer("byte_size"),
     durationMs: integer("duration_ms"),

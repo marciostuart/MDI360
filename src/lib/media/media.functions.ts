@@ -37,7 +37,7 @@ const ticketSchema = z
 export type MediaListItem = {
   id: string;
   name: string;
-  kind: "image" | "video" | "web";
+  kind: "image" | "video" | "web" | "widget";
   status: "uploading" | "ready" | "failed";
   canvasPreset: string;
   mimeType: string | null;
@@ -48,6 +48,8 @@ export type MediaListItem = {
   height: number | null;
   createdAt: string;
   previewUrl: string | null;
+  widgetType: string | null;
+  widgetConfig: unknown;
 };
 
 /** Library of the caller's organization. Never returns another tenant's rows. */
@@ -94,6 +96,8 @@ export const listMediaAssets = createServerFn({ method: "GET" }).handler(
           height: row.height,
           createdAt: row.createdAt.toISOString(),
           previewUrl,
+          widgetType: row.widgetType,
+          widgetConfig: row.widgetConfig ?? null,
         } satisfies MediaListItem;
       }),
     );
