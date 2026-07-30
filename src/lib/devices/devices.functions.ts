@@ -239,6 +239,7 @@ export const setDevicePlaylist = createServerFn({ method: "POST" })
   });
 
 export const sendDeviceCommand = createServerFn({ method: "POST" })
+  // eslint-disable-next-line @typescript-eslint/no-unused-vars
   .inputValidator((input: unknown) =>
     z
       .object({
