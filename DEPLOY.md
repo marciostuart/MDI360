@@ -5,17 +5,33 @@ Faça um passo por vez e não se preocupe com os outros.
 
 ---
 
-## Passo 1 — Criar o banco de dados no seu Postgres
+## Passo 0 — Descobrir os nomes reais (Swarm)
 
-Abra o terminal da VPS e rode (troque `SENHA_FORTE` por uma senha sua):
+Sua VPS roda **Docker Swarm** (as stacks aparecem como "Swarm" no Portainer), então
+usamos o arquivo **`docker-stack.yml`** deste projeto — não o `docker-compose.yml`.
+
+No terminal da VPS, rode e guarde as respostas:
 
 ```bash
-docker exec -it postgres psql -U postgres -c "CREATE USER signage WITH PASSWORD 'SENHA_FORTE';"
-docker exec -it postgres psql -U postgres -c "CREATE DATABASE signage OWNER signage;"
+docker network ls          # nome da rede do traefik (ex.: network_public)
+docker service ls          # nomes dos servicos: postgres_postgres, minio_minio...
 ```
 
-> Se o container do seu Postgres tiver outro nome, troque `postgres` pelo nome certo.
-> Para descobrir: `docker ps`.
+Dentro do Swarm, o "endereço" de um serviço é o **nome do serviço** que aparece em
+`docker service ls`. Ex.: se aparecer `postgres_postgres`, o host do banco é
+`postgres_postgres`. Nunca use `localhost`.
+
+---
+
+## Passo 1 — Criar o banco de dados no seu Postgres
+
+Descubra o container do postgres e entre nele (troque `SENHA_FORTE` por uma senha sua):
+
+```bash
+PG=$(docker ps --format '{{.Names}}' | grep postgres | head -1)
+docker exec -it $PG psql -U postgres -c "CREATE USER signage WITH PASSWORD 'SENHA_FORTE';"
+docker exec -it $PG psql -U postgres -c "CREATE DATABASE signage OWNER signage;"
+```
 
 ---
 
@@ -54,17 +70,32 @@ Este subdomínio serve apenas o sistema (área logada).
 
 ---
 
-## Passo 5 — Subir a stack no Portainer
+## Passo 5 — Construir a imagem na VPS
+
+O Swarm **não constrói** imagem sozinho, então construímos uma vez na VPS:
+
+```bash
+cd /opt && git clone SEU_REPOSITORIO signage && cd signage
+docker build -t signage:latest .
+```
+
+> Sem repositório Git? Envie a pasta do projeto por SFTP para `/opt/signage` e
+> rode só o `docker build`.
+> A cada nova versão: `git pull && docker build -t signage:latest .` e depois
+> `docker service update --force signage_signage`.
+
+---
+
+## Passo 6 — Subir a stack no Portainer (Swarm)
 
 1. Portainer → **Stacks** → **Add stack** → nome: `signage`.
-2. Escolha **Repository** (se o código estiver no Git) ou **Web editor** e cole o
-   conteúdo do arquivo `docker-compose.yml` deste projeto.
+2. **Web editor** → cole o conteúdo de **`docker-stack.yml`** (não o compose).
 3. Na seção **Environment variables**, adicione:
 
 | Nome | Valor |
 |---|---|
-| `DATABASE_URL` | `postgresql://signage:SENHA_FORTE@postgres:5432/signage` |
-| `S3_ENDPOINT` | `http://minio:9000` |
+| `DATABASE_URL` | `postgresql://signage:SENHA_FORTE@postgres_postgres:5432/signage` |
+| `S3_ENDPOINT` | `http://minio_minio:9000` |
 | `S3_BUCKET` | `signage-media` |
 | `S3_ACCESS_KEY_ID` | a access key do MinIO |
 | `S3_SECRET_ACCESS_KEY` | a secret key do MinIO |
@@ -72,16 +103,21 @@ Este subdomínio serve apenas o sistema (área logada).
 | `APP_HOST` | `mdi.360bh.com.br` |
 | `APP_URL` | `https://mdi.360bh.com.br` |
 | `PLATFORM_ADMIN_EMAILS` | seu e-mail, ex.: `voce@360bh.com.br` |
+| `TRAEFIK_NETWORK` | nome da rede do traefik (Passo 0) |
+| `DATA_NETWORK` | rede do postgres/minio (normalmente a mesma) |
+| `SIGNAGE_IMAGE` | `signage:latest` |
 
 4. Clique em **Deploy the stack**.
 
-> Importante: dentro do Docker usamos o **nome do container** (`postgres`, `minio`),
-> nunca `localhost`. Se os containers estiverem em redes diferentes, conecte o
-> container `signage` às redes do Postgres e do MinIO no Portainer.
+> Ajuste `postgres_postgres` e `minio_minio` para os nomes que apareceram no
+> `docker service ls` do Passo 0. Se o postgres/minio estiverem em outra rede
+> overlay, coloque o nome dela em `DATA_NETWORK`.
+> Se o seu Traefik usa outro nome de entrypoint/certresolver (ex.: `https` em vez
+> de `websecure`), ajuste essas duas labels no arquivo antes de deployar.
 
 ---
 
-## Passo 6 — Confirmar que funcionou
+## Passo 7 — Confirmar que funcionou
 
 1. Abra `https://mdi.360bh.com.br` (tela de acesso ao sistema).
 2. Clique em **Entrar no Studio** → aba **Criar conta**. O primeiro usuário vira o dono.
@@ -93,7 +129,7 @@ Este subdomínio serve apenas o sistema (área logada).
 
 ---
 
-## Passo 7 — Ligar a primeira TV
+## Passo 8 — Ligar a primeira TV
 
 1. No Studio, vá em **Telas → Nova tela**, escolha o formato (TV horizontal,
    totem vertical etc.) e cadastre. Um **código de 6 dígitos** aparece no card.
@@ -121,9 +157,14 @@ você não precisa rodar nenhum SQL.
 
 ## Se algo der errado
 
-No Portainer, abra **Containers → signage → Logs**. As mensagens começam com
-`[signage]`. Os erros mais comuns:
+No Portainer, abra **Stacks → signage → signage_signage → Logs** (ou
+`docker service logs -f signage_signage`). As mensagens começam com `[signage]`.
+Os erros mais comuns:
 
-- `ECONNREFUSED` no banco → o container `signage` não está na mesma rede do Postgres.
+- `ECONNREFUSED` / `ENOTFOUND` no banco → o `DATABASE_URL` aponta para um nome
+  de serviço errado, ou a stack não está na mesma rede overlay do Postgres
+  (ajuste `DATA_NETWORK`).
 - `password authentication failed` → a senha no `DATABASE_URL` está diferente da do Passo 1.
-- Página não abre → confira o `APP_HOST` e o nome da rede do Traefik no compose.
+- `No such image: signage:latest` → faltou o `docker build` do Passo 5.
+- Página não abre → confira `APP_HOST`, `TRAEFIK_NETWORK` e se o entrypoint do seu
+  Traefik se chama mesmo `websecure`.
