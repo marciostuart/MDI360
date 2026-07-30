@@ -1,7 +1,6 @@
 import { createFileRoute } from "@tanstack/react-router";
-import { Images } from "lucide-react";
 
-import { ModulePlaceholder } from "@/components/module-placeholder";
+import { MediaLibrary } from "@/components/media/media-library";
 
 export const Route = createFileRoute("/studio/conteudos")({
   head: () => ({
@@ -18,16 +17,5 @@ export const Route = createFileRoute("/studio/conteudos")({
       },
     ],
   }),
-  component: () => (
-    <ModulePlaceholder
-      icon={Images}
-      title="Conteúdos"
-      description="Sua biblioteca de mídias. Os arquivos ficam guardados no MinIO da sua VPS, e as telas baixam por links temporários e seguros."
-      comingUp={[
-        "Upload direto para o MinIO",
-        "Miniaturas de imagens e vídeos",
-        "Organização por pastas e etiquetas",
-      ]}
-    />
-  ),
+  component: MediaLibrary,
 });
