@@ -8,13 +8,17 @@ depois sincroniza a playlist a cada 60 segundos.
 
 | Conteúdo | Roku |
 |---|---|
+| Vídeos (MP4/H.264, HLS) | Sim — decodificação por hardware |
 | Imagens (JPG/PNG/WebP) | Sim |
-| Vídeos (MP4/H.264) | Sim |
+| Widgets (relógio, clima, cotações, notícias) | Sim — desenhados nativamente |
 | Páginas web (iframe) | Não — Roku não tem navegador |
-| Widgets (relógio, clima, cotações, notícias) | Não no formato atual |
 
-Itens não suportados são simplesmente pulados na playlist. Para levar widgets ao
-Roku no futuro, o servidor precisa renderizá-los como imagem (screenshot server-side).
+Os widgets **não** usam navegador: `WidgetView` desenha o mesmo layout com
+componentes nativos do Roku e busca os dados no mesmo endpoint aberto
+(`/api/public/widget-data`) usado pelo player web. Resultado: texto nítido,
+consumo baixíssimo de memória e nenhuma dependência de WebView.
+
+Somente itens do tipo *página web* são pulados na playlist.
 
 ## Como testar em uma TV Roku
 
