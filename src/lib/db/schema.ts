@@ -115,13 +115,17 @@ export const devices = pgTable(
   "devices",
   {
     id: uuid("id").primaryKey().defaultRandom(),
-    organizationId: uuid("organization_id")
-      .notNull()
-      .references(() => organizations.id, { onDelete: "cascade" }),
+    /**
+     * Null while the TV has announced itself but no customer has linked it yet.
+     * The row still reserves the activation code so no two TVs collide.
+     */
+    organizationId: uuid("organization_id").references(() => organizations.id, {
+      onDelete: "cascade",
+    }),
     locationId: uuid("location_id").references(() => locations.id, { onDelete: "set null" }),
-    name: text("name").notNull(),
+    name: text("name").notNull().default("Tela aguardando vínculo"),
     status: deviceStatusEnum("status").notNull().default("pending"),
-    /** 6-digit code shown on the TV during pairing. Cleared once paired. */
+    /** Activation code shown on the TV. Stays reserved while the row exists. */
     pairingCode: text("pairing_code"),
     pairingExpiresAt: timestamp("pairing_expires_at", { withTimezone: true }),
     /** Hash of the long-lived device token. Raw token never stored. */

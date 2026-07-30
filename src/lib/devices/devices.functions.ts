@@ -5,7 +5,6 @@ import { CANVAS_PRESET_IDS } from "@/lib/media/presets";
 
 /** A screen is considered online when it checked in within this window. */
 export const DEVICE_ONLINE_WINDOW_MS = 90_000;
-const PAIRING_TTL_MS = 24 * 60 * 60 * 1000;
 
 export type DeviceListItem = {
   id: string;
@@ -22,12 +21,6 @@ export type DeviceListItem = {
 
 const nameSchema = z.string().trim().min(1, "Informe um nome").max(120);
 const presetSchema = z.enum(CANVAS_PRESET_IDS as [string, ...string[]]);
-
-/** 6-digit code, no ambiguity: only digits, shown on the TV during pairing. */
-async function generatePairingCode() {
-  const { randomInt } = await import("node:crypto");
-  return String(randomInt(100000, 1000000));
-}
 
 /** Screens of the caller's organization only. Never returns another tenant's rows. */
 export const listDevices = createServerFn({ method: "GET" }).handler(
@@ -65,75 +58,53 @@ export const listDevices = createServerFn({ method: "GET" }).handler(
   },
 );
 
-export const createDevice = createServerFn({ method: "POST" })
+/**
+ * Claims an activation code shown by a TV app and binds that screen to the
+ * caller's organization. Only rows that are still unlinked can be claimed, so
+ * one customer can never steal another customer's screen.
+ */
+export const linkDevice = createServerFn({ method: "POST" })
   .inputValidator((input: unknown) =>
-    z.object({ name: nameSchema, canvasPreset: presetSchema }).parse(input),
+    z
+      .object({
+        code: z
+          .string()
+          .trim()
+          .transform((value) => value.toUpperCase().replace(/[^A-Z0-9]/g, ""))
+          .refine((value) => value.length === 6, "Informe o código de 6 caracteres"),
+        name: nameSchema,
+        canvasPreset: presetSchema,
+      })
+      .parse(input),
   )
   .handler(async ({ data }) => {
     const { getDb, schema, isDatabaseConfigured } = await import("@/lib/db/index.server");
     if (!isDatabaseConfigured()) throw new Error("Banco de dados não configurado.");
 
     const { requireUser } = await import("@/lib/auth/session.server");
+    const { and, eq, isNull } = await import("drizzle-orm");
     const user = await requireUser();
-    const db = getDb();
 
-    // The pairing code is globally unique; retry on the rare collision.
-    for (let attempt = 0; attempt < 6; attempt += 1) {
-      const pairingCode = await generatePairingCode();
-      try {
-        const inserted = await db
-          .insert(schema.devices)
-          .values({
-            organizationId: user.organizationId,
-            name: data.name,
-            canvasPreset: data.canvasPreset,
-            status: "pending",
-            pairingCode,
-            pairingExpiresAt: new Date(Date.now() + PAIRING_TTL_MS),
-          })
-          .returning({ id: schema.devices.id });
-        return { id: inserted[0]!.id, pairingCode };
-      } catch (error) {
-        if (attempt === 5) throw error;
-      }
-    }
-    throw new Error("Não foi possível gerar o código de pareamento.");
-  });
+    const updated = await getDb()
+      .update(schema.devices)
+      .set({
+        organizationId: user.organizationId,
+        name: data.name,
+        canvasPreset: data.canvasPreset,
+        status: "active",
+        pairingExpiresAt: null,
+      })
+      .where(
+        and(
+          eq(schema.devices.pairingCode, data.code),
+          isNull(schema.devices.organizationId),
+        ),
+      )
+      .returning({ id: schema.devices.id, name: schema.devices.name });
 
-export const regeneratePairingCode = createServerFn({ method: "POST" })
-  .inputValidator((input: unknown) => z.object({ deviceId: z.string().uuid() }).parse(input))
-  .handler(async ({ data }) => {
-    const { getDb, schema } = await import("@/lib/db/index.server");
-    const { requireUser } = await import("@/lib/auth/session.server");
-    const { and, eq } = await import("drizzle-orm");
-    const user = await requireUser();
-    const db = getDb();
-
-    for (let attempt = 0; attempt < 6; attempt += 1) {
-      const pairingCode = await generatePairingCode();
-      try {
-        const updated = await db
-          .update(schema.devices)
-          .set({
-            pairingCode,
-            pairingExpiresAt: new Date(Date.now() + PAIRING_TTL_MS),
-            status: "pending",
-            tokenHash: null,
-          })
-          .where(
-            and(
-              eq(schema.devices.id, data.deviceId),
-              eq(schema.devices.organizationId, user.organizationId),
-            ),
-          )
-          .returning({ id: schema.devices.id });
-        if (!updated[0]) throw new Error("Tela não encontrada.");
-        return { pairingCode };
-      } catch (error) {
-        if (attempt === 5) throw error;
-      }
-    }
-    throw new Error("Não foi possível gerar o código de pareamento.");
+    // Same generic message for unknown and already-claimed codes.
+    if (!updated[0]) throw new Error("Código inválido ou já utilizado.");
+    return { id: updated[0].id, name: updated[0].name };
   });
 
 export const updateDevice = createServerFn({ method: "POST" })

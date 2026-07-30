@@ -18,7 +18,25 @@ type SyncResponse = {
 };
 
 const TOKEN_KEY = "mdi360.deviceToken";
+const CODE_KEY = "mdi360.activationCode";
 const APP_VERSION = "web-1.0.0";
+
+/**
+ * Wipes everything this screen cached locally. Runs when the customer deletes
+ * the screen in the Studio, so the device never keeps showing stale content.
+ */
+async function wipeLocalCache() {
+  window.localStorage.removeItem(TOKEN_KEY);
+  window.localStorage.removeItem(CODE_KEY);
+  if ("caches" in window) {
+    try {
+      const keys = await caches.keys();
+      await Promise.allSettled(keys.map((key) => caches.delete(key)));
+    } catch {
+      // Cache API unavailable on this device; nothing else to clean.
+    }
+  }
+}
 
 export const Route = createFileRoute("/tela")({
   head: () => ({
@@ -35,17 +53,93 @@ export const Route = createFileRoute("/tela")({
 
 function PlayerScreen() {
   const [token, setToken] = useState<string | null>(null);
+  const [activationCode, setActivationCode] = useState<string | null>(null);
+  const [linked, setLinked] = useState(false);
   const [ready, setReady] = useState(false);
   const [sync, setSync] = useState<SyncResponse | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [index, setIndex] = useState(0);
   const timerRef = useRef<number | null>(null);
 
+  /** Announces this screen to the server and reserves an activation code. */
+  const register = useCallback(async () => {
+    try {
+      const response = await fetch("/api/public/player/register", {
+        method: "POST",
+        headers: { "content-type": "application/json" },
+        body: JSON.stringify({ appVersion: APP_VERSION }),
+      });
+      if (!response.ok) throw new Error("register");
+      const data = (await response.json()) as { deviceToken: string; activationCode: string };
+      window.localStorage.setItem(TOKEN_KEY, data.deviceToken);
+      window.localStorage.setItem(CODE_KEY, data.activationCode);
+      setToken(data.deviceToken);
+      setActivationCode(data.activationCode);
+      setLinked(false);
+      setError(null);
+    } catch {
+      setError("Sem conexão com o servidor. Tentando novamente…");
+    }
+  }, []);
+
+  /** Forgets this screen locally and asks the server for a brand-new code. */
+  const resetDevice = useCallback(async () => {
+    await wipeLocalCache();
+    setToken(null);
+    setSync(null);
+    setLinked(false);
+    setActivationCode(null);
+    await register();
+  }, [register]);
+
   // localStorage is only available after hydration.
   useEffect(() => {
-    setToken(window.localStorage.getItem(TOKEN_KEY));
+    const stored = window.localStorage.getItem(TOKEN_KEY);
+    setToken(stored);
+    setActivationCode(window.localStorage.getItem(CODE_KEY));
     setReady(true);
-  }, []);
+    if (!stored) void register();
+  }, [register]);
+
+  // While unlinked, poll until the customer claims the code in the Studio.
+  useEffect(() => {
+    if (!token || linked) return;
+    let cancelled = false;
+
+    const check = async () => {
+      try {
+        const response = await fetch("/api/public/player/status", {
+          method: "POST",
+          headers: { authorization: `Bearer ${token}` },
+        });
+        if (response.status === 401) {
+          await resetDevice();
+          return;
+        }
+        const data = (await response.json()) as {
+          state: "waiting" | "linked" | "blocked";
+          activationCode?: string | null;
+        };
+        if (cancelled) return;
+        setError(null);
+        if (data.state === "linked") {
+          setLinked(true);
+        } else if (data.state === "waiting" && data.activationCode) {
+          setActivationCode(data.activationCode);
+          window.localStorage.setItem(CODE_KEY, data.activationCode);
+        }
+      } catch {
+        if (!cancelled) setError("Sem conexão com o servidor. Tentando novamente…");
+      }
+    };
+
+    void check();
+    const interval = window.setInterval(() => void check(), 10_000);
+    return () => {
+      cancelled = true;
+      window.clearInterval(interval);
+    };
+  }, [token, linked, resetDevice]);
 
   const runSync = useCallback(async (deviceToken: string) => {
     try {
@@ -58,9 +152,8 @@ function PlayerScreen() {
         body: JSON.stringify({ appVersion: APP_VERSION }),
       });
       if (response.status === 401) {
-        window.localStorage.removeItem(TOKEN_KEY);
-        setToken(null);
-        setSync(null);
+        // The screen was deleted or unlinked in the Studio.
+        await resetDevice();
         return;
       }
       if (!response.ok) throw new Error("sync");
@@ -77,14 +170,14 @@ function PlayerScreen() {
     } catch {
       setError("Sem conexão com o servidor. Tentando novamente…");
     }
-  }, []);
+  }, [resetDevice]);
 
   useEffect(() => {
-    if (!token) return;
+    if (!token || !linked) return;
     void runSync(token);
     const interval = window.setInterval(() => void runSync(token), 60_000);
     return () => window.clearInterval(interval);
-  }, [token, runSync]);
+  }, [token, linked, runSync]);
 
   const items = sync?.playlist?.items ?? [];
   const current = items[index % Math.max(items.length, 1)];
@@ -105,16 +198,7 @@ function PlayerScreen() {
 
   if (!ready) return <div className="min-h-screen bg-black" />;
 
-  if (!token) {
-    return (
-      <PairingScreen
-        onPaired={(newToken) => {
-          window.localStorage.setItem(TOKEN_KEY, newToken);
-          setToken(newToken);
-        }}
-      />
-    );
-  }
+  if (!linked) return <ActivationScreen code={activationCode} message={error} />;
 
   return (
     <div className="relative min-h-screen overflow-hidden bg-black">
@@ -160,59 +244,24 @@ function PlayerScreen() {
   );
 }
 
-function PairingScreen({ onPaired }: { onPaired: (token: string) => void }) {
-  const [code, setCode] = useState("");
-  const [busy, setBusy] = useState(false);
-  const [message, setMessage] = useState<string | null>(null);
-
-  async function submit(event: React.FormEvent) {
-    event.preventDefault();
-    setBusy(true);
-    setMessage(null);
-    try {
-      const response = await fetch("/api/public/player/pair", {
-        method: "POST",
-        headers: { "content-type": "application/json" },
-        body: JSON.stringify({ code }),
-      });
-      const data = (await response.json()) as { deviceToken?: string; error?: string };
-      if (!response.ok || !data.deviceToken) {
-        setMessage(data.error ?? "Não foi possível parear esta tela.");
-        return;
-      }
-      onPaired(data.deviceToken);
-    } catch {
-      setMessage("Sem conexão com o servidor.");
-    } finally {
-      setBusy(false);
-    }
-  }
-
+/** Full-screen activation code, meant to be read from across a room. */
+function ActivationScreen({ code, message }: { code: string | null; message: string | null }) {
   return (
-    <div className="grid min-h-screen place-items-center bg-black px-6 text-white">
-      <form onSubmit={submit} className="w-full max-w-sm text-center">
-        <p className="text-sm uppercase tracking-widest text-white/50">MDI 360</p>
-        <h1 className="mt-3 text-2xl font-semibold">Conectar esta tela</h1>
-        <p className="mt-2 text-sm text-white/60">
-          Digite o código de 6 dígitos gerado no painel, em Telas.
+    <div className="grid min-h-screen place-items-center bg-black px-6 text-center text-white">
+      <div className="w-full max-w-2xl">
+        <p className="text-sm uppercase tracking-[0.4em] text-white/50">MDI 360</p>
+        <h1 className="mt-4 text-2xl font-semibold sm:text-3xl">Código de ativação</h1>
+        <p className="mt-2 text-sm text-white/60 sm:text-base">
+          No painel MDI 360, abra <span className="font-medium text-white/80">Telas</span> e use
+          <span className="font-medium text-white/80"> Vincular tela</span> com o código abaixo.
         </p>
-        <input
-          value={code}
-          onChange={(event) => setCode(event.target.value.replace(/\D/g, "").slice(0, 6))}
-          inputMode="numeric"
-          autoFocus
-          placeholder="000000"
-          className="mt-6 w-full rounded-xl border border-white/20 bg-white/5 px-4 py-4 text-center text-3xl tracking-[0.4em] outline-none focus:border-white/50"
-        />
-        <button
-          type="submit"
-          disabled={busy || code.length !== 6}
-          className="mt-4 w-full rounded-xl bg-white px-4 py-3 text-sm font-semibold text-black disabled:opacity-40"
-        >
-          {busy ? "Conectando…" : "Conectar"}
-        </button>
-        {message ? <p className="mt-4 text-sm text-red-400">{message}</p> : null}
-      </form>
+        <p className="mt-10 font-display text-6xl font-semibold tracking-[0.25em] sm:text-8xl">
+          {code ?? "······"}
+        </p>
+        <p className="mt-10 text-sm text-white/40">
+          {message ?? "Aguardando vínculo… esta tela conecta sozinha assim que for vinculada."}
+        </p>
+      </div>
     </div>
   );
 }
