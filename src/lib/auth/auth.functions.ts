@@ -27,35 +27,14 @@ export const fetchCurrentUser = createServerFn({ method: "GET" }).handler(async 
   }
 });
 
-/** Tells the UI whether the VPS environment variables are wired up yet. */
+/**
+ * Minimal, public-safe signal used by the sign-in page. Infrastructure details
+ * (storage errors, schema state) are platform-staff only and live in
+ * fetchInfraStatus — never expose them to customers.
+ */
 export const fetchSetupState = createServerFn({ method: "GET" }).handler(async () => {
   const { isDatabaseConfigured } = await import("@/lib/db/index.server");
-  const { checkStorageConnection } = await import("@/lib/storage.server");
-
-  const databaseReady = isDatabaseConfigured();
-  let schemaReady = false;
-  let hasAnyUser = false;
-
-  if (databaseReady) {
-    try {
-      const { getDb, schema } = await import("@/lib/db/index.server");
-      const rows = await getDb().select({ id: schema.users.id }).from(schema.users).limit(1);
-      schemaReady = true;
-      hasAnyUser = rows.length > 0;
-    } catch {
-      schemaReady = false;
-    }
-  }
-
-  const storage = await checkStorageConnection();
-
-  return {
-    databaseReady,
-    schemaReady,
-    hasAnyUser,
-    storageReady: storage.ok,
-    storageError: storage.error ?? null,
-  };
+  return { databaseReady: isDatabaseConfigured() };
 });
 
 export const signUp = createServerFn({ method: "POST" })
