@@ -48,6 +48,25 @@ export const Route = createFileRoute("/api/media/upload")({
           return Response.json({ error: "Conteúdo não encontrado." }, { status: 404 });
         }
 
+        // Storage quota: block the write before it reaches MinIO.
+        const { getOrgLimits } = await import("@/lib/admin/limits.server");
+        const limits = await getOrgLimits(user.organizationId);
+        const quotaBytes = limits.maxStorageMb * 1024 * 1024;
+        if (limits.expired || limits.subscriptionStatus === "suspended") {
+          return Response.json(
+            { error: "Assinatura inativa. Fale com o suporte para reativar sua conta." },
+            { status: 402 },
+          );
+        }
+        if (limits.usedStorageBytes + file.size > quotaBytes) {
+          return Response.json(
+            {
+              error: `Espaço esgotado: seu plano tem ${limits.maxStorageMb} MB. Remova arquivos ou faça upgrade.`,
+            },
+            { status: 413 },
+          );
+        }
+
         const scope = and(
           eq(schema.mediaAssets.id, assetId),
           eq(schema.mediaAssets.organizationId, user.organizationId),
@@ -65,6 +84,10 @@ export const Route = createFileRoute("/api/media/upload")({
         }
 
         await db.update(schema.mediaAssets).set({ status: "ready" }).where(scope);
+
+        const { recordTraffic } = await import("@/lib/admin/traffic.server");
+        recordTraffic(file.size, 0);
+
         return Response.json({ ok: true });
       },
     },
