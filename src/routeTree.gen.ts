@@ -24,6 +24,7 @@ import { Route as TorreIndexRouteImport } from './routes/torre/index'
 import { Route as ApiBrandingLogoRouteImport } from './routes/api/branding/logo'
 import { Route as ApiMediaUploadRouteImport } from './routes/api/media/upload'
 import { Route as ApiPublicWidgetDataRouteImport } from './routes/api/public/widget-data'
+import { Route as TorreClientesIndexRouteImport } from './routes/torre/clientes/index'
 import { Route as ApiPublicPlayerEventsRouteImport } from './routes/api/public/player/events'
 import { Route as ApiPublicPlayerRegisterRouteImport } from './routes/api/public/player/register'
 import { Route as ApiPublicPlayerStatusRouteImport } from './routes/api/public/player/status'
@@ -104,6 +105,11 @@ const ApiPublicWidgetDataRoute = ApiPublicWidgetDataRouteImport.update({
   path: '/api/public/widget-data',
   getParentRoute: () => rootRouteImport,
 } as any)
+const TorreClientesIndexRoute = TorreClientesIndexRouteImport.update({
+  id: '/clientes/',
+  path: '/clientes/',
+  getParentRoute: () => TorreRouteRoute,
+} as any)
 const ApiPublicPlayerEventsRoute = ApiPublicPlayerEventsRouteImport.update({
   id: '/api/public/player/events',
   path: '/api/public/player/events',
@@ -141,6 +147,7 @@ export interface FileRoutesByFullPath {
   '/api/branding/logo': typeof ApiBrandingLogoRoute
   '/api/media/upload': typeof ApiMediaUploadRoute
   '/api/public/widget-data': typeof ApiPublicWidgetDataRoute
+  '/torre/clientes/': typeof TorreClientesIndexRoute
   '/api/public/player/events': typeof ApiPublicPlayerEventsRoute
   '/api/public/player/register': typeof ApiPublicPlayerRegisterRoute
   '/api/public/player/status': typeof ApiPublicPlayerStatusRoute
@@ -160,6 +167,7 @@ export interface FileRoutesByTo {
   '/api/branding/logo': typeof ApiBrandingLogoRoute
   '/api/media/upload': typeof ApiMediaUploadRoute
   '/api/public/widget-data': typeof ApiPublicWidgetDataRoute
+  '/torre/clientes': typeof TorreClientesIndexRoute
   '/api/public/player/events': typeof ApiPublicPlayerEventsRoute
   '/api/public/player/register': typeof ApiPublicPlayerRegisterRoute
   '/api/public/player/status': typeof ApiPublicPlayerStatusRoute
@@ -182,6 +190,7 @@ export interface FileRoutesById {
   '/api/branding/logo': typeof ApiBrandingLogoRoute
   '/api/media/upload': typeof ApiMediaUploadRoute
   '/api/public/widget-data': typeof ApiPublicWidgetDataRoute
+  '/torre/clientes/': typeof TorreClientesIndexRoute
   '/api/public/player/events': typeof ApiPublicPlayerEventsRoute
   '/api/public/player/register': typeof ApiPublicPlayerRegisterRoute
   '/api/public/player/status': typeof ApiPublicPlayerStatusRoute
@@ -205,6 +214,7 @@ export interface FileRouteTypes {
     | '/api/branding/logo'
     | '/api/media/upload'
     | '/api/public/widget-data'
+    | '/torre/clientes/'
     | '/api/public/player/events'
     | '/api/public/player/register'
     | '/api/public/player/status'
@@ -224,6 +234,7 @@ export interface FileRouteTypes {
     | '/api/branding/logo'
     | '/api/media/upload'
     | '/api/public/widget-data'
+    | '/torre/clientes'
     | '/api/public/player/events'
     | '/api/public/player/register'
     | '/api/public/player/status'
@@ -245,6 +256,7 @@ export interface FileRouteTypes {
     | '/api/branding/logo'
     | '/api/media/upload'
     | '/api/public/widget-data'
+    | '/torre/clientes/'
     | '/api/public/player/events'
     | '/api/public/player/register'
     | '/api/public/player/status'
@@ -373,6 +385,13 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof ApiPublicWidgetDataRouteImport
       parentRoute: typeof rootRouteImport
     }
+    '/torre/clientes/': {
+      id: '/torre/clientes/'
+      path: '/clientes'
+      fullPath: '/torre/clientes/'
+      preLoaderRoute: typeof TorreClientesIndexRouteImport
+      parentRoute: typeof TorreRouteRoute
+    }
     '/api/public/player/events': {
       id: '/api/public/player/events'
       path: '/api/public/player/events'
@@ -428,10 +447,12 @@ const StudioRouteRouteWithChildren = StudioRouteRoute._addFileChildren(
 
 interface TorreRouteRouteChildren {
   TorreIndexRoute: typeof TorreIndexRoute
+  TorreClientesIndexRoute: typeof TorreClientesIndexRoute
 }
 
 const TorreRouteRouteChildren: TorreRouteRouteChildren = {
   TorreIndexRoute: TorreIndexRoute,
+  TorreClientesIndexRoute: TorreClientesIndexRoute,
 }
 
 const TorreRouteRouteWithChildren = TorreRouteRoute._addFileChildren(
