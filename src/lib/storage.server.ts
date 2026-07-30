@@ -3,6 +3,7 @@ import {
   PutObjectCommand,
   S3Client,
   DeleteObjectCommand,
+  HeadBucketCommand,
 } from "@aws-sdk/client-s3";
 import { getSignedUrl } from "@aws-sdk/s3-request-presigner";
 
@@ -37,6 +38,34 @@ export class StorageNotConfiguredError extends Error {
 
 export function isStorageConfigured(): boolean {
   return Boolean(S3.endpoint() && S3.accessKey() && S3.secretKey() && S3.bucket());
+}
+
+/** Names of the variables that did not reach the container (for the dashboard hint). */
+export function missingStorageVars(): string[] {
+  const missing: string[] = [];
+  if (!S3.endpoint()) missing.push("S3_ENDPOINT");
+  if (!S3.bucket()) missing.push("S3_BUCKET");
+  if (!S3.accessKey()) missing.push("S3_ACCESS_KEY");
+  if (!S3.secretKey()) missing.push("S3_SECRET_KEY");
+  return missing;
+}
+
+/**
+ * Real connectivity test: reaches MinIO and confirms the bucket answers.
+ * Returns a short human message when it fails, so the panel can show the cause.
+ */
+export async function checkStorageConnection(): Promise<{ ok: boolean; error?: string }> {
+  const missing = missingStorageVars();
+  if (missing.length) return { ok: false, error: `Variáveis ausentes: ${missing.join(", ")}` };
+
+  try {
+    await getClient().send(new HeadBucketCommand({ Bucket: getBucket() }));
+    return { ok: true };
+  } catch (error) {
+    const raw = error instanceof Error ? error.message : String(error);
+    const name = error instanceof Error ? error.name : "Erro";
+    return { ok: false, error: `${name}: ${raw}`.slice(0, 300) };
+  }
 }
 
 function getClient(): S3Client {
