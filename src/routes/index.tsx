@@ -12,7 +12,6 @@ export const Route = createFileRoute("/")({
         name: "description",
         content: "Área de acesso ao sistema de mídia digital indoor MDI 360.",
       },
-      { name: "robots", content: "noindex, nofollow" },
       { property: "og:title", content: `${APP_NAME} — Acesso ao sistema` },
       {
         property: "og:description",
