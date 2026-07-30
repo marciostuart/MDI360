@@ -48,6 +48,8 @@ export const Route = createFileRoute("/api/public/player/sync")({
 
         const playlist = await resolvePlaylistForDevice(device.id);
 
+        const { revisionFor } = await import("@/lib/player/realtime.server");
+
         // Whitelabel branding of the organization that owns this screen.
         let branding: {
           name: string | null;
@@ -121,6 +123,8 @@ export const Route = createFileRoute("/api/public/player/sync")({
             branding,
             commands: commands.map((c) => c.kind),
             syncIntervalMs: 60_000,
+            // Seed for the long-poll channel (/api/public/player/events).
+            revision: revisionFor(device.id, device.organizationId),
           },
           { headers: { "cache-control": "no-store" } },
         );
