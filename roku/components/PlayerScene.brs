@@ -25,6 +25,7 @@ sub init()
 
     m.sync = m.top.findNode("sync")
     m.widget.baseUrl = m.sync.baseUrl
+    m.statusLabel.text = "Iniciando MDI 360..."
     m.sync.observeField("activationCode", "onActivationCode")
     m.sync.observeField("payload", "onPayload")
     m.sync.observeField("statusText", "onStatusText")
