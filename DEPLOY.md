@@ -68,7 +68,8 @@ O Swarm não constrói imagem sozinho, mas o Portainer constrói:
 | Nome | Valor |
 |---|---|
 | `DATABASE_URL` | `postgresql://signage:SENHA_FORTE@postgres_postgres:5432/signage` |
-| `S3_ENDPOINT` | `http://minio_minio:9000` |
+| `S3_ENDPOINT` | URL **pública** do MinIO, ex.: `https://s3.360bh.com.br` (é ela que assina os links que o navegador e as TVs abrem) |
+| `S3_INTERNAL_ENDPOINT` | *(opcional)* URL interna, ex.: `http://minio:9000` — só use se o host interno **não** tiver `_` no nome |
 | `S3_BUCKET` | `signage-media` |
 | `S3_ACCESS_KEY_ID` | a access key do MinIO |
 | `S3_SECRET_ACCESS_KEY` | a secret key do MinIO |
