@@ -22,35 +22,7 @@ services:
       APP_URL: ${APP_URL}
       PLATFORM_ADMIN_EMAILS: ${PLATFORM_ADMIN_EMAILS}
     networks:
-      - traefik
-      - data
-    deploy:
-      mode: replicated
-      replicas: 1
-      restart_policy:
-        condition: on-failure
-      resources:
-        limits:
-          # Deixa folga para evolution, n8n, mautic, typebot etc.
-          memory: 1G
-          cpus: "1.0"
-      labels:
-        - "traefik.enable=true"
-        - "traefik.docker.network=${TRAEFIK_NETWORK:-360Network}"
-        - "traefik.http.routers.signage.rule=Host(`${APP_HOST}`)"
-        - "traefik.http.routers.signage.entrypoints=websecure"
-        - "traefik.http.routers.signage.tls.certresolver=letsencrypt"
-        - "traefik.http.services.signage.loadbalancer.server.port=3000"
-        # SSE/streaming: desliga buffering para os comandos chegarem na hora nas TVs.
-        - "traefik.http.middlewares.signage-sse.headers.customresponseheaders.X-Accel-Buffering=no"
-        - "traefik.http.routers.signage.middlewares=signage-sse"
-
-networks:
-  traefik:
+  net:
+    # Rede overlay onde ja rodam traefik, postgres e minio.
     external: true
-    # Confirme o nome real: docker network ls
-    name: ${TRAEFIK_NETWORK:-360Network}
-  data:
-    external: true
-    # Rede onde postgres e minio estao. Muitas vezes e a MESMA do traefik.
-    name: ${DATA_NETWORK:-360Network}
+    name: ${STACK_NETWORK:-360Network}
