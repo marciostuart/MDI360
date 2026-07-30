@@ -29,6 +29,20 @@
       "when": 1785446571952,
       "tag": "0003_org_branding",
       "breakpoints": true
+    },
+    {
+      "idx": 4,
+      "version": "7",
+      "when": 1785446571956,
+      "tag": "0004_device_default_playlist",
+      "breakpoints": true
+    },
+    {
+      "idx": 5,
+      "version": "7",
+      "when": 1785446571957,
+      "tag": "0005_widgets",
+      "breakpoints": true
     }
   ]
 }

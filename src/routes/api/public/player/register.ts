@@ -51,8 +51,8 @@ export const Route = createFileRoute("/api/public/player/register")({
               { headers: { "cache-control": "no-store" } },
             );
           } catch (error) {
+            console.error(`[player/register] attempt ${attempt} failed`, error);
             if (attempt === 7) {
-              console.error("[player/register] failed", error);
               return Response.json({ error: "Serviço indisponível." }, { status: 503 });
             }
           }
