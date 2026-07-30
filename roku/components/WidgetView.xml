@@ -1,0 +1,38 @@
+<?xml version="1.0" encoding="utf-8" ?>
+<component name="WidgetView" extends="Group">
+  <script type="text/brightscript" uri="pkg:/components/WidgetView.brs" />
+  <interface>
+    <field id="baseUrl" type="string" />
+    <field id="brandColor" type="string" value="0x3B82F6FF" />
+    <!-- { widgetType: string, widgetConfig: assocarray, name: string } -->
+    <field id="item" type="assocarray" alwaysNotify="true" />
+  </interface>
+
+  <children>
+    <Rectangle id="bg" width="1920" height="1080" color="0x0A0A0BFF" />
+    <Rectangle id="accent" width="1920" height="10" translation="[0,0]" color="0x3B82F6FF" />
+
+    <Label id="title" translation="[120,110]" width="1680" color="0x9AA0A6FF">
+      <Font role="font" uri="font:SystemFontFile" size="40" />
+    </Label>
+
+    <Label id="hero" translation="[120,210]" width="1680" color="0xFFFFFFFF">
+      <Font role="font" uri="font:BoldSystemFontFile" size="190" />
+    </Label>
+
+    <Label id="sub" translation="[120,430]" width="1680" color="0xC9CDD2FF">
+      <Font role="font" uri="font:SystemFontFile" size="52" />
+    </Label>
+
+    <Label id="lines" translation="[120,540]" width="1680" height="420" wrap="true"
+           color="0xE8EAEDFF" lineSpacing="18">
+      <Font role="font" uri="font:SystemFontFile" size="46" />
+    </Label>
+
+    <Label id="credit" translation="[120,990]" width="1680" color="0x6B7075FF">
+      <Font role="font" uri="font:SystemFontFile" size="26" />
+    </Label>
+
+    <WidgetDataTask id="data" />
+  </children>
+</component>
