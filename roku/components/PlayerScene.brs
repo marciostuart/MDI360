@@ -58,6 +58,11 @@ sub onPayload()
     payload = m.sync.payload
     if payload = invalid then return
 
+    ' Global audio switch of this screen. When the TV is muted in the Studio,
+    ' every video plays silently no matter what the playlist item asks for.
+    m.audioEnabled = true
+    if payload.device <> invalid and payload.device.audioEnabled = false then m.audioEnabled = false
+
     ' Whitelabel: the splash text and brand name come from the customer account.
     if payload.branding <> invalid
         if payload.branding.name <> invalid and payload.branding.name <> "" then m.brandLabel.text = payload.branding.name
@@ -124,7 +129,7 @@ sub playNext()
         content.streamformat = streamFormatFor(item.url)
         content.title = item.name
         m.video.content = content
-        m.video.mute = (item.isMuted = true)
+        m.video.mute = (item.isMuted = true) or (m.audioEnabled = false)
         m.slide.opacity = 0
         m.widget.visible = false
         m.video.visible = true

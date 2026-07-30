@@ -11,6 +11,8 @@ import {
   Plus,
   Save,
   Trash2,
+  Volume2,
+  VolumeX,
 } from "lucide-react";
 import { useEffect, useState } from "react";
 import { toast } from "sonner";
@@ -329,6 +331,27 @@ export function PlaylistManager() {
                         />
                         <span className="text-xs text-muted-foreground">seg</span>
                       </div>
+                      {item.kind === "video" ? (
+                        <Button
+                          size="sm"
+                          variant={item.isMuted ? "outline" : "secondary"}
+                          onClick={() =>
+                            setDraft((items) =>
+                              items.map((entry, i) =>
+                                i === position ? { ...entry, isMuted: !entry.isMuted } : entry,
+                              ),
+                            )
+                          }
+                          title="Som deste vídeo (a TV pode bloquear o áudio globalmente)"
+                        >
+                          {item.isMuted ? (
+                            <VolumeX className="size-3.5" />
+                          ) : (
+                            <Volume2 className="size-3.5" />
+                          )}
+                          {item.isMuted ? "Sem som" : "Com som"}
+                        </Button>
+                      ) : null}
                       <div className="flex gap-1">
                         <Button
                           size="icon"

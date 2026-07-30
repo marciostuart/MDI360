@@ -1,6 +1,15 @@
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { useServerFn } from "@tanstack/react-start";
-import { Link2, Loader2, MonitorSmartphone, RefreshCw, Trash2, Tv } from "lucide-react";
+import {
+  Link2,
+  Loader2,
+  MonitorSmartphone,
+  RefreshCw,
+  Trash2,
+  Tv,
+  Volume2,
+  VolumeX,
+} from "lucide-react";
 import { useState } from "react";
 import { toast } from "sonner";
 
@@ -16,11 +25,13 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select";
+import { Switch } from "@/components/ui/switch";
 import {
   deleteDevice,
   linkDevice,
   listDevices,
   sendDeviceCommand,
+  setDeviceAudio,
   setDevicePlaylist,
 } from "@/lib/devices/devices.functions";
 import { listPlaylists } from "@/lib/playlists/playlists.functions";
@@ -45,6 +56,7 @@ export function DeviceManager() {
   const commandFn = useServerFn(sendDeviceCommand);
   const playlistsFn = useServerFn(listPlaylists);
   const setPlaylistFn = useServerFn(setDevicePlaylist);
+  const setAudioFn = useServerFn(setDeviceAudio);
 
   const [name, setName] = useState("");
   const [code, setCode] = useState("");
@@ -100,6 +112,19 @@ export function DeviceManager() {
       await refresh();
     },
     onError: () => toast.error("Não foi possível definir a playlist desta tela."),
+  });
+
+  const audioMutation = useMutation({
+    mutationFn: (vars: { deviceId: string; audioEnabled: boolean }) => setAudioFn({ data: vars }),
+    onSuccess: async (_data, vars) => {
+      toast.success(
+        vars.audioEnabled
+          ? "Áudio liberado nesta tela."
+          : "Áudio bloqueado: esta tela não reproduz som em nenhum vídeo.",
+      );
+      await refresh();
+    },
+    onError: () => toast.error("Não foi possível alterar o áudio desta tela."),
   });
 
   const items = devices.data?.items ?? [];
@@ -234,6 +259,30 @@ export function DeviceManager() {
                         Crie uma playlist na aba Playlists para poder atribuí-la a esta tela.
                       </p>
                     ) : null}
+                  </div>
+
+                  <div className="flex items-center justify-between gap-3 rounded-lg border border-border p-3">
+                    <div className="flex items-center gap-2">
+                      {device.audioEnabled ? (
+                        <Volume2 className="size-4 text-muted-foreground" />
+                      ) : (
+                        <VolumeX className="size-4 text-muted-foreground" />
+                      )}
+                      <div>
+                        <p className="text-sm font-medium">Áudio da TV</p>
+                        <p className="text-xs text-muted-foreground">
+                          {device.audioEnabled
+                            ? "Vídeos marcados com som tocam com áudio."
+                            : "Silêncio total — ignora o som de todos os vídeos."}
+                        </p>
+                      </div>
+                    </div>
+                    <Switch
+                      checked={device.audioEnabled}
+                      onCheckedChange={(checked) =>
+                        audioMutation.mutate({ deviceId: device.id, audioEnabled: checked })
+                      }
+                    />
                   </div>
 
                   <div className="flex flex-wrap gap-2">
