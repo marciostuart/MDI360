@@ -1,37 +1,27 @@
-# Como colocar o sistema no ar (passo a passo)
+# Como colocar o sistema no ar — SEM SSH, só pelo Portainer
 
-Você não precisa programar nada aqui. É copiar, colar e clicar.
-Faça um passo por vez e não se preocupe com os outros.
+Você não precisa de terminal nem de programar. É clicar, copiar e colar.
+Faça um passo por vez.
 
----
-
-## Passo 0 — Descobrir os nomes reais (Swarm)
-
-Sua VPS roda **Docker Swarm** (as stacks aparecem como "Swarm" no Portainer), então
-usamos o arquivo **`docker-stack.yml`** deste projeto — não o `docker-compose.yml`.
-
-No terminal da VPS, rode e guarde as respostas:
-
-```bash
-docker network ls          # nome da rede do traefik (ex.: network_public)
-docker service ls          # nomes dos servicos: postgres_postgres, minio_minio...
-```
-
-Dentro do Swarm, o "endereço" de um serviço é o **nome do serviço** que aparece em
-`docker service ls`. Ex.: se aparecer `postgres_postgres`, o host do banco é
-`postgres_postgres`. Nunca use `localhost`.
+O que já existe na sua VPS (e **não** vamos duplicar): `traefik_traefik`,
+`postgres_postgres`, `minio_minio`, `redis_redis`.
+Rede overlay compartilhada: **`360Network`**.
 
 ---
 
-## Passo 1 — Criar o banco de dados no seu Postgres
+## Passo 1 — Criar o banco de dados (pelo Portainer)
 
-Descubra o container do postgres e entre nele (troque `SENHA_FORTE` por uma senha sua):
+1. Portainer → **Containers** → clique no container do **postgres**.
+2. No topo, clique em **Console** → **Connect** (comando `/bin/sh`).
+3. Cole a linha abaixo (troque `SENHA_FORTE` por uma senha sua) e dê Enter:
 
-```bash
-PG=$(docker ps --format '{{.Names}}' | grep postgres | head -1)
-docker exec -it $PG psql -U postgres -c "CREATE USER signage WITH PASSWORD 'SENHA_FORTE';"
-docker exec -it $PG psql -U postgres -c "CREATE DATABASE signage OWNER signage;"
 ```
+psql -U postgres -c "CREATE USER signage WITH PASSWORD 'SENHA_FORTE';" -c "CREATE DATABASE signage OWNER signage;"
+```
+
+Guarde a senha, ela entra no Passo 5.
+
+> Se pedir usuário diferente de `postgres`, troque `-U postgres` pelo usuário do seu banco.
 
 ---
 
@@ -39,58 +29,41 @@ docker exec -it $PG psql -U postgres -c "CREATE DATABASE signage OWNER signage;"
 
 1. Abra o painel do MinIO no navegador.
 2. Crie um bucket chamado **signage-media**.
-3. Deixe o bucket **privado** (é o padrão — não marque como público).
-4. Vá em **Access Keys → Create access key** e guarde as duas chaves.
+3. Deixe **privado** (é o padrão — não marque como público).
+4. **Access Keys → Create access key** e guarde as duas chaves.
 
 ---
 
 ## Passo 3 — Gerar a senha secreta da aplicação
 
-No terminal da VPS:
-
-```bash
-openssl rand -hex 32
-```
-
-Copie o resultado. Ele será o `SESSION_SECRET`.
+Sem terminal: abra https://generate-secret.vercel.app/32 (ou qualquer gerador de
+string aleatória) e copie um valor longo (32+ caracteres). Ele será o `SESSION_SECRET`.
 
 ---
 
-## Passo 4 — Apontar o subdomínio na Cloudflare
+## Passo 4 — Construir a imagem no Portainer (substitui o SSH)
 
-O site comercial continua onde já está (`360bh.com.br`) e **não** é hospedado aqui.
-Este subdomínio serve apenas o sistema (área logada).
+O Swarm não constrói imagem sozinho, mas o Portainer constrói:
 
-1. Na Cloudflare, crie um registro **A** para `mdi` apontando para o IP da VPS
-   (fica `mdi.360bh.com.br`).
-2. Deixe a nuvenzinha **laranja** (proxy ativado).
+1. Portainer → **Images** → **Build a new image**.
+2. **Names**: `signage:latest`
+3. **Build method**: **URL** e cole a URL do repositório Git do projeto
+   (ex.: `https://github.com/SEU_USUARIO/signage`), deixando
+   **Dockerfile path** = `Dockerfile`.
+   - Sem Git? Escolha **Upload** e envie um `.zip`/`.tar.gz` do projeto
+     (o `Dockerfile` deve estar na raiz).
+4. Clique em **Build the image** e aguarde terminar (alguns minutos).
 
-> Definido: o sistema roda em **`mdi.360bh.com.br`**. O site comercial permanece
-> em `360bh.com.br/pages/midia-digital-indoor`.
-
----
-
-## Passo 5 — Construir a imagem na VPS
-
-O Swarm **não constrói** imagem sozinho, então construímos uma vez na VPS:
-
-```bash
-cd /opt && git clone SEU_REPOSITORIO signage && cd signage
-docker build -t signage:latest .
-```
-
-> Sem repositório Git? Envie a pasta do projeto por SFTP para `/opt/signage` e
-> rode só o `docker build`.
-> A cada nova versão: `git pull && docker build -t signage:latest .` e depois
-> `docker service update --force signage_signage`.
+> Para atualizar depois: repita este passo (mesmo nome `signage:latest`) e então
+> **Services → signage_signage → Update → Force update**.
 
 ---
 
-## Passo 6 — Subir a stack no Portainer (Swarm)
+## Passo 5 — Subir a stack no Portainer (Swarm)
 
 1. Portainer → **Stacks** → **Add stack** → nome: `signage`.
-2. **Web editor** → cole o conteúdo de **`docker-stack.yml`** (não o compose).
-3. Na seção **Environment variables**, adicione:
+2. **Web editor** → cole o conteúdo do arquivo **`docker-stack.yml`** deste projeto.
+3. Em **Environment variables** (botão *Advanced mode* permite colar tudo de uma vez):
 
 | Nome | Valor |
 |---|---|
@@ -99,72 +72,65 @@ docker build -t signage:latest .
 | `S3_BUCKET` | `signage-media` |
 | `S3_ACCESS_KEY_ID` | a access key do MinIO |
 | `S3_SECRET_ACCESS_KEY` | a secret key do MinIO |
-| `SESSION_SECRET` | o valor gerado no Passo 3 |
+| `SESSION_SECRET` | o valor do Passo 3 |
 | `APP_HOST` | `mdi.360bh.com.br` |
 | `APP_URL` | `https://mdi.360bh.com.br` |
 | `PLATFORM_ADMIN_EMAILS` | seu e-mail, ex.: `voce@360bh.com.br` |
-| `TRAEFIK_NETWORK` | nome da rede do traefik (Passo 0) |
-| `DATA_NETWORK` | rede do postgres/minio (normalmente a mesma) |
+| `STACK_NETWORK` | `360Network` |
 | `SIGNAGE_IMAGE` | `signage:latest` |
 
-4. Clique em **Deploy the stack**.
+4. **Deploy the stack**.
 
-> Ajuste `postgres_postgres` e `minio_minio` para os nomes que apareceram no
-> `docker service ls` do Passo 0. Se o postgres/minio estiverem em outra rede
-> overlay, coloque o nome dela em `DATA_NETWORK`.
-> Se o seu Traefik usa outro nome de entrypoint/certresolver (ex.: `https` em vez
-> de `websecure`), ajuste essas duas labels no arquivo antes de deployar.
+> Se o seu Traefik usar outro nome de entrypoint ou de certresolver (ex.: `https`
+> em vez de `websecure`, `le` em vez de `letsencrypt`), ajuste essas duas linhas
+> no editor antes de deployar. Para conferir: **Services → traefik_traefik →
+> Environment/Command**.
 
 ---
 
-## Passo 7 — Confirmar que funcionou
+## Passo 6 — Confirmar que funcionou
 
-1. Abra `https://mdi.360bh.com.br` (tela de acesso ao sistema).
+1. Abra `https://mdi.360bh.com.br`.
 2. Clique em **Entrar no Studio** → aba **Criar conta**. O primeiro usuário vira o dono.
-3. Você cai no painel do cliente em `https://mdi.360bh.com.br/studio`.
-   O seu painel interno fica em `https://mdi.360bh.com.br/torre` e só abre para os
-   e-mails listados em `PLATFORM_ADMIN_EMAILS`.
-4. No painel, o bloco **Status da infraestrutura** deve mostrar
-   "Conectado" para o banco e para o armazenamento.
+3. O painel do cliente fica em `/studio`; o seu painel interno em `/torre`
+   (só abre para os e-mails de `PLATFORM_ADMIN_EMAILS`).
+4. No painel, o bloco **Status da infraestrutura** deve mostrar "Conectado"
+   para banco e armazenamento.
+
+As tabelas do banco são criadas automaticamente no primeiro start — nenhum SQL manual.
 
 ---
 
-## Passo 8 — Ligar a primeira TV
+## Passo 7 — Ligar a primeira TV
 
-1. No Studio, vá em **Telas → Nova tela**, escolha o formato (TV horizontal,
-   totem vertical etc.) e cadastre. Um **código de 6 dígitos** aparece no card.
+1. No Studio: **Telas → Nova tela**, escolha o formato (TV horizontal, totem
+   vertical etc.). Um **código de 6 dígitos** aparece no card.
 2. No aparelho da TV (TV Box, Fire Stick, Smart TV ou celular Android), abra o
    navegador em `https://mdi.360bh.com.br/tela`.
 3. Digite o código. A tela fica pareada de forma permanente naquele aparelho
-   (o código é de uso único e expira em 24 h).
-4. Em **Conteúdos**, envie imagens/vídeos. Em **Playlists**, monte a sequência
-   e clique em **Publicar**. Em **Agenda**, defina os dias e horários.
-5. A TV sincroniza sozinha a cada 1 minuto. O botão **Atualizar** no card da
-   tela força a atualização imediata na próxima checagem.
+   (código de uso único, expira em 24 h).
+4. Em **Conteúdos**, envie imagens/vídeos. Em **Playlists**, monte a sequência e
+   **Publicar**. Em **Agenda**, defina dias e horários.
+5. A TV sincroniza sozinha a cada 1 minuto. O botão **Atualizar** no card força a
+   atualização na próxima checagem.
 
-> Para transformar isso em APK depois, basta empacotar essa mesma URL `/tela`
-> num WebView (Capacitor) — nenhuma mudança no servidor é necessária.
+> Para virar APK depois, empacotamos essa mesma URL `/tela` num WebView
+> (Capacitor) — sem mudar nada no servidor.
 
-As tabelas do banco são criadas automaticamente no primeiro start —
-você não precisa rodar nenhum SQL.
-
-> O subdomínio do sistema está marcado como `noindex` e o `robots.txt` bloqueia
-> buscadores, para não competir com a sua página que já performa no orgânico.
-> Nos botões "Entrar" da sua landing atual, aponte o link para
-> `https://mdi.360bh.com.br/entrar`.
+> O subdomínio do sistema está `noindex` e o `robots.txt` bloqueia buscadores,
+> para não competir com a sua página orgânica. Nos botões "Entrar" da sua landing,
+> aponte para `https://mdi.360bh.com.br/entrar`.
 
 ---
 
 ## Se algo der errado
 
-No Portainer, abra **Stacks → signage → signage_signage → Logs** (ou
-`docker service logs -f signage_signage`). As mensagens começam com `[signage]`.
-Os erros mais comuns:
+Portainer → **Services → signage_signage → Logs** (ou Containers → Logs).
+As mensagens começam com `[signage]`. Erros mais comuns:
 
-- `ECONNREFUSED` / `ENOTFOUND` no banco → o `DATABASE_URL` aponta para um nome
-  de serviço errado, ou a stack não está na mesma rede overlay do Postgres
-  (ajuste `DATA_NETWORK`).
-- `password authentication failed` → a senha no `DATABASE_URL` está diferente da do Passo 1.
-- `No such image: signage:latest` → faltou o `docker build` do Passo 5.
-- Página não abre → confira `APP_HOST`, `TRAEFIK_NETWORK` e se o entrypoint do seu
-  Traefik se chama mesmo `websecure`.
+- `No such image: signage:latest` → faltou o Passo 4 (build da imagem).
+- `ENOTFOUND` / `ECONNREFUSED` no banco → nome do serviço errado no
+  `DATABASE_URL`, ou o postgres não está na rede `360Network`.
+- `password authentication failed` → a senha do `DATABASE_URL` difere do Passo 1.
+- Página não abre / erro de SSL → confira `APP_HOST`, o DNS na Cloudflare e o
+  nome do entrypoint/certresolver do Traefik.
