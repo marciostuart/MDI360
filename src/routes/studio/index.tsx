@@ -46,7 +46,7 @@ function OverviewPage() {
       icon: HardDrive,
       label: "Armazenamento de mídias (MinIO)",
       ready: Boolean(setup?.storageReady),
-      hint: "Configure S3_ENDPOINT, S3_BUCKET e as chaves de acesso do MinIO.",
+      hint: "Confira S3_ENDPOINT, S3_BUCKET, S3_ACCESS_KEY_ID e S3_SECRET_ACCESS_KEY na stack.",
     },
   ];
 
