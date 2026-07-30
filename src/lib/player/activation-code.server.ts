@@ -7,11 +7,10 @@ const ALPHABET = "ABCDEFGHJKLMNPQRSTUVWXYZ23456789";
 export const ACTIVATION_CODE_LENGTH = 6;
 
 export function newActivationCode() {
-  const { randomInt } = require("node:crypto") as typeof import("node:crypto");
+  const bytes = new Uint8Array(ACTIVATION_CODE_LENGTH);
+  crypto.getRandomValues(bytes);
   let code = "";
-  for (let i = 0; i < ACTIVATION_CODE_LENGTH; i += 1) {
-    code += ALPHABET[randomInt(0, ALPHABET.length)];
-  }
+  for (const byte of bytes) code += ALPHABET[byte % ALPHABET.length];
   return code;
 }
 
