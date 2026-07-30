@@ -1,13 +1,18 @@
 import { createFileRoute } from "@tanstack/react-router";
 import { useCallback, useEffect, useRef, useState } from "react";
 
+import { WidgetView } from "@/components/widgets/widget-view";
+import type { WidgetConfig } from "@/lib/widgets/catalog";
+
 type PlayerItem = {
   id: string;
-  kind: "image" | "video" | "web";
-  url: string;
+  kind: "image" | "video" | "web" | "widget";
+  url: string | null;
   durationMs: number;
   isMuted: boolean;
   name: string;
+  widgetType: string | null;
+  widgetConfig: WidgetConfig | null;
 };
 
 type SyncResponse = {
@@ -218,7 +223,7 @@ function PlayerScreen() {
       ) : current?.kind === "video" ? (
         <video
           key={`${current.id}-${index}`}
-          src={current.url}
+          src={current.url ?? undefined}
           className="h-screen w-screen object-contain"
           autoPlay
           muted={current.isMuted}
@@ -226,10 +231,14 @@ function PlayerScreen() {
           onEnded={() => setIndex((value) => (value + 1) % items.length)}
           onError={() => setIndex((value) => (value + 1) % items.length)}
         />
+      ) : current?.kind === "widget" && current.widgetConfig ? (
+        <div key={`${current.id}-${index}`} className="h-screen w-screen">
+          <WidgetView config={current.widgetConfig} accentColor={sync.branding?.color ?? null} />
+        </div>
       ) : current?.kind === "web" ? (
         <iframe
           key={`${current.id}-${index}`}
-          src={current.url}
+          src={current.url ?? undefined}
           title={current.name}
           className="h-screen w-screen border-0"
           sandbox="allow-scripts allow-same-origin"
@@ -237,7 +246,7 @@ function PlayerScreen() {
       ) : (
         <img
           key={`${current?.id}-${index}`}
-          src={current?.url}
+          src={current?.url ?? undefined}
           alt={current?.name ?? ""}
           className="h-screen w-screen object-contain"
         />

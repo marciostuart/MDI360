@@ -4,6 +4,7 @@ import {
   ArrowDown,
   ArrowUp,
   Film,
+  Gauge,
   Image as ImageIcon,
   ListVideo,
   Loader2,
@@ -38,7 +39,7 @@ import {
 type DraftItem = {
   mediaAssetId: string;
   name: string;
-  kind: "image" | "video" | "web";
+  kind: "image" | "video" | "web" | "widget";
   durationMs: number;
   isMuted: boolean;
 };
@@ -289,6 +290,8 @@ export function PlaylistManager() {
                       <span className="grid size-8 place-items-center rounded-md bg-muted text-muted-foreground">
                         {item.kind === "video" ? (
                           <Film className="size-4" />
+                        ) : item.kind === "widget" ? (
+                          <Gauge className="size-4" />
                         ) : (
                           <ImageIcon className="size-4" />
                         )}
@@ -296,7 +299,11 @@ export function PlaylistManager() {
                       <div className="min-w-32 flex-1">
                         <p className="truncate text-sm font-medium">{item.name}</p>
                         <Badge variant="secondary" className="mt-1 text-[10px]">
-                          {item.kind === "video" ? "Vídeo" : "Imagem"}
+                          {item.kind === "video"
+                            ? "Vídeo"
+                            : item.kind === "widget"
+                              ? "Widget"
+                              : "Imagem"}
                         </Badge>
                       </div>
                       <div className="flex items-center gap-2">
