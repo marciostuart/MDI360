@@ -46,7 +46,9 @@ function OverviewPage() {
       icon: HardDrive,
       label: "Armazenamento de mídias (MinIO)",
       ready: Boolean(setup?.storageReady),
-      hint: "Confira S3_ENDPOINT, S3_BUCKET, S3_ACCESS_KEY_ID e S3_SECRET_ACCESS_KEY na stack.",
+      hint:
+        setup?.storageError ??
+        "Confira S3_ENDPOINT, S3_BUCKET, S3_ACCESS_KEY e S3_SECRET_KEY na stack.",
     },
   ];
 

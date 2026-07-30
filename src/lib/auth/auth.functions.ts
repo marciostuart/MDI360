@@ -30,7 +30,7 @@ export const fetchCurrentUser = createServerFn({ method: "GET" }).handler(async 
 /** Tells the UI whether the VPS environment variables are wired up yet. */
 export const fetchSetupState = createServerFn({ method: "GET" }).handler(async () => {
   const { isDatabaseConfigured } = await import("@/lib/db/index.server");
-  const { isStorageConfigured } = await import("@/lib/storage.server");
+  const { checkStorageConnection } = await import("@/lib/storage.server");
 
   const databaseReady = isDatabaseConfigured();
   let schemaReady = false;
@@ -47,7 +47,15 @@ export const fetchSetupState = createServerFn({ method: "GET" }).handler(async (
     }
   }
 
-  return { databaseReady, schemaReady, hasAnyUser, storageReady: isStorageConfigured() };
+  const storage = await checkStorageConnection();
+
+  return {
+    databaseReady,
+    schemaReady,
+    hasAnyUser,
+    storageReady: storage.ok,
+    storageError: storage.error ?? null,
+  };
 });
 
 export const signUp = createServerFn({ method: "POST" })
