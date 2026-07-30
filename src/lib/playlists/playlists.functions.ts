@@ -192,6 +192,9 @@ export const updatePlaylist = createServerFn({ method: "POST" })
         ),
       );
 
+    const { notifyOrganization } = await import("@/lib/player/realtime.server");
+    notifyOrganization(user.organizationId);
+
     return { ok: true };
   });
 
@@ -211,6 +214,9 @@ export const deletePlaylist = createServerFn({ method: "POST" })
           eq(schema.playlists.organizationId, user.organizationId),
         ),
       );
+
+    const { notifyOrganization } = await import("@/lib/player/realtime.server");
+    notifyOrganization(user.organizationId);
 
     return { ok: true };
   });
