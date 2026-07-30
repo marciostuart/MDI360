@@ -36,11 +36,11 @@ function Shell({
     <div className="relative grid size-full min-h-full place-items-center bg-black px-[6%] py-[6%] text-white">
       <div className="w-full text-center">{children}</div>
       <div
-        className="absolute inset-x-0 bottom-0 h-[0.6vh]"
+        className="absolute inset-x-0 bottom-0 h-[0.6cqh]"
         style={{ backgroundColor: accent }}
       />
       {credit ? (
-        <p className="absolute bottom-[2vh] right-[3vw] text-[1.1vh] uppercase tracking-widest text-white/40">
+        <p className="absolute bottom-[2cqh] right-[3cqw] text-[1.1cqh] uppercase tracking-widest text-white/40">
           {credit}
         </p>
       ) : null}
@@ -110,9 +110,9 @@ function ClockWidget({
 
   return (
     <Shell accent={accent}>
-      <p className="font-display text-[22vh] font-semibold leading-none tabular-nums">{time}</p>
+      <p className="font-display text-[22cqh] font-semibold leading-none tabular-nums">{time}</p>
       {config.showDate ? (
-        <p className="mt-[3vh] text-[4vh] capitalize text-white/70">{date}</p>
+        <p className="mt-[3cqh] text-[4cqh] capitalize text-white/70">{date}</p>
       ) : null}
     </Shell>
   );
@@ -156,25 +156,25 @@ function WeatherWidget({
 
   return (
     <Shell accent={accent} credit={data?.credit ?? "Open-Meteo · CC BY 4.0"}>
-      <p className="text-[4vh] text-white/60">{data?.city ?? city.label}</p>
+      <p className="text-[4cqh] text-white/60">{data?.city ?? city.label}</p>
       {failed && !data ? (
-        <p className="mt-[4vh] text-[4vh] text-white/50">Clima indisponível agora.</p>
+        <p className="mt-[4cqh] text-[4cqh] text-white/50">Clima indisponível agora.</p>
       ) : (
         <>
-          <p className="mt-[2vh] text-[14vh] leading-none">{look.icon}</p>
-          <p className="font-display text-[16vh] font-semibold leading-none tabular-nums">
+          <p className="mt-[2cqh] text-[14cqh] leading-none">{look.icon}</p>
+          <p className="font-display text-[16cqh] font-semibold leading-none tabular-nums">
             {data?.current.temperature != null ? `${Math.round(data.current.temperature)}°` : "--"}
           </p>
-          <p className="mt-[1vh] text-[3.5vh] text-white/70">{look.label}</p>
-          <div className="mt-[5vh] flex justify-center gap-[4vw]">
+          <p className="mt-[1cqh] text-[3.5cqh] text-white/70">{look.label}</p>
+          <div className="mt-[5cqh] flex justify-center gap-[4cqw]">
             {(data?.daily ?? []).slice(1, 3).map((day) => (
-              <div key={day.date} className="text-[2.6vh] text-white/60">
+              <div key={day.date} className="text-[2.6cqh] text-white/60">
                 <p className="capitalize">
                   {new Intl.DateTimeFormat("pt-BR", { weekday: "short" }).format(
                     new Date(`${day.date}T12:00:00`),
                   )}
                 </p>
-                <p className="mt-[0.5vh] text-white/90">
+                <p className="mt-[0.5cqh] text-white/90">
                   {day.min != null ? Math.round(day.min) : "--"}° /{" "}
                   {day.max != null ? Math.round(day.max) : "--"}°
                 </p>
@@ -207,22 +207,22 @@ function CurrencyWidget({
 
   return (
     <Shell accent={accent} credit={data?.credit ?? "AwesomeAPI"}>
-      <p className="text-[3.5vh] uppercase tracking-[0.3em] text-white/50">Cotações de hoje</p>
+      <p className="text-[3.5cqh] uppercase tracking-[0.3em] text-white/50">Cotações de hoje</p>
       {failed && !data ? (
-        <p className="mt-[4vh] text-[4vh] text-white/50">Cotações indisponíveis agora.</p>
+        <p className="mt-[4cqh] text-[4cqh] text-white/50">Cotações indisponíveis agora.</p>
       ) : (
-        <div className="mx-auto mt-[4vh] w-full max-w-[80%] space-y-[2.5vh]">
+        <div className="mx-auto mt-[4cqh] w-full max-w-[80%] space-y-[2.5cqh]">
           {(data?.quotes ?? []).map((quote) => (
             <div
               key={quote.code}
-              className="flex items-baseline justify-between border-b border-white/10 pb-[1.5vh]"
+              className="flex items-baseline justify-between border-b border-white/10 pb-[1.5cqh]"
             >
-              <span className="text-[4.5vh] text-white/80">{quote.name || quote.code}</span>
-              <span className="font-display text-[6vh] font-semibold tabular-nums">
+              <span className="text-[4.5cqh] text-white/80">{quote.name || quote.code}</span>
+              <span className="font-display text-[6cqh] font-semibold tabular-nums">
                 R$ {quote.value.toLocaleString("pt-BR", { minimumFractionDigits: 2 })}
               </span>
               <span
-                className="text-[3.2vh] tabular-nums"
+                className="text-[3.2cqh] tabular-nums"
                 style={{ color: quote.changePct >= 0 ? "#4ade80" : "#f87171" }}
               >
                 {quote.changePct >= 0 ? "▲" : "▼"} {Math.abs(quote.changePct).toFixed(2)}%
@@ -251,19 +251,19 @@ function NewsWidget({
 
   return (
     <Shell accent={accent} credit={data?.credit ?? null}>
-      <p className="text-[3.5vh] uppercase tracking-[0.3em] text-white/50">
+      <p className="text-[3.5cqh] uppercase tracking-[0.3em] text-white/50">
         {data?.source ?? "Notícias"}
       </p>
       {failed && !data ? (
-        <p className="mt-[4vh] text-[4vh] text-white/50">Notícias indisponíveis agora.</p>
+        <p className="mt-[4cqh] text-[4cqh] text-white/50">Notícias indisponíveis agora.</p>
       ) : (
-        <ul className="mx-auto mt-[4vh] w-full max-w-[85%] space-y-[2.5vh] text-left">
+        <ul className="mx-auto mt-[4cqh] w-full max-w-[85%] space-y-[2.5cqh] text-left">
           {headlines.map((headline, index) => (
-            <li key={`${index}-${headline.slice(0, 12)}`} className="flex gap-[1.5vw]">
-              <span className="font-display text-[4vh] font-semibold" style={{ color: accent }}>
+            <li key={`${index}-${headline.slice(0, 12)}`} className="flex gap-[1.5cqw]">
+              <span className="font-display text-[4cqh] font-semibold" style={{ color: accent }}>
                 {index + 1}
               </span>
-              <span className="text-[3.6vh] leading-snug text-white/90">{headline}</span>
+              <span className="text-[3.6cqh] leading-snug text-white/90">{headline}</span>
             </li>
           ))}
         </ul>
