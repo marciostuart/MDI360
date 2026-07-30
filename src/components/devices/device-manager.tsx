@@ -206,6 +206,36 @@ export function DeviceManager() {
                     Vinculada · visto {formatLastSeen(device.lastSeenAt)}
                   </div>
 
+                  <div className="space-y-2">
+                    <Label className="text-xs text-muted-foreground">Playlist em exibição</Label>
+                    <Select
+                      value={device.defaultPlaylistId ?? "none"}
+                      onValueChange={(value) =>
+                        playlistMutation.mutate({
+                          deviceId: device.id,
+                          playlistId: value === "none" ? null : value,
+                        })
+                      }
+                    >
+                      <SelectTrigger>
+                        <SelectValue placeholder="Selecionar playlist" />
+                      </SelectTrigger>
+                      <SelectContent>
+                        <SelectItem value="none">Nenhuma (tela em espera)</SelectItem>
+                        {playlistItems.map((playlist) => (
+                          <SelectItem key={playlist.id} value={playlist.id}>
+                            {playlist.name} · {playlist.itemCount} itens
+                          </SelectItem>
+                        ))}
+                      </SelectContent>
+                    </Select>
+                    {playlistItems.length === 0 ? (
+                      <p className="text-xs text-muted-foreground">
+                        Crie uma playlist na aba Playlists para poder atribuí-la a esta tela.
+                      </p>
+                    ) : null}
+                  </div>
+
                   <div className="flex flex-wrap gap-2">
                     <Button
                       size="sm"
