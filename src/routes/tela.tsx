@@ -199,7 +199,7 @@ function PlayerScreen() {
     if (!current || items.length === 0) return;
     if (current.kind === "video") return;
     timerRef.current = window.setTimeout(
-      () => setIndex((value) => (value + 1) % items.length),
+      () => setIndex((value) => value + 1),
       Math.max(1000, current.durationMs),
     );
     return () => {
@@ -228,8 +228,12 @@ function PlayerScreen() {
           autoPlay
           muted={current.isMuted}
           playsInline
-          onEnded={() => setIndex((value) => (value + 1) % items.length)}
-          onError={() => setIndex((value) => (value + 1) % items.length)}
+          loop={items.length === 1}
+          onEnded={() => {
+            if (items.length === 1) return;
+            setIndex((value) => value + 1);
+          }}
+          onError={() => setIndex((value) => value + 1)}
         />
       ) : current?.kind === "widget" && current.widgetConfig ? (
         <div key={`${current.id}-${index}`} className="h-screen w-screen">

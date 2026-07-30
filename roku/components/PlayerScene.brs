@@ -114,6 +114,9 @@ sub playNext()
         m.slideTimer.duration = duration / 1000.0
         m.slideTimer.control = "start"
     else if item.kind = "video"
+        ' A single-video playlist replays the same node, so reset the player
+        ' before loading the content again — otherwise it stays on "finished".
+        m.video.control = "stop"
         content = CreateObject("roSGNode", "ContentNode")
         content.url = item.url
         content.streamformat = streamFormatFor(item.url)
