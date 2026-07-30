@@ -16,7 +16,7 @@ type PlayerItem = {
 };
 
 type SyncResponse = {
-  device: { id: string; name: string; canvasPreset: string };
+  device: { id: string; name: string; canvasPreset: string; audioEnabled?: boolean };
   playlist: { id: string; name: string; revision: number; items: PlayerItem[] } | null;
   branding: {
     name: string | null;
@@ -266,7 +266,7 @@ function PlayerScreen() {
           src={current.url ?? undefined}
           className="h-screen w-screen object-contain"
           autoPlay
-          muted={current.isMuted}
+          muted={current.isMuted || sync.device?.audioEnabled === false}
           playsInline
           loop={items.length === 1}
           onEnded={() => {
