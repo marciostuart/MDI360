@@ -106,6 +106,11 @@ export const linkDevice = createServerFn({ method: "POST" })
 
     // Same generic message for unknown and already-claimed codes.
     if (!updated[0]) throw new Error("Código inválido ou já utilizado.");
+
+    // Wakes the TV immediately: it leaves the activation screen in ~1 second.
+    const { notifyDevice } = await import("@/lib/player/realtime.server");
+    notifyDevice(updated[0].id);
+
     return { id: updated[0].id, name: updated[0].name };
   });
 
@@ -140,6 +145,9 @@ export const updateDevice = createServerFn({ method: "POST" })
         ),
       );
 
+    const { notifyDevice } = await import("@/lib/player/realtime.server");
+    notifyDevice(data.deviceId);
+
     return { ok: true };
   });
 
@@ -159,6 +167,10 @@ export const deleteDevice = createServerFn({ method: "POST" })
           eq(schema.devices.organizationId, user.organizationId),
         ),
       );
+
+    // Releases the screen's open connection so it wipes its cache right away.
+    const { notifyDevice } = await import("@/lib/player/realtime.server");
+    notifyDevice(data.deviceId);
 
     return { ok: true };
   });
@@ -218,6 +230,9 @@ export const setDevicePlaylist = createServerFn({ method: "POST" })
       createdBy: user.id,
     });
 
+    const { notifyDevice } = await import("@/lib/player/realtime.server");
+    notifyDevice(data.deviceId);
+
     return { ok: true };
   });
 
@@ -255,6 +270,9 @@ export const sendDeviceCommand = createServerFn({ method: "POST" })
       kind: data.kind,
       createdBy: user.id,
     });
+
+    const { notifyDevice } = await import("@/lib/player/realtime.server");
+    notifyDevice(data.deviceId);
 
     return { ok: true };
   });
