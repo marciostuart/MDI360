@@ -19,6 +19,7 @@ import {
 
 export const appRoleEnum = pgEnum("app_role", ["owner", "admin", "operator"]);
 export const mediaKindEnum = pgEnum("media_kind", ["image", "video", "web"]);
+export const mediaStatusEnum = pgEnum("media_status", ["uploading", "ready", "failed"]);
 export const deviceStatusEnum = pgEnum("device_status", ["pending", "active", "blocked"]);
 export const commandKindEnum = pgEnum("command_kind", [
   "reload",
