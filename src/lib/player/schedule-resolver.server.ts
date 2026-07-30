@@ -2,14 +2,17 @@ import { and, asc, desc, eq } from "drizzle-orm";
 
 import { getDb, schema } from "@/lib/db/index.server";
 import { createDownloadUrl, isStorageConfigured } from "@/lib/storage.server";
+import type { WidgetConfig } from "@/lib/widgets/catalog";
 
 export type PlayerItem = {
   id: string;
-  kind: "image" | "video" | "web";
+  kind: "image" | "video" | "web" | "widget";
   url: string | null;
   durationMs: number;
   isMuted: boolean;
   name: string;
+  widgetType: string | null;
+  widgetConfig: WidgetConfig | null;
 };
 
 export type PlayerPlaylist = {
@@ -105,6 +108,8 @@ export async function resolvePlaylistForDevice(
       storageKey: schema.mediaAssets.storageKey,
       sourceUrl: schema.mediaAssets.sourceUrl,
       status: schema.mediaAssets.status,
+      widgetType: schema.mediaAssets.widgetType,
+      widgetConfig: schema.mediaAssets.widgetConfig,
     })
     .from(schema.playlistItems)
     .innerJoin(schema.mediaAssets, eq(schema.mediaAssets.id, schema.playlistItems.mediaAssetId))
@@ -115,6 +120,20 @@ export async function resolvePlaylistForDevice(
   const items: PlayerItem[] = [];
   for (const row of itemRows) {
     if (row.status !== "ready") continue;
+    // Widgets render locally on the TV from open data; they carry no file URL.
+    if (row.kind === "widget") {
+      items.push({
+        id: row.id,
+        kind: "widget",
+        url: null,
+        durationMs: row.durationMs,
+        isMuted: row.isMuted,
+        name: row.name,
+        widgetType: row.widgetType,
+        widgetConfig: (row.widgetConfig as WidgetConfig | null) ?? null,
+      });
+      continue;
+    }
     let url: string | null = row.kind === "web" ? row.sourceUrl : null;
     if (row.kind !== "web" && storageReady && row.storageKey) {
       try {
@@ -132,6 +151,8 @@ export async function resolvePlaylistForDevice(
       durationMs: row.durationMs,
       isMuted: row.isMuted,
       name: row.name,
+      widgetType: null,
+      widgetConfig: null,
     });
   }
 
