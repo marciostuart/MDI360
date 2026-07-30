@@ -127,6 +127,8 @@ export const devices = pgTable(
     /** Hash of the long-lived device token. Raw token never stored. */
     tokenHash: text("token_hash"),
     orientation: smallint("orientation").notNull().default(0),
+    /** Screen shape this TV/totem uses; drives which media fits it. */
+    canvasPreset: text("canvas_preset").notNull().default("landscape-fhd"),
     appVersion: text("app_version"),
     lastSeenAt: timestamp("last_seen_at", { withTimezone: true }),
     lastScreenshotKey: text("last_screenshot_key"),
