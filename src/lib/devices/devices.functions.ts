@@ -13,6 +13,7 @@ export type DeviceListItem = {
   canvasPreset: string;
   pairingCode: string | null;
   pairingExpiresAt: string | null;
+  defaultPlaylistId: string | null;
   appVersion: string | null;
   lastSeenAt: string | null;
   online: boolean;
@@ -49,6 +50,7 @@ export const listDevices = createServerFn({ method: "GET" }).handler(
         canvasPreset: row.canvasPreset,
         pairingCode: row.status === "active" ? null : row.pairingCode,
         pairingExpiresAt: row.pairingExpiresAt ? row.pairingExpiresAt.toISOString() : null,
+        defaultPlaylistId: row.defaultPlaylistId,
         appVersion: row.appVersion,
         lastSeenAt: row.lastSeenAt ? row.lastSeenAt.toISOString() : null,
         online: row.lastSeenAt ? now - row.lastSeenAt.getTime() < DEVICE_ONLINE_WINDOW_MS : false,
