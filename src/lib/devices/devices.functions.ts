@@ -164,6 +164,63 @@ export const deleteDevice = createServerFn({ method: "POST" })
   });
 
 /** Queues a remote command. Ownership is verified before anything is written. */
+/**
+ * Sets (or clears) the playlist a screen plays by default. Both the screen and
+ * the playlist must belong to the caller's organization.
+ */
+export const setDevicePlaylist = createServerFn({ method: "POST" })
+  .inputValidator((input: unknown) =>
+    z
+      .object({
+        deviceId: z.string().uuid(),
+        playlistId: z.string().uuid().nullable(),
+      })
+      .parse(input),
+  )
+  .handler(async ({ data }) => {
+    const { getDb, schema } = await import("@/lib/db/index.server");
+    const { requireUser } = await import("@/lib/auth/session.server");
+    const { and, eq } = await import("drizzle-orm");
+    const user = await requireUser();
+    const db = getDb();
+
+    if (data.playlistId) {
+      const owned = await db
+        .select({ id: schema.playlists.id })
+        .from(schema.playlists)
+        .where(
+          and(
+            eq(schema.playlists.id, data.playlistId),
+            eq(schema.playlists.organizationId, user.organizationId),
+          ),
+        )
+        .limit(1);
+      if (!owned[0]) throw new Error("Playlist não encontrada.");
+    }
+
+    const updated = await db
+      .update(schema.devices)
+      .set({ defaultPlaylistId: data.playlistId })
+      .where(
+        and(
+          eq(schema.devices.id, data.deviceId),
+          eq(schema.devices.organizationId, user.organizationId),
+        ),
+      )
+      .returning({ id: schema.devices.id });
+
+    if (!updated[0]) throw new Error("Tela não encontrada.");
+
+    // Tell the screen to pick up the new content on its next contact.
+    await db.insert(schema.deviceCommands).values({
+      deviceId: data.deviceId,
+      kind: "sync_playlist",
+      createdBy: user.id,
+    });
+
+    return { ok: true };
+  });
+
 export const sendDeviceCommand = createServerFn({ method: "POST" })
   .inputValidator((input: unknown) =>
     z
