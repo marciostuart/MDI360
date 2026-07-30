@@ -21,9 +21,12 @@ import { Route as StudioConteudosRouteImport } from './routes/studio/conteudos'
 import { Route as StudioPlaylistsRouteImport } from './routes/studio/playlists'
 import { Route as StudioTelasRouteImport } from './routes/studio/telas'
 import { Route as TorreIndexRouteImport } from './routes/torre/index'
+import { Route as TorrePlanosRouteImport } from './routes/torre/planos'
 import { Route as ApiBrandingLogoRouteImport } from './routes/api/branding/logo'
 import { Route as ApiMediaUploadRouteImport } from './routes/api/media/upload'
 import { Route as ApiPublicWidgetDataRouteImport } from './routes/api/public/widget-data'
+import { Route as TorreClientesIndexRouteImport } from './routes/torre/clientes/index'
+import { Route as TorreClientesOrganizationIdRouteImport } from './routes/torre/clientes/$organizationId'
 import { Route as ApiPublicPlayerEventsRouteImport } from './routes/api/public/player/events'
 import { Route as ApiPublicPlayerRegisterRouteImport } from './routes/api/public/player/register'
 import { Route as ApiPublicPlayerStatusRouteImport } from './routes/api/public/player/status'
@@ -89,6 +92,11 @@ const TorreIndexRoute = TorreIndexRouteImport.update({
   path: '/',
   getParentRoute: () => TorreRouteRoute,
 } as any)
+const TorrePlanosRoute = TorrePlanosRouteImport.update({
+  id: '/planos',
+  path: '/planos',
+  getParentRoute: () => TorreRouteRoute,
+} as any)
 const ApiBrandingLogoRoute = ApiBrandingLogoRouteImport.update({
   id: '/api/branding/logo',
   path: '/api/branding/logo',
@@ -104,6 +112,17 @@ const ApiPublicWidgetDataRoute = ApiPublicWidgetDataRouteImport.update({
   path: '/api/public/widget-data',
   getParentRoute: () => rootRouteImport,
 } as any)
+const TorreClientesIndexRoute = TorreClientesIndexRouteImport.update({
+  id: '/clientes/',
+  path: '/clientes/',
+  getParentRoute: () => TorreRouteRoute,
+} as any)
+const TorreClientesOrganizationIdRoute =
+  TorreClientesOrganizationIdRouteImport.update({
+    id: '/clientes/$organizationId',
+    path: '/clientes/$organizationId',
+    getParentRoute: () => TorreRouteRoute,
+  } as any)
 const ApiPublicPlayerEventsRoute = ApiPublicPlayerEventsRouteImport.update({
   id: '/api/public/player/events',
   path: '/api/public/player/events',
@@ -136,11 +155,14 @@ export interface FileRoutesByFullPath {
   '/studio/conteudos': typeof StudioConteudosRoute
   '/studio/playlists': typeof StudioPlaylistsRoute
   '/studio/telas': typeof StudioTelasRoute
+  '/torre/planos': typeof TorrePlanosRoute
   '/studio/': typeof StudioIndexRoute
   '/torre/': typeof TorreIndexRoute
   '/api/branding/logo': typeof ApiBrandingLogoRoute
   '/api/media/upload': typeof ApiMediaUploadRoute
   '/api/public/widget-data': typeof ApiPublicWidgetDataRoute
+  '/torre/clientes/$organizationId': typeof TorreClientesOrganizationIdRoute
+  '/torre/clientes/': typeof TorreClientesIndexRoute
   '/api/public/player/events': typeof ApiPublicPlayerEventsRoute
   '/api/public/player/register': typeof ApiPublicPlayerRegisterRoute
   '/api/public/player/status': typeof ApiPublicPlayerStatusRoute
@@ -155,11 +177,14 @@ export interface FileRoutesByTo {
   '/studio/conteudos': typeof StudioConteudosRoute
   '/studio/playlists': typeof StudioPlaylistsRoute
   '/studio/telas': typeof StudioTelasRoute
+  '/torre/planos': typeof TorrePlanosRoute
   '/studio': typeof StudioIndexRoute
   '/torre': typeof TorreIndexRoute
   '/api/branding/logo': typeof ApiBrandingLogoRoute
   '/api/media/upload': typeof ApiMediaUploadRoute
   '/api/public/widget-data': typeof ApiPublicWidgetDataRoute
+  '/torre/clientes/$organizationId': typeof TorreClientesOrganizationIdRoute
+  '/torre/clientes': typeof TorreClientesIndexRoute
   '/api/public/player/events': typeof ApiPublicPlayerEventsRoute
   '/api/public/player/register': typeof ApiPublicPlayerRegisterRoute
   '/api/public/player/status': typeof ApiPublicPlayerStatusRoute
@@ -177,11 +202,14 @@ export interface FileRoutesById {
   '/studio/conteudos': typeof StudioConteudosRoute
   '/studio/playlists': typeof StudioPlaylistsRoute
   '/studio/telas': typeof StudioTelasRoute
+  '/torre/planos': typeof TorrePlanosRoute
   '/studio/': typeof StudioIndexRoute
   '/torre/': typeof TorreIndexRoute
   '/api/branding/logo': typeof ApiBrandingLogoRoute
   '/api/media/upload': typeof ApiMediaUploadRoute
   '/api/public/widget-data': typeof ApiPublicWidgetDataRoute
+  '/torre/clientes/$organizationId': typeof TorreClientesOrganizationIdRoute
+  '/torre/clientes/': typeof TorreClientesIndexRoute
   '/api/public/player/events': typeof ApiPublicPlayerEventsRoute
   '/api/public/player/register': typeof ApiPublicPlayerRegisterRoute
   '/api/public/player/status': typeof ApiPublicPlayerStatusRoute
@@ -200,11 +228,14 @@ export interface FileRouteTypes {
     | '/studio/conteudos'
     | '/studio/playlists'
     | '/studio/telas'
+    | '/torre/planos'
     | '/studio/'
     | '/torre/'
     | '/api/branding/logo'
     | '/api/media/upload'
     | '/api/public/widget-data'
+    | '/torre/clientes/$organizationId'
+    | '/torre/clientes/'
     | '/api/public/player/events'
     | '/api/public/player/register'
     | '/api/public/player/status'
@@ -219,11 +250,14 @@ export interface FileRouteTypes {
     | '/studio/conteudos'
     | '/studio/playlists'
     | '/studio/telas'
+    | '/torre/planos'
     | '/studio'
     | '/torre'
     | '/api/branding/logo'
     | '/api/media/upload'
     | '/api/public/widget-data'
+    | '/torre/clientes/$organizationId'
+    | '/torre/clientes'
     | '/api/public/player/events'
     | '/api/public/player/register'
     | '/api/public/player/status'
@@ -240,11 +274,14 @@ export interface FileRouteTypes {
     | '/studio/conteudos'
     | '/studio/playlists'
     | '/studio/telas'
+    | '/torre/planos'
     | '/studio/'
     | '/torre/'
     | '/api/branding/logo'
     | '/api/media/upload'
     | '/api/public/widget-data'
+    | '/torre/clientes/$organizationId'
+    | '/torre/clientes/'
     | '/api/public/player/events'
     | '/api/public/player/register'
     | '/api/public/player/status'
@@ -352,6 +389,13 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof TorreIndexRouteImport
       parentRoute: typeof TorreRouteRoute
     }
+    '/torre/planos': {
+      id: '/torre/planos'
+      path: '/planos'
+      fullPath: '/torre/planos'
+      preLoaderRoute: typeof TorrePlanosRouteImport
+      parentRoute: typeof TorreRouteRoute
+    }
     '/api/branding/logo': {
       id: '/api/branding/logo'
       path: '/api/branding/logo'
@@ -372,6 +416,20 @@ declare module '@tanstack/react-router' {
       fullPath: '/api/public/widget-data'
       preLoaderRoute: typeof ApiPublicWidgetDataRouteImport
       parentRoute: typeof rootRouteImport
+    }
+    '/torre/clientes/': {
+      id: '/torre/clientes/'
+      path: '/clientes'
+      fullPath: '/torre/clientes/'
+      preLoaderRoute: typeof TorreClientesIndexRouteImport
+      parentRoute: typeof TorreRouteRoute
+    }
+    '/torre/clientes/$organizationId': {
+      id: '/torre/clientes/$organizationId'
+      path: '/clientes/$organizationId'
+      fullPath: '/torre/clientes/$organizationId'
+      preLoaderRoute: typeof TorreClientesOrganizationIdRouteImport
+      parentRoute: typeof TorreRouteRoute
     }
     '/api/public/player/events': {
       id: '/api/public/player/events'
@@ -427,11 +485,17 @@ const StudioRouteRouteWithChildren = StudioRouteRoute._addFileChildren(
 )
 
 interface TorreRouteRouteChildren {
+  TorrePlanosRoute: typeof TorrePlanosRoute
   TorreIndexRoute: typeof TorreIndexRoute
+  TorreClientesOrganizationIdRoute: typeof TorreClientesOrganizationIdRoute
+  TorreClientesIndexRoute: typeof TorreClientesIndexRoute
 }
 
 const TorreRouteRouteChildren: TorreRouteRouteChildren = {
+  TorrePlanosRoute: TorrePlanosRoute,
   TorreIndexRoute: TorreIndexRoute,
+  TorreClientesOrganizationIdRoute: TorreClientesOrganizationIdRoute,
+  TorreClientesIndexRoute: TorreClientesIndexRoute,
 }
 
 const TorreRouteRouteWithChildren = TorreRouteRoute._addFileChildren(

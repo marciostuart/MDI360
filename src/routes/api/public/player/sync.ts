@@ -16,6 +16,8 @@ export const Route = createFileRoute("/api/public/player/sync")({
   server: {
     handlers: {
       POST: async ({ request }) => {
+        const { recordTraffic } = await import("@/lib/admin/traffic.server");
+        recordTraffic(0, 0);
         const { isDatabaseConfigured, getDb, schema } = await import("@/lib/db/index.server");
         if (!isDatabaseConfigured()) {
           return Response.json({ error: "Serviço indisponível." }, { status: 503 });

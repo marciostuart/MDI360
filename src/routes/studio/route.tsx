@@ -15,6 +15,7 @@ import {
 import { useEffect } from "react";
 
 import { Button } from "@/components/ui/button";
+import { ImpersonationBanner } from "@/components/admin/impersonation-banner";
 import { signOut } from "@/lib/auth/auth.functions";
 import { useCurrentUser } from "@/lib/auth/useCurrentUser";
 import { cn } from "@/lib/utils";
@@ -68,7 +69,9 @@ function DashboardLayout() {
   }
 
   return (
-    <div className="flex min-h-screen">
+    <div className="flex min-h-screen flex-col">
+      <ImpersonationBanner />
+      <div className="flex min-h-0 flex-1">
       <aside className="hidden w-64 shrink-0 flex-col border-r border-sidebar-border bg-sidebar p-4 md:flex">
         <Link to="/studio" className="mb-8 flex items-center gap-2 px-2">
           <span className="grid size-8 place-items-center rounded-lg bg-primary text-primary-foreground">
@@ -130,6 +133,7 @@ function DashboardLayout() {
           {/* Nested dashboard pages render here. */}
           <Outlet />
         </main>
+      </div>
       </div>
     </div>
   );

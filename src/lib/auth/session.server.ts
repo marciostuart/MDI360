@@ -8,6 +8,7 @@ import { getDb, schema } from "@/lib/db/index.server";
 import type { AppRole } from "@/lib/db/schema";
 
 const COOKIE_NAME = "signage_session";
+const IMPERSONATOR_COOKIE = "signage_impersonator";
 const SESSION_DAYS = 30;
 
 export type SessionUser = {
@@ -58,6 +59,54 @@ export async function destroySession() {
   if (!token) return;
   const db = getDb();
   await db.delete(schema.sessions).where(eq(schema.sessions.id, hashToken(token)));
+}
+
+/* ------------------------------------------------------------------ */
+/* Impersonation (platform staff only — callers must check that first)  */
+/* ------------------------------------------------------------------ */
+
+/**
+ * Starts a session as `userId` while parking the staff session token in a
+ * separate httpOnly cookie, so the admin returns to their own account with a
+ * single click and never has to sign in again.
+ */
+export async function startImpersonation(userId: string) {
+  const current = getCookie(COOKIE_NAME);
+  if (current) {
+    setCookie(IMPERSONATOR_COOKIE, current, {
+      httpOnly: true,
+      secure: process.env.NODE_ENV === "production",
+      sameSite: "lax",
+      path: "/",
+      maxAge: SESSION_DAYS * 24 * 60 * 60,
+    });
+  }
+  await createSession(userId);
+}
+
+export function isImpersonating() {
+  return Boolean(getCookie(IMPERSONATOR_COOKIE));
+}
+
+/** Drops the customer session and restores the staff one. */
+export async function stopImpersonation(): Promise<boolean> {
+  const original = getCookie(IMPERSONATOR_COOKIE);
+  if (!original) return false;
+
+  const current = getCookie(COOKIE_NAME);
+  if (current) {
+    await getDb().delete(schema.sessions).where(eq(schema.sessions.id, hashToken(current)));
+  }
+
+  deleteCookie(IMPERSONATOR_COOKIE, { path: "/" });
+  setCookie(COOKIE_NAME, original, {
+    httpOnly: true,
+    secure: process.env.NODE_ENV === "production",
+    sameSite: "lax",
+    path: "/",
+    maxAge: SESSION_DAYS * 24 * 60 * 60,
+  });
+  return true;
 }
 
 /** Resolves the signed-in user, or null. Never throws on a missing session. */
