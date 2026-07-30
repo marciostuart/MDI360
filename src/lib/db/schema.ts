@@ -19,6 +19,7 @@ import {
 
 export const appRoleEnum = pgEnum("app_role", ["owner", "admin", "operator"]);
 export const mediaKindEnum = pgEnum("media_kind", ["image", "video", "web"]);
+export const mediaStatusEnum = pgEnum("media_status", ["uploading", "ready", "failed"]);
 export const deviceStatusEnum = pgEnum("device_status", ["pending", "active", "blocked"]);
 export const commandKindEnum = pgEnum("command_kind", [
   "reload",
@@ -126,6 +127,8 @@ export const devices = pgTable(
     /** Hash of the long-lived device token. Raw token never stored. */
     tokenHash: text("token_hash"),
     orientation: smallint("orientation").notNull().default(0),
+    /** Screen shape this TV/totem uses; drives which media fits it. */
+    canvasPreset: text("canvas_preset").notNull().default("landscape-fhd"),
     appVersion: text("app_version"),
     lastSeenAt: timestamp("last_seen_at", { withTimezone: true }),
     lastScreenshotKey: text("last_screenshot_key"),
@@ -151,6 +154,11 @@ export const mediaAssets = pgTable(
       .references(() => organizations.id, { onDelete: "cascade" }),
     name: text("name").notNull(),
     kind: mediaKindEnum("kind").notNull(),
+    status: mediaStatusEnum("status").notNull().default("uploading"),
+    /** Canvas preset the file was normalized for (see src/lib/media/presets.ts). */
+    canvasPreset: text("canvas_preset").notNull().default("landscape-fhd"),
+    /** Size of the file the user picked, before optimization. */
+    originalByteSize: integer("original_byte_size"),
     /** Object key inside the MinIO bucket. Empty for `web` assets. */
     storageKey: text("storage_key"),
     /** External URL for `web` assets. */
