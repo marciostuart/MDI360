@@ -10,33 +10,121 @@
 
 import { Route as rootRouteImport } from './routes/__root'
 import { Route as IndexRouteImport } from './routes/index'
+import { Route as EntrarRouteImport } from './routes/entrar'
+import { Route as PainelRouteRouteImport } from './routes/painel/route'
+import { Route as PainelIndexRouteImport } from './routes/painel/index'
+import { Route as PainelAgendaRouteImport } from './routes/painel/agenda'
+import { Route as PainelConteudosRouteImport } from './routes/painel/conteudos'
+import { Route as PainelPlaylistsRouteImport } from './routes/painel/playlists'
+import { Route as PainelTelasRouteImport } from './routes/painel/telas'
 
 const IndexRoute = IndexRouteImport.update({
   id: '/',
   path: '/',
   getParentRoute: () => rootRouteImport,
 } as any)
+const EntrarRoute = EntrarRouteImport.update({
+  id: '/entrar',
+  path: '/entrar',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const PainelRouteRoute = PainelRouteRouteImport.update({
+  id: '/painel',
+  path: '/painel',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const PainelIndexRoute = PainelIndexRouteImport.update({
+  id: '/',
+  path: '/',
+  getParentRoute: () => PainelRouteRoute,
+} as any)
+const PainelAgendaRoute = PainelAgendaRouteImport.update({
+  id: '/agenda',
+  path: '/agenda',
+  getParentRoute: () => PainelRouteRoute,
+} as any)
+const PainelConteudosRoute = PainelConteudosRouteImport.update({
+  id: '/conteudos',
+  path: '/conteudos',
+  getParentRoute: () => PainelRouteRoute,
+} as any)
+const PainelPlaylistsRoute = PainelPlaylistsRouteImport.update({
+  id: '/playlists',
+  path: '/playlists',
+  getParentRoute: () => PainelRouteRoute,
+} as any)
+const PainelTelasRoute = PainelTelasRouteImport.update({
+  id: '/telas',
+  path: '/telas',
+  getParentRoute: () => PainelRouteRoute,
+} as any)
 
 export interface FileRoutesByFullPath {
   '/': typeof IndexRoute
+  '/painel': typeof PainelRouteRouteWithChildren
+  '/entrar': typeof EntrarRoute
+  '/painel/agenda': typeof PainelAgendaRoute
+  '/painel/conteudos': typeof PainelConteudosRoute
+  '/painel/playlists': typeof PainelPlaylistsRoute
+  '/painel/telas': typeof PainelTelasRoute
+  '/painel/': typeof PainelIndexRoute
 }
 export interface FileRoutesByTo {
   '/': typeof IndexRoute
+  '/entrar': typeof EntrarRoute
+  '/painel/agenda': typeof PainelAgendaRoute
+  '/painel/conteudos': typeof PainelConteudosRoute
+  '/painel/playlists': typeof PainelPlaylistsRoute
+  '/painel/telas': typeof PainelTelasRoute
+  '/painel': typeof PainelIndexRoute
 }
 export interface FileRoutesById {
   __root__: typeof rootRouteImport
   '/': typeof IndexRoute
+  '/painel': typeof PainelRouteRouteWithChildren
+  '/entrar': typeof EntrarRoute
+  '/painel/agenda': typeof PainelAgendaRoute
+  '/painel/conteudos': typeof PainelConteudosRoute
+  '/painel/playlists': typeof PainelPlaylistsRoute
+  '/painel/telas': typeof PainelTelasRoute
+  '/painel/': typeof PainelIndexRoute
 }
 export interface FileRouteTypes {
   fileRoutesByFullPath: FileRoutesByFullPath
-  fullPaths: '/'
+  fullPaths:
+    | '/'
+    | '/painel'
+    | '/entrar'
+    | '/painel/agenda'
+    | '/painel/conteudos'
+    | '/painel/playlists'
+    | '/painel/telas'
+    | '/painel/'
   fileRoutesByTo: FileRoutesByTo
-  to: '/'
-  id: '__root__' | '/'
+  to:
+    | '/'
+    | '/entrar'
+    | '/painel/agenda'
+    | '/painel/conteudos'
+    | '/painel/playlists'
+    | '/painel/telas'
+    | '/painel'
+  id:
+    | '__root__'
+    | '/'
+    | '/painel'
+    | '/entrar'
+    | '/painel/agenda'
+    | '/painel/conteudos'
+    | '/painel/playlists'
+    | '/painel/telas'
+    | '/painel/'
   fileRoutesById: FileRoutesById
 }
 export interface RootRouteChildren {
   IndexRoute: typeof IndexRoute
+  PainelRouteRoute: typeof PainelRouteRouteWithChildren
+  EntrarRoute: typeof EntrarRoute
 }
 
 declare module '@tanstack/react-router' {
@@ -48,22 +136,83 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof IndexRouteImport
       parentRoute: typeof rootRouteImport
     }
+    '/entrar': {
+      id: '/entrar'
+      path: '/entrar'
+      fullPath: '/entrar'
+      preLoaderRoute: typeof EntrarRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/painel': {
+      id: '/painel'
+      path: '/painel'
+      fullPath: '/painel'
+      preLoaderRoute: typeof PainelRouteRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/painel/': {
+      id: '/painel/'
+      path: '/'
+      fullPath: '/painel/'
+      preLoaderRoute: typeof PainelIndexRouteImport
+      parentRoute: typeof PainelRouteRoute
+    }
+    '/painel/agenda': {
+      id: '/painel/agenda'
+      path: '/agenda'
+      fullPath: '/painel/agenda'
+      preLoaderRoute: typeof PainelAgendaRouteImport
+      parentRoute: typeof PainelRouteRoute
+    }
+    '/painel/conteudos': {
+      id: '/painel/conteudos'
+      path: '/conteudos'
+      fullPath: '/painel/conteudos'
+      preLoaderRoute: typeof PainelConteudosRouteImport
+      parentRoute: typeof PainelRouteRoute
+    }
+    '/painel/playlists': {
+      id: '/painel/playlists'
+      path: '/playlists'
+      fullPath: '/painel/playlists'
+      preLoaderRoute: typeof PainelPlaylistsRouteImport
+      parentRoute: typeof PainelRouteRoute
+    }
+    '/painel/telas': {
+      id: '/painel/telas'
+      path: '/telas'
+      fullPath: '/painel/telas'
+      preLoaderRoute: typeof PainelTelasRouteImport
+      parentRoute: typeof PainelRouteRoute
+    }
   }
 }
 
+interface PainelRouteRouteChildren {
+  PainelAgendaRoute: typeof PainelAgendaRoute
+  PainelConteudosRoute: typeof PainelConteudosRoute
+  PainelPlaylistsRoute: typeof PainelPlaylistsRoute
+  PainelTelasRoute: typeof PainelTelasRoute
+  PainelIndexRoute: typeof PainelIndexRoute
+}
+
+const PainelRouteRouteChildren: PainelRouteRouteChildren = {
+  PainelAgendaRoute: PainelAgendaRoute,
+  PainelConteudosRoute: PainelConteudosRoute,
+  PainelPlaylistsRoute: PainelPlaylistsRoute,
+  PainelTelasRoute: PainelTelasRoute,
+  PainelIndexRoute: PainelIndexRoute,
+}
+
+const PainelRouteRouteWithChildren = PainelRouteRoute._addFileChildren(
+  PainelRouteRouteChildren,
+)
+
 const rootRouteChildren: RootRouteChildren = {
   IndexRoute: IndexRoute,
+  PainelRouteRoute: PainelRouteRouteWithChildren,
+  EntrarRoute: EntrarRoute,
 }
 export const routeTree = rootRouteImport
   ._addFileChildren(rootRouteChildren)
   ._addFileTypes<FileRouteTypes>()
-
-import type { getRouter } from './router.tsx'
-import type { startInstance } from './start.ts'
-declare module '@tanstack/react-start' {
-  interface Register {
-    ssr: true
-    router: Awaited<ReturnType<typeof getRouter>>
-    config: Awaited<ReturnType<typeof startInstance.getOptions>>
-  }
-}
