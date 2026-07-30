@@ -159,7 +159,7 @@ export function createDownloadUrl(key: string, expiresInSeconds = 3600) {
 /** Short-lived URL the browser uses to upload directly, bypassing our server. */
 export function createUploadUrl(key: string, contentType: string, expiresInSeconds = 900) {
   return getSignedUrl(
-    getClient(),
+    getPublicClient(),
     new PutObjectCommand({ Bucket: getBucket(), Key: key, ContentType: contentType }),
     { expiresIn: expiresInSeconds },
   );
