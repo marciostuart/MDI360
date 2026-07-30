@@ -1,4 +1,5 @@
 import { createServerFn } from "@tanstack/react-start";
+import { z } from "zod";
 
 /**
  * Platform staff are defined by PLATFORM_ADMIN_EMAILS (comma separated) on the
@@ -15,8 +16,14 @@ function isPlatformEmail(email: string) {
 export type PlatformOverview = {
   organizations: number;
   users: number;
-  devices: number;
-  activeDevices: number;
+  /** Screens actually linked to a customer — never counts unclaimed rows. */
+  linkedDevices: number;
+  onlineDevices: number;
+  pendingDevices: number;
+  storageBytes: number;
+  mediaAssets: number;
+  requests24h: number;
+  traffic24hBytes: number;
 };
 
 export type InfraStatus = {
@@ -33,7 +40,7 @@ export const fetchPlatformOverview = createServerFn({ method: "GET" }).handler(
     if (!isDatabaseConfigured()) return null;
 
     const { getSessionUser } = await import("@/lib/auth/session.server");
-    const { count, eq } = await import("drizzle-orm");
+    const { count, and, eq, isNotNull, gt, sql } = await import("drizzle-orm");
 
     try {
       const user = await getSessionUser();
@@ -42,17 +49,59 @@ export const fetchPlatformOverview = createServerFn({ method: "GET" }).handler(
       const db = getDb();
       const [orgs] = await db.select({ value: count() }).from(schema.organizations);
       const [users] = await db.select({ value: count() }).from(schema.users);
-      const [devices] = await db.select({ value: count() }).from(schema.devices);
-      const [active] = await db
+      const [linked] = await db
         .select({ value: count() })
         .from(schema.devices)
-        .where(eq(schema.devices.status, "active"));
+        .where(
+          and(isNotNull(schema.devices.organizationId), eq(schema.devices.status, "active")),
+        );
+      const [online] = await db
+        .select({ value: count() })
+        .from(schema.devices)
+        .where(
+          and(
+            isNotNull(schema.devices.organizationId),
+            eq(schema.devices.status, "active"),
+            gt(schema.devices.lastSeenAt, new Date(Date.now() - 90_000)),
+          ),
+        );
+      const [pending] = await db
+        .select({ value: count() })
+        .from(schema.devices)
+        .where(eq(schema.devices.status, "pending"));
+      const [media] = await db
+        .select({
+          value: count(),
+          bytes: sql<number>`coalesce(sum(${schema.mediaAssets.byteSize}), 0)::bigint`,
+        })
+        .from(schema.mediaAssets);
+
+      let requests24h = 0;
+      let traffic24hBytes = 0;
+      try {
+        const [traffic] = await db
+          .select({
+            requests: sql<number>`coalesce(sum(${schema.trafficHourly.requests}), 0)::bigint`,
+            bytes: sql<number>`coalesce(sum(${schema.trafficHourly.bytesIn} + ${schema.trafficHourly.bytesOut}), 0)::bigint`,
+          })
+          .from(schema.trafficHourly)
+          .where(gt(schema.trafficHourly.bucket, new Date(Date.now() - 24 * 3600_000)));
+        requests24h = Number(traffic?.requests ?? 0);
+        traffic24hBytes = Number(traffic?.bytes ?? 0);
+      } catch {
+        requests24h = 0;
+      }
 
       return {
         organizations: orgs?.value ?? 0,
         users: users?.value ?? 0,
-        devices: devices?.value ?? 0,
-        activeDevices: active?.value ?? 0,
+        linkedDevices: linked?.value ?? 0,
+        onlineDevices: online?.value ?? 0,
+        pendingDevices: pending?.value ?? 0,
+        storageBytes: Number(media?.bytes ?? 0),
+        mediaAssets: media?.value ?? 0,
+        requests24h,
+        traffic24hBytes,
       };
     } catch (error) {
       console.error("fetchPlatformOverview failed", error);
