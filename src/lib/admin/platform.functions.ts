@@ -101,3 +101,469 @@ export const fetchInfraStatus = createServerFn({ method: "GET" }).handler(
     };
   },
 );
+/* ------------------------------------------------------------------ */
+/* Full platform control (clients, plans, impersonation, traffic)       */
+/* ------------------------------------------------------------------ */
+
+async function requirePlatform() {
+  const { getSessionUser } = await import("@/lib/auth/session.server");
+  const user = await getSessionUser();
+  if (!user || !isPlatformEmail(user.email)) throw new Error("FORBIDDEN");
+  return user;
+}
+
+export type PlatformOrganization = {
+  id: string;
+  name: string;
+  slug: string;
+  planId: string | null;
+  planName: string | null;
+  subscriptionStatus: string;
+  subscriptionExpiresAt: string | null;
+  maxDevices: number;
+  maxStorageMb: number;
+  linkedDevices: number;
+  onlineDevices: number;
+  pendingDevices: number;
+  users: number;
+  mediaCount: number;
+  storageBytes: number;
+  createdAt: string;
+  ownerEmail: string | null;
+};
+
+/** Every customer account with the metrics the platform team bills on. */
+export const fetchPlatformOrganizations = createServerFn({ method: "GET" }).handler(
+  async (): Promise<PlatformOrganization[] | null> => {
+    const { isDatabaseConfigured, getDb, schema } = await import("@/lib/db/index.server");
+    if (!isDatabaseConfigured()) return null;
+
+    try {
+      await requirePlatform();
+      const { sql, eq } = await import("drizzle-orm");
+      const db = getDb();
+
+      const rows = await db
+        .select({
+          id: schema.organizations.id,
+          name: schema.organizations.name,
+          slug: schema.organizations.slug,
+          planId: schema.organizations.planId,
+          planName: schema.plans.name,
+          planDevices: schema.plans.maxDevices,
+          planStorage: schema.plans.maxStorageMb,
+          deviceOverride: schema.organizations.deviceLimitOverride,
+          storageOverride: schema.organizations.storageLimitMbOverride,
+          status: schema.organizations.subscriptionStatus,
+          expiresAt: schema.organizations.subscriptionExpiresAt,
+          createdAt: schema.organizations.createdAt,
+          linkedDevices: sql<number>`(
+            select count(*)::int from devices d
+            where d.organization_id = organizations.id and d.status = 'active'
+          )`,
+          onlineDevices: sql<number>`(
+            select count(*)::int from devices d
+            where d.organization_id = organizations.id and d.status = 'active'
+              and d.last_seen_at > now() - interval '90 seconds'
+          )`,
+          pendingDevices: sql<number>`(
+            select count(*)::int from devices d
+            where d.organization_id = organizations.id and d.status <> 'active'
+          )`,
+          users: sql<number>`(
+            select count(*)::int from users u where u.organization_id = organizations.id
+          )`,
+          mediaCount: sql<number>`(
+            select count(*)::int from media_assets m where m.organization_id = organizations.id
+          )`,
+          storageBytes: sql<number>`(
+            select coalesce(sum(m.byte_size), 0)::bigint from media_assets m
+            where m.organization_id = organizations.id
+          )`,
+          ownerEmail: sql<string | null>`(
+            select u.email from users u where u.organization_id = organizations.id
+            order by u.created_at asc limit 1
+          )`,
+        })
+        .from(schema.organizations)
+        .leftJoin(schema.plans, eq(schema.plans.id, schema.organizations.planId))
+        .orderBy(schema.organizations.createdAt);
+
+      return rows.map((row) => ({
+        id: row.id,
+        name: row.name,
+        slug: row.slug,
+        planId: row.planId,
+        planName: row.planName,
+        subscriptionStatus: row.status,
+        subscriptionExpiresAt: row.expiresAt ? row.expiresAt.toISOString() : null,
+        maxDevices: row.deviceOverride ?? row.planDevices ?? 3,
+        maxStorageMb: row.storageOverride ?? row.planStorage ?? 2048,
+        linkedDevices: Number(row.linkedDevices ?? 0),
+        onlineDevices: Number(row.onlineDevices ?? 0),
+        pendingDevices: Number(row.pendingDevices ?? 0),
+        users: Number(row.users ?? 0),
+        mediaCount: Number(row.mediaCount ?? 0),
+        storageBytes: Number(row.storageBytes ?? 0),
+        createdAt: row.createdAt.toISOString(),
+        ownerEmail: row.ownerEmail ?? null,
+      }));
+    } catch (error) {
+      console.error("fetchPlatformOrganizations failed", error);
+      return null;
+    }
+  },
+);
+
+export type PlatformOrgDetail = {
+  organization: PlatformOrganization;
+  notes: string | null;
+  users: { id: string; name: string; email: string; lastLoginAt: string | null }[];
+  devices: {
+    id: string;
+    name: string;
+    status: string;
+    online: boolean;
+    lastSeenAt: string | null;
+    appVersion: string | null;
+  }[];
+  topMedia: { id: string; name: string; kind: string; byteSize: number }[];
+};
+
+export const fetchOrganizationDetail = createServerFn({ method: "GET" })
+  .inputValidator((input: unknown) => z.object({ organizationId: z.string().uuid() }).parse(input))
+  .handler(async ({ data }): Promise<PlatformOrgDetail | null> => {
+    const { isDatabaseConfigured, getDb, schema } = await import("@/lib/db/index.server");
+    if (!isDatabaseConfigured()) return null;
+
+    try {
+      await requirePlatform();
+      const { eq, desc } = await import("drizzle-orm");
+      const db = getDb();
+
+      const list = await fetchPlatformOrganizations();
+      const organization = list?.find((item) => item.id === data.organizationId);
+      if (!organization) return null;
+
+      const [notesRow] = await db
+        .select({ notes: schema.organizations.adminNotes })
+        .from(schema.organizations)
+        .where(eq(schema.organizations.id, data.organizationId))
+        .limit(1);
+
+      const users = await db
+        .select({
+          id: schema.users.id,
+          name: schema.users.name,
+          email: schema.users.email,
+          lastLoginAt: schema.users.lastLoginAt,
+        })
+        .from(schema.users)
+        .where(eq(schema.users.organizationId, data.organizationId))
+        .limit(50);
+
+      const devices = await db
+        .select({
+          id: schema.devices.id,
+          name: schema.devices.name,
+          status: schema.devices.status,
+          lastSeenAt: schema.devices.lastSeenAt,
+          appVersion: schema.devices.appVersion,
+        })
+        .from(schema.devices)
+        .where(eq(schema.devices.organizationId, data.organizationId))
+        .limit(200);
+
+      const topMedia = await db
+        .select({
+          id: schema.mediaAssets.id,
+          name: schema.mediaAssets.name,
+          kind: schema.mediaAssets.kind,
+          byteSize: schema.mediaAssets.byteSize,
+        })
+        .from(schema.mediaAssets)
+        .where(eq(schema.mediaAssets.organizationId, data.organizationId))
+        .orderBy(desc(schema.mediaAssets.byteSize))
+        .limit(10);
+
+      const now = Date.now();
+      return {
+        organization,
+        notes: notesRow?.notes ?? null,
+        users: users.map((u) => ({
+          ...u,
+          lastLoginAt: u.lastLoginAt ? u.lastLoginAt.toISOString() : null,
+        })),
+        devices: devices.map((d) => ({
+          id: d.id,
+          name: d.name,
+          status: d.status,
+          online: d.lastSeenAt ? now - d.lastSeenAt.getTime() < 90_000 : false,
+          lastSeenAt: d.lastSeenAt ? d.lastSeenAt.toISOString() : null,
+          appVersion: d.appVersion,
+        })),
+        topMedia: topMedia.map((m) => ({
+          id: m.id,
+          name: m.name,
+          kind: m.kind,
+          byteSize: Number(m.byteSize ?? 0),
+        })),
+      };
+    } catch (error) {
+      console.error("fetchOrganizationDetail failed", error);
+      return null;
+    }
+  });
+
+export type PlatformPlan = {
+  id: string;
+  name: string;
+  slug: string;
+  maxDevices: number;
+  maxStorageMb: number;
+  priceCents: number;
+  isActive: boolean;
+  organizations: number;
+};
+
+export const fetchPlans = createServerFn({ method: "GET" }).handler(
+  async (): Promise<PlatformPlan[] | null> => {
+    const { isDatabaseConfigured, getDb, schema } = await import("@/lib/db/index.server");
+    if (!isDatabaseConfigured()) return null;
+    try {
+      await requirePlatform();
+      const { sql } = await import("drizzle-orm");
+      const rows = await getDb()
+        .select({
+          id: schema.plans.id,
+          name: schema.plans.name,
+          slug: schema.plans.slug,
+          maxDevices: schema.plans.maxDevices,
+          maxStorageMb: schema.plans.maxStorageMb,
+          priceCents: schema.plans.priceCents,
+          isActive: schema.plans.isActive,
+          organizations: sql<number>`(
+            select count(*)::int from organizations o where o.plan_id = plans.id
+          )`,
+        })
+        .from(schema.plans)
+        .orderBy(schema.plans.priceCents);
+      return rows.map((row) => ({ ...row, organizations: Number(row.organizations ?? 0) }));
+    } catch (error) {
+      console.error("fetchPlans failed", error);
+      return null;
+    }
+  },
+);
+
+const planSchema = z.object({
+  id: z.string().uuid().optional(),
+  name: z.string().trim().min(2).max(80),
+  slug: z
+    .string()
+    .trim()
+    .toLowerCase()
+    .regex(/^[a-z0-9-]{2,40}$/, "Use apenas letras minúsculas, números e hífen"),
+  maxDevices: z.number().int().min(1).max(10000),
+  maxStorageMb: z.number().int().min(64).max(10_000_000),
+  priceCents: z.number().int().min(0).max(100_000_000),
+  isActive: z.boolean().default(true),
+});
+
+export const savePlan = createServerFn({ method: "POST" })
+  .inputValidator((input: unknown) => planSchema.parse(input))
+  .handler(async ({ data }) => {
+    const { getDb, schema } = await import("@/lib/db/index.server");
+    await requirePlatform();
+    const { eq } = await import("drizzle-orm");
+    const db = getDb();
+
+    if (data.id) {
+      await db
+        .update(schema.plans)
+        .set({
+          name: data.name,
+          slug: data.slug,
+          maxDevices: data.maxDevices,
+          maxStorageMb: data.maxStorageMb,
+          priceCents: data.priceCents,
+          isActive: data.isActive,
+        })
+        .where(eq(schema.plans.id, data.id));
+      return { ok: true, id: data.id };
+    }
+
+    const inserted = await db
+      .insert(schema.plans)
+      .values({
+        name: data.name,
+        slug: data.slug,
+        maxDevices: data.maxDevices,
+        maxStorageMb: data.maxStorageMb,
+        priceCents: data.priceCents,
+        isActive: data.isActive,
+      })
+      .returning({ id: schema.plans.id });
+    return { ok: true, id: inserted[0]!.id };
+  });
+
+export const deletePlan = createServerFn({ method: "POST" })
+  .inputValidator((input: unknown) => z.object({ planId: z.string().uuid() }).parse(input))
+  .handler(async ({ data }) => {
+    const { getDb, schema } = await import("@/lib/db/index.server");
+    await requirePlatform();
+    const { eq } = await import("drizzle-orm");
+    const db = getDb();
+    await db
+      .update(schema.organizations)
+      .set({ planId: null })
+      .where(eq(schema.organizations.planId, data.planId));
+    await db.delete(schema.plans).where(eq(schema.plans.id, data.planId));
+    return { ok: true };
+  });
+
+export const updateOrganizationSubscription = createServerFn({ method: "POST" })
+  .inputValidator((input: unknown) =>
+    z
+      .object({
+        organizationId: z.string().uuid(),
+        planId: z.string().uuid().nullable().optional(),
+        subscriptionStatus: z.enum(["trial", "active", "past_due", "suspended", "canceled"]),
+        subscriptionExpiresAt: z.string().trim().max(40).nullable().optional(),
+        deviceLimitOverride: z.number().int().min(0).max(10000).nullable().optional(),
+        storageLimitMbOverride: z.number().int().min(0).max(10_000_000).nullable().optional(),
+        notes: z.string().trim().max(2000).nullable().optional(),
+      })
+      .parse(input),
+  )
+  .handler(async ({ data }) => {
+    const { getDb, schema } = await import("@/lib/db/index.server");
+    await requirePlatform();
+    const { eq } = await import("drizzle-orm");
+
+    await getDb()
+      .update(schema.organizations)
+      .set({
+        planId: data.planId ?? null,
+        subscriptionStatus: data.subscriptionStatus,
+        subscriptionExpiresAt: data.subscriptionExpiresAt
+          ? new Date(data.subscriptionExpiresAt)
+          : null,
+        deviceLimitOverride: data.deviceLimitOverride ?? null,
+        storageLimitMbOverride: data.storageLimitMbOverride ?? null,
+        adminNotes: data.notes ?? null,
+      })
+      .where(eq(schema.organizations.id, data.organizationId));
+
+    return { ok: true };
+  });
+
+export const renameOrganization = createServerFn({ method: "POST" })
+  .inputValidator((input: unknown) =>
+    z
+      .object({ organizationId: z.string().uuid(), name: z.string().trim().min(2).max(160) })
+      .parse(input),
+  )
+  .handler(async ({ data }) => {
+    const { getDb, schema } = await import("@/lib/db/index.server");
+    await requirePlatform();
+    const { eq } = await import("drizzle-orm");
+    await getDb()
+      .update(schema.organizations)
+      .set({ name: data.name })
+      .where(eq(schema.organizations.id, data.organizationId));
+    return { ok: true };
+  });
+
+/** Hard delete of a customer account and everything it owns. */
+export const deleteOrganization = createServerFn({ method: "POST" })
+  .inputValidator((input: unknown) =>
+    z.object({ organizationId: z.string().uuid() }).parse(input),
+  )
+  .handler(async ({ data }) => {
+    const { getDb, schema } = await import("@/lib/db/index.server");
+    await requirePlatform();
+    const { eq } = await import("drizzle-orm");
+    await getDb().delete(schema.organizations).where(eq(schema.organizations.id, data.organizationId));
+    return { ok: true };
+  });
+
+/** Signs the platform admin in as the first user of the account. */
+export const impersonateOrganization = createServerFn({ method: "POST" })
+  .inputValidator((input: unknown) =>
+    z.object({ organizationId: z.string().uuid() }).parse(input),
+  )
+  .handler(async ({ data }): Promise<{ ok: boolean; message?: string }> => {
+    const { getDb, schema } = await import("@/lib/db/index.server");
+    await requirePlatform();
+    const { and, eq } = await import("drizzle-orm");
+
+    const rows = await getDb()
+      .select({ id: schema.users.id })
+      .from(schema.users)
+      .where(
+        and(
+          eq(schema.users.organizationId, data.organizationId),
+          eq(schema.users.isActive, true),
+        ),
+      )
+      .orderBy(schema.users.createdAt)
+      .limit(1);
+
+    const target = rows[0];
+    if (!target) return { ok: false, message: "Esta conta não possui usuário ativo." };
+
+    const { startImpersonation } = await import("@/lib/auth/session.server");
+    await startImpersonation(target.id);
+    return { ok: true };
+  });
+
+export const endImpersonation = createServerFn({ method: "POST" }).handler(async () => {
+  const { stopImpersonation } = await import("@/lib/auth/session.server");
+  return { ok: await stopImpersonation() };
+});
+
+export const fetchImpersonationState = createServerFn({ method: "GET" }).handler(async () => {
+  const { isImpersonating } = await import("@/lib/auth/session.server");
+  try {
+    return { impersonating: isImpersonating() };
+  } catch {
+    return { impersonating: false };
+  }
+});
+
+export type TrafficPoint = {
+  bucket: string;
+  requests: number;
+  bytesIn: number;
+  bytesOut: number;
+};
+
+/** Hourly server load for the last N hours (default 48). */
+export const fetchTrafficSeries = createServerFn({ method: "GET" })
+  .inputValidator((input: unknown) =>
+    z.object({ hours: z.number().int().min(6).max(720).default(48) }).parse(input ?? {}),
+  )
+  .handler(async ({ data }): Promise<TrafficPoint[] | null> => {
+    const { isDatabaseConfigured, getDb, schema } = await import("@/lib/db/index.server");
+    if (!isDatabaseConfigured()) return null;
+    try {
+      await requirePlatform();
+      const { gte, asc } = await import("drizzle-orm");
+      const since = new Date(Date.now() - data.hours * 3600_000);
+      const rows = await getDb()
+        .select()
+        .from(schema.trafficHourly)
+        .where(gte(schema.trafficHourly.bucket, since))
+        .orderBy(asc(schema.trafficHourly.bucket));
+      return rows.map((row) => ({
+        bucket: row.bucket.toISOString(),
+        requests: Number(row.requests ?? 0),
+        bytesIn: Number(row.bytesIn ?? 0),
+        bytesOut: Number(row.bytesOut ?? 0),
+      }));
+    } catch (error) {
+      console.error("fetchTrafficSeries failed", error);
+      return null;
+    }
+  });
