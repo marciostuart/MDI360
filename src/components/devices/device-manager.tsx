@@ -114,6 +114,19 @@ export function DeviceManager() {
     onError: () => toast.error("Não foi possível definir a playlist desta tela."),
   });
 
+  const audioMutation = useMutation({
+    mutationFn: (vars: { deviceId: string; audioEnabled: boolean }) => setAudioFn({ data: vars }),
+    onSuccess: async (_data, vars) => {
+      toast.success(
+        vars.audioEnabled
+          ? "Áudio liberado nesta tela."
+          : "Áudio bloqueado: esta tela não reproduz som em nenhum vídeo.",
+      );
+      await refresh();
+    },
+    onError: () => toast.error("Não foi possível alterar o áudio desta tela."),
+  });
+
   const items = devices.data?.items ?? [];
   const playlistItems = playlists.data?.items ?? [];
 
