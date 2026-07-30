@@ -104,12 +104,14 @@ As tabelas do banco são criadas automaticamente no primeiro start — nenhum SQ
 
 ## Passo 7 — Ligar a primeira TV
 
-1. No Studio: **Telas → Nova tela**, escolha o formato (TV horizontal, totem
-   vertical etc.). Um **código de 6 dígitos** aparece no card.
-2. No aparelho da TV (TV Box, Fire Stick, Smart TV ou celular Android), abra o
-   navegador em `https://mdi.360bh.com.br/tela`.
-3. Digite o código. A tela fica pareada de forma permanente naquele aparelho
-   (código de uso único, expira em 24 h).
+1. No aparelho da TV (TV Box, Fire Stick, Smart TV ou celular Android), abra o
+   navegador em `https://mdi.360bh.com.br/tela` (ou o APK, quando pronto). A
+   própria tela exibe um **código de ativação alfanumérico de 6 caracteres**.
+2. No Studio: **Telas**, digite esse código, dê um nome à tela, escolha o formato
+   (TV horizontal, totem vertical etc.) e clique em **Vincular tela**.
+3. Em poucos segundos a TV sai da tela de código e começa a exibir. Ao remover a
+   tela no Studio, o aparelho apaga o cache local, se desvincula e mostra um novo
+   código — e o código antigo volta a ficar disponível.
 4. Em **Conteúdos**, envie imagens/vídeos. Em **Playlists**, monte a sequência e
    **Publicar**. Em **Agenda**, defina dias e horários.
 5. A TV sincroniza sozinha a cada 1 minuto. O botão **Atualizar** no card força a
