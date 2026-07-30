@@ -18,6 +18,7 @@ export type PlayerDevice = {
   name: string;
   canvasPreset: string;
   status: "pending" | "active" | "blocked";
+  audioEnabled: boolean;
 };
 
 /** Resolves the device row for a token, whatever its status (may be unlinked). */
@@ -36,6 +37,7 @@ export async function resolveDeviceByToken(request: Request): Promise<
       canvasPreset: schema.devices.canvasPreset,
       status: schema.devices.status,
       pairingCode: schema.devices.pairingCode,
+      audioEnabled: schema.devices.audioEnabled,
     })
     .from(schema.devices)
     .where(
@@ -65,6 +67,7 @@ export async function authenticateDevice(request: Request): Promise<PlayerDevice
       name: schema.devices.name,
       canvasPreset: schema.devices.canvasPreset,
       status: schema.devices.status,
+      audioEnabled: schema.devices.audioEnabled,
     })
     .from(schema.devices)
     .where(
