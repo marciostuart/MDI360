@@ -62,8 +62,8 @@ Copie o resultado. Ele será o `SESSION_SECRET`.
 | `S3_ACCESS_KEY_ID` | a access key do MinIO |
 | `S3_SECRET_ACCESS_KEY` | a secret key do MinIO |
 | `SESSION_SECRET` | o valor gerado no Passo 3 |
-| `APP_HOST` | `painel.seudominio.com.br` |
-| `APP_URL` | `https://painel.seudominio.com.br` |
+| `APP_HOST` | `mdi.360bh.com.br` |
+| `APP_URL` | `https://mdi.360bh.com.br` |
 
 4. Clique em **Deploy the stack**.
 
@@ -75,7 +75,7 @@ Copie o resultado. Ele será o `SESSION_SECRET`.
 
 ## Passo 6 — Confirmar que funcionou
 
-1. Abra `https://painel.seudominio.com.br`.
+1. Abra `https://mdi.360bh.com.br`.
 2. Clique em **Criar minha conta** e cadastre-se. O primeiro usuário vira o dono.
 3. No painel, o bloco **Status da infraestrutura** deve mostrar
    "Conectado" para o banco e para o armazenamento.
