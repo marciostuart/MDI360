@@ -14,11 +14,40 @@ export function hashDeviceToken(token: string) {
 
 export type PlayerDevice = {
   id: string;
-  organizationId: string;
+  organizationId: string | null;
   name: string;
   canvasPreset: string;
   status: "pending" | "active" | "blocked";
 };
+
+/** Resolves the device row for a token, whatever its status (may be unlinked). */
+export async function resolveDeviceByToken(request: Request): Promise<
+  (PlayerDevice & { pairingCode: string | null }) | null
+> {
+  const header = request.headers.get("authorization") ?? "";
+  const token = header.toLowerCase().startsWith("bearer ") ? header.slice(7).trim() : "";
+  if (!token || token.length < 20) return null;
+
+  const rows = await getDb()
+    .select({
+      id: schema.devices.id,
+      organizationId: schema.devices.organizationId,
+      name: schema.devices.name,
+      canvasPreset: schema.devices.canvasPreset,
+      status: schema.devices.status,
+      pairingCode: schema.devices.pairingCode,
+    })
+    .from(schema.devices)
+    .where(
+      and(
+        eq(schema.devices.tokenHash, hashDeviceToken(token)),
+        isNotNull(schema.devices.tokenHash),
+      ),
+    )
+    .limit(1);
+
+  return rows[0] ?? null;
+}
 
 /**
  * Resolves the device behind a `Authorization: Bearer <deviceToken>` header.
