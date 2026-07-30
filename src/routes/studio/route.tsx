@@ -134,6 +134,7 @@ function DashboardLayout() {
           <Outlet />
         </main>
       </div>
+      </div>
     </div>
   );
 }
