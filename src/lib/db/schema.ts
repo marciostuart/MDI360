@@ -152,6 +152,11 @@ export const mediaAssets = pgTable(
       .references(() => organizations.id, { onDelete: "cascade" }),
     name: text("name").notNull(),
     kind: mediaKindEnum("kind").notNull(),
+    status: mediaStatusEnum("status").notNull().default("uploading"),
+    /** Canvas preset the file was normalized for (see src/lib/media/presets.ts). */
+    canvasPreset: text("canvas_preset").notNull().default("landscape-fhd"),
+    /** Size of the file the user picked, before optimization. */
+    originalByteSize: integer("original_byte_size"),
     /** Object key inside the MinIO bucket. Empty for `web` assets. */
     storageKey: text("storage_key"),
     /** External URL for `web` assets. */
