@@ -171,6 +171,7 @@ function PlayerScreen() {
       }
       if (!response.ok) throw new Error("sync");
       const data = (await response.json()) as SyncResponse;
+      if (typeof data.revision === "number") revisionRef.current = data.revision;
       setSync((previous) => {
         const changed = previous?.playlist?.revision !== data.playlist?.revision;
         if (changed) setIndex(0);
@@ -188,9 +189,46 @@ function PlayerScreen() {
   useEffect(() => {
     if (!token || !linked) return;
     void runSync(token);
+
+    // Safety net: even if the push channel dies, the screen refreshes itself.
     const interval = window.setInterval(() => void runSync(token), 60_000);
-    return () => window.clearInterval(interval);
-  }, [token, linked, runSync]);
+
+    // Push channel: one long-poll request that the server answers the instant
+    // something changes for this screen. Costs a single idle connection.
+    let stopped = false;
+    const listen = async () => {
+      while (!stopped) {
+        try {
+          const response = await fetch("/api/public/player/events", {
+            method: "POST",
+            headers: {
+              "content-type": "application/json",
+              authorization: `Bearer ${token}`,
+            },
+            body: JSON.stringify({ revision: revisionRef.current }),
+          });
+          if (stopped) return;
+          if (response.status === 401) {
+            await resetDevice();
+            return;
+          }
+          if (!response.ok) throw new Error("events");
+          const data = (await response.json()) as { revision: number; changed: boolean };
+          revisionRef.current = data.revision;
+          if (data.changed) await runSync(token);
+        } catch {
+          // Network hiccup: wait a bit before reopening the channel.
+          await new Promise((resolve) => window.setTimeout(resolve, 5_000));
+        }
+      }
+    };
+    void listen();
+
+    return () => {
+      stopped = true;
+      window.clearInterval(interval);
+    };
+  }, [token, linked, runSync, resetDevice]);
 
   const items = sync?.playlist?.items ?? [];
   const current = items[index % Math.max(items.length, 1)];
