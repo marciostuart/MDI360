@@ -142,6 +142,11 @@ export const devices = pgTable(
     /** Hash of the long-lived device token. Raw token never stored. */
     tokenHash: text("token_hash"),
     orientation: smallint("orientation").notNull().default(0),
+    /**
+     * Global audio switch for this screen. When false the TV plays every video
+     * silently, even if the playlist item asks for sound.
+     */
+    audioEnabled: boolean("audio_enabled").notNull().default(true),
     /** Screen shape this TV/totem uses; drives which media fits it. */
     canvasPreset: text("canvas_preset").notNull().default("landscape-fhd"),
     appVersion: text("app_version"),
