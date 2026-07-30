@@ -1,0 +1,14 @@
+<?xml version="1.0" encoding="utf-8" ?>
+<component name="SyncTask" extends="Task">
+  <script type="text/brightscript" uri="pkg:/components/SyncTask.brs" />
+  <interface>
+    <!-- Base URL of the MDI 360 server, e.g. https://mdi.360bh.com.br -->
+    <field id="baseUrl" type="string" value="https://mdi.360bh.com.br" />
+    <!-- Filled by the task: activation code while unlinked -->
+    <field id="activationCode" type="string" value="" />
+    <!-- Latest sync payload (parsed JSON) once the screen is linked -->
+    <field id="payload" type="assocarray" />
+    <field id="statusText" type="string" value="" />
+    <field id="control" type="string" />
+  </interface>
+</component>

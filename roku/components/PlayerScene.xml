@@ -1,0 +1,37 @@
+<?xml version="1.0" encoding="utf-8" ?>
+<component name="PlayerScene" extends="Scene">
+  <script type="text/brightscript" uri="pkg:/components/PlayerScene.brs" />
+
+  <children>
+    <Rectangle id="background" width="1920" height="1080" color="0x000000FF" />
+
+    <Poster id="slide" width="1920" height="1080" loadDisplayMode="scaleToFill" opacity="0" />
+    <Video id="video" width="1920" height="1080" translation="[0,0]" visible="false" />
+
+    <Group id="pairing" translation="[0,0]">
+      <Label id="brandLabel" text="MDI 360" translation="[0,420]" width="1920"
+             horizAlign="center" color="0x8A8A8AFF">
+        <Font role="font" uri="font:BoldSystemFontFile" size="28" />
+      </Label>
+      <Label id="pairingTitle" text="Codigo de ativacao" translation="[0,470]" width="1920"
+             horizAlign="center" color="0xFFFFFFFF">
+        <Font role="font" uri="font:BoldSystemFontFile" size="56" />
+      </Label>
+      <Label id="pairingHint" translation="[0,545]" width="1920" horizAlign="center"
+             color="0xB0B0B0FF"
+             text="No painel MDI 360, abra Telas e use Vincular tela com o codigo abaixo.">
+        <Font role="font" uri="font:SystemFontFile" size="28" />
+      </Label>
+      <Label id="pairingCode" translation="[0,620]" width="1920" horizAlign="center"
+             color="0xFFFFFFFF">
+        <Font role="font" uri="font:BoldSystemFontFile" size="96" />
+      </Label>
+      <Label id="statusLabel" translation="[0,800]" width="1920" horizAlign="center"
+             color="0x707070FF" text="Conectando ao servidor...">
+        <Font role="font" uri="font:SystemFontFile" size="24" />
+      </Label>
+    </Group>
+
+    <SyncTask id="sync" />
+  </children>
+</component>
