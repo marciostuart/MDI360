@@ -23,6 +23,7 @@ import { Route as TorreIndexRouteImport } from './routes/torre/index'
 import { Route as ApiMediaUploadRouteImport } from './routes/api/media/upload'
 import { Route as ApiPublicPlayerPairRouteImport } from './routes/api/public/player/pair'
 import { Route as ApiPublicPlayerRegisterRouteImport } from './routes/api/public/player/register'
+import { Route as ApiPublicPlayerStatusRouteImport } from './routes/api/public/player/status'
 import { Route as ApiPublicPlayerSyncRouteImport } from './routes/api/public/player/sync'
 
 const IndexRoute = IndexRouteImport.update({
@@ -95,6 +96,11 @@ const ApiPublicPlayerRegisterRoute = ApiPublicPlayerRegisterRouteImport.update({
   path: '/api/public/player/register',
   getParentRoute: () => rootRouteImport,
 } as any)
+const ApiPublicPlayerStatusRoute = ApiPublicPlayerStatusRouteImport.update({
+  id: '/api/public/player/status',
+  path: '/api/public/player/status',
+  getParentRoute: () => rootRouteImport,
+} as any)
 const ApiPublicPlayerSyncRoute = ApiPublicPlayerSyncRouteImport.update({
   id: '/api/public/player/sync',
   path: '/api/public/player/sync',
@@ -116,6 +122,7 @@ export interface FileRoutesByFullPath {
   '/api/media/upload': typeof ApiMediaUploadRoute
   '/api/public/player/pair': typeof ApiPublicPlayerPairRoute
   '/api/public/player/register': typeof ApiPublicPlayerRegisterRoute
+  '/api/public/player/status': typeof ApiPublicPlayerStatusRoute
   '/api/public/player/sync': typeof ApiPublicPlayerSyncRoute
 }
 export interface FileRoutesByTo {
@@ -131,6 +138,7 @@ export interface FileRoutesByTo {
   '/api/media/upload': typeof ApiMediaUploadRoute
   '/api/public/player/pair': typeof ApiPublicPlayerPairRoute
   '/api/public/player/register': typeof ApiPublicPlayerRegisterRoute
+  '/api/public/player/status': typeof ApiPublicPlayerStatusRoute
   '/api/public/player/sync': typeof ApiPublicPlayerSyncRoute
 }
 export interface FileRoutesById {
@@ -149,6 +157,7 @@ export interface FileRoutesById {
   '/api/media/upload': typeof ApiMediaUploadRoute
   '/api/public/player/pair': typeof ApiPublicPlayerPairRoute
   '/api/public/player/register': typeof ApiPublicPlayerRegisterRoute
+  '/api/public/player/status': typeof ApiPublicPlayerStatusRoute
   '/api/public/player/sync': typeof ApiPublicPlayerSyncRoute
 }
 export interface FileRouteTypes {
@@ -168,6 +177,7 @@ export interface FileRouteTypes {
     | '/api/media/upload'
     | '/api/public/player/pair'
     | '/api/public/player/register'
+    | '/api/public/player/status'
     | '/api/public/player/sync'
   fileRoutesByTo: FileRoutesByTo
   to:
@@ -183,6 +193,7 @@ export interface FileRouteTypes {
     | '/api/media/upload'
     | '/api/public/player/pair'
     | '/api/public/player/register'
+    | '/api/public/player/status'
     | '/api/public/player/sync'
   id:
     | '__root__'
@@ -200,6 +211,7 @@ export interface FileRouteTypes {
     | '/api/media/upload'
     | '/api/public/player/pair'
     | '/api/public/player/register'
+    | '/api/public/player/status'
     | '/api/public/player/sync'
   fileRoutesById: FileRoutesById
 }
@@ -212,6 +224,7 @@ export interface RootRouteChildren {
   ApiMediaUploadRoute: typeof ApiMediaUploadRoute
   ApiPublicPlayerPairRoute: typeof ApiPublicPlayerPairRoute
   ApiPublicPlayerRegisterRoute: typeof ApiPublicPlayerRegisterRoute
+  ApiPublicPlayerStatusRoute: typeof ApiPublicPlayerStatusRoute
   ApiPublicPlayerSyncRoute: typeof ApiPublicPlayerSyncRoute
 }
 
@@ -315,6 +328,13 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof ApiPublicPlayerRegisterRouteImport
       parentRoute: typeof rootRouteImport
     }
+    '/api/public/player/status': {
+      id: '/api/public/player/status'
+      path: '/api/public/player/status'
+      fullPath: '/api/public/player/status'
+      preLoaderRoute: typeof ApiPublicPlayerStatusRouteImport
+      parentRoute: typeof rootRouteImport
+    }
     '/api/public/player/sync': {
       id: '/api/public/player/sync'
       path: '/api/public/player/sync'
@@ -366,6 +386,7 @@ const rootRouteChildren: RootRouteChildren = {
   ApiMediaUploadRoute: ApiMediaUploadRoute,
   ApiPublicPlayerPairRoute: ApiPublicPlayerPairRoute,
   ApiPublicPlayerRegisterRoute: ApiPublicPlayerRegisterRoute,
+  ApiPublicPlayerStatusRoute: ApiPublicPlayerStatusRoute,
   ApiPublicPlayerSyncRoute: ApiPublicPlayerSyncRoute,
 }
 export const routeTree = rootRouteImport
