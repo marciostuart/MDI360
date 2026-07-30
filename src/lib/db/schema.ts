@@ -43,6 +43,12 @@ export const organizations = pgTable("organizations", {
   id: uuid("id").primaryKey().defaultRandom(),
   name: text("name").notNull(),
   slug: text("slug").notNull().unique(),
+  /** Whitelabel: storage key of the logo shown on the TV splash. */
+  brandLogoKey: text("brand_logo_key"),
+  /** Whitelabel: text shown under the logo while the app boots. */
+  brandSplashText: text("brand_splash_text"),
+  /** Whitelabel: accent colour (hex) used on the splash/activation screen. */
+  brandColor: text("brand_color"),
   createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
 });
 
