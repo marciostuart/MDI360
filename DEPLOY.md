@@ -42,9 +42,15 @@ Copie o resultado. Ele será o `SESSION_SECRET`.
 
 ## Passo 4 — Apontar o subdomínio na Cloudflare
 
+O site comercial continua onde já está (`360bh.com.br`) e **não** é hospedado aqui.
+Este subdomínio serve apenas o sistema (área logada).
+
 1. Na Cloudflare, crie um registro **A** para `mdi` apontando para o IP da VPS
    (fica `mdi.360bh.com.br`).
 2. Deixe a nuvenzinha **laranja** (proxy ativado).
+
+> Se preferir outro nome, use `app` ou `studio` (ex.: `app.360bh.com.br`) e troque
+> `APP_HOST`/`APP_URL` no Passo 5. Nada mais precisa mudar.
 
 ---
 
@@ -77,8 +83,8 @@ Copie o resultado. Ele será o `SESSION_SECRET`.
 
 ## Passo 6 — Confirmar que funcionou
 
-1. Abra `https://mdi.360bh.com.br` (site comercial do MDI 360).
-2. Clique em **Criar minha conta** e cadastre-se. O primeiro usuário vira o dono.
+1. Abra `https://mdi.360bh.com.br` (tela de acesso ao sistema).
+2. Clique em **Entrar no Studio** → aba **Criar conta**. O primeiro usuário vira o dono.
 3. Você cai no painel do cliente em `https://mdi.360bh.com.br/studio`.
    O seu painel interno fica em `https://mdi.360bh.com.br/torre` e só abre para os
    e-mails listados em `PLATFORM_ADMIN_EMAILS`.
@@ -87,6 +93,11 @@ Copie o resultado. Ele será o `SESSION_SECRET`.
 
 As tabelas do banco são criadas automaticamente no primeiro start —
 você não precisa rodar nenhum SQL.
+
+> O subdomínio do sistema está marcado como `noindex` e o `robots.txt` bloqueia
+> buscadores, para não competir com a sua página que já performa no orgânico.
+> Nos botões "Entrar" da sua landing atual, aponte o link para
+> `https://mdi.360bh.com.br/entrar`.
 
 ---
 
