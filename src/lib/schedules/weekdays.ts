@@ -1,5 +1,7 @@
 /** Shared, client-safe helpers for the schedule UI (bitmask + HH:MM math). */
-export const WEEKDAYS = [
+export type Weekday = { bit: number; short: string };
+
+export const WEEKDAYS: Weekday[] = [
   { bit: 0, short: "Dom" },
   { bit: 1, short: "Seg" },
   { bit: 2, short: "Ter" },
