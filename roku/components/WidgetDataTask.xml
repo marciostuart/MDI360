@@ -1,0 +1,9 @@
+<?xml version="1.0" encoding="utf-8" ?>
+<component name="WidgetDataTask" extends="Task">
+  <script type="text/brightscript" uri="pkg:/components/WidgetDataTask.brs" />
+  <interface>
+    <field id="url" type="string" />
+    <field id="result" type="assocarray" />
+    <field id="control" type="string" />
+  </interface>
+</component>
