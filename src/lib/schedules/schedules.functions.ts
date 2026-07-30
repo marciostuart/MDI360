@@ -147,5 +147,8 @@ export const deleteSchedule = createServerFn({ method: "POST" })
         ),
       );
 
+    const { notifyOrganization } = await import("@/lib/player/realtime.server");
+    notifyOrganization(user.organizationId);
+
     return { ok: true };
   });
