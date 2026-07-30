@@ -157,9 +157,14 @@ você não precisa rodar nenhum SQL.
 
 ## Se algo der errado
 
-No Portainer, abra **Containers → signage → Logs**. As mensagens começam com
-`[signage]`. Os erros mais comuns:
+No Portainer, abra **Stacks → signage → signage_signage → Logs** (ou
+`docker service logs -f signage_signage`). As mensagens começam com `[signage]`.
+Os erros mais comuns:
 
-- `ECONNREFUSED` no banco → o container `signage` não está na mesma rede do Postgres.
+- `ECONNREFUSED` / `ENOTFOUND` no banco → o `DATABASE_URL` aponta para um nome
+  de serviço errado, ou a stack não está na mesma rede overlay do Postgres
+  (ajuste `DATA_NETWORK`).
 - `password authentication failed` → a senha no `DATABASE_URL` está diferente da do Passo 1.
-- Página não abre → confira o `APP_HOST` e o nome da rede do Traefik no compose.
+- `No such image: signage:latest` → faltou o `docker build` do Passo 5.
+- Página não abre → confira `APP_HOST`, `TRAEFIK_NETWORK` e se o entrypoint do seu
+  Traefik se chama mesmo `websecure`.
