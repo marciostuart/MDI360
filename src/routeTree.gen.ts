@@ -21,7 +21,6 @@ import { Route as StudioPlaylistsRouteImport } from './routes/studio/playlists'
 import { Route as StudioTelasRouteImport } from './routes/studio/telas'
 import { Route as TorreIndexRouteImport } from './routes/torre/index'
 import { Route as ApiMediaUploadRouteImport } from './routes/api/media/upload'
-import { Route as ApiPublicPlayerPairRouteImport } from './routes/api/public/player/pair'
 import { Route as ApiPublicPlayerRegisterRouteImport } from './routes/api/public/player/register'
 import { Route as ApiPublicPlayerStatusRouteImport } from './routes/api/public/player/status'
 import { Route as ApiPublicPlayerSyncRouteImport } from './routes/api/public/player/sync'
@@ -86,11 +85,6 @@ const ApiMediaUploadRoute = ApiMediaUploadRouteImport.update({
   path: '/api/media/upload',
   getParentRoute: () => rootRouteImport,
 } as any)
-const ApiPublicPlayerPairRoute = ApiPublicPlayerPairRouteImport.update({
-  id: '/api/public/player/pair',
-  path: '/api/public/player/pair',
-  getParentRoute: () => rootRouteImport,
-} as any)
 const ApiPublicPlayerRegisterRoute = ApiPublicPlayerRegisterRouteImport.update({
   id: '/api/public/player/register',
   path: '/api/public/player/register',
@@ -120,7 +114,6 @@ export interface FileRoutesByFullPath {
   '/studio/': typeof StudioIndexRoute
   '/torre/': typeof TorreIndexRoute
   '/api/media/upload': typeof ApiMediaUploadRoute
-  '/api/public/player/pair': typeof ApiPublicPlayerPairRoute
   '/api/public/player/register': typeof ApiPublicPlayerRegisterRoute
   '/api/public/player/status': typeof ApiPublicPlayerStatusRoute
   '/api/public/player/sync': typeof ApiPublicPlayerSyncRoute
@@ -136,7 +129,6 @@ export interface FileRoutesByTo {
   '/studio': typeof StudioIndexRoute
   '/torre': typeof TorreIndexRoute
   '/api/media/upload': typeof ApiMediaUploadRoute
-  '/api/public/player/pair': typeof ApiPublicPlayerPairRoute
   '/api/public/player/register': typeof ApiPublicPlayerRegisterRoute
   '/api/public/player/status': typeof ApiPublicPlayerStatusRoute
   '/api/public/player/sync': typeof ApiPublicPlayerSyncRoute
@@ -155,7 +147,6 @@ export interface FileRoutesById {
   '/studio/': typeof StudioIndexRoute
   '/torre/': typeof TorreIndexRoute
   '/api/media/upload': typeof ApiMediaUploadRoute
-  '/api/public/player/pair': typeof ApiPublicPlayerPairRoute
   '/api/public/player/register': typeof ApiPublicPlayerRegisterRoute
   '/api/public/player/status': typeof ApiPublicPlayerStatusRoute
   '/api/public/player/sync': typeof ApiPublicPlayerSyncRoute
@@ -175,7 +166,6 @@ export interface FileRouteTypes {
     | '/studio/'
     | '/torre/'
     | '/api/media/upload'
-    | '/api/public/player/pair'
     | '/api/public/player/register'
     | '/api/public/player/status'
     | '/api/public/player/sync'
@@ -191,7 +181,6 @@ export interface FileRouteTypes {
     | '/studio'
     | '/torre'
     | '/api/media/upload'
-    | '/api/public/player/pair'
     | '/api/public/player/register'
     | '/api/public/player/status'
     | '/api/public/player/sync'
@@ -209,7 +198,6 @@ export interface FileRouteTypes {
     | '/studio/'
     | '/torre/'
     | '/api/media/upload'
-    | '/api/public/player/pair'
     | '/api/public/player/register'
     | '/api/public/player/status'
     | '/api/public/player/sync'
@@ -222,7 +210,6 @@ export interface RootRouteChildren {
   EntrarRoute: typeof EntrarRoute
   TelaRoute: typeof TelaRoute
   ApiMediaUploadRoute: typeof ApiMediaUploadRoute
-  ApiPublicPlayerPairRoute: typeof ApiPublicPlayerPairRoute
   ApiPublicPlayerRegisterRoute: typeof ApiPublicPlayerRegisterRoute
   ApiPublicPlayerStatusRoute: typeof ApiPublicPlayerStatusRoute
   ApiPublicPlayerSyncRoute: typeof ApiPublicPlayerSyncRoute
@@ -314,13 +301,6 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof ApiMediaUploadRouteImport
       parentRoute: typeof rootRouteImport
     }
-    '/api/public/player/pair': {
-      id: '/api/public/player/pair'
-      path: '/api/public/player/pair'
-      fullPath: '/api/public/player/pair'
-      preLoaderRoute: typeof ApiPublicPlayerPairRouteImport
-      parentRoute: typeof rootRouteImport
-    }
     '/api/public/player/register': {
       id: '/api/public/player/register'
       path: '/api/public/player/register'
@@ -384,7 +364,6 @@ const rootRouteChildren: RootRouteChildren = {
   EntrarRoute: EntrarRoute,
   TelaRoute: TelaRoute,
   ApiMediaUploadRoute: ApiMediaUploadRoute,
-  ApiPublicPlayerPairRoute: ApiPublicPlayerPairRoute,
   ApiPublicPlayerRegisterRoute: ApiPublicPlayerRegisterRoute,
   ApiPublicPlayerStatusRoute: ApiPublicPlayerStatusRoute,
   ApiPublicPlayerSyncRoute: ApiPublicPlayerSyncRoute,

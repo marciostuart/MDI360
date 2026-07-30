@@ -5,7 +5,6 @@ import { CANVAS_PRESET_IDS } from "@/lib/media/presets";
 
 /** A screen is considered online when it checked in within this window. */
 export const DEVICE_ONLINE_WINDOW_MS = 90_000;
-const PAIRING_TTL_MS = 24 * 60 * 60 * 1000;
 
 export type DeviceListItem = {
   id: string;
@@ -22,12 +21,6 @@ export type DeviceListItem = {
 
 const nameSchema = z.string().trim().min(1, "Informe um nome").max(120);
 const presetSchema = z.enum(CANVAS_PRESET_IDS as [string, ...string[]]);
-
-/** 6-digit code, no ambiguity: only digits, shown on the TV during pairing. */
-async function generatePairingCode() {
-  const { randomInt } = await import("node:crypto");
-  return String(randomInt(100000, 1000000));
-}
 
 /** Screens of the caller's organization only. Never returns another tenant's rows. */
 export const listDevices = createServerFn({ method: "GET" }).handler(
