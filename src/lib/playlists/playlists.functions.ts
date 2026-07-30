@@ -297,5 +297,9 @@ export const setPlaylistItems = createServerFn({ method: "POST" })
         .where(eq(schema.playlists.id, data.playlistId));
     });
 
+    // Broadcast: every TV of this customer re-syncs within ~1 second.
+    const { notifyOrganization } = await import("@/lib/player/realtime.server");
+    notifyOrganization(user.organizationId);
+
     return { ok: true };
   });
