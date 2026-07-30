@@ -62,9 +62,39 @@ export async function checkStorageConnection(): Promise<{ ok: boolean; error?: s
     await getClient().send(new HeadBucketCommand({ Bucket: getBucket() }));
     return { ok: true };
   } catch (error) {
-    const raw = error instanceof Error ? error.message : String(error);
-    const name = error instanceof Error ? error.name : "Erro";
-    return { ok: false, error: `${name}: ${raw}`.slice(0, 300) };
+    const anyErr = error as {
+      name?: string;
+      message?: string;
+      Code?: string;
+      $metadata?: { httpStatusCode?: number };
+    };
+    const status = anyErr?.$metadata?.httpStatusCode;
+    const parts = [
+      anyErr?.name ?? "Erro",
+      anyErr?.Code ? `code=${anyErr.Code}` : undefined,
+      status ? `http=${status}` : undefined,
+      anyErr?.message,
+      `endpoint=${S3.endpoint()} bucket=${getBucket()}`,
+      await probeEndpoint(),
+    ].filter(Boolean);
+    return { ok: false, error: parts.join(" | ").slice(0, 500) };
+  }
+}
+
+/**
+ * Raw HTTP probe of the MinIO health endpoint. Distinguishes wrong protocol
+ * (HTTP sent to a TLS port), wrong port (console instead of API) and DNS issues.
+ */
+async function probeEndpoint(): Promise<string> {
+  const endpoint = S3.endpoint();
+  if (!endpoint) return "probe=sem endpoint";
+  try {
+    const url = new URL("/minio/health/live", endpoint);
+    const res = await fetch(url, { method: "GET" });
+    const body = (await res.text()).slice(0, 120);
+    return `probe=${res.status} ${body ? `body="${body}"` : "sem corpo"}`;
+  } catch (e) {
+    return `probe=falhou (${e instanceof Error ? e.message : String(e)})`;
   }
 }
 
