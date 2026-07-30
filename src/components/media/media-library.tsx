@@ -1,6 +1,6 @@
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { useServerFn } from "@tanstack/react-start";
-import { Film, Image as ImageIcon, Loader2, Trash2, UploadCloud } from "lucide-react";
+import { Film, Gauge, Image as ImageIcon, Loader2, Trash2, UploadCloud } from "lucide-react";
 import { useRef, useState } from "react";
 import { toast } from "sonner";
 
@@ -15,6 +15,8 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select";
+import { WidgetComposer } from "@/components/widgets/widget-composer";
+import { WidgetView } from "@/components/widgets/widget-view";
 import {
   createMediaUploadTicket,
   deleteMediaAsset,
@@ -27,6 +29,7 @@ import {
   formatBytes,
   getCanvasPreset,
 } from "@/lib/media/presets";
+import { getWidgetDefinition } from "@/lib/widgets/catalog";
 
 export function MediaLibrary() {
   const queryClient = useQueryClient();
@@ -174,6 +177,8 @@ export function MediaLibrary() {
         </CardContent>
       </Card>
 
+      <WidgetComposer />
+
       {library.isPending ? (
         <div className="grid place-items-center py-10">
           <Loader2 className="size-5 animate-spin text-muted-foreground" />
@@ -187,7 +192,9 @@ export function MediaLibrary() {
           {items.map((item) => (
             <Card key={item.id} className="overflow-hidden">
               <div className="grid aspect-video place-items-center bg-secondary">
-                {item.kind === "image" && item.previewUrl ? (
+                {item.kind === "widget" && item.widgetConfig ? (
+                  <WidgetView config={item.widgetConfig} />
+                ) : item.kind === "image" && item.previewUrl ? (
                   <img
                     src={item.previewUrl}
                     alt={item.name}
@@ -198,6 +205,8 @@ export function MediaLibrary() {
                   <video src={item.previewUrl} muted controls className="size-full object-contain" />
                 ) : item.kind === "video" ? (
                   <Film className="size-8 text-muted-foreground" />
+                ) : item.kind === "widget" ? (
+                  <Gauge className="size-8 text-muted-foreground" />
                 ) : (
                   <ImageIcon className="size-8 text-muted-foreground" />
                 )}
@@ -217,13 +226,21 @@ export function MediaLibrary() {
                   </Button>
                 </div>
                 <div className="flex flex-wrap gap-1.5">
-                  <Badge variant="secondary">{getCanvasPreset(item.canvasPreset).label}</Badge>
+                  {item.kind === "widget" ? (
+                    <Badge variant="secondary">
+                      Widget · {getWidgetDefinition(item.widgetType ?? "clock").label}
+                    </Badge>
+                  ) : (
+                    <Badge variant="secondary">{getCanvasPreset(item.canvasPreset).label}</Badge>
+                  )}
                   {item.width && item.height ? (
                     <Badge variant="outline">
                       {item.width}x{item.height}
                     </Badge>
                   ) : null}
-                  <Badge variant="outline">{formatBytes(item.byteSize)}</Badge>
+                  {item.kind === "widget" ? null : (
+                    <Badge variant="outline">{formatBytes(item.byteSize)}</Badge>
+                  )}
                   {item.status !== "ready" ? (
                     <Badge variant="destructive">
                       {item.status === "uploading" ? "Envio incompleto" : "Falhou"}

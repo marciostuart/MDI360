@@ -1,6 +1,8 @@
 import { createServerFn } from "@tanstack/react-start";
 import { z } from "zod";
 
+import type { WidgetConfig } from "@/lib/widgets/catalog";
+
 export type PlaylistListItem = {
   id: string;
   name: string;
@@ -18,9 +20,11 @@ export type PlaylistItemDetail = {
   durationMs: number;
   isMuted: boolean;
   name: string;
-  kind: "image" | "video" | "web";
+  kind: "image" | "video" | "web" | "widget";
   canvasPreset: string;
   previewUrl: string | null;
+  widgetType: string | null;
+  widgetConfig: WidgetConfig | null;
 };
 
 const nameSchema = z.string().trim().min(1, "Informe um nome").max(120);
@@ -101,6 +105,8 @@ export const getPlaylist = createServerFn({ method: "GET" })
         kind: schema.mediaAssets.kind,
         canvasPreset: schema.mediaAssets.canvasPreset,
         storageKey: schema.mediaAssets.storageKey,
+        widgetType: schema.mediaAssets.widgetType,
+        widgetConfig: schema.mediaAssets.widgetConfig,
       })
       .from(schema.playlistItems)
       .innerJoin(
@@ -121,7 +127,11 @@ export const getPlaylist = createServerFn({ method: "GET" })
             previewUrl = null;
           }
         }
-        return { ...row, previewUrl } satisfies PlaylistItemDetail;
+        return {
+          ...row,
+          widgetConfig: (row.widgetConfig as WidgetConfig | null) ?? null,
+          previewUrl,
+        } satisfies PlaylistItemDetail;
       }),
     );
 

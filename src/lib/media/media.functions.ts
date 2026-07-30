@@ -1,6 +1,8 @@
 import { createServerFn } from "@tanstack/react-start";
 import { z } from "zod";
 
+import type { WidgetConfig } from "@/lib/widgets/catalog";
+
 import {
   ALLOWED_IMAGE_TYPES,
   ALLOWED_VIDEO_TYPES,
@@ -37,7 +39,7 @@ const ticketSchema = z
 export type MediaListItem = {
   id: string;
   name: string;
-  kind: "image" | "video" | "web";
+  kind: "image" | "video" | "web" | "widget";
   status: "uploading" | "ready" | "failed";
   canvasPreset: string;
   mimeType: string | null;
@@ -48,6 +50,8 @@ export type MediaListItem = {
   height: number | null;
   createdAt: string;
   previewUrl: string | null;
+  widgetType: string | null;
+  widgetConfig: WidgetConfig | null;
 };
 
 /** Library of the caller's organization. Never returns another tenant's rows. */
@@ -94,6 +98,8 @@ export const listMediaAssets = createServerFn({ method: "GET" }).handler(
           height: row.height,
           createdAt: row.createdAt.toISOString(),
           previewUrl,
+          widgetType: row.widgetType,
+          widgetConfig: (row.widgetConfig as WidgetConfig | null) ?? null,
         } satisfies MediaListItem;
       }),
     );
