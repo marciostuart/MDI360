@@ -49,8 +49,8 @@ Este subdomínio serve apenas o sistema (área logada).
    (fica `mdi.360bh.com.br`).
 2. Deixe a nuvenzinha **laranja** (proxy ativado).
 
-> Se preferir outro nome, use `app` ou `studio` (ex.: `app.360bh.com.br`) e troque
-> `APP_HOST`/`APP_URL` no Passo 5. Nada mais precisa mudar.
+> Definido: o sistema roda em **`mdi.360bh.com.br`**. O site comercial permanece
+> em `360bh.com.br/pages/midia-digital-indoor`.
 
 ---
 
