@@ -7,7 +7,8 @@ import {
 } from "@aws-sdk/client-s3";
 import { getSignedUrl } from "@aws-sdk/s3-request-presigner";
 
-let client: S3Client | undefined;
+let publicClient: S3Client | undefined;
+let internalClient: S3Client | undefined;
 
 /**
  * Aceita os dois nomes possíveis das variáveis (padrão AWS e o formato curto
@@ -22,7 +23,12 @@ function env(...names: string[]): string | undefined {
 }
 
 const S3 = {
-  endpoint: () => env("S3_ENDPOINT", "MINIO_ENDPOINT"),
+  /** URL reachable by the browser/TVs — used to sign upload/download links. */
+  endpoint: () => env("S3_ENDPOINT", "S3_PUBLIC_ENDPOINT", "MINIO_ENDPOINT"),
+  /** Optional in-cluster URL used only for server-to-MinIO calls. */
+  internalEndpoint: () =>
+    env("S3_INTERNAL_ENDPOINT", "MINIO_INTERNAL_ENDPOINT") ??
+    env("S3_ENDPOINT", "S3_PUBLIC_ENDPOINT", "MINIO_ENDPOINT"),
   accessKey: () => env("S3_ACCESS_KEY_ID", "S3_ACCESS_KEY", "MINIO_ACCESS_KEY"),
   secretKey: () => env("S3_SECRET_ACCESS_KEY", "S3_SECRET_KEY", "MINIO_SECRET_KEY"),
   bucket: () => env("S3_BUCKET", "MINIO_BUCKET"),
@@ -74,7 +80,7 @@ export async function checkStorageConnection(): Promise<{ ok: boolean; error?: s
       anyErr?.Code ? `code=${anyErr.Code}` : undefined,
       status ? `http=${status}` : undefined,
       anyErr?.message,
-      `endpoint=${S3.endpoint()} bucket=${getBucket()}`,
+      `endpoint=${S3.internalEndpoint()} public=${S3.endpoint()} bucket=${getBucket()}`,
       await probeEndpoint(),
     ].filter(Boolean);
     return { ok: false, error: parts.join(" | ").slice(0, 500) };
@@ -86,7 +92,7 @@ export async function checkStorageConnection(): Promise<{ ok: boolean; error?: s
  * (HTTP sent to a TLS port), wrong port (console instead of API) and DNS issues.
  */
 async function probeEndpoint(): Promise<string> {
-  const endpoint = S3.endpoint();
+  const endpoint = S3.internalEndpoint();
   if (!endpoint) return "probe=sem endpoint";
   try {
     const url = new URL("/minio/health/live", endpoint);
@@ -98,13 +104,14 @@ async function probeEndpoint(): Promise<string> {
   }
 }
 
+/** Server-side client (internal endpoint when provided). */
 function getClient(): S3Client {
   if (!isStorageConfigured()) throw new StorageNotConfiguredError();
 
-  if (!client) {
-    client = new S3Client({
+  if (!internalClient) {
+    internalClient = new S3Client({
       region: S3.region(),
-      endpoint: S3.endpoint(),
+      endpoint: S3.internalEndpoint(),
       // MinIO serves buckets as a path segment, not as a subdomain.
       forcePathStyle: true,
       credentials: {
@@ -114,7 +121,26 @@ function getClient(): S3Client {
     });
   }
 
-  return client;
+  return internalClient;
+}
+
+/** Client used only to sign URLs the browser/TV will open (public endpoint). */
+function getPublicClient(): S3Client {
+  if (!isStorageConfigured()) throw new StorageNotConfiguredError();
+
+  if (!publicClient) {
+    publicClient = new S3Client({
+      region: S3.region(),
+      endpoint: S3.endpoint(),
+      forcePathStyle: true,
+      credentials: {
+        accessKeyId: S3.accessKey()!,
+        secretAccessKey: S3.secretKey()!,
+      },
+    });
+  }
+
+  return publicClient;
 }
 
 function getBucket(): string {
@@ -125,7 +151,7 @@ function getBucket(): string {
 
 /** Short-lived URL the browser/player uses to read a private object. */
 export function createDownloadUrl(key: string, expiresInSeconds = 3600) {
-  return getSignedUrl(getClient(), new GetObjectCommand({ Bucket: getBucket(), Key: key }), {
+  return getSignedUrl(getPublicClient(), new GetObjectCommand({ Bucket: getBucket(), Key: key }), {
     expiresIn: expiresInSeconds,
   });
 }
