@@ -26,6 +26,7 @@ type SyncResponse = {
   } | null;
   commands: string[];
   syncIntervalMs: number;
+  revision?: number;
 };
 
 const TOKEN_KEY = "mdi360.deviceToken";
@@ -71,6 +72,7 @@ function PlayerScreen() {
   const [error, setError] = useState<string | null>(null);
   const [index, setIndex] = useState(0);
   const timerRef = useRef<number | null>(null);
+  const revisionRef = useRef(0);
 
   /** Announces this screen to the server and reserves an activation code. */
   const register = useCallback(async () => {
