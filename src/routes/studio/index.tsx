@@ -7,12 +7,12 @@ import { useCurrentUser, useSetupState } from "@/lib/auth/useCurrentUser";
 export const Route = createFileRoute("/studio/")({
   head: () => ({
     meta: [
-      { title: "Visão geral | SinalDigital" },
+      { title: "Visão geral | MDI 360" },
       {
         name: "description",
         content: "Acompanhe o status das suas telas, conteúdos publicados e da infraestrutura.",
       },
-      { property: "og:title", content: "Visão geral do painel SinalDigital" },
+      { property: "og:title", content: "Visão geral do painel MDI 360" },
       {
         property: "og:description",
         content: "Acompanhe o status das suas telas e conteúdos publicados.",

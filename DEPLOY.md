@@ -42,7 +42,8 @@ Copie o resultado. Ele será o `SESSION_SECRET`.
 
 ## Passo 4 — Apontar o subdomínio na Cloudflare
 
-1. Na Cloudflare, crie um registro **A** para `painel` apontando para o IP da VPS.
+1. Na Cloudflare, crie um registro **A** para `mdi` apontando para o IP da VPS
+   (fica `mdi.360bh.com.br`).
 2. Deixe a nuvenzinha **laranja** (proxy ativado).
 
 ---
@@ -64,6 +65,7 @@ Copie o resultado. Ele será o `SESSION_SECRET`.
 | `SESSION_SECRET` | o valor gerado no Passo 3 |
 | `APP_HOST` | `mdi.360bh.com.br` |
 | `APP_URL` | `https://mdi.360bh.com.br` |
+| `PLATFORM_ADMIN_EMAILS` | seu e-mail, ex.: `voce@360bh.com.br` |
 
 4. Clique em **Deploy the stack**.
 
@@ -75,9 +77,12 @@ Copie o resultado. Ele será o `SESSION_SECRET`.
 
 ## Passo 6 — Confirmar que funcionou
 
-1. Abra `https://mdi.360bh.com.br`.
+1. Abra `https://mdi.360bh.com.br` (site comercial do MDI 360).
 2. Clique em **Criar minha conta** e cadastre-se. O primeiro usuário vira o dono.
-3. No painel, o bloco **Status da infraestrutura** deve mostrar
+3. Você cai no painel do cliente em `https://mdi.360bh.com.br/studio`.
+   O seu painel interno fica em `https://mdi.360bh.com.br/torre` e só abre para os
+   e-mails listados em `PLATFORM_ADMIN_EMAILS`.
+4. No painel, o bloco **Status da infraestrutura** deve mostrar
    "Conectado" para o banco e para o armazenamento.
 
 As tabelas do banco são criadas automaticamente no primeiro start —

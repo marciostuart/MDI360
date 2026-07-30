@@ -6,12 +6,12 @@ import { ModulePlaceholder } from "@/components/module-placeholder";
 export const Route = createFileRoute("/studio/conteudos")({
   head: () => ({
     meta: [
-      { title: "Conteúdos | SinalDigital" },
+      { title: "Conteúdos | MDI 360" },
       {
         name: "description",
         content: "Envie imagens e vídeos para o seu armazenamento MinIO e organize sua biblioteca.",
       },
-      { property: "og:title", content: "Biblioteca de conteúdos | SinalDigital" },
+      { property: "og:title", content: "Biblioteca de conteúdos | MDI 360" },
       {
         property: "og:description",
         content: "Envie imagens e vídeos e organize sua biblioteca de mídias.",

@@ -16,16 +16,16 @@ import { useSetupState } from "@/lib/auth/useCurrentUser";
 export const Route = createFileRoute("/entrar")({
   head: () => ({
     meta: [
-      { title: "Entrar | Painel de Sinalização Digital" },
+      { title: "Entrar | MDI 360" },
       {
         name: "description",
         content:
-          "Acesse o painel para gerenciar suas telas, playlists e conteúdos de sinalização digital.",
+          "Acesse o MDI 360 para gerenciar suas telas, playlists e conteúdos de mídia digital indoor.",
       },
-      { property: "og:title", content: "Entrar no Painel de Sinalização Digital" },
+      { property: "og:title", content: "Entrar no MDI 360" },
       {
         property: "og:description",
-        content: "Acesse o painel para gerenciar suas telas e conteúdos.",
+        content: "Acesse o MDI 360 para gerenciar suas telas e conteúdos.",
       },
     ],
   }),
@@ -89,7 +89,7 @@ function AuthPage() {
           <span className="grid size-9 place-items-center rounded-lg bg-primary text-primary-foreground">
             <MonitorPlay className="size-5" />
           </span>
-          <span className="font-display text-lg font-semibold">SinalDigital</span>
+          <span className="font-display text-lg font-semibold">MDI 360</span>
         </Link>
 
         {databaseMissing ? (
