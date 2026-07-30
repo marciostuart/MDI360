@@ -1,9 +1,25 @@
 import { createFileRoute } from "@tanstack/react-router";
 import { useQuery } from "@tanstack/react-query";
-import { Building2, Loader2, Tv, Users, Wifi } from "lucide-react";
+import {
+  AlertTriangle,
+  Building2,
+  CheckCircle2,
+  Database,
+  HardDrive,
+  Loader2,
+  Tv,
+  Users,
+  Wifi,
+} from "lucide-react";
 
-import { Card, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
-import { fetchPlatformOverview } from "@/lib/admin/platform.functions";
+import {
+  Card,
+  CardContent,
+  CardDescription,
+  CardHeader,
+  CardTitle,
+} from "@/components/ui/card";
+import { fetchInfraStatus, fetchPlatformOverview } from "@/lib/admin/platform.functions";
 
 export const Route = createFileRoute("/torre/")({
   head: () => ({
@@ -26,6 +42,11 @@ function TowerOverview() {
     queryKey: ["platform-overview"],
     queryFn: () => fetchPlatformOverview(),
     staleTime: 15_000,
+  });
+  const { data: infra } = useQuery({
+    queryKey: ["platform-infra"],
+    queryFn: () => fetchInfraStatus(),
+    refetchInterval: 30_000,
   });
 
   if (isPending) {
@@ -57,6 +78,25 @@ function TowerOverview() {
     { icon: Wifi, label: "Telas ativas (faturáveis)", value: data.activeDevices },
   ];
 
+  const checks = infra
+    ? [
+        {
+          icon: Database,
+          label: "Banco de dados (Postgres)",
+          ready: infra.databaseReady && infra.schemaReady,
+          hint: "Configure DATABASE_URL apontando para o Postgres da VPS.",
+        },
+        {
+          icon: HardDrive,
+          label: "Armazenamento de mídias (MinIO)",
+          ready: infra.storageReady,
+          hint:
+            infra.storageError ??
+            "Confira S3_ENDPOINT, S3_BUCKET, S3_ACCESS_KEY e S3_SECRET_KEY na stack.",
+        },
+      ]
+    : [];
+
   return (
     <div className="space-y-8">
       <div>
@@ -78,6 +118,45 @@ function TowerOverview() {
           </Card>
         ))}
       </div>
+
+      {checks.length > 0 ? (
+        <Card>
+          <CardHeader>
+            <CardTitle className="text-lg">Status da infraestrutura</CardTitle>
+            <CardDescription>
+              Verificação automática das conexões da plataforma. Visível apenas para a equipe MDI
+              360.
+            </CardDescription>
+          </CardHeader>
+          <CardContent className="space-y-3">
+            {checks.map((check) => (
+              <div
+                key={check.label}
+                className="flex items-start gap-3 rounded-lg border border-border p-3"
+              >
+                <check.icon className="mt-0.5 size-4 text-muted-foreground" />
+                <div className="min-w-0 flex-1">
+                  <p className="text-sm font-medium">{check.label}</p>
+                  {!check.ready ? (
+                    <p className="mt-1 text-xs text-muted-foreground">{check.hint}</p>
+                  ) : null}
+                </div>
+                {check.ready ? (
+                  <span className="flex items-center gap-1.5 text-xs font-medium text-signal-online">
+                    <CheckCircle2 className="size-4" />
+                    Conectado
+                  </span>
+                ) : (
+                  <span className="flex items-center gap-1.5 text-xs font-medium text-signal-warning">
+                    <AlertTriangle className="size-4" />
+                    Pendente
+                  </span>
+                )}
+              </div>
+            ))}
+          </CardContent>
+        </Card>
+      ) : null}
     </div>
   );
 }

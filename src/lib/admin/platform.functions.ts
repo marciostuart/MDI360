@@ -19,6 +19,13 @@ export type PlatformOverview = {
   activeDevices: number;
 };
 
+export type InfraStatus = {
+  databaseReady: boolean;
+  schemaReady: boolean;
+  storageReady: boolean;
+  storageError: string | null;
+};
+
 /** Returns null when the caller is not platform staff — the UI shows a 404-ish state. */
 export const fetchPlatformOverview = createServerFn({ method: "GET" }).handler(
   async (): Promise<PlatformOverview | null> => {
@@ -51,5 +58,46 @@ export const fetchPlatformOverview = createServerFn({ method: "GET" }).handler(
       console.error("fetchPlatformOverview failed", error);
       return null;
     }
+  },
+);
+
+/**
+ * Infrastructure health (Postgres + MinIO). Platform staff only: the storage
+ * error text can reveal endpoints and credentials problems, so customers must
+ * never see it. Returns null for everyone else.
+ */
+export const fetchInfraStatus = createServerFn({ method: "GET" }).handler(
+  async (): Promise<InfraStatus | null> => {
+    const { isDatabaseConfigured } = await import("@/lib/db/index.server");
+    const { getSessionUser } = await import("@/lib/auth/session.server");
+
+    if (!isDatabaseConfigured()) return null;
+
+    let user: Awaited<ReturnType<typeof getSessionUser>> = null;
+    try {
+      user = await getSessionUser();
+    } catch {
+      return null;
+    }
+    if (!user || !isPlatformEmail(user.email)) return null;
+
+    let schemaReady = false;
+    try {
+      const { getDb, schema } = await import("@/lib/db/index.server");
+      await getDb().select({ id: schema.users.id }).from(schema.users).limit(1);
+      schemaReady = true;
+    } catch {
+      schemaReady = false;
+    }
+
+    const { checkStorageConnection } = await import("@/lib/storage.server");
+    const storage = await checkStorageConnection();
+
+    return {
+      databaseReady: true,
+      schemaReady,
+      storageReady: storage.ok,
+      storageError: storage.error ?? null,
+    };
   },
 );
