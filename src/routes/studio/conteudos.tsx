@@ -3,7 +3,7 @@ import { Images } from "lucide-react";
 
 import { ModulePlaceholder } from "@/components/module-placeholder";
 
-export const Route = createFileRoute("/painel/conteudos")({
+export const Route = createFileRoute("/studio/conteudos")({
   head: () => ({
     meta: [
       { title: "Conteúdos | SinalDigital" },

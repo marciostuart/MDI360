@@ -3,7 +3,7 @@ import { CalendarClock } from "lucide-react";
 
 import { ModulePlaceholder } from "@/components/module-placeholder";
 
-export const Route = createFileRoute("/painel/agenda")({
+export const Route = createFileRoute("/studio/agenda")({
   head: () => ({
     meta: [
       { title: "Agenda | SinalDigital" },
