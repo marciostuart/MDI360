@@ -22,13 +22,34 @@ function env(...names: string[]): string | undefined {
   return undefined;
 }
 
+/**
+ * Aceita o endpoint com ou sem protocolo (ex.: `s3.360bh.com.br`,
+ * `https://s3.360bh.com.br/`) e devolve sempre `protocolo://host[:porta]`.
+ * Sem protocolo: `https` para hosts públicos e `http` para hosts internos
+ * (nome de serviço sem ponto ou com porta 9000).
+ */
+function normalizeEndpoint(raw: string | undefined): string | undefined {
+  if (!raw) return undefined;
+  let value = raw.trim().replace(/\/+$/, "");
+  if (!/^https?:\/\//i.test(value)) {
+    const isInternal = !value.split(":")[0].includes(".");
+    value = `${isInternal ? "http" : "https"}://${value}`;
+  }
+  try {
+    const url = new URL(value);
+    return `${url.protocol}//${url.host}`;
+  } catch {
+    return value;
+  }
+}
+
 const S3 = {
   /** URL reachable by the browser/TVs — used to sign upload/download links. */
-  endpoint: () => env("S3_ENDPOINT", "S3_PUBLIC_ENDPOINT", "MINIO_ENDPOINT"),
+  endpoint: () => normalizeEndpoint(env("S3_ENDPOINT", "S3_PUBLIC_ENDPOINT", "MINIO_ENDPOINT")),
   /** Optional in-cluster URL used only for server-to-MinIO calls. */
   internalEndpoint: () =>
-    env("S3_INTERNAL_ENDPOINT", "MINIO_INTERNAL_ENDPOINT") ??
-    env("S3_ENDPOINT", "S3_PUBLIC_ENDPOINT", "MINIO_ENDPOINT"),
+    normalizeEndpoint(env("S3_INTERNAL_ENDPOINT", "MINIO_INTERNAL_ENDPOINT")) ??
+    normalizeEndpoint(env("S3_ENDPOINT", "S3_PUBLIC_ENDPOINT", "MINIO_ENDPOINT")),
   accessKey: () => env("S3_ACCESS_KEY_ID", "S3_ACCESS_KEY", "MINIO_ACCESS_KEY"),
   secretKey: () => env("S3_SECRET_ACCESS_KEY", "S3_SECRET_KEY", "MINIO_SECRET_KEY"),
   bucket: () => env("S3_BUCKET", "MINIO_BUCKET"),
