@@ -48,6 +48,44 @@ export const Route = createFileRoute("/api/public/player/sync")({
 
         const playlist = await resolvePlaylistForDevice(device.id);
 
+        // Whitelabel branding of the organization that owns this screen.
+        let branding: {
+          name: string | null;
+          splashText: string | null;
+          color: string | null;
+          logoUrl: string | null;
+        } | null = null;
+        if (device.organizationId) {
+          const orgRows = await db
+            .select({
+              name: schema.organizations.name,
+              splashText: schema.organizations.brandSplashText,
+              color: schema.organizations.brandColor,
+              logoKey: schema.organizations.brandLogoKey,
+            })
+            .from(schema.organizations)
+            .where(eq(schema.organizations.id, device.organizationId))
+            .limit(1);
+          const org = orgRows[0];
+          if (org) {
+            let logoUrl: string | null = null;
+            if (org.logoKey) {
+              try {
+                const { createDownloadUrl } = await import("@/lib/storage.server");
+                logoUrl = await createDownloadUrl(org.logoKey, 7200);
+              } catch {
+                logoUrl = null;
+              }
+            }
+            branding = {
+              name: org.name,
+              splashText: org.splashText,
+              color: org.color,
+              logoUrl,
+            };
+          }
+        }
+
         const commands = await db
           .select({ id: schema.deviceCommands.id, kind: schema.deviceCommands.kind })
           .from(schema.deviceCommands)
@@ -80,6 +118,7 @@ export const Route = createFileRoute("/api/public/player/sync")({
               canvasPreset: device.canvasPreset,
             },
             playlist,
+            branding,
             commands: commands.map((c) => c.kind),
             syncIntervalMs: 60_000,
           },

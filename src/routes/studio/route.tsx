@@ -8,6 +8,7 @@ import {
   Loader2,
   LogOut,
   MonitorPlay,
+  Settings,
   Tv,
   Images,
 } from "lucide-react";
@@ -35,6 +36,7 @@ const NAV: NavItem[] = [
   { to: "/studio/conteudos", label: "Conteúdos", icon: Images },
   { to: "/studio/playlists", label: "Playlists", icon: ListVideo },
   { to: "/studio/agenda", label: "Agenda", icon: CalendarClock },
+  { to: "/studio/configuracoes", label: "Configurações", icon: Settings },
 ];
 
 function DashboardLayout() {

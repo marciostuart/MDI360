@@ -13,6 +13,12 @@ type PlayerItem = {
 type SyncResponse = {
   device: { id: string; name: string; canvasPreset: string };
   playlist: { id: string; name: string; revision: number; items: PlayerItem[] } | null;
+  branding: {
+    name: string | null;
+    splashText: string | null;
+    color: string | null;
+    logoUrl: string | null;
+  } | null;
   commands: string[];
   syncIntervalMs: number;
 };
@@ -200,19 +206,15 @@ function PlayerScreen() {
 
   if (!linked) return <ActivationScreen code={activationCode} message={error} />;
 
+  if (!sync) return <SplashScreen branding={null} />;
+
   return (
     <div className="relative min-h-screen overflow-hidden bg-black">
       {items.length === 0 ? (
-        <div className="grid min-h-screen place-items-center px-8 text-center">
-          <div>
-            <p className="text-2xl font-semibold text-white">
-              {sync?.device.name ?? "Tela conectada"}
-            </p>
-            <p className="mt-2 text-sm text-white/60">
-              {error ?? "Nenhuma playlist programada para este horário."}
-            </p>
-          </div>
-        </div>
+        <SplashScreen
+          branding={sync.branding}
+          message={error ?? "Nenhuma playlist programada para este horário."}
+        />
       ) : current?.kind === "video" ? (
         <video
           key={`${current.id}-${index}`}
@@ -246,6 +248,42 @@ function PlayerScreen() {
 
 /** Full-screen activation code, meant to be read from across a room. */
 function ActivationScreen({ code, message }: { code: string | null; message: string | null }) {
+  return <ActivationScreenBody code={code} message={message} />;
+}
+
+/** Whitelabel splash: customer logo, text and accent colour. */
+function SplashScreen({
+  branding,
+  message,
+}: {
+  branding: SyncResponse["branding"];
+  message?: string;
+}) {
+  const color = branding?.color ?? "#ffffff";
+  return (
+    <div className="grid min-h-screen place-items-center bg-black px-8 text-center">
+      <div className="space-y-6">
+        {branding?.logoUrl ? (
+          <img
+            src={branding.logoUrl}
+            alt=""
+            className="mx-auto max-h-40 max-w-[60vw] object-contain"
+          />
+        ) : null}
+        <p className="font-display text-3xl font-semibold text-white sm:text-4xl">
+          {branding?.splashText ?? branding?.name ?? "MDI 360"}
+        </p>
+        <div
+          className="mx-auto h-1 w-32 rounded-full"
+          style={{ backgroundColor: color }}
+        />
+        {message ? <p className="text-sm text-white/60">{message}</p> : null}
+      </div>
+    </div>
+  );
+}
+
+function ActivationScreenBody({ code, message }: { code: string | null; message: string | null }) {
   return (
     <div className="grid min-h-screen place-items-center bg-black px-6 text-center text-white">
       <div className="w-full max-w-2xl">
