@@ -16,6 +16,7 @@ import { Route as TelaRouteImport } from './routes/tela'
 import { Route as TorreRouteRouteImport } from './routes/torre/route'
 import { Route as StudioIndexRouteImport } from './routes/studio/index'
 import { Route as StudioAgendaRouteImport } from './routes/studio/agenda'
+import { Route as StudioConfiguracoesRouteImport } from './routes/studio/configuracoes'
 import { Route as StudioConteudosRouteImport } from './routes/studio/conteudos'
 import { Route as StudioPlaylistsRouteImport } from './routes/studio/playlists'
 import { Route as StudioTelasRouteImport } from './routes/studio/telas'
@@ -59,6 +60,11 @@ const StudioIndexRoute = StudioIndexRouteImport.update({
 const StudioAgendaRoute = StudioAgendaRouteImport.update({
   id: '/agenda',
   path: '/agenda',
+  getParentRoute: () => StudioRouteRoute,
+} as any)
+const StudioConfiguracoesRoute = StudioConfiguracoesRouteImport.update({
+  id: '/configuracoes',
+  path: '/configuracoes',
   getParentRoute: () => StudioRouteRoute,
 } as any)
 const StudioConteudosRoute = StudioConteudosRouteImport.update({
@@ -114,6 +120,7 @@ export interface FileRoutesByFullPath {
   '/entrar': typeof EntrarRoute
   '/tela': typeof TelaRoute
   '/studio/agenda': typeof StudioAgendaRoute
+  '/studio/configuracoes': typeof StudioConfiguracoesRoute
   '/studio/conteudos': typeof StudioConteudosRoute
   '/studio/playlists': typeof StudioPlaylistsRoute
   '/studio/telas': typeof StudioTelasRoute
@@ -130,6 +137,7 @@ export interface FileRoutesByTo {
   '/entrar': typeof EntrarRoute
   '/tela': typeof TelaRoute
   '/studio/agenda': typeof StudioAgendaRoute
+  '/studio/configuracoes': typeof StudioConfiguracoesRoute
   '/studio/conteudos': typeof StudioConteudosRoute
   '/studio/playlists': typeof StudioPlaylistsRoute
   '/studio/telas': typeof StudioTelasRoute
@@ -149,6 +157,7 @@ export interface FileRoutesById {
   '/entrar': typeof EntrarRoute
   '/tela': typeof TelaRoute
   '/studio/agenda': typeof StudioAgendaRoute
+  '/studio/configuracoes': typeof StudioConfiguracoesRoute
   '/studio/conteudos': typeof StudioConteudosRoute
   '/studio/playlists': typeof StudioPlaylistsRoute
   '/studio/telas': typeof StudioTelasRoute
@@ -169,6 +178,7 @@ export interface FileRouteTypes {
     | '/entrar'
     | '/tela'
     | '/studio/agenda'
+    | '/studio/configuracoes'
     | '/studio/conteudos'
     | '/studio/playlists'
     | '/studio/telas'
@@ -185,6 +195,7 @@ export interface FileRouteTypes {
     | '/entrar'
     | '/tela'
     | '/studio/agenda'
+    | '/studio/configuracoes'
     | '/studio/conteudos'
     | '/studio/playlists'
     | '/studio/telas'
@@ -203,6 +214,7 @@ export interface FileRouteTypes {
     | '/entrar'
     | '/tela'
     | '/studio/agenda'
+    | '/studio/configuracoes'
     | '/studio/conteudos'
     | '/studio/playlists'
     | '/studio/telas'
@@ -279,6 +291,13 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof StudioAgendaRouteImport
       parentRoute: typeof StudioRouteRoute
     }
+    '/studio/configuracoes': {
+      id: '/studio/configuracoes'
+      path: '/configuracoes'
+      fullPath: '/studio/configuracoes'
+      preLoaderRoute: typeof StudioConfiguracoesRouteImport
+      parentRoute: typeof StudioRouteRoute
+    }
     '/studio/conteudos': {
       id: '/studio/conteudos'
       path: '/conteudos'
@@ -347,6 +366,7 @@ declare module '@tanstack/react-router' {
 
 interface StudioRouteRouteChildren {
   StudioAgendaRoute: typeof StudioAgendaRoute
+  StudioConfiguracoesRoute: typeof StudioConfiguracoesRoute
   StudioConteudosRoute: typeof StudioConteudosRoute
   StudioPlaylistsRoute: typeof StudioPlaylistsRoute
   StudioTelasRoute: typeof StudioTelasRoute
@@ -355,6 +375,7 @@ interface StudioRouteRouteChildren {
 
 const StudioRouteRouteChildren: StudioRouteRouteChildren = {
   StudioAgendaRoute: StudioAgendaRoute,
+  StudioConfiguracoesRoute: StudioConfiguracoesRoute,
   StudioConteudosRoute: StudioConteudosRoute,
   StudioPlaylistsRoute: StudioPlaylistsRoute,
   StudioTelasRoute: StudioTelasRoute,
