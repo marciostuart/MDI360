@@ -1,14 +1,6 @@
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { useServerFn } from "@tanstack/react-start";
-import {
-  Loader2,
-  MonitorSmartphone,
-  Plus,
-  RefreshCw,
-  RotateCcw,
-  Trash2,
-  Tv,
-} from "lucide-react";
+import { Link2, Loader2, MonitorSmartphone, RefreshCw, Trash2, Tv } from "lucide-react";
 import { useState } from "react";
 import { toast } from "sonner";
 
@@ -25,10 +17,9 @@ import {
   SelectValue,
 } from "@/components/ui/select";
 import {
-  createDevice,
   deleteDevice,
+  linkDevice,
   listDevices,
-  regeneratePairingCode,
   sendDeviceCommand,
 } from "@/lib/devices/devices.functions";
 import { CANVAS_PRESETS, DEFAULT_CANVAS_PRESET, getCanvasPreset } from "@/lib/media/presets";
@@ -47,12 +38,12 @@ function formatLastSeen(iso: string | null) {
 export function DeviceManager() {
   const queryClient = useQueryClient();
   const listFn = useServerFn(listDevices);
-  const createFn = useServerFn(createDevice);
+  const linkFn = useServerFn(linkDevice);
   const deleteFn = useServerFn(deleteDevice);
-  const regenFn = useServerFn(regeneratePairingCode);
   const commandFn = useServerFn(sendDeviceCommand);
 
   const [name, setName] = useState("");
+  const [code, setCode] = useState("");
   const [presetId, setPresetId] = useState(DEFAULT_CANVAS_PRESET.id);
 
   const devices = useQuery({
@@ -63,32 +54,26 @@ export function DeviceManager() {
 
   const refresh = () => queryClient.invalidateQueries({ queryKey: ["devices"] });
 
-  const createMutation = useMutation({
-    mutationFn: () => createFn({ data: { name: name.trim(), canvasPreset: presetId } }),
-    onSuccess: async (result) => {
-      toast.success(`Tela criada. Código de pareamento: ${result.pairingCode}`);
+  const linkMutation = useMutation({
+    mutationFn: () =>
+      linkFn({ data: { code: code.trim().toUpperCase(), name: name.trim(), canvasPreset: presetId } }),
+    onSuccess: async () => {
+      toast.success("Tela vinculada. O aparelho começa a exibir na próxima sincronização.");
       setName("");
+      setCode("");
       await refresh();
     },
-    onError: () => toast.error("Não foi possível criar esta tela."),
+    onError: () =>
+      toast.error("Código inválido ou já utilizado. Confira o código exibido na TV."),
   });
 
   const removeMutation = useMutation({
     mutationFn: (deviceId: string) => deleteFn({ data: { deviceId } }),
     onSuccess: async () => {
-      toast.success("Tela removida.");
+      toast.success("Tela desvinculada. O aparelho apaga o cache e mostra um novo código.");
       await refresh();
     },
     onError: () => toast.error("Não foi possível remover esta tela."),
-  });
-
-  const regenMutation = useMutation({
-    mutationFn: (deviceId: string) => regenFn({ data: { deviceId } }),
-    onSuccess: async (result) => {
-      toast.success(`Novo código: ${result.pairingCode}`);
-      await refresh();
-    },
-    onError: () => toast.error("Não foi possível gerar um novo código."),
   });
 
   const commandMutation = useMutation({
