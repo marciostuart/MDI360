@@ -76,6 +76,6 @@ export async function authenticateDevice(request: Request): Promise<PlayerDevice
     .limit(1);
 
   const device = rows[0];
-  if (!device || device.status !== "active") return null;
+  if (!device || device.status !== "active" || !device.organizationId) return null;
   return device;
 }
