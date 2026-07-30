@@ -1,6 +1,7 @@
 import { relations } from "drizzle-orm";
 import {
   boolean,
+  bigint,
   index,
   integer,
   jsonb,
@@ -39,6 +40,31 @@ export const commandStatusEnum = pgEnum("command_status", [
 /* Tenancy + identity                                                  */
 /* ------------------------------------------------------------------ */
 
+/* ------------------------------------------------------------------ */
+/* Commercial plans (platform level)                                   */
+/* ------------------------------------------------------------------ */
+
+export const plans = pgTable("plans", {
+  id: uuid("id").primaryKey().defaultRandom(),
+  name: text("name").notNull(),
+  slug: text("slug").notNull().unique(),
+  /** Maximum number of linked screens allowed on this plan. */
+  maxDevices: integer("max_devices").notNull().default(5),
+  /** Storage quota in megabytes. */
+  maxStorageMb: integer("max_storage_mb").notNull().default(1024),
+  priceCents: integer("price_cents").notNull().default(0),
+  isActive: boolean("is_active").notNull().default(true),
+  createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
+});
+
+/** Hourly server traffic buckets, used by the platform load dashboard. */
+export const trafficHourly = pgTable("traffic_hourly", {
+  bucket: timestamp("bucket", { withTimezone: true }).primaryKey(),
+  requests: integer("requests").notNull().default(0),
+  bytesIn: bigint("bytes_in", { mode: "number" }).notNull().default(0),
+  bytesOut: bigint("bytes_out", { mode: "number" }).notNull().default(0),
+});
+
 export const organizations = pgTable("organizations", {
   id: uuid("id").primaryKey().defaultRandom(),
   name: text("name").notNull(),
@@ -49,6 +75,13 @@ export const organizations = pgTable("organizations", {
   brandSplashText: text("brand_splash_text"),
   /** Whitelabel: accent colour (hex) used on the splash/activation screen. */
   brandColor: text("brand_color"),
+  /** Commercial plan, subscription state and per-account limit overrides. */
+  planId: uuid("plan_id"),
+  subscriptionStatus: text("subscription_status").notNull().default("trial"),
+  subscriptionExpiresAt: timestamp("subscription_expires_at", { withTimezone: true }),
+  deviceLimitOverride: integer("device_limit_override"),
+  storageLimitMbOverride: integer("storage_limit_mb_override"),
+  adminNotes: text("admin_notes"),
   createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
 });
 
