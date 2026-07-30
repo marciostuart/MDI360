@@ -147,7 +147,7 @@ function PlayerScreen() {
     };
 
     void check();
-    const interval = window.setInterval(() => void check(), 10_000);
+    const interval = window.setInterval(() => void check(), 5_000);
     return () => {
       cancelled = true;
       window.clearInterval(interval);
