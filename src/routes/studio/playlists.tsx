@@ -6,12 +6,12 @@ import { ModulePlaceholder } from "@/components/module-placeholder";
 export const Route = createFileRoute("/studio/playlists")({
   head: () => ({
     meta: [
-      { title: "Playlists | SinalDigital" },
+      { title: "Playlists | MDI 360" },
       {
         name: "description",
         content: "Monte sequências de conteúdos com tempo de exibição e ordem personalizada.",
       },
-      { property: "og:title", content: "Playlists de exibição | SinalDigital" },
+      { property: "og:title", content: "Playlists de exibição | MDI 360" },
       {
         property: "og:description",
         content: "Monte sequências de conteúdos com tempo e ordem personalizada.",

@@ -72,7 +72,7 @@ function DashboardLayout() {
           <span className="grid size-8 place-items-center rounded-lg bg-primary text-primary-foreground">
             <MonitorPlay className="size-4" />
           </span>
-          <span className="font-display text-base font-semibold">SinalDigital</span>
+          <span className="font-display text-base font-semibold">MDI 360</span>
         </Link>
 
         <nav className="flex flex-1 flex-col gap-1">

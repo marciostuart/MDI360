@@ -6,12 +6,12 @@ import { ModulePlaceholder } from "@/components/module-placeholder";
 export const Route = createFileRoute("/studio/agenda")({
   head: () => ({
     meta: [
-      { title: "Agenda | SinalDigital" },
+      { title: "Agenda | MDI 360" },
       {
         name: "description",
         content: "Programe qual playlist toca em cada dia e horário, por tela ou por grupo.",
       },
-      { property: "og:title", content: "Agenda de exibição | SinalDigital" },
+      { property: "og:title", content: "Agenda de exibição | MDI 360" },
       {
         property: "og:description",
         content: "Programe qual playlist toca em cada dia e horário.",

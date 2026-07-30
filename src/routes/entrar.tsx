@@ -89,7 +89,7 @@ function AuthPage() {
           <span className="grid size-9 place-items-center rounded-lg bg-primary text-primary-foreground">
             <MonitorPlay className="size-5" />
           </span>
-          <span className="font-display text-lg font-semibold">SinalDigital</span>
+          <span className="font-display text-lg font-semibold">MDI 360</span>
         </Link>
 
         {databaseMissing ? (
