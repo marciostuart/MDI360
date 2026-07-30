@@ -16,7 +16,6 @@ import {
   SelectValue,
 } from "@/components/ui/select";
 import {
-  confirmMediaUpload,
   createMediaUploadTicket,
   deleteMediaAsset,
   listMediaAssets,
@@ -33,7 +32,6 @@ export function MediaLibrary() {
   const queryClient = useQueryClient();
   const listFn = useServerFn(listMediaAssets);
   const ticketFn = useServerFn(createMediaUploadTicket);
-  const confirmFn = useServerFn(confirmMediaUpload);
   const deleteFn = useServerFn(deleteMediaAsset);
 
   const [presetId, setPresetId] = useState(DEFAULT_CANVAS_PRESET.id);
@@ -74,14 +72,18 @@ export function MediaLibrary() {
           },
         });
 
-        const response = await fetch(ticket.uploadUrl, {
-          method: "PUT",
-          headers: { "Content-Type": prepared.mimeType },
-          body: prepared.blob,
-        });
-        if (!response.ok) throw new Error("Falha ao enviar o arquivo.");
+        // O arquivo sobe pelo nosso servidor, que fala com o MinIO pela rede
+        // interna. Assim não dependemos de CORS no navegador e conseguimos
+        // mostrar o erro real quando o armazenamento recusa o arquivo.
+        const form = new FormData();
+        form.append("assetId", ticket.assetId);
+        form.append("file", prepared.blob, `${ticket.assetId}.${prepared.extension}`);
 
-        await confirmFn({ data: { assetId: ticket.assetId } });
+        const response = await fetch("/api/media/upload", { method: "POST", body: form });
+        if (!response.ok) {
+          const payload = (await response.json().catch(() => null)) as { error?: string } | null;
+          throw new Error(payload?.error ?? `Falha ao enviar o arquivo (HTTP ${response.status}).`);
+        }
 
         const saved = prepared.originalBytes - prepared.blob.size;
         toast.success(

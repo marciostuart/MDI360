@@ -189,3 +189,16 @@ export function createUploadUrl(key: string, contentType: string, expiresInSecon
 export async function deleteObject(key: string) {
   await getClient().send(new DeleteObjectCommand({ Bucket: getBucket(), Key: key }));
 }
+
+/** Uploads bytes straight from our server to MinIO (no browser CORS involved). */
+export async function putObject(key: string, body: Uint8Array, contentType?: string) {
+  await getClient().send(
+    new PutObjectCommand({
+      Bucket: getBucket(),
+      Key: key,
+      Body: body,
+      ContentType: contentType,
+      ContentLength: body.byteLength,
+    }),
+  );
+}
