@@ -89,6 +89,18 @@ export const linkDevice = createServerFn({ method: "POST" })
     const { and, eq, isNull } = await import("drizzle-orm");
     const user = await requireUser();
 
+    // Plan enforcement: a customer can never link more screens than they pay for.
+    const { getOrgLimits } = await import("@/lib/admin/limits.server");
+    const limits = await getOrgLimits(user.organizationId);
+    if (limits.expired || limits.subscriptionStatus === "suspended") {
+      throw new Error("Assinatura inativa. Fale com o suporte para reativar sua conta.");
+    }
+    if (limits.usedDevices >= limits.maxDevices) {
+      throw new Error(
+        `Seu plano permite ${limits.maxDevices} tela(s). Remova uma tela ou faça upgrade para vincular outra.`,
+      );
+    }
+
     const updated = await getDb()
       .update(schema.devices)
       .set({
