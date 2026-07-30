@@ -1,7 +1,6 @@
 import { createFileRoute } from "@tanstack/react-router";
-import { CalendarClock } from "lucide-react";
 
-import { ModulePlaceholder } from "@/components/module-placeholder";
+import { ScheduleManager } from "@/components/schedules/schedule-manager";
 
 export const Route = createFileRoute("/studio/agenda")({
   head: () => ({
@@ -18,16 +17,20 @@ export const Route = createFileRoute("/studio/agenda")({
       },
     ],
   }),
-  component: () => (
-    <ModulePlaceholder
-      icon={CalendarClock}
-      title="Agenda"
-      description="Defina janelas de exibição: por exemplo, o menu do almoço das 11h às 15h e as promoções da noite depois disso."
-      comingUp={[
-        "Faixas de horário por dia da semana",
-        "Prioridade entre agendamentos",
-        "Campanhas com data de início e fim",
-      ]}
-    />
-  ),
+  component: AgendaPage,
 });
+
+function AgendaPage() {
+  return (
+    <div className="space-y-6">
+      <div>
+        <h1 className="text-3xl font-semibold">Agenda</h1>
+        <p className="mt-2 max-w-2xl text-sm text-muted-foreground">
+          Defina janelas de exibição: por exemplo, o menu do almoço das 11h às 15h e as promoções
+          da noite depois disso.
+        </p>
+      </div>
+      <ScheduleManager />
+    </div>
+  );
+}

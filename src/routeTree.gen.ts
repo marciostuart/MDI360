@@ -12,6 +12,7 @@ import { Route as rootRouteImport } from './routes/__root'
 import { Route as IndexRouteImport } from './routes/index'
 import { Route as EntrarRouteImport } from './routes/entrar'
 import { Route as StudioRouteRouteImport } from './routes/studio/route'
+import { Route as TelaRouteImport } from './routes/tela'
 import { Route as TorreRouteRouteImport } from './routes/torre/route'
 import { Route as StudioIndexRouteImport } from './routes/studio/index'
 import { Route as StudioAgendaRouteImport } from './routes/studio/agenda'
@@ -19,6 +20,8 @@ import { Route as StudioConteudosRouteImport } from './routes/studio/conteudos'
 import { Route as StudioPlaylistsRouteImport } from './routes/studio/playlists'
 import { Route as StudioTelasRouteImport } from './routes/studio/telas'
 import { Route as TorreIndexRouteImport } from './routes/torre/index'
+import { Route as ApiPublicPlayerPairRouteImport } from './routes/api/public/player/pair'
+import { Route as ApiPublicPlayerSyncRouteImport } from './routes/api/public/player/sync'
 
 const IndexRoute = IndexRouteImport.update({
   id: '/',
@@ -33,6 +36,11 @@ const EntrarRoute = EntrarRouteImport.update({
 const StudioRouteRoute = StudioRouteRouteImport.update({
   id: '/studio',
   path: '/studio',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const TelaRoute = TelaRouteImport.update({
+  id: '/tela',
+  path: '/tela',
   getParentRoute: () => rootRouteImport,
 } as any)
 const TorreRouteRoute = TorreRouteRouteImport.update({
@@ -70,28 +78,44 @@ const TorreIndexRoute = TorreIndexRouteImport.update({
   path: '/',
   getParentRoute: () => TorreRouteRoute,
 } as any)
+const ApiPublicPlayerPairRoute = ApiPublicPlayerPairRouteImport.update({
+  id: '/api/public/player/pair',
+  path: '/api/public/player/pair',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const ApiPublicPlayerSyncRoute = ApiPublicPlayerSyncRouteImport.update({
+  id: '/api/public/player/sync',
+  path: '/api/public/player/sync',
+  getParentRoute: () => rootRouteImport,
+} as any)
 
 export interface FileRoutesByFullPath {
   '/': typeof IndexRoute
   '/studio': typeof StudioRouteRouteWithChildren
   '/torre': typeof TorreRouteRouteWithChildren
   '/entrar': typeof EntrarRoute
+  '/tela': typeof TelaRoute
   '/studio/agenda': typeof StudioAgendaRoute
   '/studio/conteudos': typeof StudioConteudosRoute
   '/studio/playlists': typeof StudioPlaylistsRoute
   '/studio/telas': typeof StudioTelasRoute
   '/studio/': typeof StudioIndexRoute
   '/torre/': typeof TorreIndexRoute
+  '/api/public/player/pair': typeof ApiPublicPlayerPairRoute
+  '/api/public/player/sync': typeof ApiPublicPlayerSyncRoute
 }
 export interface FileRoutesByTo {
   '/': typeof IndexRoute
   '/entrar': typeof EntrarRoute
+  '/tela': typeof TelaRoute
   '/studio/agenda': typeof StudioAgendaRoute
   '/studio/conteudos': typeof StudioConteudosRoute
   '/studio/playlists': typeof StudioPlaylistsRoute
   '/studio/telas': typeof StudioTelasRoute
   '/studio': typeof StudioIndexRoute
   '/torre': typeof TorreIndexRoute
+  '/api/public/player/pair': typeof ApiPublicPlayerPairRoute
+  '/api/public/player/sync': typeof ApiPublicPlayerSyncRoute
 }
 export interface FileRoutesById {
   __root__: typeof rootRouteImport
@@ -99,12 +123,15 @@ export interface FileRoutesById {
   '/studio': typeof StudioRouteRouteWithChildren
   '/torre': typeof TorreRouteRouteWithChildren
   '/entrar': typeof EntrarRoute
+  '/tela': typeof TelaRoute
   '/studio/agenda': typeof StudioAgendaRoute
   '/studio/conteudos': typeof StudioConteudosRoute
   '/studio/playlists': typeof StudioPlaylistsRoute
   '/studio/telas': typeof StudioTelasRoute
   '/studio/': typeof StudioIndexRoute
   '/torre/': typeof TorreIndexRoute
+  '/api/public/player/pair': typeof ApiPublicPlayerPairRoute
+  '/api/public/player/sync': typeof ApiPublicPlayerSyncRoute
 }
 export interface FileRouteTypes {
   fileRoutesByFullPath: FileRoutesByFullPath
@@ -113,34 +140,43 @@ export interface FileRouteTypes {
     | '/studio'
     | '/torre'
     | '/entrar'
+    | '/tela'
     | '/studio/agenda'
     | '/studio/conteudos'
     | '/studio/playlists'
     | '/studio/telas'
     | '/studio/'
     | '/torre/'
+    | '/api/public/player/pair'
+    | '/api/public/player/sync'
   fileRoutesByTo: FileRoutesByTo
   to:
     | '/'
     | '/entrar'
+    | '/tela'
     | '/studio/agenda'
     | '/studio/conteudos'
     | '/studio/playlists'
     | '/studio/telas'
     | '/studio'
     | '/torre'
+    | '/api/public/player/pair'
+    | '/api/public/player/sync'
   id:
     | '__root__'
     | '/'
     | '/studio'
     | '/torre'
     | '/entrar'
+    | '/tela'
     | '/studio/agenda'
     | '/studio/conteudos'
     | '/studio/playlists'
     | '/studio/telas'
     | '/studio/'
     | '/torre/'
+    | '/api/public/player/pair'
+    | '/api/public/player/sync'
   fileRoutesById: FileRoutesById
 }
 export interface RootRouteChildren {
@@ -148,6 +184,9 @@ export interface RootRouteChildren {
   StudioRouteRoute: typeof StudioRouteRouteWithChildren
   TorreRouteRoute: typeof TorreRouteRouteWithChildren
   EntrarRoute: typeof EntrarRoute
+  TelaRoute: typeof TelaRoute
+  ApiPublicPlayerPairRoute: typeof ApiPublicPlayerPairRoute
+  ApiPublicPlayerSyncRoute: typeof ApiPublicPlayerSyncRoute
 }
 
 declare module '@tanstack/react-router' {
@@ -171,6 +210,13 @@ declare module '@tanstack/react-router' {
       path: '/studio'
       fullPath: '/studio'
       preLoaderRoute: typeof StudioRouteRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/tela': {
+      id: '/tela'
+      path: '/tela'
+      fullPath: '/tela'
+      preLoaderRoute: typeof TelaRouteImport
       parentRoute: typeof rootRouteImport
     }
     '/torre': {
@@ -222,6 +268,20 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof TorreIndexRouteImport
       parentRoute: typeof TorreRouteRoute
     }
+    '/api/public/player/pair': {
+      id: '/api/public/player/pair'
+      path: '/api/public/player/pair'
+      fullPath: '/api/public/player/pair'
+      preLoaderRoute: typeof ApiPublicPlayerPairRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/api/public/player/sync': {
+      id: '/api/public/player/sync'
+      path: '/api/public/player/sync'
+      fullPath: '/api/public/player/sync'
+      preLoaderRoute: typeof ApiPublicPlayerSyncRouteImport
+      parentRoute: typeof rootRouteImport
+    }
   }
 }
 
@@ -262,6 +322,9 @@ const rootRouteChildren: RootRouteChildren = {
   StudioRouteRoute: StudioRouteRouteWithChildren,
   TorreRouteRoute: TorreRouteRouteWithChildren,
   EntrarRoute: EntrarRoute,
+  TelaRoute: TelaRoute,
+  ApiPublicPlayerPairRoute: ApiPublicPlayerPairRoute,
+  ApiPublicPlayerSyncRoute: ApiPublicPlayerSyncRoute,
 }
 export const routeTree = rootRouteImport
   ._addFileChildren(rootRouteChildren)
