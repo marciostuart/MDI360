@@ -69,6 +69,7 @@ sub onPayload()
         m.items = []
         m.pairingTitle.text = "Aguardando conteudo"
         m.pairingCode.text = ""
+        m.statusLabel.text = "Tela vinculada. Publique uma playlist no Studio."
         showPairing(true)
         return
     end if
