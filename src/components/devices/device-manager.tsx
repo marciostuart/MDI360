@@ -189,6 +189,10 @@ export function DeviceManager() {
                       <p className="font-display text-2xl font-semibold tracking-[0.3em]">
                         {device.pairingCode}
                       </p>
+                      <p className="mt-2 text-[11px] text-muted-foreground">
+                        Abra <span className="font-medium">/tela</span> no aparelho e digite este
+                        código.
+                      </p>
                     </div>
                   ) : (
                     <div className="flex items-center gap-2 text-sm text-muted-foreground">
