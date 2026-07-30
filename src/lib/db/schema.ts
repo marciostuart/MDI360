@@ -1,0 +1,334 @@
+import { relations } from "drizzle-orm";
+import {
+  boolean,
+  index,
+  integer,
+  jsonb,
+  pgEnum,
+  pgTable,
+  smallint,
+  text,
+  timestamp,
+  uniqueIndex,
+  uuid,
+} from "drizzle-orm/pg-core";
+
+/* ------------------------------------------------------------------ */
+/* Enums                                                               */
+/* ------------------------------------------------------------------ */
+
+export const appRoleEnum = pgEnum("app_role", ["owner", "admin", "operator"]);
+export const mediaKindEnum = pgEnum("media_kind", ["image", "video", "web"]);
+export const deviceStatusEnum = pgEnum("device_status", ["pending", "active", "blocked"]);
+export const commandKindEnum = pgEnum("command_kind", [
+  "reload",
+  "restart",
+  "screenshot",
+  "sync_playlist",
+  "update_app",
+]);
+export const commandStatusEnum = pgEnum("command_status", [
+  "queued",
+  "delivered",
+  "done",
+  "failed",
+]);
+
+/* ------------------------------------------------------------------ */
+/* Tenancy + identity                                                  */
+/* ------------------------------------------------------------------ */
+
+export const organizations = pgTable("organizations", {
+  id: uuid("id").primaryKey().defaultRandom(),
+  name: text("name").notNull(),
+  slug: text("slug").notNull().unique(),
+  createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
+});
+
+export const users = pgTable(
+  "users",
+  {
+    id: uuid("id").primaryKey().defaultRandom(),
+    organizationId: uuid("organization_id")
+      .notNull()
+      .references(() => organizations.id, { onDelete: "cascade" }),
+    email: text("email").notNull(),
+    name: text("name").notNull(),
+    passwordHash: text("password_hash").notNull(),
+    isActive: boolean("is_active").notNull().default(true),
+    lastLoginAt: timestamp("last_login_at", { withTimezone: true }),
+    createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
+  },
+  (t) => [uniqueIndex("users_email_unique").on(t.email)],
+);
+
+/**
+ * Roles live in their own table, never on the user row. Prevents a compromised
+ * profile update from escalating privileges.
+ */
+export const userRoles = pgTable(
+  "user_roles",
+  {
+    id: uuid("id").primaryKey().defaultRandom(),
+    userId: uuid("user_id")
+      .notNull()
+      .references(() => users.id, { onDelete: "cascade" }),
+    role: appRoleEnum("role").notNull(),
+  },
+  (t) => [uniqueIndex("user_roles_user_role_unique").on(t.userId, t.role)],
+);
+
+export const sessions = pgTable(
+  "sessions",
+  {
+    id: text("id").primaryKey(),
+    userId: uuid("user_id")
+      .notNull()
+      .references(() => users.id, { onDelete: "cascade" }),
+    expiresAt: timestamp("expires_at", { withTimezone: true }).notNull(),
+    createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
+  },
+  (t) => [index("sessions_user_idx").on(t.userId)],
+);
+
+/* ------------------------------------------------------------------ */
+/* Locations + devices (the TVs)                                        */
+/* ------------------------------------------------------------------ */
+
+export const locations = pgTable(
+  "locations",
+  {
+    id: uuid("id").primaryKey().defaultRandom(),
+    organizationId: uuid("organization_id")
+      .notNull()
+      .references(() => organizations.id, { onDelete: "cascade" }),
+    name: text("name").notNull(),
+    address: text("address"),
+    timezone: text("timezone").notNull().default("America/Sao_Paulo"),
+    createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
+  },
+  (t) => [index("locations_org_idx").on(t.organizationId)],
+);
+
+export const devices = pgTable(
+  "devices",
+  {
+    id: uuid("id").primaryKey().defaultRandom(),
+    organizationId: uuid("organization_id")
+      .notNull()
+      .references(() => organizations.id, { onDelete: "cascade" }),
+    locationId: uuid("location_id").references(() => locations.id, { onDelete: "set null" }),
+    name: text("name").notNull(),
+    status: deviceStatusEnum("status").notNull().default("pending"),
+    /** 6-digit code shown on the TV during pairing. Cleared once paired. */
+    pairingCode: text("pairing_code"),
+    pairingExpiresAt: timestamp("pairing_expires_at", { withTimezone: true }),
+    /** Hash of the long-lived device token. Raw token never stored. */
+    tokenHash: text("token_hash"),
+    orientation: smallint("orientation").notNull().default(0),
+    appVersion: text("app_version"),
+    lastSeenAt: timestamp("last_seen_at", { withTimezone: true }),
+    lastScreenshotKey: text("last_screenshot_key"),
+    lastScreenshotAt: timestamp("last_screenshot_at", { withTimezone: true }),
+    createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
+  },
+  (t) => [
+    index("devices_org_idx").on(t.organizationId),
+    uniqueIndex("devices_pairing_code_unique").on(t.pairingCode),
+  ],
+);
+
+/* ------------------------------------------------------------------ */
+/* Media + playlists                                                    */
+/* ------------------------------------------------------------------ */
+
+export const mediaAssets = pgTable(
+  "media_assets",
+  {
+    id: uuid("id").primaryKey().defaultRandom(),
+    organizationId: uuid("organization_id")
+      .notNull()
+      .references(() => organizations.id, { onDelete: "cascade" }),
+    name: text("name").notNull(),
+    kind: mediaKindEnum("kind").notNull(),
+    /** Object key inside the MinIO bucket. Empty for `web` assets. */
+    storageKey: text("storage_key"),
+    /** External URL for `web` assets. */
+    sourceUrl: text("source_url"),
+    mimeType: text("mime_type"),
+    byteSize: integer("byte_size"),
+    durationMs: integer("duration_ms"),
+    width: integer("width"),
+    height: integer("height"),
+    checksum: text("checksum"),
+    createdBy: uuid("created_by").references(() => users.id, { onDelete: "set null" }),
+    createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
+  },
+  (t) => [index("media_assets_org_idx").on(t.organizationId)],
+);
+
+export const playlists = pgTable(
+  "playlists",
+  {
+    id: uuid("id").primaryKey().defaultRandom(),
+    organizationId: uuid("organization_id")
+      .notNull()
+      .references(() => organizations.id, { onDelete: "cascade" }),
+    name: text("name").notNull(),
+    description: text("description"),
+    /** Bumped on every change so players know to re-sync. */
+    revision: integer("revision").notNull().default(1),
+    createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
+    updatedAt: timestamp("updated_at", { withTimezone: true }).notNull().defaultNow(),
+  },
+  (t) => [index("playlists_org_idx").on(t.organizationId)],
+);
+
+export const playlistItems = pgTable(
+  "playlist_items",
+  {
+    id: uuid("id").primaryKey().defaultRandom(),
+    playlistId: uuid("playlist_id")
+      .notNull()
+      .references(() => playlists.id, { onDelete: "cascade" }),
+    mediaAssetId: uuid("media_asset_id")
+      .notNull()
+      .references(() => mediaAssets.id, { onDelete: "cascade" }),
+    position: integer("position").notNull(),
+    durationMs: integer("duration_ms").notNull().default(10000),
+    isMuted: boolean("is_muted").notNull().default(true),
+  },
+  (t) => [index("playlist_items_playlist_idx").on(t.playlistId, t.position)],
+);
+
+/* ------------------------------------------------------------------ */
+/* Scheduling                                                           */
+/* ------------------------------------------------------------------ */
+
+export const schedules = pgTable(
+  "schedules",
+  {
+    id: uuid("id").primaryKey().defaultRandom(),
+    organizationId: uuid("organization_id")
+      .notNull()
+      .references(() => organizations.id, { onDelete: "cascade" }),
+    deviceId: uuid("device_id")
+      .notNull()
+      .references(() => devices.id, { onDelete: "cascade" }),
+    playlistId: uuid("playlist_id")
+      .notNull()
+      .references(() => playlists.id, { onDelete: "cascade" }),
+    /** Bitmask, Sunday = bit 0 ... Saturday = bit 6. 127 = every day. */
+    weekdayMask: smallint("weekday_mask").notNull().default(127),
+    startMinute: smallint("start_minute").notNull().default(0),
+    endMinute: smallint("end_minute").notNull().default(1440),
+    /** Higher wins when two schedules overlap. */
+    priority: smallint("priority").notNull().default(0),
+    validFrom: timestamp("valid_from", { withTimezone: true }),
+    validUntil: timestamp("valid_until", { withTimezone: true }),
+    isActive: boolean("is_active").notNull().default(true),
+    createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
+  },
+  (t) => [index("schedules_device_idx").on(t.deviceId)],
+);
+
+/* ------------------------------------------------------------------ */
+/* Telemetry                                                            */
+/* ------------------------------------------------------------------ */
+
+export const deviceCommands = pgTable(
+  "device_commands",
+  {
+    id: uuid("id").primaryKey().defaultRandom(),
+    deviceId: uuid("device_id")
+      .notNull()
+      .references(() => devices.id, { onDelete: "cascade" }),
+    kind: commandKindEnum("kind").notNull(),
+    payload: jsonb("payload"),
+    status: commandStatusEnum("status").notNull().default("queued"),
+    createdBy: uuid("created_by").references(() => users.id, { onDelete: "set null" }),
+    createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
+    deliveredAt: timestamp("delivered_at", { withTimezone: true }),
+    completedAt: timestamp("completed_at", { withTimezone: true }),
+    error: text("error"),
+  },
+  (t) => [index("device_commands_device_status_idx").on(t.deviceId, t.status)],
+);
+
+export const playbackEvents = pgTable(
+  "playback_events",
+  {
+    id: uuid("id").primaryKey().defaultRandom(),
+    organizationId: uuid("organization_id")
+      .notNull()
+      .references(() => organizations.id, { onDelete: "cascade" }),
+    deviceId: uuid("device_id")
+      .notNull()
+      .references(() => devices.id, { onDelete: "cascade" }),
+    mediaAssetId: uuid("media_asset_id").references(() => mediaAssets.id, {
+      onDelete: "set null",
+    }),
+    playlistId: uuid("playlist_id").references(() => playlists.id, { onDelete: "set null" }),
+    startedAt: timestamp("started_at", { withTimezone: true }).notNull(),
+    durationMs: integer("duration_ms").notNull().default(0),
+    completed: boolean("completed").notNull().default(true),
+  },
+  (t) => [index("playback_events_org_started_idx").on(t.organizationId, t.startedAt)],
+);
+
+/* ------------------------------------------------------------------ */
+/* Relations                                                            */
+/* ------------------------------------------------------------------ */
+
+export const organizationsRelations = relations(organizations, ({ many }) => ({
+  users: many(users),
+  devices: many(devices),
+  playlists: many(playlists),
+  mediaAssets: many(mediaAssets),
+  locations: many(locations),
+}));
+
+export const usersRelations = relations(users, ({ one, many }) => ({
+  organization: one(organizations, {
+    fields: [users.organizationId],
+    references: [organizations.id],
+  }),
+  roles: many(userRoles),
+}));
+
+export const userRolesRelations = relations(userRoles, ({ one }) => ({
+  user: one(users, { fields: [userRoles.userId], references: [users.id] }),
+}));
+
+export const devicesRelations = relations(devices, ({ one, many }) => ({
+  organization: one(organizations, {
+    fields: [devices.organizationId],
+    references: [organizations.id],
+  }),
+  location: one(locations, { fields: [devices.locationId], references: [locations.id] }),
+  schedules: many(schedules),
+  commands: many(deviceCommands),
+}));
+
+export const playlistsRelations = relations(playlists, ({ one, many }) => ({
+  organization: one(organizations, {
+    fields: [playlists.organizationId],
+    references: [organizations.id],
+  }),
+  items: many(playlistItems),
+}));
+
+export const playlistItemsRelations = relations(playlistItems, ({ one }) => ({
+  playlist: one(playlists, { fields: [playlistItems.playlistId], references: [playlists.id] }),
+  mediaAsset: one(mediaAssets, {
+    fields: [playlistItems.mediaAssetId],
+    references: [mediaAssets.id],
+  }),
+}));
+
+export const schedulesRelations = relations(schedules, ({ one }) => ({
+  device: one(devices, { fields: [schedules.deviceId], references: [devices.id] }),
+  playlist: one(playlists, { fields: [schedules.playlistId], references: [playlists.id] }),
+}));
+
+export type AppRole = (typeof appRoleEnum.enumValues)[number];
