@@ -1,6 +1,15 @@
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { useServerFn } from "@tanstack/react-start";
-import { Link2, Loader2, MonitorSmartphone, RefreshCw, Trash2, Tv } from "lucide-react";
+import {
+  Link2,
+  Loader2,
+  MonitorSmartphone,
+  RefreshCw,
+  Trash2,
+  Tv,
+  Volume2,
+  VolumeX,
+} from "lucide-react";
 import { useState } from "react";
 import { toast } from "sonner";
 
@@ -16,11 +25,13 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select";
+import { Switch } from "@/components/ui/switch";
 import {
   deleteDevice,
   linkDevice,
   listDevices,
   sendDeviceCommand,
+  setDeviceAudio,
   setDevicePlaylist,
 } from "@/lib/devices/devices.functions";
 import { listPlaylists } from "@/lib/playlists/playlists.functions";
@@ -45,6 +56,7 @@ export function DeviceManager() {
   const commandFn = useServerFn(sendDeviceCommand);
   const playlistsFn = useServerFn(listPlaylists);
   const setPlaylistFn = useServerFn(setDevicePlaylist);
+  const setAudioFn = useServerFn(setDeviceAudio);
 
   const [name, setName] = useState("");
   const [code, setCode] = useState("");
