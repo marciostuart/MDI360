@@ -3,7 +3,7 @@ import { Tv } from "lucide-react";
 
 import { ModulePlaceholder } from "@/components/module-placeholder";
 
-export const Route = createFileRoute("/painel/telas")({
+export const Route = createFileRoute("/studio/telas")({
   head: () => ({
     meta: [
       { title: "Telas | SinalDigital" },

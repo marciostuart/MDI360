@@ -4,7 +4,7 @@ import { Database, HardDrive, Tv, CheckCircle2, AlertTriangle } from "lucide-rea
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { useCurrentUser, useSetupState } from "@/lib/auth/useCurrentUser";
 
-export const Route = createFileRoute("/painel/")({
+export const Route = createFileRoute("/studio/")({
   head: () => ({
     meta: [
       { title: "Visão geral | SinalDigital" },

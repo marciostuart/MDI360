@@ -50,7 +50,7 @@ function AuthPage() {
   async function onSuccess() {
     await queryClient.invalidateQueries({ queryKey: ["current-user"] });
     await queryClient.invalidateQueries({ queryKey: ["setup-state"] });
-    navigate({ to: "/painel" });
+    navigate({ to: "/studio" });
   }
 
   const loginMutation = useMutation({

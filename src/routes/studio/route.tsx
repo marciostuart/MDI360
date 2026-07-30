@@ -18,7 +18,7 @@ import { signOut } from "@/lib/auth/auth.functions";
 import { useCurrentUser } from "@/lib/auth/useCurrentUser";
 import { cn } from "@/lib/utils";
 
-export const Route = createFileRoute("/painel")({
+export const Route = createFileRoute("/studio")({
   component: DashboardLayout,
 });
 
@@ -30,11 +30,11 @@ type NavItem = {
 };
 
 const NAV: NavItem[] = [
-  { to: "/painel", label: "Visão geral", icon: LayoutDashboard, exact: true },
-  { to: "/painel/telas", label: "Telas", icon: Tv },
-  { to: "/painel/conteudos", label: "Conteúdos", icon: Images },
-  { to: "/painel/playlists", label: "Playlists", icon: ListVideo },
-  { to: "/painel/agenda", label: "Agenda", icon: CalendarClock },
+  { to: "/studio", label: "Visão geral", icon: LayoutDashboard, exact: true },
+  { to: "/studio/telas", label: "Telas", icon: Tv },
+  { to: "/studio/conteudos", label: "Conteúdos", icon: Images },
+  { to: "/studio/playlists", label: "Playlists", icon: ListVideo },
+  { to: "/studio/agenda", label: "Agenda", icon: CalendarClock },
 ];
 
 function DashboardLayout() {
@@ -68,7 +68,7 @@ function DashboardLayout() {
   return (
     <div className="flex min-h-screen">
       <aside className="hidden w-64 shrink-0 flex-col border-r border-sidebar-border bg-sidebar p-4 md:flex">
-        <Link to="/painel" className="mb-8 flex items-center gap-2 px-2">
+        <Link to="/studio" className="mb-8 flex items-center gap-2 px-2">
           <span className="grid size-8 place-items-center rounded-lg bg-primary text-primary-foreground">
             <MonitorPlay className="size-4" />
           </span>

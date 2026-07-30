@@ -3,7 +3,7 @@ import { ListVideo } from "lucide-react";
 
 import { ModulePlaceholder } from "@/components/module-placeholder";
 
-export const Route = createFileRoute("/painel/playlists")({
+export const Route = createFileRoute("/studio/playlists")({
   head: () => ({
     meta: [
       { title: "Playlists | SinalDigital" },
