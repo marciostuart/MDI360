@@ -8,6 +8,26 @@ import { getSignedUrl } from "@aws-sdk/s3-request-presigner";
 
 let client: S3Client | undefined;
 
+/**
+ * Aceita os dois nomes possíveis das variáveis (padrão AWS e o formato curto
+ * usado por vários painéis do MinIO), para o deploy não falhar por causa do nome.
+ */
+function env(...names: string[]): string | undefined {
+  for (const name of names) {
+    const value = process.env[name];
+    if (value && value.trim()) return value.trim();
+  }
+  return undefined;
+}
+
+const S3 = {
+  endpoint: () => env("S3_ENDPOINT", "MINIO_ENDPOINT"),
+  accessKey: () => env("S3_ACCESS_KEY_ID", "S3_ACCESS_KEY", "MINIO_ACCESS_KEY"),
+  secretKey: () => env("S3_SECRET_ACCESS_KEY", "S3_SECRET_KEY", "MINIO_SECRET_KEY"),
+  bucket: () => env("S3_BUCKET", "MINIO_BUCKET"),
+  region: () => env("S3_REGION") ?? "us-east-1",
+};
+
 export class StorageNotConfiguredError extends Error {
   constructor() {
     super("Object storage (MinIO) is not configured");
@@ -16,12 +36,7 @@ export class StorageNotConfiguredError extends Error {
 }
 
 export function isStorageConfigured(): boolean {
-  return Boolean(
-    process.env.S3_ENDPOINT &&
-      process.env.S3_ACCESS_KEY_ID &&
-      process.env.S3_SECRET_ACCESS_KEY &&
-      process.env.S3_BUCKET,
-  );
+  return Boolean(S3.endpoint() && S3.accessKey() && S3.secretKey() && S3.bucket());
 }
 
 function getClient(): S3Client {
@@ -29,13 +44,13 @@ function getClient(): S3Client {
 
   if (!client) {
     client = new S3Client({
-      region: process.env.S3_REGION ?? "us-east-1",
-      endpoint: process.env.S3_ENDPOINT,
+      region: S3.region(),
+      endpoint: S3.endpoint(),
       // MinIO serves buckets as a path segment, not as a subdomain.
       forcePathStyle: true,
       credentials: {
-        accessKeyId: process.env.S3_ACCESS_KEY_ID!,
-        secretAccessKey: process.env.S3_SECRET_ACCESS_KEY!,
+        accessKeyId: S3.accessKey()!,
+        secretAccessKey: S3.secretKey()!,
       },
     });
   }
@@ -44,7 +59,7 @@ function getClient(): S3Client {
 }
 
 function getBucket(): string {
-  const bucket = process.env.S3_BUCKET;
+  const bucket = S3.bucket();
   if (!bucket) throw new StorageNotConfiguredError();
   return bucket;
 }
