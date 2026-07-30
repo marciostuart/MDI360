@@ -20,6 +20,7 @@ import { Route as StudioConteudosRouteImport } from './routes/studio/conteudos'
 import { Route as StudioPlaylistsRouteImport } from './routes/studio/playlists'
 import { Route as StudioTelasRouteImport } from './routes/studio/telas'
 import { Route as TorreIndexRouteImport } from './routes/torre/index'
+import { Route as ApiMediaUploadRouteImport } from './routes/api/media/upload'
 import { Route as ApiPublicPlayerPairRouteImport } from './routes/api/public/player/pair'
 import { Route as ApiPublicPlayerSyncRouteImport } from './routes/api/public/player/sync'
 
@@ -78,6 +79,11 @@ const TorreIndexRoute = TorreIndexRouteImport.update({
   path: '/',
   getParentRoute: () => TorreRouteRoute,
 } as any)
+const ApiMediaUploadRoute = ApiMediaUploadRouteImport.update({
+  id: '/api/media/upload',
+  path: '/api/media/upload',
+  getParentRoute: () => rootRouteImport,
+} as any)
 const ApiPublicPlayerPairRoute = ApiPublicPlayerPairRouteImport.update({
   id: '/api/public/player/pair',
   path: '/api/public/player/pair',
@@ -101,6 +107,7 @@ export interface FileRoutesByFullPath {
   '/studio/telas': typeof StudioTelasRoute
   '/studio/': typeof StudioIndexRoute
   '/torre/': typeof TorreIndexRoute
+  '/api/media/upload': typeof ApiMediaUploadRoute
   '/api/public/player/pair': typeof ApiPublicPlayerPairRoute
   '/api/public/player/sync': typeof ApiPublicPlayerSyncRoute
 }
@@ -114,6 +121,7 @@ export interface FileRoutesByTo {
   '/studio/telas': typeof StudioTelasRoute
   '/studio': typeof StudioIndexRoute
   '/torre': typeof TorreIndexRoute
+  '/api/media/upload': typeof ApiMediaUploadRoute
   '/api/public/player/pair': typeof ApiPublicPlayerPairRoute
   '/api/public/player/sync': typeof ApiPublicPlayerSyncRoute
 }
@@ -130,6 +138,7 @@ export interface FileRoutesById {
   '/studio/telas': typeof StudioTelasRoute
   '/studio/': typeof StudioIndexRoute
   '/torre/': typeof TorreIndexRoute
+  '/api/media/upload': typeof ApiMediaUploadRoute
   '/api/public/player/pair': typeof ApiPublicPlayerPairRoute
   '/api/public/player/sync': typeof ApiPublicPlayerSyncRoute
 }
@@ -147,6 +156,7 @@ export interface FileRouteTypes {
     | '/studio/telas'
     | '/studio/'
     | '/torre/'
+    | '/api/media/upload'
     | '/api/public/player/pair'
     | '/api/public/player/sync'
   fileRoutesByTo: FileRoutesByTo
@@ -160,6 +170,7 @@ export interface FileRouteTypes {
     | '/studio/telas'
     | '/studio'
     | '/torre'
+    | '/api/media/upload'
     | '/api/public/player/pair'
     | '/api/public/player/sync'
   id:
@@ -175,6 +186,7 @@ export interface FileRouteTypes {
     | '/studio/telas'
     | '/studio/'
     | '/torre/'
+    | '/api/media/upload'
     | '/api/public/player/pair'
     | '/api/public/player/sync'
   fileRoutesById: FileRoutesById
@@ -185,6 +197,7 @@ export interface RootRouteChildren {
   TorreRouteRoute: typeof TorreRouteRouteWithChildren
   EntrarRoute: typeof EntrarRoute
   TelaRoute: typeof TelaRoute
+  ApiMediaUploadRoute: typeof ApiMediaUploadRoute
   ApiPublicPlayerPairRoute: typeof ApiPublicPlayerPairRoute
   ApiPublicPlayerSyncRoute: typeof ApiPublicPlayerSyncRoute
 }
@@ -268,6 +281,13 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof TorreIndexRouteImport
       parentRoute: typeof TorreRouteRoute
     }
+    '/api/media/upload': {
+      id: '/api/media/upload'
+      path: '/api/media/upload'
+      fullPath: '/api/media/upload'
+      preLoaderRoute: typeof ApiMediaUploadRouteImport
+      parentRoute: typeof rootRouteImport
+    }
     '/api/public/player/pair': {
       id: '/api/public/player/pair'
       path: '/api/public/player/pair'
@@ -323,9 +343,20 @@ const rootRouteChildren: RootRouteChildren = {
   TorreRouteRoute: TorreRouteRouteWithChildren,
   EntrarRoute: EntrarRoute,
   TelaRoute: TelaRoute,
+  ApiMediaUploadRoute: ApiMediaUploadRoute,
   ApiPublicPlayerPairRoute: ApiPublicPlayerPairRoute,
   ApiPublicPlayerSyncRoute: ApiPublicPlayerSyncRoute,
 }
 export const routeTree = rootRouteImport
   ._addFileChildren(rootRouteChildren)
   ._addFileTypes<FileRouteTypes>()
+
+import type { getRouter } from './router.tsx'
+import type { startInstance } from './start.ts'
+declare module '@tanstack/react-start' {
+  interface Register {
+    ssr: true
+    router: Awaited<ReturnType<typeof getRouter>>
+    config: Awaited<ReturnType<typeof startInstance.getOptions>>
+  }
+}
