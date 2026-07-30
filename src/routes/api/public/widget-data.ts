@@ -102,7 +102,7 @@ export const Route = createFileRoute("/api/public/widget-data")({
             const pairs = parsed.data.pairs
               .split(",")
               .map((pair) => pair.trim())
-              .filter((pair) => CURRENCY_IDS.includes(pair))
+              .filter((pair) => (CURRENCY_IDS as readonly string[]).includes(pair))
               .slice(0, 5);
             if (pairs.length === 0) {
               return Response.json({ error: "Nenhuma moeda válida." }, { status: 400 });
