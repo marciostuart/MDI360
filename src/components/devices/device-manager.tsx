@@ -261,6 +261,30 @@ export function DeviceManager() {
                     ) : null}
                   </div>
 
+                  <div className="flex items-center justify-between gap-3 rounded-lg border border-border p-3">
+                    <div className="flex items-center gap-2">
+                      {device.audioEnabled ? (
+                        <Volume2 className="size-4 text-muted-foreground" />
+                      ) : (
+                        <VolumeX className="size-4 text-muted-foreground" />
+                      )}
+                      <div>
+                        <p className="text-sm font-medium">Áudio da TV</p>
+                        <p className="text-xs text-muted-foreground">
+                          {device.audioEnabled
+                            ? "Vídeos marcados com som tocam com áudio."
+                            : "Silêncio total — ignora o som de todos os vídeos."}
+                        </p>
+                      </div>
+                    </div>
+                    <Switch
+                      checked={device.audioEnabled}
+                      onCheckedChange={(checked) =>
+                        audioMutation.mutate({ deviceId: device.id, audioEnabled: checked })
+                      }
+                    />
+                  </div>
+
                   <div className="flex flex-wrap gap-2">
                     <Button
                       size="sm"
