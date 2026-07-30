@@ -36,7 +36,7 @@ services:
           cpus: "1.0"
       labels:
         - "traefik.enable=true"
-        - "traefik.docker.network=${TRAEFIK_NETWORK:-network_public}"
+        - "traefik.docker.network=${TRAEFIK_NETWORK:-360Network}"
         - "traefik.http.routers.signage.rule=Host(`${APP_HOST}`)"
         - "traefik.http.routers.signage.entrypoints=websecure"
         - "traefik.http.routers.signage.tls.certresolver=letsencrypt"
@@ -49,8 +49,8 @@ networks:
   traefik:
     external: true
     # Confirme o nome real: docker network ls
-    name: ${TRAEFIK_NETWORK:-network_public}
+    name: ${TRAEFIK_NETWORK:-360Network}
   data:
     external: true
     # Rede onde postgres e minio estao. Muitas vezes e a MESMA do traefik.
-    name: ${DATA_NETWORK:-network_public}
+    name: ${DATA_NETWORK:-360Network}
