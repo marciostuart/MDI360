@@ -91,6 +91,24 @@ Este subdomínio serve apenas o sistema (área logada).
 4. No painel, o bloco **Status da infraestrutura** deve mostrar
    "Conectado" para o banco e para o armazenamento.
 
+---
+
+## Passo 7 — Ligar a primeira TV
+
+1. No Studio, vá em **Telas → Nova tela**, escolha o formato (TV horizontal,
+   totem vertical etc.) e cadastre. Um **código de 6 dígitos** aparece no card.
+2. No aparelho da TV (TV Box, Fire Stick, Smart TV ou celular Android), abra o
+   navegador em `https://mdi.360bh.com.br/tela`.
+3. Digite o código. A tela fica pareada de forma permanente naquele aparelho
+   (o código é de uso único e expira em 24 h).
+4. Em **Conteúdos**, envie imagens/vídeos. Em **Playlists**, monte a sequência
+   e clique em **Publicar**. Em **Agenda**, defina os dias e horários.
+5. A TV sincroniza sozinha a cada 1 minuto. O botão **Atualizar** no card da
+   tela força a atualização imediata na próxima checagem.
+
+> Para transformar isso em APK depois, basta empacotar essa mesma URL `/tela`
+> num WebView (Capacitor) — nenhuma mudança no servidor é necessária.
+
 As tabelas do banco são criadas automaticamente no primeiro start —
 você não precisa rodar nenhum SQL.
 
