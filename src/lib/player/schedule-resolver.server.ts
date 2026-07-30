@@ -70,7 +70,17 @@ export async function resolvePlaylistForDevice(
     return minute >= row.startMinute && minute < row.endMinute;
   });
 
-  if (!match) return null;
+  // No schedule matches right now: fall back to the screen's default playlist.
+  let playlistId = match?.playlistId ?? null;
+  if (!playlistId) {
+    const deviceRows = await db
+      .select({ defaultPlaylistId: schema.devices.defaultPlaylistId })
+      .from(schema.devices)
+      .where(eq(schema.devices.id, deviceId))
+      .limit(1);
+    playlistId = deviceRows[0]?.defaultPlaylistId ?? null;
+  }
+  if (!playlistId) return null;
 
   const playlistRows = await db
     .select({
@@ -79,7 +89,7 @@ export async function resolvePlaylistForDevice(
       revision: schema.playlists.revision,
     })
     .from(schema.playlists)
-    .where(eq(schema.playlists.id, match.playlistId))
+    .where(eq(schema.playlists.id, playlistId))
     .limit(1);
 
   const playlist = playlistRows[0];
