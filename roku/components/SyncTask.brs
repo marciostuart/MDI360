@@ -52,11 +52,13 @@ end function
 sub runLoop()
     baseUrl = m.top.baseUrl
     intervalMs = 60000
+    linked = false
 
     while true
         token = registryRead("deviceToken")
 
         if token = ""
+            linked = false
             m.top.statusText = "Registrando esta tela..."
             res = postJson(baseUrl + "/api/public/player/register", "", FormatJson({ appVersion: "roku-1.0.0" }))
             if res.code = 200 and res.body <> invalid and res.body.deviceToken <> invalid
@@ -67,14 +69,45 @@ sub runLoop()
                 m.top.statusText = "Sem conexao com o servidor (HTTP " + res.code.ToStr() + ") - " + baseUrl + ". Tentando novamente..."
                 sleep(5000)
             end if
+        else if not linked
+            ' While the screen is still unlinked the sync endpoint answers 401 by
+            ' design, so we poll the status endpoint instead and keep the very
+            ' same activation code on screen until someone claims it.
+            res = postJson(baseUrl + "/api/public/player/status", token, "{}")
+
+            if res.code = 401
+                ' Row removed in the Studio: forget the token and register again.
+                registryDelete("deviceToken")
+                m.top.activationCode = ""
+                m.top.payload = {}
+            else if res.code = 200 and res.body <> invalid
+                state = ""
+                if res.body.state <> invalid then state = res.body.state
+                if state = "linked"
+                    linked = true
+                    m.top.statusText = "Tela vinculada. Carregando conteudo..."
+                else if state = "blocked"
+                    m.top.activationCode = ""
+                    m.top.statusText = "Tela bloqueada. Fale com o suporte."
+                    sleep(30000)
+                else
+                    if res.body.activationCode <> invalid and res.body.activationCode <> ""
+                        m.top.activationCode = res.body.activationCode
+                    end if
+                    m.top.statusText = ""
+                    sleep(10000)
+                end if
+            else
+                m.top.statusText = "Sem conexao com o servidor (HTTP " + res.code.ToStr() + "). Tentando novamente..."
+                sleep(10000)
+            end if
         else
             res = postJson(baseUrl + "/api/public/player/sync", token, FormatJson({ appVersion: "roku-1.0.0" }))
 
             if res.code = 401
-                ' The screen was removed from the account: forget everything and
-                ' come back as a brand new TV asking for a fresh activation code.
-                registryDelete("deviceToken")
-                m.top.activationCode = ""
+                ' Unlinked or removed in the Studio: go back to the waiting loop,
+                ' which decides between keeping the code or registering again.
+                linked = false
                 m.top.payload = {}
             else if res.code = 200 and res.body <> invalid
                 m.top.statusText = ""
@@ -82,11 +115,11 @@ sub runLoop()
                 if res.body.syncIntervalMs <> invalid and res.body.syncIntervalMs > 10000
                     intervalMs = res.body.syncIntervalMs
                 end if
+                sleep(intervalMs)
             else
                 m.top.statusText = "Sem conexao com o servidor (HTTP " + res.code.ToStr() + "). Tentando novamente..."
                 sleep(10000)
             end if
-            sleep(intervalMs)
         end if
     end while
 end sub
