@@ -12,11 +12,13 @@ import { Route as rootRouteImport } from './routes/__root'
 import { Route as IndexRouteImport } from './routes/index'
 import { Route as EntrarRouteImport } from './routes/entrar'
 import { Route as StudioRouteRouteImport } from './routes/studio/route'
+import { Route as TorreRouteRouteImport } from './routes/torre/route'
 import { Route as StudioIndexRouteImport } from './routes/studio/index'
 import { Route as StudioAgendaRouteImport } from './routes/studio/agenda'
 import { Route as StudioConteudosRouteImport } from './routes/studio/conteudos'
 import { Route as StudioPlaylistsRouteImport } from './routes/studio/playlists'
 import { Route as StudioTelasRouteImport } from './routes/studio/telas'
+import { Route as TorreIndexRouteImport } from './routes/torre/index'
 
 const IndexRoute = IndexRouteImport.update({
   id: '/',
@@ -31,6 +33,11 @@ const EntrarRoute = EntrarRouteImport.update({
 const StudioRouteRoute = StudioRouteRouteImport.update({
   id: '/studio',
   path: '/studio',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const TorreRouteRoute = TorreRouteRouteImport.update({
+  id: '/torre',
+  path: '/torre',
   getParentRoute: () => rootRouteImport,
 } as any)
 const StudioIndexRoute = StudioIndexRouteImport.update({
@@ -58,16 +65,23 @@ const StudioTelasRoute = StudioTelasRouteImport.update({
   path: '/telas',
   getParentRoute: () => StudioRouteRoute,
 } as any)
+const TorreIndexRoute = TorreIndexRouteImport.update({
+  id: '/',
+  path: '/',
+  getParentRoute: () => TorreRouteRoute,
+} as any)
 
 export interface FileRoutesByFullPath {
   '/': typeof IndexRoute
   '/studio': typeof StudioRouteRouteWithChildren
+  '/torre': typeof TorreRouteRouteWithChildren
   '/entrar': typeof EntrarRoute
   '/studio/agenda': typeof StudioAgendaRoute
   '/studio/conteudos': typeof StudioConteudosRoute
   '/studio/playlists': typeof StudioPlaylistsRoute
   '/studio/telas': typeof StudioTelasRoute
   '/studio/': typeof StudioIndexRoute
+  '/torre/': typeof TorreIndexRoute
 }
 export interface FileRoutesByTo {
   '/': typeof IndexRoute
@@ -77,29 +91,34 @@ export interface FileRoutesByTo {
   '/studio/playlists': typeof StudioPlaylistsRoute
   '/studio/telas': typeof StudioTelasRoute
   '/studio': typeof StudioIndexRoute
+  '/torre': typeof TorreIndexRoute
 }
 export interface FileRoutesById {
   __root__: typeof rootRouteImport
   '/': typeof IndexRoute
   '/studio': typeof StudioRouteRouteWithChildren
+  '/torre': typeof TorreRouteRouteWithChildren
   '/entrar': typeof EntrarRoute
   '/studio/agenda': typeof StudioAgendaRoute
   '/studio/conteudos': typeof StudioConteudosRoute
   '/studio/playlists': typeof StudioPlaylistsRoute
   '/studio/telas': typeof StudioTelasRoute
   '/studio/': typeof StudioIndexRoute
+  '/torre/': typeof TorreIndexRoute
 }
 export interface FileRouteTypes {
   fileRoutesByFullPath: FileRoutesByFullPath
   fullPaths:
     | '/'
     | '/studio'
+    | '/torre'
     | '/entrar'
     | '/studio/agenda'
     | '/studio/conteudos'
     | '/studio/playlists'
     | '/studio/telas'
     | '/studio/'
+    | '/torre/'
   fileRoutesByTo: FileRoutesByTo
   to:
     | '/'
@@ -109,21 +128,25 @@ export interface FileRouteTypes {
     | '/studio/playlists'
     | '/studio/telas'
     | '/studio'
+    | '/torre'
   id:
     | '__root__'
     | '/'
     | '/studio'
+    | '/torre'
     | '/entrar'
     | '/studio/agenda'
     | '/studio/conteudos'
     | '/studio/playlists'
     | '/studio/telas'
     | '/studio/'
+    | '/torre/'
   fileRoutesById: FileRoutesById
 }
 export interface RootRouteChildren {
   IndexRoute: typeof IndexRoute
   StudioRouteRoute: typeof StudioRouteRouteWithChildren
+  TorreRouteRoute: typeof TorreRouteRouteWithChildren
   EntrarRoute: typeof EntrarRoute
 }
 
@@ -148,6 +171,13 @@ declare module '@tanstack/react-router' {
       path: '/studio'
       fullPath: '/studio'
       preLoaderRoute: typeof StudioRouteRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/torre': {
+      id: '/torre'
+      path: '/torre'
+      fullPath: '/torre'
+      preLoaderRoute: typeof TorreRouteRouteImport
       parentRoute: typeof rootRouteImport
     }
     '/studio/': {
@@ -185,6 +215,13 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof StudioTelasRouteImport
       parentRoute: typeof StudioRouteRoute
     }
+    '/torre/': {
+      id: '/torre/'
+      path: '/'
+      fullPath: '/torre/'
+      preLoaderRoute: typeof TorreIndexRouteImport
+      parentRoute: typeof TorreRouteRoute
+    }
   }
 }
 
@@ -208,9 +245,22 @@ const StudioRouteRouteWithChildren = StudioRouteRoute._addFileChildren(
   StudioRouteRouteChildren,
 )
 
+interface TorreRouteRouteChildren {
+  TorreIndexRoute: typeof TorreIndexRoute
+}
+
+const TorreRouteRouteChildren: TorreRouteRouteChildren = {
+  TorreIndexRoute: TorreIndexRoute,
+}
+
+const TorreRouteRouteWithChildren = TorreRouteRoute._addFileChildren(
+  TorreRouteRouteChildren,
+)
+
 const rootRouteChildren: RootRouteChildren = {
   IndexRoute: IndexRoute,
   StudioRouteRoute: StudioRouteRouteWithChildren,
+  TorreRouteRoute: TorreRouteRouteWithChildren,
   EntrarRoute: EntrarRoute,
 }
 export const routeTree = rootRouteImport
