@@ -24,7 +24,8 @@ sub registryDelete(key as string)
 end sub
 
 ' Minimal JSON POST helper. Returns { code: <http status>, body: <assocarray> }.
-function postJson(url as string, token as string, bodyText as string) as object
+' timeoutMs is generous for the long-poll channel, which the server holds open.
+function postJson(url as string, token as string, bodyText as string, timeoutMs = 20000 as integer) as object
     port = CreateObject("roMessagePort")
     transfer = CreateObject("roUrlTransfer")
     transfer.SetMessagePort(port)
@@ -38,7 +39,7 @@ function postJson(url as string, token as string, bodyText as string) as object
     result = { code: 0, body: invalid }
     if not transfer.AsyncPostFromString(bodyText) then return result
 
-    msg = wait(20000, port)
+    msg = wait(timeoutMs, port)
     if type(msg) = "roUrlEvent"
         result.code = msg.GetResponseCode()
         parsed = ParseJson(msg.GetString())
@@ -53,6 +54,7 @@ sub runLoop()
     baseUrl = m.top.baseUrl
     intervalMs = 60000
     linked = false
+    revision = 0
 
     while true
         token = registryRead("deviceToken")
@@ -95,7 +97,7 @@ sub runLoop()
                         m.top.activationCode = res.body.activationCode
                     end if
                     m.top.statusText = ""
-                    sleep(10000)
+                    sleep(5000)
                 end if
             else
                 m.top.statusText = "Sem conexao com o servidor (HTTP " + res.code.ToStr() + "). Tentando novamente..."
@@ -112,10 +114,32 @@ sub runLoop()
             else if res.code = 200 and res.body <> invalid
                 m.top.statusText = ""
                 m.top.payload = res.body
+                if res.body.revision <> invalid then revision = res.body.revision
                 if res.body.syncIntervalMs <> invalid and res.body.syncIntervalMs > 10000
                     intervalMs = res.body.syncIntervalMs
                 end if
-                sleep(intervalMs)
+
+                ' Push channel: hold one request open; the server answers the
+                ' moment the Studio changes anything for this screen. If nothing
+                ' happens it returns after ~25s and we simply reopen it, which
+                ' doubles as the periodic heartbeat without hammering the VPS.
+                waited = 0
+                while waited < intervalMs
+                    evt = postJson(baseUrl + "/api/public/player/events", token, FormatJson({ revision: revision }), 35000)
+                    if evt.code = 401
+                        linked = false
+                        m.top.payload = {}
+                        exit while
+                    else if evt.code = 200 and evt.body <> invalid
+                        if evt.body.revision <> invalid then revision = evt.body.revision
+                        if evt.body.changed = true then exit while
+                        waited = waited + 25000
+                    else
+                        ' Channel unavailable (proxy, rede): fall back to polling.
+                        sleep(10000)
+                        waited = waited + 10000
+                    end if
+                end while
             else
                 m.top.statusText = "Sem conexao com o servidor (HTTP " + res.code.ToStr() + "). Tentando novamente..."
                 sleep(10000)
