@@ -1,25 +1,37 @@
-import { createFileRoute } from "@tanstack/react-router";
+import { createFileRoute, Link } from "@tanstack/react-router";
 import { useQuery } from "@tanstack/react-query";
 import {
+  Activity,
   AlertTriangle,
   Building2,
   CheckCircle2,
   Database,
+  Gauge,
   HardDrive,
   Loader2,
+  Radio,
   Tv,
   Users,
-  Wifi,
 } from "lucide-react";
-
 import {
-  Card,
-  CardContent,
-  CardDescription,
-  CardHeader,
-  CardTitle,
-} from "@/components/ui/card";
-import { fetchInfraStatus, fetchPlatformOverview } from "@/lib/admin/platform.functions";
+  Area,
+  AreaChart,
+  CartesianGrid,
+  ResponsiveContainer,
+  Tooltip,
+  XAxis,
+  YAxis,
+} from "recharts";
+
+import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
+import { Button } from "@/components/ui/button";
+import {
+  fetchInfraStatus,
+  fetchPlatformOrganizations,
+  fetchPlatformOverview,
+  fetchTrafficSeries,
+} from "@/lib/admin/platform.functions";
+import { formatBytes } from "@/lib/admin/format";
 
 export const Route = createFileRoute("/torre/")({
   head: () => ({
@@ -27,7 +39,7 @@ export const Route = createFileRoute("/torre/")({
       { title: "Torre de Controle | MDI 360" },
       {
         name: "description",
-        content: "Área interna da plataforma MDI 360: contas, telas ativas e faturamento por tela.",
+        content: "Painel da plataforma MDI 360: contas, telas vinculadas, armazenamento e carga do servidor.",
       },
       { name: "robots", content: "noindex, nofollow" },
       { property: "og:title", content: "Torre de Controle MDI 360" },
@@ -37,15 +49,64 @@ export const Route = createFileRoute("/torre/")({
   component: TowerOverview,
 });
 
+const CARD_TONES = [
+  "from-sky-500/20 to-sky-500/0 text-sky-500",
+  "from-emerald-500/20 to-emerald-500/0 text-emerald-500",
+  "from-violet-500/20 to-violet-500/0 text-violet-500",
+  "from-amber-500/20 to-amber-500/0 text-amber-500",
+  "from-rose-500/20 to-rose-500/0 text-rose-500",
+  "from-cyan-500/20 to-cyan-500/0 text-cyan-500",
+];
+
+function MetricCard({
+  icon: Icon,
+  label,
+  value,
+  hint,
+  tone,
+}: {
+  icon: typeof Tv;
+  label: string;
+  value: string;
+  hint?: string;
+  tone: string;
+}) {
+  return (
+    <Card className="relative overflow-hidden transition-transform duration-300 hover:-translate-y-1">
+      <div className={`pointer-events-none absolute inset-0 bg-gradient-to-br ${tone.split(" text-")[0]}`} />
+      <CardHeader className="relative flex-row items-center justify-between space-y-0 pb-2">
+        <CardTitle className="text-xs font-medium uppercase tracking-wide text-muted-foreground">
+          {label}
+        </CardTitle>
+        <Icon className={`size-4 ${tone.split(" ").pop()}`} />
+      </CardHeader>
+      <CardContent className="relative">
+        <p className="font-display text-3xl font-semibold tabular-nums">{value}</p>
+        {hint ? <p className="mt-1 text-xs text-muted-foreground">{hint}</p> : null}
+      </CardContent>
+    </Card>
+  );
+}
+
 function TowerOverview() {
   const { data, isPending } = useQuery({
     queryKey: ["platform-overview"],
     queryFn: () => fetchPlatformOverview(),
-    staleTime: 15_000,
+    refetchInterval: 10_000,
   });
   const { data: infra } = useQuery({
     queryKey: ["platform-infra"],
     queryFn: () => fetchInfraStatus(),
+    refetchInterval: 30_000,
+  });
+  const { data: traffic } = useQuery({
+    queryKey: ["platform-traffic", 48],
+    queryFn: () => fetchTrafficSeries({ data: { hours: 48 } }),
+    refetchInterval: 30_000,
+  });
+  const { data: orgs } = useQuery({
+    queryKey: ["platform-organizations"],
+    queryFn: () => fetchPlatformOrganizations(),
     refetchInterval: 30_000,
   });
 
@@ -71,92 +132,228 @@ function TowerOverview() {
     );
   }
 
-  const cards = [
-    { icon: Building2, label: "Contas de clientes", value: data.organizations },
-    { icon: Users, label: "Usuários cadastrados", value: data.users },
-    { icon: Tv, label: "Telas cadastradas", value: data.devices },
-    { icon: Wifi, label: "Telas ativas (faturáveis)", value: data.activeDevices },
-  ];
+  const chartData = (traffic ?? []).map((point) => ({
+    hora: new Date(point.bucket).toLocaleString("pt-BR", { day: "2-digit", hour: "2-digit" }),
+    requisicoes: point.requests,
+    trafegoMb: Number(((point.bytesIn + point.bytesOut) / 1024 / 1024).toFixed(2)),
+  }));
 
-  const checks = infra
-    ? [
-        {
-          icon: Database,
-          label: "Banco de dados (Postgres)",
-          ready: infra.databaseReady && infra.schemaReady,
-          hint: "Configure DATABASE_URL apontando para o Postgres da VPS.",
-        },
-        {
-          icon: HardDrive,
-          label: "Armazenamento de mídias (MinIO)",
-          ready: infra.storageReady,
-          hint:
-            infra.storageError ??
-            "Confira S3_ENDPOINT, S3_BUCKET, S3_ACCESS_KEY e S3_SECRET_KEY na stack.",
-        },
-      ]
-    : [];
+  const topStorage = [...(orgs ?? [])].sort((a, b) => b.storageBytes - a.storageBytes).slice(0, 5);
 
   return (
     <div className="space-y-8">
-      <div>
-        <h1 className="text-3xl font-semibold">Torre de Controle</h1>
-        <p className="mt-2 max-w-2xl text-sm text-muted-foreground">
-          Visão consolidada da plataforma. A cobrança do SaaS acompanha o número de telas ativas de
-          cada cliente.
-        </p>
+      <div className="flex flex-wrap items-end justify-between gap-4">
+        <div>
+          <h1 className="font-display text-3xl font-semibold">Torre de Controle</h1>
+          <p className="text-sm text-muted-foreground">
+            Dados em tempo real da plataforma — atualiza sozinho a cada 10 segundos.
+          </p>
+        </div>
+        <span className="inline-flex items-center gap-2 rounded-full border border-emerald-500/40 bg-emerald-500/10 px-3 py-1 text-xs text-emerald-500">
+          <span className="relative flex size-2">
+            <span className="absolute inline-flex size-full animate-ping rounded-full bg-emerald-500 opacity-75" />
+            <span className="relative inline-flex size-2 rounded-full bg-emerald-500" />
+          </span>
+          Ao vivo
+        </span>
       </div>
 
-      <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
-        {cards.map((card) => (
-          <Card key={card.label}>
-            <CardHeader className="pb-4">
-              <card.icon className="size-5 text-primary" />
-              <CardDescription className="mt-2">{card.label}</CardDescription>
-              <CardTitle className="text-3xl">{card.value}</CardTitle>
-            </CardHeader>
-          </Card>
-        ))}
+      <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
+        <MetricCard
+          icon={Tv}
+          label="Telas vinculadas"
+          value={String(data.linkedDevices)}
+          hint={`${data.onlineDevices} online agora`}
+          tone={CARD_TONES[0]}
+        />
+        <MetricCard
+          icon={Building2}
+          label="Estabelecimentos"
+          value={String(data.organizations)}
+          hint={`${data.users} usuários cadastrados`}
+          tone={CARD_TONES[1]}
+        />
+        <MetricCard
+          icon={HardDrive}
+          label="Armazenamento usado"
+          value={formatBytes(data.storageBytes)}
+          hint={`${data.mediaAssets} arquivos de mídia`}
+          tone={CARD_TONES[2]}
+        />
+        <MetricCard
+          icon={Radio}
+          label="Telas aguardando vínculo"
+          value={String(data.pendingDevices)}
+          hint="Códigos gerados e ainda não reivindicados"
+          tone={CARD_TONES[3]}
+        />
+        <MetricCard
+          icon={Activity}
+          label="Requisições (24h)"
+          value={data.requests24h.toLocaleString("pt-BR")}
+          hint="Chamadas dos players e do painel"
+          tone={CARD_TONES[4]}
+        />
+        <MetricCard
+          icon={Gauge}
+          label="Tráfego (24h)"
+          value={formatBytes(data.traffic24hBytes)}
+          hint="Entrada + saída medida no servidor"
+          tone={CARD_TONES[5]}
+        />
       </div>
 
-      {checks.length > 0 ? (
+      <Card>
+        <CardHeader>
+          <CardTitle>Carga do servidor (48h)</CardTitle>
+          <CardDescription>
+            Requisições por hora e volume trafegado — use para decidir a hora de escalar a VPS.
+          </CardDescription>
+        </CardHeader>
+        <CardContent className="h-72">
+          {chartData.length === 0 ? (
+            <div className="grid h-full place-items-center text-sm text-muted-foreground">
+              Coletando as primeiras medições…
+            </div>
+          ) : (
+            <ResponsiveContainer width="100%" height="100%">
+              <AreaChart data={chartData}>
+                <defs>
+                  <linearGradient id="req" x1="0" y1="0" x2="0" y2="1">
+                    <stop offset="0%" stopColor="var(--color-primary)" stopOpacity={0.6} />
+                    <stop offset="100%" stopColor="var(--color-primary)" stopOpacity={0} />
+                  </linearGradient>
+                </defs>
+                <CartesianGrid strokeDasharray="3 3" className="stroke-border" vertical={false} />
+                <XAxis dataKey="hora" tick={{ fontSize: 11 }} minTickGap={24} />
+                <YAxis tick={{ fontSize: 11 }} width={40} />
+                <Tooltip
+                  contentStyle={{
+                    background: "var(--color-popover)",
+                    border: "1px solid var(--color-border)",
+                    borderRadius: 12,
+                    fontSize: 12,
+                  }}
+                />
+                <Area
+                  type="monotone"
+                  dataKey="requisicoes"
+                  stroke="var(--color-primary)"
+                  fill="url(#req)"
+                  strokeWidth={2}
+                  isAnimationActive
+                />
+                <Area
+                  type="monotone"
+                  dataKey="trafegoMb"
+                  stroke="var(--color-chart-2, #22c55e)"
+                  fill="transparent"
+                  strokeWidth={2}
+                />
+              </AreaChart>
+            </ResponsiveContainer>
+          )}
+        </CardContent>
+      </Card>
+
+      <div className="grid gap-4 lg:grid-cols-2">
         <Card>
-          <CardHeader>
-            <CardTitle className="text-lg">Status da infraestrutura</CardTitle>
-            <CardDescription>
-              Verificação automática das conexões da plataforma. Visível apenas para a equipe MDI
-              360.
-            </CardDescription>
+          <CardHeader className="flex-row items-center justify-between space-y-0">
+            <div>
+              <CardTitle>Maiores consumos de disco</CardTitle>
+              <CardDescription>Top 5 estabelecimentos por mídia armazenada.</CardDescription>
+            </div>
+            <Button asChild size="sm" variant="outline">
+              <Link to="/torre/clientes">Ver todos</Link>
+            </Button>
           </CardHeader>
           <CardContent className="space-y-3">
-            {checks.map((check) => (
-              <div
-                key={check.label}
-                className="flex items-start gap-3 rounded-lg border border-border p-3"
-              >
-                <check.icon className="mt-0.5 size-4 text-muted-foreground" />
-                <div className="min-w-0 flex-1">
-                  <p className="text-sm font-medium">{check.label}</p>
-                  {!check.ready ? (
-                    <p className="mt-1 text-xs text-muted-foreground">{check.hint}</p>
-                  ) : null}
-                </div>
-                {check.ready ? (
-                  <span className="flex items-center gap-1.5 text-xs font-medium text-signal-online">
-                    <CheckCircle2 className="size-4" />
-                    Conectado
-                  </span>
-                ) : (
-                  <span className="flex items-center gap-1.5 text-xs font-medium text-signal-warning">
-                    <AlertTriangle className="size-4" />
-                    Pendente
-                  </span>
-                )}
-              </div>
-            ))}
+            {topStorage.length === 0 ? (
+              <p className="text-sm text-muted-foreground">Nenhum cliente cadastrado ainda.</p>
+            ) : (
+              topStorage.map((org) => {
+                const limit = org.maxStorageMb * 1024 * 1024;
+                const pct = limit > 0 ? Math.min(100, (org.storageBytes / limit) * 100) : 0;
+                return (
+                  <Link
+                    key={org.id}
+                    to="/torre/clientes/$organizationId"
+                    params={{ organizationId: org.id }}
+                    className="block rounded-lg border border-border p-3 transition-colors hover:bg-muted/50"
+                  >
+                    <div className="flex items-center justify-between text-sm">
+                      <span className="font-medium">{org.name}</span>
+                      <span className="tabular-nums text-muted-foreground">
+                        {formatBytes(org.storageBytes)} / {org.maxStorageMb} MB
+                      </span>
+                    </div>
+                    <div className="mt-2 h-2 overflow-hidden rounded-full bg-muted">
+                      <div
+                        className="h-full rounded-full bg-gradient-to-r from-sky-500 to-violet-500 transition-all duration-700"
+                        style={{ width: `${pct}%` }}
+                      />
+                    </div>
+                  </Link>
+                );
+              })
+            )}
           </CardContent>
         </Card>
-      ) : null}
+
+        <Card>
+          <CardHeader>
+            <CardTitle>Infraestrutura</CardTitle>
+            <CardDescription>Banco de dados e armazenamento de objetos.</CardDescription>
+          </CardHeader>
+          <CardContent className="space-y-3 text-sm">
+            <InfraRow
+              icon={Database}
+              label="Banco de dados"
+              ok={Boolean(infra?.databaseReady && infra?.schemaReady)}
+              detail={infra?.schemaReady ? "Schema aplicado" : "Migrações pendentes"}
+            />
+            <InfraRow
+              icon={HardDrive}
+              label="Armazenamento (MinIO)"
+              ok={Boolean(infra?.storageReady)}
+              detail={infra?.storageError ?? "Bucket acessível"}
+            />
+            <InfraRow
+              icon={Users}
+              label="Usuários da plataforma"
+              ok
+              detail={`${data.users} contas de acesso`}
+            />
+          </CardContent>
+        </Card>
+      </div>
+    </div>
+  );
+}
+
+function InfraRow({
+  icon: Icon,
+  label,
+  ok,
+  detail,
+}: {
+  icon: typeof Database;
+  label: string;
+  ok: boolean;
+  detail: string;
+}) {
+  return (
+    <div className="flex items-center justify-between rounded-lg border border-border px-3 py-2">
+      <span className="flex items-center gap-2">
+        <Icon className="size-4 text-muted-foreground" />
+        {label}
+      </span>
+      <span
+        className={`flex items-center gap-1.5 text-xs ${ok ? "text-emerald-500" : "text-amber-500"}`}
+      >
+        {ok ? <CheckCircle2 className="size-3.5" /> : <AlertTriangle className="size-3.5" />}
+        {detail}
+      </span>
     </div>
   );
 }
