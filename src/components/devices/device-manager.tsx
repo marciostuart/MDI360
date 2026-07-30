@@ -21,7 +21,9 @@ import {
   linkDevice,
   listDevices,
   sendDeviceCommand,
+  setDevicePlaylist,
 } from "@/lib/devices/devices.functions";
+import { listPlaylists } from "@/lib/playlists/playlists.functions";
 import { CANVAS_PRESETS, DEFAULT_CANVAS_PRESET, getCanvasPreset } from "@/lib/media/presets";
 
 function formatLastSeen(iso: string | null) {
@@ -41,6 +43,8 @@ export function DeviceManager() {
   const linkFn = useServerFn(linkDevice);
   const deleteFn = useServerFn(deleteDevice);
   const commandFn = useServerFn(sendDeviceCommand);
+  const playlistsFn = useServerFn(listPlaylists);
+  const setPlaylistFn = useServerFn(setDevicePlaylist);
 
   const [name, setName] = useState("");
   const [code, setCode] = useState("");
@@ -50,6 +54,11 @@ export function DeviceManager() {
     queryKey: ["devices"],
     queryFn: () => listFn({}),
     refetchInterval: 30_000,
+  });
+
+  const playlists = useQuery({
+    queryKey: ["playlists"],
+    queryFn: () => playlistsFn({}),
   });
 
   const refresh = () => queryClient.invalidateQueries({ queryKey: ["devices"] });
@@ -83,7 +92,18 @@ export function DeviceManager() {
     onError: () => toast.error("Não foi possível enviar o comando."),
   });
 
+  const playlistMutation = useMutation({
+    mutationFn: (vars: { deviceId: string; playlistId: string | null }) =>
+      setPlaylistFn({ data: vars }),
+    onSuccess: async () => {
+      toast.success("Playlist definida. A tela troca o conteúdo em instantes.");
+      await refresh();
+    },
+    onError: () => toast.error("Não foi possível definir a playlist desta tela."),
+  });
+
   const items = devices.data?.items ?? [];
+  const playlistItems = playlists.data?.items ?? [];
 
   return (
     <div className="space-y-8">
@@ -184,6 +204,36 @@ export function DeviceManager() {
                   <div className="flex items-center gap-2 text-sm text-muted-foreground">
                     <Tv className="size-4" />
                     Vinculada · visto {formatLastSeen(device.lastSeenAt)}
+                  </div>
+
+                  <div className="space-y-2">
+                    <Label className="text-xs text-muted-foreground">Playlist em exibição</Label>
+                    <Select
+                      value={device.defaultPlaylistId ?? "none"}
+                      onValueChange={(value) =>
+                        playlistMutation.mutate({
+                          deviceId: device.id,
+                          playlistId: value === "none" ? null : value,
+                        })
+                      }
+                    >
+                      <SelectTrigger>
+                        <SelectValue placeholder="Selecionar playlist" />
+                      </SelectTrigger>
+                      <SelectContent>
+                        <SelectItem value="none">Nenhuma (tela em espera)</SelectItem>
+                        {playlistItems.map((playlist) => (
+                          <SelectItem key={playlist.id} value={playlist.id}>
+                            {playlist.name} · {playlist.itemCount} itens
+                          </SelectItem>
+                        ))}
+                      </SelectContent>
+                    </Select>
+                    {playlistItems.length === 0 ? (
+                      <p className="text-xs text-muted-foreground">
+                        Crie uma playlist na aba Playlists para poder atribuí-la a esta tela.
+                      </p>
+                    ) : null}
                   </div>
 
                   <div className="flex flex-wrap gap-2">
