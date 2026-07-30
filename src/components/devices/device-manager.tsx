@@ -21,7 +21,9 @@ import {
   linkDevice,
   listDevices,
   sendDeviceCommand,
+  setDevicePlaylist,
 } from "@/lib/devices/devices.functions";
+import { listPlaylists } from "@/lib/playlists/playlists.functions";
 import { CANVAS_PRESETS, DEFAULT_CANVAS_PRESET, getCanvasPreset } from "@/lib/media/presets";
 
 function formatLastSeen(iso: string | null) {
@@ -41,6 +43,8 @@ export function DeviceManager() {
   const linkFn = useServerFn(linkDevice);
   const deleteFn = useServerFn(deleteDevice);
   const commandFn = useServerFn(sendDeviceCommand);
+  const playlistsFn = useServerFn(listPlaylists);
+  const setPlaylistFn = useServerFn(setDevicePlaylist);
 
   const [name, setName] = useState("");
   const [code, setCode] = useState("");
@@ -50,6 +54,11 @@ export function DeviceManager() {
     queryKey: ["devices"],
     queryFn: () => listFn({}),
     refetchInterval: 30_000,
+  });
+
+  const playlists = useQuery({
+    queryKey: ["playlists"],
+    queryFn: () => playlistsFn({}),
   });
 
   const refresh = () => queryClient.invalidateQueries({ queryKey: ["devices"] });
@@ -83,7 +92,18 @@ export function DeviceManager() {
     onError: () => toast.error("Não foi possível enviar o comando."),
   });
 
+  const playlistMutation = useMutation({
+    mutationFn: (vars: { deviceId: string; playlistId: string | null }) =>
+      setPlaylistFn({ data: vars }),
+    onSuccess: async () => {
+      toast.success("Playlist definida. A tela troca o conteúdo em instantes.");
+      await refresh();
+    },
+    onError: () => toast.error("Não foi possível definir a playlist desta tela."),
+  });
+
   const items = devices.data?.items ?? [];
+  const playlistItems = playlists.data?.items ?? [];
 
   return (
     <div className="space-y-8">
