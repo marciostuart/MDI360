@@ -1,6 +1,8 @@
 import { createServerFn } from "@tanstack/react-start";
 import { z } from "zod";
 
+import type { WidgetConfig } from "@/lib/widgets/catalog";
+
 import {
   ALLOWED_IMAGE_TYPES,
   ALLOWED_VIDEO_TYPES,
@@ -49,7 +51,7 @@ export type MediaListItem = {
   createdAt: string;
   previewUrl: string | null;
   widgetType: string | null;
-  widgetConfig: unknown;
+  widgetConfig: WidgetConfig | null;
 };
 
 /** Library of the caller's organization. Never returns another tenant's rows. */
@@ -97,7 +99,7 @@ export const listMediaAssets = createServerFn({ method: "GET" }).handler(
           createdAt: row.createdAt.toISOString(),
           previewUrl,
           widgetType: row.widgetType,
-          widgetConfig: row.widgetConfig ?? null,
+          widgetConfig: (row.widgetConfig as WidgetConfig | null) ?? null,
         } satisfies MediaListItem;
       }),
     );
