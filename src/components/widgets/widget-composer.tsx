@@ -225,9 +225,7 @@ export function WidgetComposer() {
         <div className="space-y-2">
           <Label>Prévia</Label>
           <div className="aspect-video overflow-hidden rounded-xl border border-border">
-            <div className="size-full [&_*]:!text-[inherit]">
-              <WidgetView config={config} />
-            </div>
+            <WidgetView config={config} />
           </div>
           <p className="text-xs text-muted-foreground">
             Na TV o widget ocupa a tela inteira e atualiza os dados sozinho a cada 5 minutos.

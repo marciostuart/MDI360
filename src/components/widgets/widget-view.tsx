@@ -33,7 +33,12 @@ function Shell({
   accent: string;
 }) {
   return (
-    <div className="relative grid size-full min-h-full place-items-center bg-black px-[6%] py-[6%] text-white">
+    // Container queries (cqh/cqw) make the widget scale to whatever box it is
+    // rendered in: full screen on the TV, small preview inside the Studio.
+    <div
+      className="relative grid size-full min-h-full place-items-center overflow-hidden bg-black px-[6%] py-[6%] text-white"
+      style={{ containerType: "size" }}
+    >
       <div className="w-full text-center">{children}</div>
       <div
         className="absolute inset-x-0 bottom-0 h-[0.6cqh]"
