@@ -130,6 +130,11 @@ export const devices = pgTable(
     }),
     locationId: uuid("location_id").references(() => locations.id, { onDelete: "set null" }),
     name: text("name").notNull().default("Tela aguardando vínculo"),
+    /**
+     * Playlist this screen plays whenever no schedule matches the current time.
+     * Lets a customer put content on a TV without touching the Agenda.
+     */
+    defaultPlaylistId: uuid("default_playlist_id"),
     status: deviceStatusEnum("status").notNull().default("pending"),
     /** Activation code shown on the TV. Stays reserved while the row exists. */
     pairingCode: text("pairing_code"),
