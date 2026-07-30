@@ -47,6 +47,42 @@ function parseRssTitles(xml: string, limit: number) {
   return titles;
 }
 
+/** Fallback quotes when AwesomeAPI is rate limited: open FX rates + Coinbase. */
+async function fallbackQuotes(pairs: string[]) {
+  const fiat = pairs.filter((pair) => pair !== "BTC-BRL");
+  const quotes: { code: string; name: string; value: number; changePct: number }[] = [];
+
+  if (fiat.length > 0) {
+    const response = await fetch("https://open.er-api.com/v6/latest/BRL");
+    if (!response.ok) throw new Error("fx");
+    const payload = (await response.json()) as { rates?: Record<string, number> };
+    const labels: Record<string, string> = {
+      "USD-BRL": "Dólar",
+      "EUR-BRL": "Euro",
+      "GBP-BRL": "Libra",
+      "ARS-BRL": "Peso argentino",
+    };
+    for (const pair of fiat) {
+      const code = pair.split("-")[0]!;
+      const rate = payload.rates?.[code];
+      if (!rate) continue;
+      quotes.push({ code, name: labels[pair] ?? code, value: 1 / rate, changePct: 0 });
+    }
+  }
+
+  if (pairs.includes("BTC-BRL")) {
+    const response = await fetch("https://api.coinbase.com/v2/prices/BTC-BRL/spot");
+    if (response.ok) {
+      const payload = (await response.json()) as { data?: { amount?: string } };
+      const value = Number(payload.data?.amount ?? 0);
+      if (value > 0) quotes.push({ code: "BTC", name: "Bitcoin", value, changePct: 0 });
+    }
+  }
+
+  if (quotes.length === 0) throw new Error("quotes");
+  return quotes;
+}
+
 export const Route = createFileRoute("/api/public/widget-data")({
   server: {
     handlers: {
@@ -110,21 +146,27 @@ export const Route = createFileRoute("/api/public/widget-data")({
             const response = await fetch(
               `https://economia.awesomeapi.com.br/json/last/${pairs.join(",")}`,
             );
-            if (!response.ok) throw new Error("currency");
-            const payload = (await response.json()) as Record<
-              string,
-              { code?: string; codein?: string; name?: string; bid?: string; pctChange?: string }
-            >;
+            if (response.ok) {
+              const payload = (await response.json()) as Record<
+                string,
+                { code?: string; name?: string; bid?: string; pctChange?: string }
+              >;
+              return Response.json(
+                {
+                  credit: "AwesomeAPI",
+                  quotes: Object.values(payload).map((quote) => ({
+                    code: quote.code ?? "",
+                    name: (quote.name ?? "").split("/")[0] ?? "",
+                    value: Number(quote.bid ?? 0),
+                    changePct: Number(quote.pctChange ?? 0),
+                  })),
+                },
+                { headers: cacheHeaders },
+              );
+            }
+            // Provider quota reached: keep the screen useful with open sources.
             return Response.json(
-              {
-                credit: "AwesomeAPI",
-                quotes: Object.values(payload).map((quote) => ({
-                  code: quote.code ?? "",
-                  name: (quote.name ?? "").split("/")[0] ?? "",
-                  value: Number(quote.bid ?? 0),
-                  changePct: Number(quote.pctChange ?? 0),
-                })),
-              },
+              { credit: "ExchangeRate-API · Coinbase", quotes: await fallbackQuotes(pairs) },
               { headers: cacheHeaders },
             );
           }
