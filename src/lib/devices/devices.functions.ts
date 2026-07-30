@@ -238,8 +238,40 @@ export const setDevicePlaylist = createServerFn({ method: "POST" })
     return { ok: true };
   });
 
+/**
+ * Global audio switch of a screen. When disabled, the TV silences every video
+ * regardless of the per-item audio setting in the playlist.
+ */
+export const setDeviceAudio = createServerFn({ method: "POST" })
+  .inputValidator((input: unknown) =>
+    z.object({ deviceId: z.string().uuid(), audioEnabled: z.boolean() }).parse(input),
+  )
+  .handler(async ({ data }) => {
+    const { getDb, schema } = await import("@/lib/db/index.server");
+    const { requireUser } = await import("@/lib/auth/session.server");
+    const { and, eq } = await import("drizzle-orm");
+    const user = await requireUser();
+
+    const updated = await getDb()
+      .update(schema.devices)
+      .set({ audioEnabled: data.audioEnabled })
+      .where(
+        and(
+          eq(schema.devices.id, data.deviceId),
+          eq(schema.devices.organizationId, user.organizationId),
+        ),
+      )
+      .returning({ id: schema.devices.id });
+
+    if (!updated[0]) throw new Error("Tela não encontrada.");
+
+    const { notifyDevice } = await import("@/lib/player/realtime.server");
+    notifyDevice(data.deviceId);
+
+    return { ok: true };
+  });
+
 export const sendDeviceCommand = createServerFn({ method: "POST" })
-  // eslint-disable-next-line @typescript-eslint/no-unused-vars
   .inputValidator((input: unknown) =>
     z
       .object({
