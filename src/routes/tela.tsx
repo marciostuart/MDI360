@@ -248,6 +248,42 @@ function PlayerScreen() {
 
 /** Full-screen activation code, meant to be read from across a room. */
 function ActivationScreen({ code, message }: { code: string | null; message: string | null }) {
+  return <ActivationScreenBody code={code} message={message} />;
+}
+
+/** Whitelabel splash: customer logo, text and accent colour. */
+function SplashScreen({
+  branding,
+  message,
+}: {
+  branding: SyncResponse["branding"];
+  message?: string;
+}) {
+  const color = branding?.color ?? "#ffffff";
+  return (
+    <div className="grid min-h-screen place-items-center bg-black px-8 text-center">
+      <div className="space-y-6">
+        {branding?.logoUrl ? (
+          <img
+            src={branding.logoUrl}
+            alt=""
+            className="mx-auto max-h-40 max-w-[60vw] object-contain"
+          />
+        ) : null}
+        <p className="font-display text-3xl font-semibold text-white sm:text-4xl">
+          {branding?.splashText ?? branding?.name ?? "MDI 360"}
+        </p>
+        <div
+          className="mx-auto h-1 w-32 rounded-full"
+          style={{ backgroundColor: color }}
+        />
+        {message ? <p className="text-sm text-white/60">{message}</p> : null}
+      </div>
+    </div>
+  );
+}
+
+function ActivationScreenBody({ code, message }: { code: string | null; message: string | null }) {
   return (
     <div className="grid min-h-screen place-items-center bg-black px-6 text-center text-white">
       <div className="w-full max-w-2xl">
