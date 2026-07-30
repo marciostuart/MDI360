@@ -90,13 +90,26 @@ export function DeviceManager() {
       <header className="space-y-1">
         <h1 className="font-display text-2xl font-semibold tracking-tight">Telas</h1>
         <p className="text-sm text-muted-foreground">
-          Cadastre cada TV, informe o código de 6 dígitos no aplicativo instalado no aparelho e
-          acompanhe se a tela está online.
+          Abra o aplicativo na TV, veja o código de ativação exibido nela e use o botão abaixo para
+          vincular o aparelho à sua conta.
         </p>
       </header>
 
       <Card>
         <CardContent className="flex flex-col gap-4 pt-6 md:flex-row md:items-end">
+          <div className="space-y-2 md:w-44">
+            <Label htmlFor="device-code">Código da TV</Label>
+            <Input
+              id="device-code"
+              value={code}
+              onChange={(event) =>
+                setCode(event.target.value.toUpperCase().replace(/[^A-Z0-9]/g, "").slice(0, 6))
+              }
+              placeholder="ABC123"
+              className="font-display tracking-[0.3em] uppercase"
+              maxLength={6}
+            />
+          </div>
           <div className="flex-1 space-y-2">
             <Label htmlFor="device-name">Nome da tela</Label>
             <Input
@@ -123,15 +136,15 @@ export function DeviceManager() {
             </Select>
           </div>
           <Button
-            onClick={() => createMutation.mutate()}
-            disabled={!name.trim() || createMutation.isPending}
+            onClick={() => linkMutation.mutate()}
+            disabled={!name.trim() || code.length !== 6 || linkMutation.isPending}
           >
-            {createMutation.isPending ? (
+            {linkMutation.isPending ? (
               <Loader2 className="size-4 animate-spin" />
             ) : (
-              <Plus className="size-4" />
+              <Link2 className="size-4" />
             )}
-            Cadastrar tela
+            Vincular tela
           </Button>
         </CardContent>
       </Card>
@@ -144,10 +157,10 @@ export function DeviceManager() {
         <Card>
           <CardContent className="grid place-items-center gap-2 py-16 text-center">
             <MonitorSmartphone className="size-8 text-muted-foreground" />
-            <p className="text-sm font-medium">Nenhuma tela cadastrada ainda</p>
+            <p className="text-sm font-medium">Nenhuma tela vinculada ainda</p>
             <p className="max-w-sm text-sm text-muted-foreground">
-              Cadastre a primeira TV acima. Em seguida abra o aplicativo no aparelho e digite o
-              código de pareamento exibido aqui.
+              Abra o aplicativo na TV (ou <span className="font-medium">/tela</span> no navegador do
+              aparelho). Ele mostra um código de ativação — informe-o no campo acima.
             </p>
           </CardContent>
         </Card>
@@ -168,23 +181,10 @@ export function DeviceManager() {
                     </Badge>
                   </div>
 
-                  {device.pairingCode ? (
-                    <div className="rounded-lg border border-dashed border-border p-3 text-center">
-                      <p className="text-xs text-muted-foreground">Código de pareamento</p>
-                      <p className="font-display text-2xl font-semibold tracking-[0.3em]">
-                        {device.pairingCode}
-                      </p>
-                      <p className="mt-2 text-[11px] text-muted-foreground">
-                        Abra <span className="font-medium">/tela</span> no aparelho e digite este
-                        código.
-                      </p>
-                    </div>
-                  ) : (
-                    <div className="flex items-center gap-2 text-sm text-muted-foreground">
-                      <Tv className="size-4" />
-                      Pareada · visto {formatLastSeen(device.lastSeenAt)}
-                    </div>
-                  )}
+                  <div className="flex items-center gap-2 text-sm text-muted-foreground">
+                    <Tv className="size-4" />
+                    Vinculada · visto {formatLastSeen(device.lastSeenAt)}
+                  </div>
 
                   <div className="flex flex-wrap gap-2">
                     <Button
@@ -201,13 +201,6 @@ export function DeviceManager() {
                     <Button
                       size="sm"
                       variant="outline"
-                      onClick={() => regenMutation.mutate(device.id)}
-                    >
-                      <RotateCcw className="size-3.5" />
-                      Novo código
-                    </Button>
-                    <Button
-                      size="sm"
                       variant="ghost"
                       className="text-muted-foreground"
                       onClick={() => removeMutation.mutate(device.id)}
