@@ -192,6 +192,9 @@ export const updatePlaylist = createServerFn({ method: "POST" })
         ),
       );
 
+    const { notifyOrganization } = await import("@/lib/player/realtime.server");
+    notifyOrganization(user.organizationId);
+
     return { ok: true };
   });
 
@@ -211,6 +214,9 @@ export const deletePlaylist = createServerFn({ method: "POST" })
           eq(schema.playlists.organizationId, user.organizationId),
         ),
       );
+
+    const { notifyOrganization } = await import("@/lib/player/realtime.server");
+    notifyOrganization(user.organizationId);
 
     return { ok: true };
   });
@@ -290,6 +296,10 @@ export const setPlaylistItems = createServerFn({ method: "POST" })
         .set({ revision: sql`${schema.playlists.revision} + 1`, updatedAt: new Date() })
         .where(eq(schema.playlists.id, data.playlistId));
     });
+
+    // Broadcast: every TV of this customer re-syncs within ~1 second.
+    const { notifyOrganization } = await import("@/lib/player/realtime.server");
+    notifyOrganization(user.organizationId);
 
     return { ok: true };
   });

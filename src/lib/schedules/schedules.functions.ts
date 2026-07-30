@@ -98,6 +98,9 @@ export const createSchedule = createServerFn({ method: "POST" })
       .values({ ...data, organizationId: user.organizationId })
       .returning({ id: schema.schedules.id });
 
+    const { notifyOrganization } = await import("@/lib/player/realtime.server");
+    notifyOrganization(user.organizationId);
+
     return { id: inserted[0]!.id };
   });
 
@@ -121,6 +124,9 @@ export const toggleSchedule = createServerFn({ method: "POST" })
         ),
       );
 
+    const { notifyOrganization } = await import("@/lib/player/realtime.server");
+    notifyOrganization(user.organizationId);
+
     return { ok: true };
   });
 
@@ -140,6 +146,9 @@ export const deleteSchedule = createServerFn({ method: "POST" })
           eq(schema.schedules.organizationId, user.organizationId),
         ),
       );
+
+    const { notifyOrganization } = await import("@/lib/player/realtime.server");
+    notifyOrganization(user.organizationId);
 
     return { ok: true };
   });

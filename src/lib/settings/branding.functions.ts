@@ -75,6 +75,9 @@ export const updateBranding = createServerFn({ method: "POST" })
       })
       .where(eq(schema.organizations.id, user.organizationId));
 
+    const { notifyOrganization } = await import("@/lib/player/realtime.server");
+    notifyOrganization(user.organizationId);
+
     return { ok: true };
   });
 
@@ -88,6 +91,9 @@ export const removeBrandLogo = createServerFn({ method: "POST" }).handler(async 
     .update(schema.organizations)
     .set({ brandLogoKey: null })
     .where(eq(schema.organizations.id, user.organizationId));
+
+  const { notifyOrganization } = await import("@/lib/player/realtime.server");
+  notifyOrganization(user.organizationId);
 
   return { ok: true };
 });
