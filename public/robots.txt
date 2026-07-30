@@ -1,14 +1,4 @@
-User-agent: Googlebot
-Allow: /
-
-User-agent: Bingbot
-Allow: /
-
-User-agent: Twitterbot
-Allow: /
-
-User-agent: facebookexternalhit
-Allow: /
-
+# Este subdominio hospeda apenas o sistema (area logada).
+# O conteudo publico/comercial fica no site institucional.
 User-agent: *
-Allow: /
+Disallow: /
