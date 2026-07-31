@@ -122,7 +122,7 @@ export const Route = createFileRoute("/api/media/upload")({
             }
           }
 
-          await putObject(storageKey, body, mimeType);
+          await putObject(storageKey, body as Uint8Array<ArrayBuffer>, mimeType);
         } catch (error) {
           const detail = describeStorageError(error);
           console.error("media upload failed", detail);
