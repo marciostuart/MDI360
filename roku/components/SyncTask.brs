@@ -81,7 +81,13 @@ sub runLoop()
             ' While the screen is still unlinked the sync endpoint answers 401 by
             ' design, so we poll the status endpoint instead and keep the very
             ' same activation code on screen until someone claims it.
-            res = postJson(baseUrl + "/api/public/player/status", token, "{}")
+            ' Push mode: the first check is instant, every following one holds the
+            ' request open (~25s) and returns the moment the Studio claims or
+            ' replaces this screen, so linking is immediate.
+            statusBody = "{""wait"":true}"
+            if m.firstStatus <> false then statusBody = "{""wait"":false}"
+            m.firstStatus = false
+            res = postJson(baseUrl + "/api/public/player/status", token, statusBody, 35000)
 
             if res.code = 401
                 ' Row removed in the Studio: forget the token and register again.
@@ -106,7 +112,6 @@ sub runLoop()
                         m.top.activationCode = res.body.activationCode
                     end if
                     m.top.statusText = "Aguardando vinculacao..."
-                    sleep(5000)
                 end if
             else
                 m.top.statusText = "Sem conexao (HTTP " + res.code.ToStr() + "). Reconectando..."
@@ -119,6 +124,7 @@ sub runLoop()
                 ' Unlinked or removed in the Studio: go back to the waiting loop,
                 ' which decides between keeping the code or registering again.
                 linked = false
+                m.firstStatus = true
                 m.top.payload = {}
                 m.top.statusText = "Tela desvinculada."
             else if res.code = 200 and res.body <> invalid
