@@ -2,6 +2,7 @@ import { createFileRoute } from "@tanstack/react-router";
 import { useCallback, useEffect, useRef, useState } from "react";
 
 import { WidgetView } from "@/components/widgets/widget-view";
+import { QueueCallOverlay, type QueueCallPayload } from "@/components/queue/queue-call-overlay";
 import * as mediaCache from "@/lib/player/media-cache";
 import type { WidgetConfig } from "@/lib/widgets/catalog";
 
@@ -36,6 +37,8 @@ type SyncResponse = {
   commands: string[];
   syncIntervalMs: number;
   revision?: number;
+  /** Add-on de senhas: chamada mais recente desta tela (null quando inativo). */
+  queueCall?: QueueCallPayload | null;
 };
 
 const TOKEN_KEY = "mdi360.deviceToken";
@@ -91,6 +94,9 @@ function PlayerScreen() {
   // rotation after its download finishes, so the TV never buffers on air.
   const [readyUrls, setReadyUrls] = useState<Set<string>>(new Set());
   const [localSrc, setLocalSrc] = useState<string | null>(null);
+  // Queue add-on: the call currently taking over the screen.
+  const [activeCall, setActiveCall] = useState<QueueCallPayload | null>(null);
+  const lastCallIdRef = useRef<string | null>(null);
 
   const applySync = useCallback((data: SyncResponse, resetIndex: boolean) => {
     pendingSyncRef.current = null;
@@ -212,6 +218,14 @@ function PlayerScreen() {
         if (!response.ok) throw new Error("sync");
         const data = (await response.json()) as SyncResponse;
         if (typeof data.revision === "number") revisionRef.current = data.revision;
+
+        // A ticket call NEVER waits for the current file: it takes over now.
+        const call = data.queueCall ?? null;
+        if (call && call.id !== lastCallIdRef.current) {
+          lastCallIdRef.current = call.id;
+          setActiveCall(call);
+        }
+
         const previous = syncRef.current;
         const playing = (previous?.playlist?.items?.length ?? 0) > 0;
         const changed =
