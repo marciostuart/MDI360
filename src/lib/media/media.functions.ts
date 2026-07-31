@@ -200,6 +200,57 @@ export const confirmMediaUpload = createServerFn({ method: "POST" })
 export const deleteMediaAsset = createServerFn({ method: "POST" })
   .inputValidator((input: unknown) => z.object({ assetId: z.string().uuid() }).parse(input))
   .handler(async ({ data }) => {
+    return deleteMediaAssetImpl(data.assetId);
+  });
+
+const airWindowSchema = z
+  .object({
+    assetId: z.string().uuid(),
+    airStartAt: z.string().datetime({ offset: true }).nullable(),
+    airEndAt: z.string().datetime({ offset: true }).nullable(),
+  })
+  .superRefine((value, ctx) => {
+    if (value.airStartAt && value.airEndAt && value.airEndAt <= value.airStartAt) {
+      ctx.addIssue({ code: "custom", message: "O fim precisa ser depois do início." });
+    }
+  });
+
+/**
+ * Sets (or clears) the airing window of a single file. Applies everywhere the
+ * file is used: playlists keep the item, but the players skip it outside the
+ * window.
+ */
+export const setMediaAirWindow = createServerFn({ method: "POST" })
+  .inputValidator((input: unknown) => airWindowSchema.parse(input))
+  .handler(async ({ data }) => {
+    const { getDb, schema } = await import("@/lib/db/index.server");
+    const { requireUser } = await import("@/lib/auth/session.server");
+    const { and, eq } = await import("drizzle-orm");
+    const user = await requireUser();
+
+    await getDb()
+      .update(schema.mediaAssets)
+      .set({
+        airStartAt: data.airStartAt ? new Date(data.airStartAt) : null,
+        airEndAt: data.airEndAt ? new Date(data.airEndAt) : null,
+      })
+      .where(
+        and(
+          eq(schema.mediaAssets.id, data.assetId),
+          eq(schema.mediaAssets.organizationId, user.organizationId),
+        ),
+      );
+
+    // Screens re-sync immediately so the window takes effect right away.
+    const { notifyOrganization } = await import("@/lib/player/realtime.server");
+    notifyOrganization(user.organizationId);
+
+    return { ok: true };
+  });
+
+const legacyDeleteMediaAsset = createServerFn({ method: "POST" })
+  .inputValidator((input: unknown) => z.object({ assetId: z.string().uuid() }).parse(input))
+  .handler(async ({ data }) => {
     const { getDb, schema } = await import("@/lib/db/index.server");
     const { requireUser } = await import("@/lib/auth/session.server");
     const { deleteObject, isStorageConfigured } = await import("@/lib/storage.server");
