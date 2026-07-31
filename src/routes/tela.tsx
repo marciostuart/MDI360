@@ -6,6 +6,7 @@ import type { WidgetConfig } from "@/lib/widgets/catalog";
 
 type PlayerItem = {
   id: string;
+  mediaAssetId: string | null;
   kind: "image" | "video" | "web" | "widget";
   url: string | null;
   durationMs: number;
@@ -232,6 +233,24 @@ function PlayerScreen() {
 
   const items = sync?.playlist?.items ?? [];
   const current = items[index % Math.max(items.length, 1)];
+
+  // Playback reporting: one row per item that actually went on screen, which
+  // feeds the customer's exhibition reports and the live "no ar agora" view.
+  useEffect(() => {
+    if (!token || !current) return;
+    const controller = new AbortController();
+    void fetch("/api/public/player/playback", {
+      method: "POST",
+      headers: { "content-type": "application/json", authorization: `Bearer ${token}` },
+      body: JSON.stringify({
+        playlistId: sync?.playlist?.id ?? null,
+        mediaAssetId: current.mediaAssetId ?? null,
+        durationMs: current.durationMs,
+      }),
+      signal: controller.signal,
+    }).catch(() => undefined);
+    return () => controller.abort();
+  }, [token, current, index, sync?.playlist?.id]);
 
   // Images advance on a timer; videos advance when they end.
   useEffect(() => {
