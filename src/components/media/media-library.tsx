@@ -466,7 +466,9 @@ export function MediaLibrary() {
                           <Loader2 className="size-3.5 animate-spin" />
                         )}
                         {PHASE_LABEL[item.phase]}
-                        {item.phase === "uploading" ? ` · ${item.percent}%` : null}
+                        {item.phase === "uploading" || item.phase === "optimizing"
+                          ? ` · ${item.percent}%`
+                          : null}
                       </span>
                     </div>
                     <div
