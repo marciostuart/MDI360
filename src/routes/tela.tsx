@@ -470,7 +470,7 @@ function PlayerScreen() {
         <FadeLayer enabled={fade} step={index}>
           <video
             key={`${current.id}-${index}-${localSrc ? "local" : "remote"}`}
-            src={localSrc ?? (mediaCache.isSupported() ? undefined : (current.url ?? undefined))}
+            src={localSrc ?? current.url ?? undefined}
             className="h-screen w-screen object-contain"
             autoPlay
             muted={current.isMuted || sync.device?.audioEnabled === false}
@@ -501,7 +501,7 @@ function PlayerScreen() {
         <FadeLayer enabled={fade} step={index}>
           <img
             key={`${current?.id}-${index}-${localSrc ? "local" : "remote"}`}
-            src={localSrc ?? (mediaCache.isSupported() ? undefined : (current?.url ?? undefined))}
+            src={localSrc ?? current?.url ?? undefined}
             alt={current?.name ?? ""}
             className="h-screen w-screen object-contain"
           />
