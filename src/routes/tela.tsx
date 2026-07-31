@@ -351,6 +351,19 @@ function PlayerScreen() {
             next.add(url);
             return next;
           });
+        } else {
+          // Download failed (CORS, storage full, private mode…). Retry once and,
+          // if it still fails, release the file anyway: streaming straight from
+          // the server is far better than a screen stuck on "Baixando".
+          const retry = await mediaCache.download(url);
+          if (cancelled) return;
+          setReadyUrls((previous) => {
+            if (previous.has(url)) return previous;
+            const next = new Set(previous);
+            next.add(url);
+            return next;
+          });
+          if (!retry) console.warn("[player] sem cache local, tocando direto:", url);
         }
       }
     };
