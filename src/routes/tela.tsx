@@ -95,9 +95,35 @@ function PlayerScreen() {
   // rotation after its download finishes, so the TV never buffers on air.
   const [readyUrls, setReadyUrls] = useState<Set<string>>(new Set());
   const [localSrc, setLocalSrc] = useState<string | null>(null);
-  // Queue add-on: the call currently taking over the screen.
+  // Queue add-on: the call currently taking over the screen, plus the ones
+  // waiting for their turn. Calls never overlap: each one owns the screen for
+  // its full display time before the next enters.
   const [activeCall, setActiveCall] = useState<QueueCallPayload | null>(null);
-  const lastCallIdRef = useRef<string | null>(null);
+  const activeCallRef = useRef<QueueCallPayload | null>(null);
+  const waitingCallsRef = useRef<QueueCallPayload[]>([]);
+  const seenCallIdsRef = useRef<Set<string>>(new Set());
+
+  /** Shows the next waiting call, or releases the screen back to the playlist. */
+  const startNextCall = useCallback(() => {
+    const next = waitingCallsRef.current.shift() ?? null;
+    activeCallRef.current = next;
+    setActiveCall(next);
+  }, []);
+
+  /** Adds freshly arrived calls to the queue without disturbing the current one. */
+  const enqueueCalls = useCallback(
+    (calls: QueueCallPayload[]) => {
+      let added = false;
+      for (const call of calls) {
+        if (!call?.id || seenCallIdsRef.current.has(call.id)) continue;
+        seenCallIdsRef.current.add(call.id);
+        waitingCallsRef.current.push(call);
+        added = true;
+      }
+      if (added && !activeCallRef.current) startNextCall();
+    },
+    [startNextCall],
+  );
 
   const applySync = useCallback((data: SyncResponse, resetIndex: boolean) => {
     pendingSyncRef.current = null;
@@ -221,11 +247,9 @@ function PlayerScreen() {
         if (typeof data.revision === "number") revisionRef.current = data.revision;
 
         // A ticket call NEVER waits for the current file: it takes over now.
-        const call = data.queueCall ?? null;
-        if (call && call.id !== lastCallIdRef.current) {
-          lastCallIdRef.current = call.id;
-          setActiveCall(call);
-        }
+        // Several calls in a row are queued and shown one after the other.
+        const incoming = data.queueCalls ?? (data.queueCall ? [data.queueCall] : []);
+        enqueueCalls(incoming);
 
         const previous = syncRef.current;
         const playing = (previous?.playlist?.items?.length ?? 0) > 0;
@@ -248,7 +272,7 @@ function PlayerScreen() {
         setError("Sem conexão com o servidor. Tentando novamente…");
       }
     },
-    [resetDevice, applySync],
+    [resetDevice, applySync, enqueueCalls],
   );
 
   useEffect(() => {
@@ -411,7 +435,7 @@ function PlayerScreen() {
         <QueueCallOverlay
           call={activeCall}
           accentColor={sync.branding?.color ?? null}
-          onDone={() => setActiveCall(null)}
+          onDone={startNextCall}
         />
       </div>
     );
