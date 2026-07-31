@@ -402,6 +402,20 @@ function PlayerScreen() {
 
   const fade = sync.device?.transitionEffect === "fade";
 
+  // The call replaces the playlist (instead of only covering it) so videos
+  // stop right away and no content plays behind the announcement.
+  if (activeCall) {
+    return (
+      <div className="relative min-h-screen overflow-hidden bg-black">
+        <QueueCallOverlay
+          call={activeCall}
+          accentColor={sync.branding?.color ?? null}
+          onDone={() => setActiveCall(null)}
+        />
+      </div>
+    );
+  }
+
   return (
     <div className="relative min-h-screen overflow-hidden bg-black">
       {items.length === 0 ? (
