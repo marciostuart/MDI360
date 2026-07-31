@@ -25,6 +25,7 @@ import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
 import { Dialog, DialogContent, DialogTitle } from "@/components/ui/dialog";
+import { MediaDetailsDialog } from "@/components/media/media-details-dialog";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import {
@@ -352,6 +353,24 @@ function MediaPreview({ item }: { item: MediaListItem }) {
           </div>
         </DialogContent>
       </Dialog>
+    </>
+  );
+}
+
+/** Nome do arquivo como botão: abre o painel de opções em abas. */
+function MediaNameButton({ item }: { item: MediaListItem }) {
+  const [open, setOpen] = useState(false);
+  return (
+    <>
+      <button
+        type="button"
+        onClick={() => setOpen(true)}
+        className="truncate text-left text-sm font-medium underline-offset-4 transition-colors hover:text-primary hover:underline"
+        title={`Abrir opções de ${item.name}`}
+      >
+        {item.name}
+      </button>
+      {open ? <MediaDetailsDialog item={item} open={open} onOpenChange={setOpen} /> : null}
     </>
   );
 }
@@ -771,7 +790,7 @@ export function MediaLibrary() {
                   ) : (
                     <ImageIcon className="size-4 shrink-0 text-muted-foreground" />
                   )}
-                  <p className="truncate text-sm font-medium">{item.name}</p>
+                  <MediaNameButton item={item} />
                 </div>
                 <div className="flex flex-wrap gap-1.5">
                   {item.kind === "widget" ? (
