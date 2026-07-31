@@ -39,7 +39,8 @@ export const Route = createFileRoute("/api/public/player/announce")({
         const bytes = await announcementMp3(call.spokenText);
         if (!bytes) return new Response("tts unavailable", { status: 502 });
 
-        return new Response(bytes, {
+        const body = bytes.slice().buffer as ArrayBuffer;
+        return new Response(body, {
           headers: {
             "content-type": "audio/mpeg",
             "content-length": String(bytes.byteLength),

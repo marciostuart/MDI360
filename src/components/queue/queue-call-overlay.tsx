@@ -5,6 +5,8 @@ export type QueueCallPayload = {
   label: string;
   sectorName: string | null;
   spokenText: string;
+  /** MP3 pronto no servidor (usado por players sem síntese de voz). */
+  audioUrl?: string;
   displaySeconds: number;
   calledAt: string;
 };
