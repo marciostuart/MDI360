@@ -28,6 +28,7 @@ import { Route as ApiPublicWidgetDataRouteImport } from './routes/api/public/wid
 import { Route as TorreClientesIndexRouteImport } from './routes/torre/clientes/index'
 import { Route as TorreClientesOrganizationIdRouteImport } from './routes/torre/clientes/$organizationId'
 import { Route as ApiPublicPlayerEventsRouteImport } from './routes/api/public/player/events'
+import { Route as ApiPublicPlayerPlaybackRouteImport } from './routes/api/public/player/playback'
 import { Route as ApiPublicPlayerRegisterRouteImport } from './routes/api/public/player/register'
 import { Route as ApiPublicPlayerStatusRouteImport } from './routes/api/public/player/status'
 import { Route as ApiPublicPlayerSyncRouteImport } from './routes/api/public/player/sync'
@@ -128,6 +129,11 @@ const ApiPublicPlayerEventsRoute = ApiPublicPlayerEventsRouteImport.update({
   path: '/api/public/player/events',
   getParentRoute: () => rootRouteImport,
 } as any)
+const ApiPublicPlayerPlaybackRoute = ApiPublicPlayerPlaybackRouteImport.update({
+  id: '/api/public/player/playback',
+  path: '/api/public/player/playback',
+  getParentRoute: () => rootRouteImport,
+} as any)
 const ApiPublicPlayerRegisterRoute = ApiPublicPlayerRegisterRouteImport.update({
   id: '/api/public/player/register',
   path: '/api/public/player/register',
@@ -164,6 +170,7 @@ export interface FileRoutesByFullPath {
   '/torre/clientes/$organizationId': typeof TorreClientesOrganizationIdRoute
   '/torre/clientes/': typeof TorreClientesIndexRoute
   '/api/public/player/events': typeof ApiPublicPlayerEventsRoute
+  '/api/public/player/playback': typeof ApiPublicPlayerPlaybackRoute
   '/api/public/player/register': typeof ApiPublicPlayerRegisterRoute
   '/api/public/player/status': typeof ApiPublicPlayerStatusRoute
   '/api/public/player/sync': typeof ApiPublicPlayerSyncRoute
@@ -186,6 +193,7 @@ export interface FileRoutesByTo {
   '/torre/clientes/$organizationId': typeof TorreClientesOrganizationIdRoute
   '/torre/clientes': typeof TorreClientesIndexRoute
   '/api/public/player/events': typeof ApiPublicPlayerEventsRoute
+  '/api/public/player/playback': typeof ApiPublicPlayerPlaybackRoute
   '/api/public/player/register': typeof ApiPublicPlayerRegisterRoute
   '/api/public/player/status': typeof ApiPublicPlayerStatusRoute
   '/api/public/player/sync': typeof ApiPublicPlayerSyncRoute
@@ -211,6 +219,7 @@ export interface FileRoutesById {
   '/torre/clientes/$organizationId': typeof TorreClientesOrganizationIdRoute
   '/torre/clientes/': typeof TorreClientesIndexRoute
   '/api/public/player/events': typeof ApiPublicPlayerEventsRoute
+  '/api/public/player/playback': typeof ApiPublicPlayerPlaybackRoute
   '/api/public/player/register': typeof ApiPublicPlayerRegisterRoute
   '/api/public/player/status': typeof ApiPublicPlayerStatusRoute
   '/api/public/player/sync': typeof ApiPublicPlayerSyncRoute
@@ -237,6 +246,7 @@ export interface FileRouteTypes {
     | '/torre/clientes/$organizationId'
     | '/torre/clientes/'
     | '/api/public/player/events'
+    | '/api/public/player/playback'
     | '/api/public/player/register'
     | '/api/public/player/status'
     | '/api/public/player/sync'
@@ -259,6 +269,7 @@ export interface FileRouteTypes {
     | '/torre/clientes/$organizationId'
     | '/torre/clientes'
     | '/api/public/player/events'
+    | '/api/public/player/playback'
     | '/api/public/player/register'
     | '/api/public/player/status'
     | '/api/public/player/sync'
@@ -283,6 +294,7 @@ export interface FileRouteTypes {
     | '/torre/clientes/$organizationId'
     | '/torre/clientes/'
     | '/api/public/player/events'
+    | '/api/public/player/playback'
     | '/api/public/player/register'
     | '/api/public/player/status'
     | '/api/public/player/sync'
@@ -298,6 +310,7 @@ export interface RootRouteChildren {
   ApiMediaUploadRoute: typeof ApiMediaUploadRoute
   ApiPublicWidgetDataRoute: typeof ApiPublicWidgetDataRoute
   ApiPublicPlayerEventsRoute: typeof ApiPublicPlayerEventsRoute
+  ApiPublicPlayerPlaybackRoute: typeof ApiPublicPlayerPlaybackRoute
   ApiPublicPlayerRegisterRoute: typeof ApiPublicPlayerRegisterRoute
   ApiPublicPlayerStatusRoute: typeof ApiPublicPlayerStatusRoute
   ApiPublicPlayerSyncRoute: typeof ApiPublicPlayerSyncRoute
@@ -438,6 +451,13 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof ApiPublicPlayerEventsRouteImport
       parentRoute: typeof rootRouteImport
     }
+    '/api/public/player/playback': {
+      id: '/api/public/player/playback'
+      path: '/api/public/player/playback'
+      fullPath: '/api/public/player/playback'
+      preLoaderRoute: typeof ApiPublicPlayerPlaybackRouteImport
+      parentRoute: typeof rootRouteImport
+    }
     '/api/public/player/register': {
       id: '/api/public/player/register'
       path: '/api/public/player/register'
@@ -512,6 +532,7 @@ const rootRouteChildren: RootRouteChildren = {
   ApiMediaUploadRoute: ApiMediaUploadRoute,
   ApiPublicWidgetDataRoute: ApiPublicWidgetDataRoute,
   ApiPublicPlayerEventsRoute: ApiPublicPlayerEventsRoute,
+  ApiPublicPlayerPlaybackRoute: ApiPublicPlayerPlaybackRoute,
   ApiPublicPlayerRegisterRoute: ApiPublicPlayerRegisterRoute,
   ApiPublicPlayerStatusRoute: ApiPublicPlayerStatusRoute,
   ApiPublicPlayerSyncRoute: ApiPublicPlayerSyncRoute,
