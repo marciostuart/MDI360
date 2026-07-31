@@ -459,11 +459,16 @@ sub handleQueueCall(payload as object)
 
     added = false
     for each call in calls
-        if call <> invalid and call.id <> invalid and call.id <> ""
-            if m.seenCalls[call.id] <> true
-                m.seenCalls[call.id] = true
-                m.pendingCalls.push(call)
-                added = true
+        if call <> invalid and Type(call) = "roAssociativeArray"
+            ' O id vira sempre texto: indexar um mapa com numero quebra a thread
+            ' de render e a TV congelava com a senha na tela.
+            id = safeText(call.id)
+            if id <> ""
+                if m.seenCalls[id] <> true
+                    m.seenCalls[id] = true
+                    m.pendingCalls.push(call)
+                    added = true
+                end if
             end if
         end if
     end for
@@ -475,11 +480,15 @@ end sub
 sub startNextCall()
     if m.pendingCalls.Count() = 0 then return
     call = m.pendingCalls.Shift()
-    if call = invalid then return
+    if call = invalid or Type(call) <> "roAssociativeArray" then return
     beat()
 
+    ' Tempo de exibicao: sempre um numero entre 5s e 120s. Um valor invalido
+    ' (texto, nulo ou absurdo) deixava a senha na tela para sempre.
     seconds = 20
-    if call.displaySeconds <> invalid and call.displaySeconds > 4 then seconds = call.displaySeconds
+    wanted = safeNumber(call.displaySeconds)
+    if wanted >= 5 then seconds = wanted
+    if seconds > 120 then seconds = 120
 
     ' O relogio da chamada comeca ANTES de qualquer outra coisa: mesmo que um
     ' passo abaixo falhe, a tela nunca fica presa na chamada.
@@ -500,7 +509,7 @@ sub startNextCall()
     else
         m.queueSector.text = ""
     end if
-    m.queue.visible = true
+    if m.queue <> invalid then m.queue.visible = true
     m.queueActive = true
 
     ' Stop whatever is on screen right now.
@@ -522,20 +531,35 @@ sub startNextCall()
 
     ' Locucao: o Roku nao tem sintese de voz, entao o servidor entrega um MP3
     ' pronto com "setor + senha". Toca logo depois do sinal sonoro.
-    m.announceTimer.control = "stop"
-    m.announce.control = "stop"
+    if m.announceTimer <> invalid then m.announceTimer.control = "stop"
+    if m.announce <> invalid then m.announce.control = "stop"
     m.pendingAnnounceUrl = ""
     m.pendingSpokenText = ""
     m.announceFallbackUsed = false
-    if call.spokenText <> invalid then m.pendingSpokenText = safeText(call.spokenText)
-    if call.audioUrl <> invalid and safeText(call.audioUrl) <> ""
-        m.pendingAnnounceUrl = m.sync.baseUrl + safeText(call.audioUrl)
-        m.announceTimer.control = "start"
+    m.pendingSpokenText = safeText(call.spokenText)
+    audioPath = safeText(call.audioUrl)
+    base = ""
+    if m.sync <> invalid then base = safeText(m.sync.baseUrl)
+    if audioPath <> "" and base <> ""
+        m.pendingAnnounceUrl = base + audioPath
     else if m.pendingSpokenText <> ""
         m.pendingAnnounceUrl = fallbackAnnounceUrl(m.pendingSpokenText)
+    end if
+    if m.pendingAnnounceUrl <> "" and m.announceTimer <> invalid
         m.announceTimer.control = "start"
     end if
 end sub
+
+' Converte qualquer valor do JSON em numero sem risco de erro de tipo.
+function safeNumber(value as dynamic) as float
+    if value = invalid then return 0
+    t = Type(value)
+    if t = "roInt" or t = "Integer" or t = "roFloat" or t = "Float" or t = "Double" or t = "roDouble" or t = "LongInteger" or t = "roLongInteger"
+        return value
+    end if
+    if t = "roString" or t = "String" then return Val(value)
+    return 0
+end function
 
 ' Converte qualquer valor do JSON em texto sem risco de erro de tipo (Str()
 ' com string quebrava a thread de render e travava a TV).
