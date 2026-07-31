@@ -61,8 +61,12 @@ sub init()
     m.queueHistory = m.top.findNode("queueHistory")
     m.queueHistoryTitle = m.top.findNode("queueHistoryTitle")
     m.queueTitle = m.top.findNode("queueTitle")
-    m.announce = m.top.findNode("announce")
     m.chime = m.top.findNode("chime")
+    ' O Roku reproduz apenas UM Audio node por vez: sinal sonoro e locucao
+    ' compartilham o mesmo no, em sequencia (dois nos travavam o canal).
+    m.announce = m.chime
+    m.chimePlaying = false
+    m.announceStarted = false
     m.seenCalls = {}
     ' Chamadas aguardando a vez: uma chamada nunca corta a anterior.
     m.pendingCalls = []
@@ -79,8 +83,9 @@ sub init()
     ' A locucao entra depois do sinal sonoro, para nao se sobrepor a ele.
     m.announceTimer = CreateObject("roSGNode", "Timer")
     m.announceTimer.repeat = false
-    ' O sinal sonoro dura 2,1s (550Hz 0,7s + 440Hz 1,4s): a voz entra depois.
-    m.announceTimer.duration = 2.3
+    ' Rede de seguranca: se o fim do sinal sonoro nao for sinalizado, a voz
+    ' entra por tempo (o sinal dura 2,1s).
+    m.announceTimer.duration = 2.6
     m.announceTimer.observeField("fire", "onAnnounceTimer")
     m.top.appendChild(m.announceTimer)
     ' Se o MP3 do servidor falhar, tentamos uma locucao alternativa.
@@ -537,6 +542,7 @@ sub startNextCall()
     m.pendingAnnounceUrl = ""
     m.pendingSpokenText = ""
     m.announceFallbackUsed = false
+    m.announceStarted = false
     m.pendingSpokenText = safeText(call.spokenText)
     audioPath = safeText(call.audioUrl)
     base = ""
@@ -573,18 +579,24 @@ function safeText(value as dynamic) as string
 end function
 
 ' Dois toques curtos antes da locucao. Usa um Audio node com MP3 do pacote:
-' Mostra as ultimas senhas chamadas antes desta (ex.: "A011   A010   A009").
+' Mostra as 3 ultimas senhas chamadas antes desta, com o setor quando houver
+' (ex.: "A011 - Caixa 2     A010 - Triagem     A009").
 sub showQueueHistory(call as object)
     if m.queueHistory = invalid then return
     parts = []
     if call.history <> invalid and Type(call.history) = "roArray"
         for each item in call.history
             if item <> invalid and Type(item) = "roAssociativeArray"
-                if safeText(item.label) <> "" then parts.push(safeText(item.label))
+                label = safeText(item.label)
+                if label <> ""
+                    sector = safeText(item.sectorName)
+                    if sector <> "" then label = label + " - " + sector
+                    parts.push(label)
+                end if
             else if item <> invalid and safeText(item) <> ""
                 parts.push(safeText(item))
             end if
-            if parts.Count() >= 4 then exit for
+            if parts.Count() >= 3 then exit for
         end for
     end if
 
@@ -615,12 +627,17 @@ sub beep()
     content.streamformat = "mp3"
     m.chime.control = "stop"
     m.chime.content = content
+    m.chimePlaying = true
     m.chime.control = "play"
 end sub
 
-' Hora da locucao: o sinal sonoro ja terminou.
+' Hora da locucao: o sinal sonoro ja terminou. Falada uma unica vez.
 sub onAnnounceTimer()
     if m.pendingAnnounceUrl = "" then return
+    if m.announceStarted = true then return
+    if m.announce = invalid then return
+    m.announceStarted = true
+    m.chimePlaying = false
     content = CreateObject("roSGNode", "ContentNode")
     content.url = m.pendingAnnounceUrl
     content.streamformat = "mp3"
@@ -637,14 +654,26 @@ function fallbackAnnounceUrl(text as string) as string
     return "https://translate.google.com/translate_tts?ie=UTF-8&client=tw-ob&tl=pt-BR&q=" + encoded
 end function
 
-' O MP3 do servidor falhou (rota indisponivel, rede): tenta a voz alternativa.
+' Encadeia sinal sonoro -> locucao e, se o MP3 do servidor falhar, tenta a voz
+' alternativa (uma unica vez).
 sub onAnnounceState()
     if m.queueActive <> true then return
-    if m.announce.state <> "error" then return
+    if m.announce = invalid then return
+    state = safeText(m.announce.state)
+
+    ' Fim do sinal sonoro: a voz entra agora, sem esperar o timer.
+    if m.chimePlaying = true and (state = "finished" or state = "error" or state = "stopped")
+        m.chimePlaying = false
+        onAnnounceTimer()
+        return
+    end if
+
+    if state <> "error" then return
     if m.announceFallbackUsed = true then return
     if m.pendingSpokenText = "" then return
     m.announceFallbackUsed = true
     m.pendingAnnounceUrl = fallbackAnnounceUrl(m.pendingSpokenText)
+    m.announceStarted = false
     onAnnounceTimer()
 end sub
 
@@ -659,6 +688,8 @@ sub onQueueTimer()
     m.pendingAnnounceUrl = ""
     m.pendingSpokenText = ""
     m.announceFallbackUsed = false
+    m.announceStarted = false
+    m.chimePlaying = false
 
     if m.pendingCalls.Count() > 0
         startNextCall()

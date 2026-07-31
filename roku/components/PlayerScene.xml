@@ -39,9 +39,8 @@
       </Label>
     </Group>
 
-    <!-- Locucao da senha (MP3 gerado pelo servidor). -->
-    <Audio id="announce" />
-    <!-- Sinal sonoro da chamada: MP3 embarcado no canal, sempre audivel. -->
+    <!-- Um unico Audio node: o Roku toca somente um por vez. Ele emite o sinal
+         sonoro embarcado e, na sequencia, a locucao MP3 do servidor. -->
     <Audio id="chime" />
 
     <Animation id="fadeAnim" duration="0.6" repeat="false" easeFunction="linear">
