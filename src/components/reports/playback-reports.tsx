@@ -305,8 +305,8 @@ export function PlaybackReports() {
 
               <div className="flex flex-wrap items-center justify-between gap-3">
                 <p className="text-sm text-muted-foreground">
-                  {report.data?.totalRows ?? 0}{" "}
-                  {search.group === "device" ? "telas" : "arquivos"} no período
+                  {report.data?.totalRows ?? 0} {search.group === "device" ? "telas" : "arquivos"}{" "}
+                  no período
                 </p>
                 <Button
                   variant="outline"
