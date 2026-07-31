@@ -28,6 +28,15 @@
              color="0x38BDF8FF">
         <Font role="font" uri="font:BoldSystemFontFile" size="96" />
       </Label>
+      <!-- Ultimas senhas chamadas antes desta. -->
+      <Label id="queueHistoryTitle" text="ULTIMAS CHAMADAS" translation="[0,900]" width="1920"
+             horizAlign="center" color="0x6B6B6BFF" visible="false">
+        <Font role="font" uri="font:BoldSystemFontFile" size="26" />
+      </Label>
+      <Label id="queueHistory" translation="[0,940]" width="1920" horizAlign="center"
+             color="0xB8B8B8FF" visible="false">
+        <Font role="font" uri="font:BoldSystemFontFile" size="64" />
+      </Label>
     </Group>
 
     <!-- Locucao da senha (MP3 gerado pelo servidor). -->
