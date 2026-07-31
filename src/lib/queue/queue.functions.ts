@@ -246,7 +246,6 @@ export const setQueuePanelEnabled = createServerFn({ method: "POST" })
     const panels = await db
       .select({ id: schema.queuePanels.id })
       .from(schema.queuePanels)
-      // eslint-disable-next-line @typescript-eslint/no-unnecessary-condition
       .where(
         and(
           eq(schema.queuePanels.deviceId, data.deviceId),
