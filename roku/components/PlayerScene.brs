@@ -67,6 +67,9 @@ sub init()
     ' Chamadas aguardando a vez: uma chamada nunca corta a anterior.
     m.pendingCalls = []
     m.pendingAnnounceUrl = ""
+    ' Texto falado da chamada atual: usado no plano B de locucao.
+    m.pendingSpokenText = ""
+    m.announceFallbackUsed = false
     m.queueActive = false
     m.queueTimer = CreateObject("roSGNode", "Timer")
     m.queueTimer.repeat = false
@@ -79,6 +82,8 @@ sub init()
     m.announceTimer.duration = 1.3
     m.announceTimer.observeField("fire", "onAnnounceTimer")
     m.top.appendChild(m.announceTimer)
+    ' Se o MP3 do servidor falhar, tentamos uma locucao alternativa.
+    m.announce.observeField("state", "onAnnounceState")
 
     m.prefetch = m.top.findNode("prefetch")
     m.prefetch.observeField("ready", "onPrefetchReady")
@@ -474,8 +479,14 @@ sub startNextCall()
     m.announceTimer.control = "stop"
     m.announce.control = "stop"
     m.pendingAnnounceUrl = ""
+    m.pendingSpokenText = ""
+    m.announceFallbackUsed = false
+    if call.spokenText <> invalid then m.pendingSpokenText = call.spokenText
     if call.audioUrl <> invalid and call.audioUrl <> ""
         m.pendingAnnounceUrl = m.sync.baseUrl + call.audioUrl
+        m.announceTimer.control = "start"
+    else if m.pendingSpokenText <> ""
+        m.pendingAnnounceUrl = fallbackAnnounceUrl(m.pendingSpokenText)
         m.announceTimer.control = "start"
     end if
 
@@ -539,12 +550,33 @@ sub onAnnounceTimer()
     m.announce.control = "play"
 end sub
 
+' Locucao alternativa, direto de um servico publico de voz em pt-BR. Usada
+' quando o MP3 do proprio servidor nao esta disponivel, para que a chamada
+' nunca fique sem voz.
+function fallbackAnnounceUrl(text as string) as string
+    encoded = CreateObject("roUrlTransfer").Escape(text)
+    return "https://translate.google.com/translate_tts?ie=UTF-8&client=tw-ob&tl=pt-BR&q=" + encoded
+end function
+
+' O MP3 do servidor falhou (rota indisponivel, rede): tenta a voz alternativa.
+sub onAnnounceState()
+    if m.queueActive <> true then return
+    if m.announce.state <> "error" then return
+    if m.announceFallbackUsed = true then return
+    if m.pendingSpokenText = "" then return
+    m.announceFallbackUsed = true
+    m.pendingAnnounceUrl = fallbackAnnounceUrl(m.pendingSpokenText)
+    onAnnounceTimer()
+end sub
+
 ' The call is over: show the next one in line, or resume the playlist.
 sub onQueueTimer()
     m.queueActive = false
     m.announce.control = "stop"
     m.announceTimer.control = "stop"
     m.pendingAnnounceUrl = ""
+    m.pendingSpokenText = ""
+    m.announceFallbackUsed = false
 
     if m.pendingCalls.Count() > 0
         startNextCall()
