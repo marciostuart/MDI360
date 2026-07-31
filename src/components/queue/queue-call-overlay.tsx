@@ -36,9 +36,9 @@ function audioContext(): AudioContext | null {
 }
 
 /**
- * Strong two-tone alert, synthesized (no asset to download) and repeated so it
- * carries across a noisy waiting room. Played even when the screen is muted: a
- * queue call must always be audible.
+ * Strong two-tone alert (550 Hz / 750 Hz — deeper, easier on the ear),
+ * synthesized and repeated so it carries across a noisy waiting room. Played
+ * even when the screen is muted: a queue call must always be audible.
  */
 async function playChime(): Promise<void> {
   const ctx = audioContext();
@@ -50,8 +50,8 @@ async function playChime(): Promise<void> {
     master.gain.value = 1;
     master.connect(ctx.destination);
 
-    // Three "ding-dong" pairs: 880Hz then 660Hz, sine + square for punch.
-    const notes = [880, 660, 880, 660, 880, 660];
+    // Three "ding-dong" pairs: 750Hz then 550Hz, sine + square for punch.
+    const notes = [750, 550, 750, 550, 750, 550];
     notes.forEach((frequency, position) => {
       const start = now + position * 0.22;
       for (const [type, level] of [
@@ -198,24 +198,12 @@ export function QueueCallOverlay({
         ) : null}
         {history.length > 0 ? (
           <div className="mt-[6vh]">
-            <p className="text-[1.3vw] font-semibold uppercase tracking-[0.35em] text-white/40">
+            <p className="text-[1.35vw] font-semibold uppercase tracking-[0.35em] text-white/40">
               Últimas chamadas
             </p>
-            <div className="mt-4 flex flex-wrap items-stretch justify-center gap-[1.2vw]">
-              {history.map((item, index) => (
-                <div
-                  key={`${item.label}-${index}`}
-                  className="min-w-[10vw] rounded-xl border border-white/10 bg-white/5 px-[1.6vw] py-[1vh]"
-                >
-                  <p className="text-[3vw] font-black leading-none text-white/80">{item.label}</p>
-                  {item.sectorName ? (
-                    <p className="mt-[0.6vh] text-[1.2vw] font-medium uppercase tracking-widest text-white/45">
-                      {item.sectorName}
-                    </p>
-                  ) : null}
-                </div>
-              ))}
-            </div>
+            <p className="mt-[1.5vh] text-[3.3vw] font-black leading-none tracking-wide text-white/75">
+              {history.map((item) => item.label).join("     ")}
+            </p>
           </div>
         ) : null}
       </div>
