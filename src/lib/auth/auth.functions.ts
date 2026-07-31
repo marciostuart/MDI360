@@ -70,9 +70,39 @@ export const signUp = createServerFn({ method: "POST" })
           .slice(0, 40) || "empresa";
 
       const userId = await db.transaction(async (tx) => {
+        // New self-service accounts start on the restricted free plan
+        // (1 screen, 4 GB, no queue add-on). Created on demand so a fresh
+        // database always has it available.
+        const existingPlan = await tx
+          .select({ id: schema.plans.id })
+          .from(schema.plans)
+          .where(eq(schema.plans.slug, "gratuito"))
+          .limit(1);
+
+        let freePlanId = existingPlan[0]?.id ?? null;
+        if (!freePlanId) {
+          const [created] = await tx
+            .insert(schema.plans)
+            .values({
+              name: "Gratuito",
+              slug: "gratuito",
+              maxDevices: 1,
+              maxStorageMb: 4096,
+              priceCents: 0,
+              queueEnabled: false,
+              isActive: true,
+            })
+            .returning({ id: schema.plans.id });
+          freePlanId = created?.id ?? null;
+        }
+
         const [org] = await tx
           .insert(schema.organizations)
-          .values({ name: data.organizationName, slug: `${slugBase}-${Date.now().toString(36)}` })
+          .values({
+            name: data.organizationName,
+            slug: `${slugBase}-${Date.now().toString(36)}`,
+            planId: freePlanId,
+          })
           .returning({ id: schema.organizations.id });
 
         const [user] = await tx

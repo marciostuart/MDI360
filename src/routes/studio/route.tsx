@@ -13,6 +13,7 @@ import {
   Tv,
   Images,
   Ticket,
+  Download,
 } from "lucide-react";
 import { useEffect } from "react";
 
@@ -40,6 +41,7 @@ const NAV: NavItem[] = [
   { to: "/studio/playlists", label: "Playlists", icon: ListVideo },
   { to: "/studio/agenda", label: "Agenda", icon: CalendarClock },
   { to: "/studio/senhas", label: "Senhas", icon: Ticket },
+  { to: "/studio/downloads", label: "Downloads", icon: Download },
   { to: "/studio/relatorios", label: "Relatórios", icon: BarChart3 },
   { to: "/studio/configuracoes", label: "Configurações", icon: Settings },
 ];

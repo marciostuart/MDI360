@@ -26,11 +26,20 @@ const usernameSchema = z
 
 const passwordSchema = z.string().min(6, "A senha precisa de ao menos 6 caracteres").max(200);
 
+/** Throws when the caller's plan does not include the queue add-on. */
+async function requireQueuePlan(organizationId: string) {
+  const { getOrgLimits } = await import("@/lib/admin/limits.server");
+  const limits = await getOrgLimits(organizationId);
+  if (!limits.queueEnabled) {
+    throw new Error("O sistema de senhas está disponível apenas nos planos pagos.");
+  }
+}
+
 /** Every screen of the caller's organization plus its queue add-on state. */
 export const listQueuePanels = createServerFn({ method: "GET" }).handler(
-  async (): Promise<{ configured: boolean; items: QueuePanelSummary[] }> => {
+  async (): Promise<{ configured: boolean; available: boolean; items: QueuePanelSummary[] }> => {
     const { isDatabaseConfigured, getDb, schema } = await import("@/lib/db/index.server");
-    if (!isDatabaseConfigured()) return { configured: false, items: [] };
+    if (!isDatabaseConfigured()) return { configured: false, available: false, items: [] };
 
     const { requireUser } = await import("@/lib/auth/session.server");
     const { desc, eq, sql } = await import("drizzle-orm");
@@ -40,6 +49,10 @@ export const listQueuePanels = createServerFn({ method: "GET" }).handler(
     const { toQueueError } = await import("@/lib/queue/queue-errors.server");
 
     try {
+      const { getOrgLimits } = await import("@/lib/admin/limits.server");
+      const limits = await getOrgLimits(user.organizationId);
+      if (!limits.queueEnabled) return { configured: true, available: false, items: [] };
+
       const rows = await db
         .select({
           deviceId: schema.devices.id,
@@ -90,6 +103,7 @@ export const listQueuePanels = createServerFn({ method: "GET" }).handler(
       const now = Date.now();
       return {
         configured: true,
+        available: true,
         items: rows.map((row) => {
           const last = row.panelId ? lastCalls.get(row.panelId) : undefined;
           return {
@@ -149,6 +163,8 @@ export const saveQueuePanel = createServerFn({ method: "POST" })
     const { and, eq, ne } = await import("drizzle-orm");
     const user = await requireUser();
     const db = getDb();
+
+    await requireQueuePlan(user.organizationId);
 
     const owned = await db
       .select({ id: schema.devices.id })
@@ -238,6 +254,8 @@ export const setQueuePanelEnabled = createServerFn({ method: "POST" })
       )
       .limit(1);
     if (!panels[0]) throw new Error("Painel não encontrado.");
+
+    if (data.isEnabled) await requireQueuePlan(user.organizationId);
 
     await db
       .update(schema.queuePanels)

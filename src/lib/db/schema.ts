@@ -53,6 +53,8 @@ export const plans = pgTable("plans", {
   /** Storage quota in megabytes. */
   maxStorageMb: integer("max_storage_mb").notNull().default(1024),
   priceCents: integer("price_cents").notNull().default(0),
+  /** Whether the queue (senhas) add-on is included in this plan. */
+  queueEnabled: boolean("queue_enabled").notNull().default(true),
   isActive: boolean("is_active").notNull().default(true),
   createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
 });
@@ -81,6 +83,8 @@ export const organizations = pgTable("organizations", {
   subscriptionExpiresAt: timestamp("subscription_expires_at", { withTimezone: true }),
   deviceLimitOverride: integer("device_limit_override"),
   storageLimitMbOverride: integer("storage_limit_mb_override"),
+  /** Per-account override for the queue add-on (null = follow the plan). */
+  queueEnabledOverride: boolean("queue_enabled_override"),
   adminNotes: text("admin_notes"),
   createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
 });

@@ -33,6 +33,7 @@ type Draft = {
   maxDevices: string;
   maxStorageMb: string;
   price: string;
+  queueEnabled: boolean;
   isActive: boolean;
 };
 
@@ -42,6 +43,7 @@ const EMPTY: Draft = {
   maxDevices: "5",
   maxStorageMb: "2048",
   price: "0",
+  queueEnabled: true,
   isActive: true,
 };
 
@@ -60,6 +62,7 @@ function PlansPage() {
           maxDevices: Number(value.maxDevices),
           maxStorageMb: Number(value.maxStorageMb),
           priceCents: Math.round(Number(value.price.replace(",", ".")) * 100),
+          queueEnabled: value.queueEnabled,
           isActive: value.isActive,
         },
       }),
@@ -107,6 +110,7 @@ function PlansPage() {
       maxDevices: String(plan.maxDevices),
       maxStorageMb: String(plan.maxStorageMb),
       price: (plan.priceCents / 100).toFixed(2),
+      queueEnabled: plan.queueEnabled,
       isActive: plan.isActive,
     });
 
@@ -186,6 +190,20 @@ function PlansPage() {
             </div>
             <div className="flex items-end justify-between gap-3 rounded-lg border border-border px-3 py-2">
               <div>
+                <Label>Sistema de senhas</Label>
+                <p className="text-xs text-muted-foreground">
+                  Desligado, o cliente vê o aviso de recurso pago.
+                </p>
+              </div>
+              <Switch
+                checked={draft.queueEnabled}
+                onCheckedChange={(checked) =>
+                  setDraft((prev) => prev && { ...prev, queueEnabled: checked })
+                }
+              />
+            </div>
+            <div className="flex items-end justify-between gap-3 rounded-lg border border-border px-3 py-2">
+              <div>
                 <Label>Disponível para venda</Label>
                 <p className="text-xs text-muted-foreground">Some da vitrine quando desligado.</p>
               </div>
@@ -236,6 +254,7 @@ function PlansPage() {
                 <li>Até {plan.maxDevices} telas</li>
                 <li>{(plan.maxStorageMb / 1024).toFixed(1)} GB de armazenamento</li>
                 <li>{plan.organizations} clientes neste plano</li>
+                <li>{plan.queueEnabled ? "Sistema de senhas incluído" : "Sem sistema de senhas"}</li>
               </ul>
               <div className="flex gap-2 pt-1">
                 <Button size="sm" variant="outline" className="flex-1" onClick={() => startEdit(plan)}>

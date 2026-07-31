@@ -12,6 +12,8 @@ export type OrgLimits = {
   maxStorageMb: number;
   usedDevices: number;
   usedStorageBytes: number;
+  /** Whether the queue (senhas) add-on is included in the account's plan. */
+  queueEnabled: boolean;
   subscriptionStatus: string;
   subscriptionExpiresAt: Date | null;
   expired: boolean;
@@ -28,8 +30,10 @@ export async function getOrgLimits(organizationId: string): Promise<OrgLimits> {
       planName: schema.plans.name,
       planDevices: schema.plans.maxDevices,
       planStorage: schema.plans.maxStorageMb,
+      planQueue: schema.plans.queueEnabled,
       deviceOverride: schema.organizations.deviceLimitOverride,
       storageOverride: schema.organizations.storageLimitMbOverride,
+      queueOverride: schema.organizations.queueEnabledOverride,
       status: schema.organizations.subscriptionStatus,
       expiresAt: schema.organizations.subscriptionExpiresAt,
     })
@@ -60,6 +64,7 @@ export async function getOrgLimits(organizationId: string): Promise<OrgLimits> {
     maxStorageMb: row?.storageOverride ?? row?.planStorage ?? DEFAULT_MAX_STORAGE_MB,
     usedDevices: Number(usage?.devices ?? 0),
     usedStorageBytes: Number(storage?.bytes ?? 0),
+    queueEnabled: row?.queueOverride ?? row?.planQueue ?? true,
     subscriptionStatus: row?.status ?? "trial",
     subscriptionExpiresAt: expiresAt,
     expired: Boolean(expiresAt && expiresAt.getTime() < Date.now()),
