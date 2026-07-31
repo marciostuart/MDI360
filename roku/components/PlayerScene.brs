@@ -579,18 +579,24 @@ function safeText(value as dynamic) as string
 end function
 
 ' Dois toques curtos antes da locucao. Usa um Audio node com MP3 do pacote:
-' Mostra as ultimas senhas chamadas antes desta (ex.: "A011   A010   A009").
+' Mostra as 3 ultimas senhas chamadas antes desta, com o setor quando houver
+' (ex.: "A011 - Caixa 2     A010 - Triagem     A009").
 sub showQueueHistory(call as object)
     if m.queueHistory = invalid then return
     parts = []
     if call.history <> invalid and Type(call.history) = "roArray"
         for each item in call.history
             if item <> invalid and Type(item) = "roAssociativeArray"
-                if safeText(item.label) <> "" then parts.push(safeText(item.label))
+                label = safeText(item.label)
+                if label <> ""
+                    sector = safeText(item.sectorName)
+                    if sector <> "" then label = label + " - " + sector
+                    parts.push(label)
+                end if
             else if item <> invalid and safeText(item) <> ""
                 parts.push(safeText(item))
             end if
-            if parts.Count() >= 4 then exit for
+            if parts.Count() >= 3 then exit for
         end for
     end if
 
