@@ -18,11 +18,57 @@ export const Route = createFileRoute("/api/media/upload")({
           return Response.json({ error: "Sessão expirada. Entre novamente." }, { status: 401 });
         }
 
+        const { getDb, schema } = await import("@/lib/db/index.server");
+        const { and, eq } = await import("drizzle-orm");
+        const db = getDb();
+
+        /**
+         * Qualquer rejeição precisa apagar a reserva: a linha sai do painel do
+         * cliente e o objeto (se algo chegou ao MinIO) é removido, então o
+         * espaço nunca fica comprometido por um envio que falhou.
+         */
+        async function discard(assetId: string, storageKey?: string | null) {
+          if (!assetId) return;
+          try {
+            const scope = and(
+              eq(schema.mediaAssets.id, assetId),
+              eq(schema.mediaAssets.organizationId, user!.organizationId),
+            );
+            const keys = storageKey
+              ? [storageKey]
+              : (
+                  await db
+                    .select({ storageKey: schema.mediaAssets.storageKey })
+                    .from(schema.mediaAssets)
+                    .where(scope)
+                    .limit(1)
+                ).map((r) => r.storageKey);
+            await db.delete(schema.mediaAssets).where(scope);
+            const { deleteObject, isStorageConfigured } = await import("@/lib/storage.server");
+            if (isStorageConfigured()) {
+              for (const key of keys) {
+                if (!key) continue;
+                for (const candidate of new Set([key, key.replace(/\.[^./]+$/, "") + ".mp4"])) {
+                  try {
+                    await deleteObject(candidate);
+                  } catch {
+                    // objeto pode nunca ter existido — ignorado
+                  }
+                }
+              }
+            }
+          } catch (error) {
+            console.error("failed to discard failed upload", error);
+          }
+        }
+
         // Hard ceiling checked *before* parsing the body, so an oversized or
         // lying client can never make us buffer hundreds of MB in memory.
         const { MAX_VIDEO_BYTES } = await import("@/lib/media/presets");
         const ABSOLUTE_MAX = MAX_VIDEO_BYTES + 1024 * 1024; // + multipart overhead
         const declared = Number(request.headers.get("content-length") ?? 0);
+        // O assetId também vem no cabeçalho? Não — mas em erros de tamanho o
+        // corpo não é lido, então a limpeza depende do cliente chamar remover.
         if (!declared || Number.isNaN(declared)) {
           return Response.json({ error: "Envio inválido." }, { status: 411 });
         }
@@ -34,12 +80,9 @@ export const Route = createFileRoute("/api/media/upload")({
         const assetId = String(form.get("assetId") ?? "");
         const file = form.get("file");
         if (!assetId || !(file instanceof File)) {
+          if (assetId) await discard(assetId);
           return Response.json({ error: "Envio inválido." }, { status: 400 });
         }
-
-        const { getDb, schema } = await import("@/lib/db/index.server");
-        const { and, eq } = await import("drizzle-orm");
-        const db = getDb();
 
         const rows = await db
           .select({
@@ -61,6 +104,7 @@ export const Route = createFileRoute("/api/media/upload")({
 
         const row = rows[0];
         if (!row?.storageKey) {
+          await discard(assetId);
           return Response.json({ error: "Conteúdo não encontrado." }, { status: 404 });
         }
 
@@ -74,7 +118,7 @@ export const Route = createFileRoute("/api/media/upload")({
         // stored bytes always match what we charged against the plan.
         const reserved = row.byteSize ?? 0;
         if (!reserved || file.size > reserved) {
-          await db.delete(schema.mediaAssets).where(scope);
+          await discard(assetId, row.storageKey);
           return Response.json(
             { error: "Arquivo diferente do informado no envio. Tente novamente." },
             { status: 409 },
@@ -110,7 +154,7 @@ export const Route = createFileRoute("/api/media/upload")({
                 console.error("ffmpeg indisponível — vídeo salvo sem conversão");
               } else {
                 console.error("video transcode failed", describeStorageError(error));
-                await db.delete(schema.mediaAssets).where(scope);
+                await discard(assetId, row.storageKey);
                 return Response.json(
                   {
                     error:
@@ -126,8 +170,8 @@ export const Route = createFileRoute("/api/media/upload")({
         } catch (error) {
           const detail = describeStorageError(error);
           console.error("media upload failed", detail);
-          // Drop the row so the reserved quota is released instead of leaking.
-          await db.delete(schema.mediaAssets).where(scope);
+          // Drop the row (and any partial object) so the quota is released.
+          await discard(assetId, storageKey);
           return Response.json(
             { error: "Não foi possível salvar o arquivo no armazenamento. Tente novamente." },
             { status: 502 },
