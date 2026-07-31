@@ -473,23 +473,24 @@ function PlayerScreen() {
 
   if (!linked) return <ActivationScreen code={activationCode} message={error} />;
 
-  // The call replaces the playlist (instead of only covering it) so videos
-  // stop right away and no content plays behind the announcement. It works even
-  // before the first sync payload arrives.
-  if (activeCall) {
-    return (
-      <div className="relative min-h-screen overflow-hidden bg-black">
-        <QueueCallOverlay
-          call={activeCall}
-          accentColor={sync?.branding?.color ?? null}
-          onDone={startNextCall}
-        />
-      </div>
-    );
-  }
+  // The call is drawn ON TOP of the playlist: nothing is unmounted, so the
+  // rotation keeps its place and simply resumes when the call disappears.
+  // Video audio is muted while a call is on screen.
+  const callOverlay = activeCall ? (
+    <QueueCallOverlay
+      call={activeCall}
+      accentColor={sync?.branding?.color ?? null}
+      onDone={startNextCall}
+    />
+  ) : null;
 
   if (!sync)
-    return <SplashScreen branding={null} message={error ?? "Conectando ao servidor…"} />;
+    return (
+      <div className="relative min-h-screen overflow-hidden bg-black">
+        <SplashScreen branding={null} message={error ?? "Conectando ao servidor…"} />
+        {callOverlay}
+      </div>
+    );
 
   const fade = sync.device?.transitionEffect === "fade";
 
@@ -512,7 +513,7 @@ function PlayerScreen() {
             src={localSrc ?? current.url ?? undefined}
             className="h-screen w-screen object-contain"
             autoPlay
-            muted={current.isMuted || sync.device?.audioEnabled === false}
+            muted={current.isMuted || sync.device?.audioEnabled === false || Boolean(activeCall)}
             playsInline
             loop={items.length === 1 && !hasPending}
             onEnded={() => {
@@ -546,6 +547,7 @@ function PlayerScreen() {
           />
         </FadeLayer>
       )}
+      {callOverlay}
     </div>
   );
 }
