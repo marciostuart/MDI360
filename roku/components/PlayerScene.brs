@@ -578,8 +578,10 @@ sub showQueueHistory(call as object)
     parts = []
     if call.history <> invalid and Type(call.history) = "roArray"
         for each item in call.history
-            if item <> invalid and item.label <> invalid and safeText(item.label) <> ""
-                parts.push(safeText(item.label))
+            if item <> invalid and Type(item) = "roAssociativeArray"
+                if safeText(item.label) <> "" then parts.push(safeText(item.label))
+            else if item <> invalid and safeText(item) <> ""
+                parts.push(safeText(item))
             end if
             if parts.Count() >= 4 then exit for
         end for
@@ -651,8 +653,8 @@ sub onQueueTimer()
     m.queueStartedAt = 0
     m.queueDeadline = 0
     beat()
-    m.announce.control = "stop"
-    m.announceTimer.control = "stop"
+    if m.announce <> invalid then m.announce.control = "stop"
+    if m.announceTimer <> invalid then m.announceTimer.control = "stop"
     m.pendingAnnounceUrl = ""
     m.pendingSpokenText = ""
     m.announceFallbackUsed = false
@@ -662,7 +664,7 @@ sub onQueueTimer()
         return
     end if
 
-    m.queue.visible = false
+    if m.queue <> invalid then m.queue.visible = false
 
     if m.items.Count() > 0
         showPairing(false)
