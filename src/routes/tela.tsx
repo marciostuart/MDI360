@@ -81,6 +81,32 @@ function PlayerScreen() {
   const [index, setIndex] = useState(0);
   const timerRef = useRef<number | null>(null);
   const revisionRef = useRef(0);
+  // Sync data that arrived while a file was on screen. It is only applied on
+  // the next item boundary so nothing is ever cut mid-exhibition.
+  const pendingSyncRef = useRef<SyncResponse | null>(null);
+  const [hasPending, setHasPending] = useState(false);
+  const syncRef = useRef<SyncResponse | null>(null);
+
+  const applySync = useCallback((data: SyncResponse, resetIndex: boolean) => {
+    pendingSyncRef.current = null;
+    setHasPending(false);
+    syncRef.current = data;
+    setSync(data);
+    if (resetIndex) setIndex(0);
+  }, []);
+
+  /**
+   * Moves to the next item. If a newer playlist/settings payload is waiting,
+   * this is the moment it takes effect.
+   */
+  const advance = useCallback(() => {
+    const pending = pendingSyncRef.current;
+    if (pending) {
+      applySync(pending, true);
+      return;
+    }
+    setIndex((value) => value + 1);
+  }, [applySync]);
 
   /** Announces this screen to the server and reserves an activation code. */
   const register = useCallback(async () => {
@@ -181,11 +207,19 @@ function PlayerScreen() {
         if (!response.ok) throw new Error("sync");
         const data = (await response.json()) as SyncResponse;
         if (typeof data.revision === "number") revisionRef.current = data.revision;
-        setSync((previous) => {
-          const changed = previous?.playlist?.revision !== data.playlist?.revision;
-          if (changed) setIndex(0);
-          return data;
-        });
+        const previous = syncRef.current;
+        const playing = (previous?.playlist?.items?.length ?? 0) > 0;
+        const changed =
+          previous?.playlist?.revision !== data.playlist?.revision ||
+          previous?.device?.audioEnabled !== data.device?.audioEnabled ||
+          previous?.device?.transitionEffect !== data.device?.transitionEffect;
+        if (!playing || !changed) {
+          applySync(data, changed);
+        } else {
+          // Hold it back: the current file finishes first.
+          pendingSyncRef.current = data;
+          setHasPending(true);
+        }
         if (data.commands.includes("reload") || data.commands.includes("restart")) {
           window.location.reload();
         }
@@ -194,7 +228,7 @@ function PlayerScreen() {
         setError("Sem conexão com o servidor. Tentando novamente…");
       }
     },
-    [resetDevice],
+    [resetDevice, applySync],
   );
 
   useEffect(() => {
@@ -268,13 +302,13 @@ function PlayerScreen() {
     if (!current || items.length === 0) return;
     if (current.kind === "video") return;
     timerRef.current = window.setTimeout(
-      () => setIndex((value) => value + 1),
+      () => advance(),
       Math.max(1000, current.durationMs),
     );
     return () => {
       if (timerRef.current) window.clearTimeout(timerRef.current);
     };
-  }, [current, items.length]);
+  }, [current, items.length, advance]);
 
   if (!ready) return <div className="min-h-screen bg-black" />;
 
@@ -300,12 +334,12 @@ function PlayerScreen() {
           autoPlay
           muted={current.isMuted || sync.device?.audioEnabled === false}
           playsInline
-          loop={items.length === 1}
+          loop={items.length === 1 && !hasPending}
           onEnded={() => {
-            if (items.length === 1) return;
-            setIndex((value) => value + 1);
+            if (items.length === 1 && !hasPending) return;
+            advance();
           }}
-          onError={() => setIndex((value) => value + 1)}
+          onError={() => advance()}
           />
         </FadeLayer>
       ) : current?.kind === "widget" && current.widgetConfig ? (
