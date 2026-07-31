@@ -445,6 +445,21 @@ function PlayerScreen() {
     };
   }, [current, items.length, advance]);
 
+  // Watchdog: qualquer sinal de vida (item trocou, chamada exibida, servidor
+  // respondeu) renova o relogio. Se nada acontecer por 2 minutos, a tela se
+  // recarrega sozinha em vez de ficar congelada.
+  useEffect(() => {
+    beatRef.current = Date.now();
+  }, [index, current, sync, activeCall, linked]);
+
+  useEffect(() => {
+    if (!linked) return;
+    const interval = window.setInterval(() => {
+      if (Date.now() - beatRef.current > 120_000) window.location.reload();
+    }, 15_000);
+    return () => window.clearInterval(interval);
+  }, [linked]);
+
   if (!ready) return <div className="min-h-screen bg-black" />;
 
   if (!linked) return <ActivationScreen code={activationCode} message={error} />;
