@@ -105,6 +105,7 @@ export const listMediaAssets = createServerFn({ method: "GET" }).handler(
           previewUrl,
           widgetType: row.widgetType,
           widgetConfig: (row.widgetConfig as WidgetConfig | null) ?? null,
+          tags: row.tags ?? [],
           airStartAt: row.airStartAt ? row.airStartAt.toISOString() : null,
           airEndAt: row.airEndAt ? row.airEndAt.toISOString() : null,
         } satisfies MediaListItem;
