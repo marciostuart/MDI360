@@ -258,6 +258,57 @@ export function MediaLibrary() {
               onChange={(event) => handleFiles(event.target.files)}
             />
           </label>
+
+          {uploads.length > 0 ? (
+            <div className="space-y-3">
+              {uploads.map((item) => {
+                const barColor =
+                  item.phase === "error"
+                    ? "bg-destructive"
+                    : item.phase === "optimizing"
+                      ? "bg-amber-500"
+                      : item.phase === "done"
+                        ? "bg-emerald-500"
+                        : "bg-primary";
+                return (
+                  <div key={item.id} className="space-y-1.5 rounded-lg border border-border p-3">
+                    <div className="flex items-center justify-between gap-3 text-xs">
+                      <span className="truncate font-medium">{item.name}</span>
+                      <span className="flex shrink-0 items-center gap-1.5 text-muted-foreground">
+                        {item.phase === "optimizing" ? (
+                          <Sparkles className="size-3.5 animate-pulse text-amber-500" />
+                        ) : item.phase === "done" ? (
+                          <CheckCircle2 className="size-3.5 text-emerald-500" />
+                        ) : item.phase === "error" ? (
+                          <XCircle className="size-3.5 text-destructive" />
+                        ) : (
+                          <Loader2 className="size-3.5 animate-spin" />
+                        )}
+                        {PHASE_LABEL[item.phase]}
+                        {item.phase === "uploading" ? ` · ${item.percent}%` : null}
+                      </span>
+                    </div>
+                    <div
+                      className="h-2 w-full overflow-hidden rounded-full bg-secondary"
+                      role="progressbar"
+                      aria-valuenow={item.percent}
+                      aria-valuemin={0}
+                      aria-valuemax={100}
+                      aria-label={`${PHASE_LABEL[item.phase]} — ${item.name}`}
+                    >
+                      <div
+                        className={`h-full rounded-full transition-all duration-300 ${barColor}`}
+                        style={{ width: `${item.phase === "preparing" ? 4 : item.percent}%` }}
+                      />
+                    </div>
+                    {item.message ? (
+                      <p className="text-xs text-destructive">{item.message}</p>
+                    ) : null}
+                  </div>
+                );
+              })}
+            </div>
+          ) : null}
         </CardContent>
       </Card>
 
