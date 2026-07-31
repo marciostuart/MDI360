@@ -351,6 +351,19 @@ function PlayerScreen() {
             next.add(url);
             return next;
           });
+        } else {
+          // Download failed (CORS, storage full, private mode…). Retry once and,
+          // if it still fails, release the file anyway: streaming straight from
+          // the server is far better than a screen stuck on "Baixando".
+          const retry = await mediaCache.download(url);
+          if (cancelled) return;
+          setReadyUrls((previous) => {
+            if (previous.has(url)) return previous;
+            const next = new Set(previous);
+            next.add(url);
+            return next;
+          });
+          if (!retry) console.warn("[player] sem cache local, tocando direto:", url);
         }
       }
     };
@@ -457,7 +470,7 @@ function PlayerScreen() {
         <FadeLayer enabled={fade} step={index}>
           <video
             key={`${current.id}-${index}-${localSrc ? "local" : "remote"}`}
-            src={localSrc ?? (mediaCache.isSupported() ? undefined : (current.url ?? undefined))}
+            src={localSrc ?? current.url ?? undefined}
             className="h-screen w-screen object-contain"
             autoPlay
             muted={current.isMuted || sync.device?.audioEnabled === false}
@@ -488,7 +501,7 @@ function PlayerScreen() {
         <FadeLayer enabled={fade} step={index}>
           <img
             key={`${current?.id}-${index}-${localSrc ? "local" : "remote"}`}
-            src={localSrc ?? (mediaCache.isSupported() ? undefined : (current?.url ?? undefined))}
+            src={localSrc ?? current?.url ?? undefined}
             alt={current?.name ?? ""}
             className="h-screen w-screen object-contain"
           />
