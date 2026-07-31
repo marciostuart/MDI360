@@ -24,6 +24,12 @@
       <Font role="font" uri="font:SystemFontFile" size="52" />
     </Label>
 
+    <!-- Single headline mode: one news at a time, large and easy to read. -->
+    <Label id="headline" translation="[120,300]" width="1680" height="520" wrap="true"
+           color="0xFFFFFFFF" lineSpacing="14">
+      <Font role="font" uri="font:BoldSystemFontFile" size="72" />
+    </Label>
+
     <Label id="lines" translation="[120,540]" width="1680" height="420" wrap="true"
            color="0xE8EAEDFF" lineSpacing="18">
       <Font role="font" uri="font:SystemFontFile" size="46" />

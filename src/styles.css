@@ -150,3 +150,104 @@
 @utility signal-glow {
   box-shadow: 0 0 0 1px var(--border), 0 24px 60px -32px oklch(0.845 0.19 133 / 35%);
 }
+
+/* ---------------------------------------------------------------
+   Widget scenes: animated weather backdrops, ken-burns backgrounds
+   and the news card rotation used by the TV player.
+--------------------------------------------------------------- */
+@keyframes mdi-sun-spin {
+  to {
+    transform: rotate(360deg);
+  }
+}
+@keyframes mdi-sun-pulse {
+  0%,
+  100% {
+    opacity: 0.55;
+    transform: scale(1);
+  }
+  50% {
+    opacity: 0.9;
+    transform: scale(1.06);
+  }
+}
+@keyframes mdi-cloud-drift {
+  from {
+    transform: translateX(-18%);
+  }
+  to {
+    transform: translateX(118%);
+  }
+}
+@keyframes mdi-rain-fall {
+  from {
+    transform: translateY(-20%);
+  }
+  to {
+    transform: translateY(120%);
+  }
+}
+@keyframes mdi-snow-fall {
+  from {
+    transform: translate3d(0, -15%, 0);
+  }
+  to {
+    transform: translate3d(3%, 115%, 0);
+  }
+}
+@keyframes mdi-flash {
+  0%,
+  92%,
+  100% {
+    opacity: 0;
+  }
+  93% {
+    opacity: 0.75;
+  }
+  95% {
+    opacity: 0.1;
+  }
+  96% {
+    opacity: 0.6;
+  }
+  98% {
+    opacity: 0;
+  }
+}
+@keyframes mdi-fog-drift {
+  0%,
+  100% {
+    transform: translateX(-6%);
+    opacity: 0.45;
+  }
+  50% {
+    transform: translateX(6%);
+    opacity: 0.75;
+  }
+}
+@keyframes mdi-kenburns {
+  from {
+    transform: scale(1.02) translate3d(0, 0, 0);
+  }
+  to {
+    transform: scale(1.14) translate3d(-1.5%, -1.5%, 0);
+  }
+}
+@keyframes mdi-news-in {
+  from {
+    opacity: 0;
+    transform: translateY(2.5cqh);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+@keyframes mdi-bar-fill {
+  from {
+    transform: scaleX(0);
+  }
+  to {
+    transform: scaleX(1);
+  }
+}
