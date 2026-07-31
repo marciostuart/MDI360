@@ -634,3 +634,33 @@ export const fetchTrafficSeries = createServerFn({ method: "GET" })
       return null;
     }
   });
+
+export type LiveTrafficSample = {
+  at: number;
+  requests: number;
+  bytes: number;
+  uptimeMs: number;
+};
+
+/**
+ * Live traffic counters read straight from the server's memory — zero database
+ * work, so the dashboard can poll it once per second and compute per-second
+ * resolution by diffing consecutive samples.
+ */
+export const fetchLiveTraffic = createServerFn({ method: "GET" }).handler(
+  async (): Promise<LiveTrafficSample | null> => {
+    try {
+      await requirePlatform();
+      const { readTrafficCounters } = await import("@/lib/admin/traffic.server");
+      const counters = readTrafficCounters();
+      return {
+        at: counters.at,
+        requests: counters.requests,
+        bytes: counters.bytes,
+        uptimeMs: counters.uptimeMs,
+      };
+    } catch {
+      return null;
+    }
+  },
+);
