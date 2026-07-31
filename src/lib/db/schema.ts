@@ -229,6 +229,11 @@ export const mediaAssets = pgTable(
     widgetType: text("widget_type"),
     /** Widget settings (city, feed, currency pairs...). Validated before saving. */
     widgetConfig: jsonb("widget_config"),
+    /** Free-form labels used to filter the library ("promoções", "loja 2"...). */
+    tags: text("tags")
+      .array()
+      .notNull()
+      .default(sql`'{}'::text[]`),
     mimeType: text("mime_type"),
     byteSize: integer("byte_size"),
     durationMs: integer("duration_ms"),
