@@ -19,6 +19,7 @@ import { Route as StudioIndexRouteImport } from './routes/studio/index'
 import { Route as StudioAgendaRouteImport } from './routes/studio/agenda'
 import { Route as StudioConfiguracoesRouteImport } from './routes/studio/configuracoes'
 import { Route as StudioConteudosRouteImport } from './routes/studio/conteudos'
+import { Route as StudioDownloadsRouteImport } from './routes/studio/downloads'
 import { Route as StudioPlaylistsRouteImport } from './routes/studio/playlists'
 import { Route as StudioRelatoriosRouteImport } from './routes/studio/relatorios'
 import { Route as StudioSenhasRouteImport } from './routes/studio/senhas'
@@ -85,6 +86,11 @@ const StudioConfiguracoesRoute = StudioConfiguracoesRouteImport.update({
 const StudioConteudosRoute = StudioConteudosRouteImport.update({
   id: '/conteudos',
   path: '/conteudos',
+  getParentRoute: () => StudioRouteRoute,
+} as any)
+const StudioDownloadsRoute = StudioDownloadsRouteImport.update({
+  id: '/downloads',
+  path: '/downloads',
   getParentRoute: () => StudioRouteRoute,
 } as any)
 const StudioPlaylistsRoute = StudioPlaylistsRouteImport.update({
@@ -184,6 +190,7 @@ export interface FileRoutesByFullPath {
   '/studio/agenda': typeof StudioAgendaRoute
   '/studio/configuracoes': typeof StudioConfiguracoesRoute
   '/studio/conteudos': typeof StudioConteudosRoute
+  '/studio/downloads': typeof StudioDownloadsRoute
   '/studio/playlists': typeof StudioPlaylistsRoute
   '/studio/relatorios': typeof StudioRelatoriosRoute
   '/studio/senhas': typeof StudioSenhasRoute
@@ -211,6 +218,7 @@ export interface FileRoutesByTo {
   '/studio/agenda': typeof StudioAgendaRoute
   '/studio/configuracoes': typeof StudioConfiguracoesRoute
   '/studio/conteudos': typeof StudioConteudosRoute
+  '/studio/downloads': typeof StudioDownloadsRoute
   '/studio/playlists': typeof StudioPlaylistsRoute
   '/studio/relatorios': typeof StudioRelatoriosRoute
   '/studio/senhas': typeof StudioSenhasRoute
@@ -241,6 +249,7 @@ export interface FileRoutesById {
   '/studio/agenda': typeof StudioAgendaRoute
   '/studio/configuracoes': typeof StudioConfiguracoesRoute
   '/studio/conteudos': typeof StudioConteudosRoute
+  '/studio/downloads': typeof StudioDownloadsRoute
   '/studio/playlists': typeof StudioPlaylistsRoute
   '/studio/relatorios': typeof StudioRelatoriosRoute
   '/studio/senhas': typeof StudioSenhasRoute
@@ -272,6 +281,7 @@ export interface FileRouteTypes {
     | '/studio/agenda'
     | '/studio/configuracoes'
     | '/studio/conteudos'
+    | '/studio/downloads'
     | '/studio/playlists'
     | '/studio/relatorios'
     | '/studio/senhas'
@@ -299,6 +309,7 @@ export interface FileRouteTypes {
     | '/studio/agenda'
     | '/studio/configuracoes'
     | '/studio/conteudos'
+    | '/studio/downloads'
     | '/studio/playlists'
     | '/studio/relatorios'
     | '/studio/senhas'
@@ -328,6 +339,7 @@ export interface FileRouteTypes {
     | '/studio/agenda'
     | '/studio/configuracoes'
     | '/studio/conteudos'
+    | '/studio/downloads'
     | '/studio/playlists'
     | '/studio/relatorios'
     | '/studio/senhas'
@@ -436,6 +448,13 @@ declare module '@tanstack/react-router' {
       path: '/conteudos'
       fullPath: '/studio/conteudos'
       preLoaderRoute: typeof StudioConteudosRouteImport
+      parentRoute: typeof StudioRouteRoute
+    }
+    '/studio/downloads': {
+      id: '/studio/downloads'
+      path: '/downloads'
+      fullPath: '/studio/downloads'
+      preLoaderRoute: typeof StudioDownloadsRouteImport
       parentRoute: typeof StudioRouteRoute
     }
     '/studio/playlists': {
@@ -564,6 +583,7 @@ interface StudioRouteRouteChildren {
   StudioAgendaRoute: typeof StudioAgendaRoute
   StudioConfiguracoesRoute: typeof StudioConfiguracoesRoute
   StudioConteudosRoute: typeof StudioConteudosRoute
+  StudioDownloadsRoute: typeof StudioDownloadsRoute
   StudioPlaylistsRoute: typeof StudioPlaylistsRoute
   StudioRelatoriosRoute: typeof StudioRelatoriosRoute
   StudioSenhasRoute: typeof StudioSenhasRoute
@@ -575,6 +595,7 @@ const StudioRouteRouteChildren: StudioRouteRouteChildren = {
   StudioAgendaRoute: StudioAgendaRoute,
   StudioConfiguracoesRoute: StudioConfiguracoesRoute,
   StudioConteudosRoute: StudioConteudosRoute,
+  StudioDownloadsRoute: StudioDownloadsRoute,
   StudioPlaylistsRoute: StudioPlaylistsRoute,
   StudioRelatoriosRoute: StudioRelatoriosRoute,
   StudioSenhasRoute: StudioSenhasRoute,
