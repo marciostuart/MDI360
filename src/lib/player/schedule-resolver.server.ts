@@ -6,6 +6,8 @@ import type { WidgetConfig } from "@/lib/widgets/catalog";
 
 export type PlayerItem = {
   id: string;
+  /** Media library asset behind this item; used by the playback reports. */
+  mediaAssetId: string | null;
   kind: "image" | "video" | "web" | "widget";
   url: string | null;
   durationMs: number;
@@ -101,6 +103,7 @@ export async function resolvePlaylistForDevice(
   const itemRows = await db
     .select({
       id: schema.playlistItems.id,
+      mediaAssetId: schema.playlistItems.mediaAssetId,
       durationMs: schema.playlistItems.durationMs,
       isMuted: schema.playlistItems.isMuted,
       kind: schema.mediaAssets.kind,
@@ -124,6 +127,7 @@ export async function resolvePlaylistForDevice(
     if (row.kind === "widget") {
       items.push({
         id: row.id,
+        mediaAssetId: row.mediaAssetId,
         kind: "widget",
         url: null,
         durationMs: row.durationMs,
@@ -146,6 +150,7 @@ export async function resolvePlaylistForDevice(
     if (!url) continue;
     items.push({
       id: row.id,
+      mediaAssetId: row.mediaAssetId,
       kind: row.kind,
       url,
       durationMs: row.durationMs,
