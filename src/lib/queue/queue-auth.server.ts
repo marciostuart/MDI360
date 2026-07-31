@@ -113,11 +113,24 @@ export async function requireQueueSession(): Promise<QueuePanelSession> {
   return session;
 }
 
-/** "Caixa 2. Senha A 0 1 2." — sector first, then the ticket, as requested. */
+/**
+ * Ticket as it should be *spoken*: leading zeros are dropped and the number is
+ * read as a number, so "001" becomes "senha um", "012" "senha doze" and "104"
+ * "senha cento e quatro". A letter prefix is still spelled out ("A 12").
+ */
+export function spokenLabel(label: string) {
+  const match = /^([A-Za-z]*)\s*0*(\d+)$/.exec(label.trim());
+  if (!match) return label.split("").join(" ");
+  const prefix = (match[1] ?? "").toUpperCase();
+  const number = String(Number(match[2]));
+  return prefix ? `${prefix.split("").join(" ")} ${number}` : number;
+}
+
+/** "Caixa 2. Senha doze." — sector first, then the ticket, as requested. */
 export function buildSpokenText(sectorName: string | null, label: string) {
-  const spelled = label.split("").join(" ");
-  if (sectorName) return `${sectorName}. Senha ${spelled}.`;
-  return `Senha ${spelled}.`;
+  const spoken = spokenLabel(label);
+  if (sectorName) return `${sectorName}. Senha ${spoken}.`;
+  return `Senha ${spoken}.`;
 }
 
 /** "A" + 12 -> "A012" */

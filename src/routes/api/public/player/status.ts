@@ -22,11 +22,37 @@ export const Route = createFileRoute("/api/public/player/status")({
         // Unknown token: the screen was unlinked or removed.
         if (!device) return Response.json({ error: "Não autorizado." }, { status: 401 });
 
+        // Optional push mode: the screen holds this request open and the server
+        // answers the instant it is claimed, replaced, blocked or removed in the
+        // Studio — pairing and "Substituir tela" become immediate instead of
+        // waiting for the next poll.
+        let wait = false;
+        try {
+          const body = (await request.json()) as { wait?: unknown };
+          wait = body?.wait === true;
+        } catch {
+          wait = false;
+        }
+
         const { eq } = await import("drizzle-orm");
         await getDb()
           .update(schema.devices)
           .set({ lastSeenAt: new Date() })
           .where(eq(schema.devices.id, device.id));
+
+        const isPending = !(device.organizationId && device.status === "active");
+        if (wait && isPending && device.status !== "blocked") {
+          const { waitForChange, revisionFor } = await import("@/lib/player/realtime.server");
+          const since = revisionFor(device.id, null);
+          const changed = await waitForChange(device.id, null, since);
+          if (changed > since) {
+            // Something happened to this row: re-read it and answer with the
+            // fresh state (linked, blocked or a new code).
+            const fresh = await resolveDeviceByToken(request);
+            if (!fresh) return Response.json({ error: "Não autorizado." }, { status: 401 });
+            Object.assign(device, fresh);
+          }
+        }
 
         if (device.status === "blocked") {
           return Response.json({ state: "blocked" }, { headers: { "cache-control": "no-store" } });

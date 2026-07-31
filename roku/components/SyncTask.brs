@@ -55,6 +55,8 @@ sub runLoop()
     intervalMs = 60000
     linked = false
     revision = 0
+    ' First status check of a waiting cycle is instant; the rest long-poll.
+    m.firstStatus = true
 
     ' Give the network stack a moment to initialize on cold boot before the
     ' first register call. This avoids transient DNS failures right after
@@ -73,6 +75,7 @@ sub runLoop()
                 registryWrite("deviceToken", res.body.deviceToken)
                 m.top.activationCode = res.body.activationCode
                 m.top.statusText = "Codigo: " + res.body.activationCode
+                m.firstStatus = true
             else
                 m.top.statusText = "Falha ao registrar (HTTP " + res.code.ToStr() + "). Tentando em 5s..."
                 sleep(5000)
@@ -81,7 +84,13 @@ sub runLoop()
             ' While the screen is still unlinked the sync endpoint answers 401 by
             ' design, so we poll the status endpoint instead and keep the very
             ' same activation code on screen until someone claims it.
-            res = postJson(baseUrl + "/api/public/player/status", token, "{}")
+            ' Push mode: the first check is instant, every following one holds the
+            ' request open (~25s) and returns the moment the Studio claims or
+            ' replaces this screen, so linking is immediate.
+            statusBody = "{""wait"":true}"
+            if m.firstStatus <> false then statusBody = "{""wait"":false}"
+            m.firstStatus = false
+            res = postJson(baseUrl + "/api/public/player/status", token, statusBody, 35000)
 
             if res.code = 401
                 ' Row removed in the Studio: forget the token and register again.
@@ -89,6 +98,7 @@ sub runLoop()
                 m.top.activationCode = ""
                 m.top.payload = {}
                 m.top.statusText = "Tela removida. Gerando novo codigo..."
+                m.firstStatus = true
             else if res.code = 200 and res.body <> invalid
                 state = ""
                 if res.body.state <> invalid then state = res.body.state
@@ -106,7 +116,6 @@ sub runLoop()
                         m.top.activationCode = res.body.activationCode
                     end if
                     m.top.statusText = "Aguardando vinculacao..."
-                    sleep(5000)
                 end if
             else
                 m.top.statusText = "Sem conexao (HTTP " + res.code.ToStr() + "). Reconectando..."
@@ -119,6 +128,7 @@ sub runLoop()
                 ' Unlinked or removed in the Studio: go back to the waiting loop,
                 ' which decides between keeping the code or registering again.
                 linked = false
+                m.firstStatus = true
                 m.top.payload = {}
                 m.top.statusText = "Tela desvinculada."
             else if res.code = 200 and res.body <> invalid
