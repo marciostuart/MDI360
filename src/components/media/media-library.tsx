@@ -120,11 +120,7 @@ function AirWindowEditor({ item }: { item: MediaListItem }) {
       <div className="flex flex-wrap items-center justify-between gap-2">
         <div className="flex flex-wrap items-center gap-1.5 text-xs text-muted-foreground">
           <CalendarClock className="size-3.5" />
-          {label ? (
-            <span>{label}</span>
-          ) : (
-            <span>Sempre disponível</span>
-          )}
+          {label ? <span>{label}</span> : <span>Sempre disponível</span>}
           {label && isFuture ? <Badge variant="outline">Agendado</Badge> : null}
           {label && isExpired ? <Badge variant="destructive">Encerrado</Badge> : null}
           {label && !isFuture && !isExpired ? <Badge>No ar</Badge> : null}
@@ -203,10 +199,7 @@ function AirWindowEditor({ item }: { item: MediaListItem }) {
  * Uploads through XHR (instead of fetch) purely so the browser gives us real
  * byte-level progress events to drive the bar.
  */
-function uploadWithProgress(
-  form: FormData,
-  onProgress: (percent: number) => void,
-): Promise<void> {
+function uploadWithProgress(form: FormData, onProgress: (percent: number) => void): Promise<void> {
   return new Promise((resolve, reject) => {
     const xhr = new XMLHttpRequest();
     xhr.open("POST", "/api/media/upload");
@@ -371,9 +364,7 @@ export function MediaLibrary() {
                 ))}
               </SelectContent>
             </Select>
-            <p className="text-xs text-muted-foreground">
-              {getCanvasPreset(presetId).description}
-            </p>
+            <p className="text-xs text-muted-foreground">{getCanvasPreset(presetId).description}</p>
           </div>
 
           <label className="flex cursor-pointer flex-col items-center gap-3 rounded-xl border border-dashed border-border px-6 py-12 text-center transition-colors hover:border-primary/60">
@@ -482,7 +473,12 @@ export function MediaLibrary() {
                     loading="lazy"
                   />
                 ) : item.kind === "video" && item.previewUrl ? (
-                  <video src={item.previewUrl} muted controls className="size-full object-contain" />
+                  <video
+                    src={item.previewUrl}
+                    muted
+                    controls
+                    className="size-full object-contain"
+                  />
                 ) : item.kind === "video" ? (
                   <Film className="size-8 text-muted-foreground" />
                 ) : item.kind === "widget" ? (

@@ -102,10 +102,7 @@ function Shell({
       <div className={`relative w-full ${align === "center" ? "text-center" : "text-left"}`}>
         {children}
       </div>
-      <div
-        className="absolute inset-x-0 bottom-0 h-[0.7cqh]"
-        style={{ backgroundColor: accent }}
-      />
+      <div className="absolute inset-x-0 bottom-0 h-[0.7cqh]" style={{ backgroundColor: accent }} />
       {credit ? (
         <p
           className="absolute bottom-[2.2cqh] right-[3cqw] text-[1.2cqh] uppercase tracking-[0.25em] opacity-45"
@@ -343,7 +340,15 @@ function FogLayer({ animated }: { animated: boolean }) {
   );
 }
 
-function WeatherScene({ kind, theme, accent }: { kind: SceneKind; theme: WidgetTheme; accent: string }) {
+function WeatherScene({
+  kind,
+  theme,
+  accent,
+}: {
+  kind: SceneKind;
+  theme: WidgetTheme;
+  accent: string;
+}) {
   const animated = theme.animations;
   const gradients: Record<SceneKind, string> = {
     clear: "linear-gradient(165deg, #0B4F8A 0%, #0A2540 55%, #04101F 100%)",
@@ -422,7 +427,9 @@ function WeatherWidget({
               className="mt-[1cqh] font-display text-[26cqh] font-semibold leading-[0.9] tabular-nums"
               style={{ textShadow: "0 0.8cqh 3cqh rgba(0,0,0,0.45)" }}
             >
-              {data?.current.temperature != null ? `${Math.round(data.current.temperature)}°` : "--"}
+              {data?.current.temperature != null
+                ? `${Math.round(data.current.temperature)}°`
+                : "--"}
             </p>
             <p className="mt-[1cqh] text-[4.6cqh] font-medium">{look.label}</p>
             {data?.current.humidity != null ? (

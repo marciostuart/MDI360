@@ -34,7 +34,11 @@ import {
 import { saveWidgetAsset } from "@/lib/widgets/widgets.functions";
 
 const BACKGROUND_LABELS: { id: BackgroundMode; label: string; hint: string }[] = [
-  { id: "scene", label: "Cenário animado", hint: "Sol, nuvens, chuva ou tempestade conforme o clima" },
+  {
+    id: "scene",
+    label: "Cenário animado",
+    hint: "Sol, nuvens, chuva ou tempestade conforme o clima",
+  },
   { id: "gradient", label: "Degradê", hint: "Duas cores livres" },
   { id: "solid", label: "Cor sólida", hint: "Fundo chapado" },
   { id: "image", label: "Imagem", hint: "URL pública (https) com zoom suave" },
@@ -85,7 +89,9 @@ export function WidgetComposer({
       }),
     onSuccess: async () => {
       toast.success(
-        editing ? "Widget atualizado. As telas recebem a mudança na sequência." : "Widget adicionado à biblioteca. Já pode entrar em uma playlist.",
+        editing
+          ? "Widget atualizado. As telas recebem a mudança na sequência."
+          : "Widget adicionado à biblioteca. Já pode entrar em uma playlist.",
       );
       await queryClient.invalidateQueries({ queryKey: ["media-assets"] });
       onCancelEditing?.();
@@ -256,9 +262,7 @@ export function WidgetComposer({
                 {config.oneAtATime ? (
                   <>
                     <div className="space-y-2">
-                      <Label>
-                        Tempo de cada notícia: {config.rotateSeconds}s
-                      </Label>
+                      <Label>Tempo de cada notícia: {config.rotateSeconds}s</Label>
                       <Slider
                         min={3}
                         max={30}
@@ -286,7 +290,9 @@ export function WidgetComposer({
                       <label className="flex items-center gap-2 text-sm">
                         <Switch
                           checked={config.showImage}
-                          onCheckedChange={(checked) => setConfig({ ...config, showImage: checked })}
+                          onCheckedChange={(checked) =>
+                            setConfig({ ...config, showImage: checked })
+                          }
                         />
                         Usar a foto da notícia como fundo
                       </label>

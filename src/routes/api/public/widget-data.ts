@@ -16,7 +16,10 @@ import {
  * writes happen here.
  */
 const querySchema = z.discriminatedUnion("type", [
-  z.object({ type: z.literal("weather"), cityId: z.enum(WEATHER_CITY_IDS as [string, ...string[]]) }),
+  z.object({
+    type: z.literal("weather"),
+    cityId: z.enum(WEATHER_CITY_IDS as [string, ...string[]]),
+  }),
   z.object({ type: z.literal("currency"), pairs: z.string().trim().max(60) }),
   z.object({ type: z.literal("news"), feedId: z.enum(NEWS_FEED_IDS as [string, ...string[]]) }),
 ]);
@@ -34,7 +37,12 @@ function decodeEntities(value: string) {
     .trim();
 }
 
-type NewsItem = { title: string; summary: string; image: string | null; publishedAt: string | null };
+type NewsItem = {
+  title: string;
+  summary: string;
+  image: string | null;
+  publishedAt: string | null;
+};
 
 /** Pulls title, summary and (when present) the item image out of an RSS feed. */
 function parseRssItems(xml: string, limit: number): NewsItem[] {
@@ -125,7 +133,11 @@ export const Route = createFileRoute("/api/public/widget-data")({
             const response = await fetch(endpoint);
             if (!response.ok) throw new Error("weather");
             const payload = (await response.json()) as {
-              current?: { temperature_2m?: number; relative_humidity_2m?: number; weather_code?: number };
+              current?: {
+                temperature_2m?: number;
+                relative_humidity_2m?: number;
+                weather_code?: number;
+              };
               daily?: {
                 time?: string[];
                 weather_code?: number[];

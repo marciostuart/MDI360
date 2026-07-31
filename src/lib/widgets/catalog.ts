@@ -137,7 +137,10 @@ export const widgetConfigSchema = z.discriminatedUnion("type", [
   }),
   z.object({
     type: z.literal("currency"),
-    pairs: z.array(z.enum(CURRENCY_IDS as [string, ...string[]])).min(1).max(5),
+    pairs: z
+      .array(z.enum(CURRENCY_IDS as [string, ...string[]]))
+      .min(1)
+      .max(5),
     theme: widgetThemeSchema.optional(),
   }),
   z.object({
