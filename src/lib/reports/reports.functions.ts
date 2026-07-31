@@ -139,10 +139,7 @@ export const getNowPlaying = createServerFn({ method: "GET" }).handler(
         })
         .from(schema.playbackEvents)
         .leftJoin(schema.playlists, eq(schema.playlists.id, schema.playbackEvents.playlistId))
-        .leftJoin(
-          schema.mediaAssets,
-          eq(schema.mediaAssets.id, schema.playbackEvents.mediaAssetId),
-        )
+        .leftJoin(schema.mediaAssets, eq(schema.mediaAssets.id, schema.playbackEvents.mediaAssetId))
         .where(eq(schema.playbackEvents.deviceId, device.id))
         .orderBy(desc(schema.playbackEvents.startedAt))
         .limit(1);

@@ -155,37 +155,40 @@ function PlayerScreen() {
     };
   }, [token, linked, resetDevice]);
 
-  const runSync = useCallback(async (deviceToken: string) => {
-    try {
-      const response = await fetch("/api/public/player/sync", {
-        method: "POST",
-        headers: {
-          "content-type": "application/json",
-          authorization: `Bearer ${deviceToken}`,
-        },
-        body: JSON.stringify({ appVersion: APP_VERSION }),
-      });
-      if (response.status === 401) {
-        // The screen was deleted or unlinked in the Studio.
-        await resetDevice();
-        return;
+  const runSync = useCallback(
+    async (deviceToken: string) => {
+      try {
+        const response = await fetch("/api/public/player/sync", {
+          method: "POST",
+          headers: {
+            "content-type": "application/json",
+            authorization: `Bearer ${deviceToken}`,
+          },
+          body: JSON.stringify({ appVersion: APP_VERSION }),
+        });
+        if (response.status === 401) {
+          // The screen was deleted or unlinked in the Studio.
+          await resetDevice();
+          return;
+        }
+        if (!response.ok) throw new Error("sync");
+        const data = (await response.json()) as SyncResponse;
+        if (typeof data.revision === "number") revisionRef.current = data.revision;
+        setSync((previous) => {
+          const changed = previous?.playlist?.revision !== data.playlist?.revision;
+          if (changed) setIndex(0);
+          return data;
+        });
+        if (data.commands.includes("reload") || data.commands.includes("restart")) {
+          window.location.reload();
+        }
+        setError(null);
+      } catch {
+        setError("Sem conexão com o servidor. Tentando novamente…");
       }
-      if (!response.ok) throw new Error("sync");
-      const data = (await response.json()) as SyncResponse;
-      if (typeof data.revision === "number") revisionRef.current = data.revision;
-      setSync((previous) => {
-        const changed = previous?.playlist?.revision !== data.playlist?.revision;
-        if (changed) setIndex(0);
-        return data;
-      });
-      if (data.commands.includes("reload") || data.commands.includes("restart")) {
-        window.location.reload();
-      }
-      setError(null);
-    } catch {
-      setError("Sem conexão com o servidor. Tentando novamente…");
-    }
-  }, [resetDevice]);
+    },
+    [resetDevice],
+  );
 
   useEffect(() => {
     if (!token || !linked) return;
@@ -345,10 +348,7 @@ function SplashScreen({
         <p className="font-display text-3xl font-semibold text-white sm:text-4xl">
           {branding?.splashText ?? branding?.name ?? "MDI 360"}
         </p>
-        <div
-          className="mx-auto h-1 w-32 rounded-full"
-          style={{ backgroundColor: color }}
-        />
+        <div className="mx-auto h-1 w-32 rounded-full" style={{ backgroundColor: color }} />
         {message ? <p className="text-sm text-white/60">{message}</p> : null}
       </div>
     </div>

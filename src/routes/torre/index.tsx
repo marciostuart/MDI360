@@ -13,25 +13,15 @@ import {
   Tv,
   Users,
 } from "lucide-react";
-import {
-  Area,
-  AreaChart,
-  CartesianGrid,
-  ResponsiveContainer,
-  Tooltip,
-  XAxis,
-  YAxis,
-} from "recharts";
-
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import {
   fetchInfraStatus,
   fetchPlatformOrganizations,
   fetchPlatformOverview,
-  fetchTrafficSeries,
 } from "@/lib/admin/platform.functions";
 import { formatBytes } from "@/lib/admin/format";
+import { TrafficMonitor } from "@/components/admin/traffic-monitor";
 
 export const Route = createFileRoute("/torre/")({
   head: () => ({
@@ -39,7 +29,8 @@ export const Route = createFileRoute("/torre/")({
       { title: "Torre de Controle | MDI 360" },
       {
         name: "description",
-        content: "Painel da plataforma MDI 360: contas, telas vinculadas, armazenamento e carga do servidor.",
+        content:
+          "Painel da plataforma MDI 360: contas, telas vinculadas, armazenamento e carga do servidor.",
       },
       { name: "robots", content: "noindex, nofollow" },
       { property: "og:title", content: "Torre de Controle MDI 360" },
@@ -73,7 +64,9 @@ function MetricCard({
 }) {
   return (
     <Card className="relative overflow-hidden transition-transform duration-300 hover:-translate-y-1">
-      <div className={`pointer-events-none absolute inset-0 bg-gradient-to-br ${tone.split(" text-")[0]}`} />
+      <div
+        className={`pointer-events-none absolute inset-0 bg-gradient-to-br ${tone.split(" text-")[0]}`}
+      />
       <CardHeader className="relative flex-row items-center justify-between space-y-0 pb-2">
         <CardTitle className="text-xs font-medium uppercase tracking-wide text-muted-foreground">
           {label}
@@ -97,11 +90,6 @@ function TowerOverview() {
   const { data: infra } = useQuery({
     queryKey: ["platform-infra"],
     queryFn: () => fetchInfraStatus(),
-    refetchInterval: 30_000,
-  });
-  const { data: traffic } = useQuery({
-    queryKey: ["platform-traffic", 48],
-    queryFn: () => fetchTrafficSeries({ data: { hours: 48 } }),
     refetchInterval: 30_000,
   });
   const { data: orgs } = useQuery({
@@ -131,12 +119,6 @@ function TowerOverview() {
       </Card>
     );
   }
-
-  const chartData = (traffic ?? []).map((point) => ({
-    hora: new Date(point.bucket).toLocaleString("pt-BR", { day: "2-digit", hour: "2-digit" }),
-    requisicoes: point.requests,
-    trafegoMb: Number(((point.bytesIn + point.bytesOut) / 1024 / 1024).toFixed(2)),
-  }));
 
   const topStorage = [...(orgs ?? [])].sort((a, b) => b.storageBytes - a.storageBytes).slice(0, 5);
 
@@ -203,58 +185,7 @@ function TowerOverview() {
         />
       </div>
 
-      <Card>
-        <CardHeader>
-          <CardTitle>Carga do servidor (48h)</CardTitle>
-          <CardDescription>
-            Requisições por hora e volume trafegado — use para decidir a hora de escalar a VPS.
-          </CardDescription>
-        </CardHeader>
-        <CardContent className="h-72">
-          {chartData.length === 0 ? (
-            <div className="grid h-full place-items-center text-sm text-muted-foreground">
-              Coletando as primeiras medições…
-            </div>
-          ) : (
-            <ResponsiveContainer width="100%" height="100%">
-              <AreaChart data={chartData}>
-                <defs>
-                  <linearGradient id="req" x1="0" y1="0" x2="0" y2="1">
-                    <stop offset="0%" stopColor="var(--color-primary)" stopOpacity={0.6} />
-                    <stop offset="100%" stopColor="var(--color-primary)" stopOpacity={0} />
-                  </linearGradient>
-                </defs>
-                <CartesianGrid strokeDasharray="3 3" className="stroke-border" vertical={false} />
-                <XAxis dataKey="hora" tick={{ fontSize: 11 }} minTickGap={24} />
-                <YAxis tick={{ fontSize: 11 }} width={40} />
-                <Tooltip
-                  contentStyle={{
-                    background: "var(--color-popover)",
-                    border: "1px solid var(--color-border)",
-                    borderRadius: 12,
-                    fontSize: 12,
-                  }}
-                />
-                <Area
-                  type="monotone"
-                  dataKey="requisicoes"
-                  stroke="var(--color-primary)"
-                  fill="url(#req)"
-                  strokeWidth={2}
-                  isAnimationActive
-                />
-                <Area
-                  type="monotone"
-                  dataKey="trafegoMb"
-                  stroke="var(--color-chart-2, #22c55e)"
-                  fill="transparent"
-                  strokeWidth={2}
-                />
-              </AreaChart>
-            </ResponsiveContainer>
-          )}
-        </CardContent>
-      </Card>
+      <TrafficMonitor />
 
       <div className="grid gap-4 lg:grid-cols-2">
         <Card>

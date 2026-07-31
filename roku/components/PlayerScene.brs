@@ -22,6 +22,22 @@ sub init()
     m.top.appendChild(m.slideTimer)
 
     m.video.observeField("state", "onVideoState")
+    m.video.observeField("position", "onVideoPosition")
+    ' The remote is irrelevant on signage, and trick play only wastes memory.
+    m.video.enableTrickPlay = false
+    m.video.enableUI = false
+
+    ' Stall watchdog: a video that stops advancing (weak Wi-Fi, slow upstream,
+    ' heavy bitrate for this Roku) is resumed once and then skipped, so the
+    ' playlist never freezes on a single file.
+    m.videoPosition = 0
+    m.videoStallTicks = 0
+    m.videoRetries = 0
+    m.stallTimer = CreateObject("roSGNode", "Timer")
+    m.stallTimer.repeat = true
+    m.stallTimer.duration = 5
+    m.stallTimer.observeField("fire", "onStallCheck")
+    m.top.appendChild(m.stallTimer)
 
     m.playlistId = invalid
     m.report = m.top.findNode("report")
@@ -124,6 +140,8 @@ sub playNext()
         }
     end if
 
+    if item.kind <> "video" and m.stallTimer <> invalid then m.stallTimer.control = "stop"
+
     if item.kind = "widget"
         m.video.control = "stop"
         m.video.visible = false
@@ -147,11 +165,17 @@ sub playNext()
         content.streamformat = streamFormatFor(item.url)
         content.title = item.name
         m.video.content = content
+        content.StreamBitrate = 0
+        content.StreamQualities = ["HD"]
+        content.StreamContentIDs = [item.id]
         m.video.mute = (item.isMuted = true) or (m.audioEnabled = false)
         m.slide.opacity = 0
         m.widget.visible = false
         m.video.visible = true
+        m.videoPosition = 0
+        m.videoStallTicks = 0
         m.video.control = "play"
+        m.stallTimer.control = "start"
     else
         m.video.control = "stop"
         m.video.visible = false
@@ -169,17 +193,58 @@ sub onSlideTimer()
     playNext()
 end sub
 
+sub onVideoPosition()
+    ' Any forward movement means the stream is healthy again.
+    if m.video.position > m.videoPosition
+        m.videoPosition = m.video.position
+        m.videoStallTicks = 0
+    end if
+end sub
+
+' Runs every 5s while a video is on screen.
+sub onStallCheck()
+    state = m.video.state
+    if state <> "playing" and state <> "buffering" then return
+
+    m.videoStallTicks = m.videoStallTicks + 1
+    ' 4 ticks = ~20s with no progress at all.
+    if m.videoStallTicks < 4 then return
+
+    m.videoStallTicks = 0
+    if m.videoRetries < 1
+        ' One resume attempt from where it stopped before giving up.
+        m.videoRetries = m.videoRetries + 1
+        m.statusLabel.text = "Rede lenta: retomando o video..."
+        resume = m.videoPosition
+        m.video.control = "stop"
+        m.video.seek = resume
+        m.video.control = "play"
+    else
+        m.videoRetries = 0
+        m.stallTimer.control = "stop"
+        playNext()
+    end if
+end sub
+
 sub onVideoState()
     state = m.video.state
-    if state = "finished" or state = "error" then playNext()
+    if state = "playing" then m.videoRetries = 0
+    if state = "finished" or state = "error"
+        if m.stallTimer <> invalid then m.stallTimer.control = "stop"
+        m.videoRetries = 0
+        playNext()
+    end if
 end sub
 
 ' Roku needs the container format up front; our library stores MP4/WebM/HLS.
 function streamFormatFor(url as string) as string
     lower = LCase(url)
     if Instr(1, lower, ".m3u8") > 0 then return "hls"
-    if Instr(1, lower, ".webm") > 0 then return "mp4"
-    if Instr(1, lower, ".mov") > 0 then return "mp4"
+    if Instr(1, lower, ".mpd") > 0 then return "dash"
+    if Instr(1, lower, ".mkv") > 0 then return "mkv"
+    if Instr(1, lower, ".ts") > 0 then return "ts"
+    ' MOV/WebM containers are read by Roku's MP4 demuxer when the video track
+    ' is H.264/H.265, which is what our library produces.
     return "mp4"
 end function
 

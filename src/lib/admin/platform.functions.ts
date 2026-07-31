@@ -52,9 +52,7 @@ export const fetchPlatformOverview = createServerFn({ method: "GET" }).handler(
       const [linked] = await db
         .select({ value: count() })
         .from(schema.devices)
-        .where(
-          and(isNotNull(schema.devices.organizationId), eq(schema.devices.status, "active")),
-        );
+        .where(and(isNotNull(schema.devices.organizationId), eq(schema.devices.status, "active")));
       const [online] = await db
         .select({ value: count() })
         .from(schema.devices)
@@ -531,9 +529,7 @@ export const renameOrganization = createServerFn({ method: "POST" })
 
 /** Hard delete of a customer account and everything it owns. */
 export const deleteOrganization = createServerFn({ method: "POST" })
-  .inputValidator((input: unknown) =>
-    z.object({ organizationId: z.string().uuid() }).parse(input),
-  )
+  .inputValidator((input: unknown) => z.object({ organizationId: z.string().uuid() }).parse(input))
   .handler(async ({ data }) => {
     const { getDb, schema } = await import("@/lib/db/index.server");
     await requirePlatform();
@@ -551,15 +547,15 @@ export const deleteOrganization = createServerFn({ method: "POST" })
       }
     }
 
-    await getDb().delete(schema.organizations).where(eq(schema.organizations.id, data.organizationId));
+    await getDb()
+      .delete(schema.organizations)
+      .where(eq(schema.organizations.id, data.organizationId));
     return { ok: true };
   });
 
 /** Signs the platform admin in as the first user of the account. */
 export const impersonateOrganization = createServerFn({ method: "POST" })
-  .inputValidator((input: unknown) =>
-    z.object({ organizationId: z.string().uuid() }).parse(input),
-  )
+  .inputValidator((input: unknown) => z.object({ organizationId: z.string().uuid() }).parse(input))
   .handler(async ({ data }): Promise<{ ok: boolean; message?: string }> => {
     const { getDb, schema } = await import("@/lib/db/index.server");
     await requirePlatform();
@@ -569,10 +565,7 @@ export const impersonateOrganization = createServerFn({ method: "POST" })
       .select({ id: schema.users.id })
       .from(schema.users)
       .where(
-        and(
-          eq(schema.users.organizationId, data.organizationId),
-          eq(schema.users.isActive, true),
-        ),
+        and(eq(schema.users.organizationId, data.organizationId), eq(schema.users.isActive, true)),
       )
       .orderBy(schema.users.createdAt)
       .limit(1);
@@ -634,3 +627,33 @@ export const fetchTrafficSeries = createServerFn({ method: "GET" })
       return null;
     }
   });
+
+export type LiveTrafficSample = {
+  at: number;
+  requests: number;
+  bytes: number;
+  uptimeMs: number;
+};
+
+/**
+ * Live traffic counters read straight from the server's memory — zero database
+ * work, so the dashboard can poll it once per second and compute per-second
+ * resolution by diffing consecutive samples.
+ */
+export const fetchLiveTraffic = createServerFn({ method: "GET" }).handler(
+  async (): Promise<LiveTrafficSample | null> => {
+    try {
+      await requirePlatform();
+      const { readTrafficCounters } = await import("@/lib/admin/traffic.server");
+      const counters = readTrafficCounters();
+      return {
+        at: counters.at,
+        requests: counters.requests,
+        bytes: counters.bytes,
+        uptimeMs: counters.uptimeMs,
+      };
+    } catch {
+      return null;
+    }
+  },
+);
