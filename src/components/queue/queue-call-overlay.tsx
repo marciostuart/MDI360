@@ -14,59 +14,125 @@ export type QueueCallPayload = {
 };
 
 /**
- * Plays a chime and speaks the announcement. The chime is synthesized with the
- * Web Audio API (no asset to download) and is deliberately played even when the
- * screen is configured as muted: a queue call must always be audible.
+ * One shared AudioContext for the whole page. Kiosk browsers only allow audio
+ * after a gesture, so it is created once, resumed on any interaction, and
+ * reused by every call — otherwise the first call of the day would be silent.
  */
-async function playChime() {
+let sharedCtx: AudioContext | null = null;
+
+function audioContext(): AudioContext | null {
   const Ctor =
     window.AudioContext ??
     (window as unknown as { webkitAudioContext?: typeof AudioContext }).webkitAudioContext;
-  if (!Ctor) return;
-  const ctx = new Ctor();
+  if (!Ctor) return null;
+  if (!sharedCtx) {
+    sharedCtx = new Ctor();
+    const unlock = () => void sharedCtx?.resume().catch(() => undefined);
+    for (const event of ["pointerdown", "keydown", "touchstart"]) {
+      window.addEventListener(event, unlock, { passive: true });
+    }
+  }
+  return sharedCtx;
+}
+
+/**
+ * Strong two-tone alert, synthesized (no asset to download) and repeated so it
+ * carries across a noisy waiting room. Played even when the screen is muted: a
+ * queue call must always be audible.
+ */
+async function playChime(): Promise<void> {
+  const ctx = audioContext();
+  if (!ctx) return;
   try {
     if (ctx.state === "suspended") await ctx.resume();
-    const now = ctx.currentTime;
-    // Two-note "ding-dong", the classic queue chime.
-    for (const [index, frequency] of [880, 660].entries()) {
-      const osc = ctx.createOscillator();
-      const gain = ctx.createGain();
-      osc.type = "sine";
-      osc.frequency.value = frequency;
-      const start = now + index * 0.35;
-      gain.gain.setValueAtTime(0.0001, start);
-      gain.gain.exponentialRampToValueAtTime(0.6, start + 0.03);
-      gain.gain.exponentialRampToValueAtTime(0.0001, start + 0.33);
-      osc.connect(gain).connect(ctx.destination);
-      osc.start(start);
-      osc.stop(start + 0.35);
-    }
-    await new Promise((resolve) => window.setTimeout(resolve, 800));
+    const now = ctx.currentTime + 0.05;
+    const master = ctx.createGain();
+    master.gain.value = 1;
+    master.connect(ctx.destination);
+
+    // Three "ding-dong" pairs: 880Hz then 660Hz, sine + square for punch.
+    const notes = [880, 660, 880, 660, 880, 660];
+    notes.forEach((frequency, position) => {
+      const start = now + position * 0.22;
+      for (const [type, level] of [
+        ["sine", 0.8],
+        ["square", 0.22],
+      ] as const) {
+        const osc = ctx.createOscillator();
+        const gain = ctx.createGain();
+        osc.type = type;
+        osc.frequency.value = frequency;
+        gain.gain.setValueAtTime(0.0001, start);
+        gain.gain.exponentialRampToValueAtTime(level, start + 0.02);
+        gain.gain.exponentialRampToValueAtTime(0.0001, start + 0.21);
+        osc.connect(gain).connect(master);
+        osc.start(start);
+        osc.stop(start + 0.22);
+      }
+    });
+
+    await new Promise((resolve) => window.setTimeout(resolve, notes.length * 220 + 150));
   } catch {
     // Audio blocked on this device; the visual call still shows.
-  } finally {
-    window.setTimeout(() => void ctx.close().catch(() => undefined), 1500);
   }
 }
 
-function speak(text: string) {
-  try {
-    const synth = window.speechSynthesis;
-    if (!synth) return;
-    synth.cancel();
-    const voice = synth.getVoices().find((v) => v.lang?.toLowerCase().startsWith("pt"));
-    // Announced twice: on a busy counter the first call is often missed.
-    for (let i = 0; i < 2; i += 1) {
-      const utterance = new SpeechSynthesisUtterance(text);
-      utterance.lang = "pt-BR";
-      utterance.rate = 0.95;
-      utterance.volume = 1;
-      if (voice) utterance.voice = voice;
-      synth.speak(utterance);
+/** Speaks with the device's engine; resolves false when nothing was spoken. */
+function speakLocally(text: string): Promise<boolean> {
+  return new Promise((resolve) => {
+    try {
+      const synth = window.speechSynthesis;
+      if (!synth || typeof SpeechSynthesisUtterance === "undefined") {
+        resolve(false);
+        return;
+      }
+      synth.cancel();
+      const voice = synth.getVoices().find((v) => v.lang?.toLowerCase().startsWith("pt"));
+      let started = false;
+      // Announced twice: on a busy counter the first call is often missed.
+      for (let i = 0; i < 2; i += 1) {
+        const utterance = new SpeechSynthesisUtterance(text);
+        utterance.lang = "pt-BR";
+        utterance.rate = 0.95;
+        utterance.volume = 1;
+        if (voice) utterance.voice = voice;
+        utterance.onstart = () => {
+          started = true;
+        };
+        if (i === 1) utterance.onend = () => resolve(started);
+        synth.speak(utterance);
+      }
+      // Some kiosk builds expose speechSynthesis but never fire: give up early
+      // so the server-rendered MP3 can take over.
+      window.setTimeout(() => resolve(started), 1500);
+    } catch {
+      resolve(false);
     }
+  });
+}
+
+/** Server-rendered MP3 (pt-BR), used whenever the device has no speech engine. */
+async function speakFromServer(audioUrl?: string): Promise<void> {
+  if (!audioUrl) return;
+  try {
+    const audio = new Audio(audioUrl);
+    audio.volume = 1;
+    await audio.play();
+    await new Promise<void>((resolve) => {
+      audio.onended = () => resolve();
+      audio.onerror = () => resolve();
+      window.setTimeout(resolve, 15000);
+    });
   } catch {
-    // No speech engine on this device: the ticket is still shown large.
+    // Nothing else to try; the ticket is still shown large on screen.
   }
+}
+
+/** Chime, then voice — local engine first, server MP3 as fallback. */
+async function announce(call: QueueCallPayload): Promise<void> {
+  await playChime();
+  const spoken = await speakLocally(call.spokenText);
+  if (!spoken) await speakFromServer(call.audioUrl);
 }
 
 /**
@@ -89,8 +155,7 @@ export function QueueCallOverlay({
   useEffect(() => {
     let cancelled = false;
     void (async () => {
-      await playChime();
-      if (!cancelled) speak(call.spokenText);
+      if (!cancelled) await announce(call);
     })();
 
     const blink = window.setInterval(() => setFlash((value) => !value), 700);
@@ -109,7 +174,7 @@ export function QueueCallOverlay({
         // ignore
       }
     };
-  }, [call.id, call.spokenText, call.displaySeconds]);
+  }, [call]);
 
   const accent = accentColor ?? "#38bdf8";
   const history = (call.history ?? []).slice(0, 4);
