@@ -89,7 +89,7 @@ export async function recentQueueCalls(deviceId: string): Promise<QueueCallPaylo
       history: calls
         .slice(index + 1)
         .filter((prev) => prev.label !== call.label)
-        .slice(0, 4)
+        .slice(0, 3)
         .map((prev) => ({ label: prev.label, sectorName: sectorOf(prev) })),
     }))
     .reverse();
