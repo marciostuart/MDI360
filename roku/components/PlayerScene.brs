@@ -15,6 +15,10 @@ sub init()
     m.statusLabel = m.top.findNode("statusLabel")
 
     m.items = []
+    ' All playable items of the current playlist, in order, including the ones
+    ' still downloading. m.items holds only the ones ready to go on screen.
+    m.allItems = []
+    m.readyMap = {}
     m.index = -1
     m.revision = -1
     ' Per-TV setting sent by the server: "none" (hard cut) or "fade".
@@ -49,6 +53,10 @@ sub init()
     m.pendingPayload = invalid
     m.resumeAfterApply = false
     m.report = m.top.findNode("report")
+
+    m.prefetch = m.top.findNode("prefetch")
+    m.prefetch.observeField("ready", "onPrefetchReady")
+    m.prefetch.control = "RUN"
 
     m.sync = m.top.findNode("sync")
     m.widget.baseUrl = m.sync.baseUrl
@@ -184,9 +192,76 @@ sub applyPayload(payload as object)
         end if
     end for
 
-    m.items = playable
+    m.allItems = playable
+
+    ' Ask the prefetch task about the files of this playlist. Anything that is
+    ' not confirmed yet stays out of the rotation; the TV keeps playing what it
+    ' already has and the file joins its position once it is ready.
+    urls = []
+    for each item in playable
+        if item.kind <> "widget" and item.url <> invalid and item.url <> "" then urls.push(item.url)
+    end for
+    ' Drop files that left the playlist (deleted in the Studio) from the map,
+    ' so they are never shown again and are re-verified if they come back.
+    fresh = {}
+    for each url in urls
+        if m.readyMap[url] = true then fresh[url] = true
+    end for
+    m.readyMap = fresh
+    m.prefetch.ready = fresh
+    m.prefetch.urls = urls
+
+    m.items = readyItems()
     m.index = -1
     if m.items.Count() > 0
+        showPairing(false)
+        playNext()
+    else
+        m.pairingCode.text = ""
+        m.statusLabel.text = "Baixando conteudo para esta tela..."
+        showPairing(true)
+    end if
+end sub
+
+' Items whose file is already confirmed on this TV (widgets need no download).
+function readyItems() as object
+    result = []
+    for each item in m.allItems
+        if item.kind = "widget"
+            result.push(item)
+        else if item.url <> invalid and m.readyMap[item.url] = true
+            result.push(item)
+        end if
+    end for
+    return result
+end function
+
+' A file finished downloading/became available: it enters the rotation in its
+' own playlist position, without interrupting whatever is on screen.
+sub onPrefetchReady()
+    ready = m.prefetch.ready
+    if ready = invalid then return
+    m.readyMap = ready
+
+    currentId = invalid
+    if m.index >= 0 and m.index < m.items.Count() then currentId = m.items[m.index].id
+
+    m.items = readyItems()
+
+    ' Keep pointing at the item currently on screen so the new file only shows
+    ' up when its turn comes.
+    if currentId <> invalid
+        for i = 0 to m.items.Count() - 1
+            if m.items[i].id = currentId
+                m.index = i
+                return
+            end if
+        end for
+        m.index = -1
+        return
+    end if
+
+    if m.items.Count() > 0 and m.index < 0
         showPairing(false)
         playNext()
     end if
