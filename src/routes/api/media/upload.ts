@@ -67,8 +67,6 @@ export const Route = createFileRoute("/api/media/upload")({
         const { MAX_VIDEO_BYTES } = await import("@/lib/media/presets");
         const ABSOLUTE_MAX = MAX_VIDEO_BYTES + 1024 * 1024; // + multipart overhead
         const declared = Number(request.headers.get("content-length") ?? 0);
-        // O assetId também vem no cabeçalho? Não — mas em erros de tamanho o
-        // corpo não é lido, então a limpeza depende do cliente chamar remover.
         if (!declared || Number.isNaN(declared)) {
           return Response.json({ error: "Envio inválido." }, { status: 411 });
         }
