@@ -9,6 +9,8 @@ export type QueueCallPayload = {
   audioUrl?: string;
   displaySeconds: number;
   calledAt: string;
+  /** Últimas senhas chamadas antes desta (mais recente primeiro). */
+  history?: { label: string; sectorName: string | null }[] | null;
 };
 
 /**
@@ -110,6 +112,7 @@ export function QueueCallOverlay({
   }, [call.id, call.spokenText, call.displaySeconds]);
 
   const accent = accentColor ?? "#38bdf8";
+  const history = (call.history ?? []).slice(0, 4);
 
   return (
     <div className="absolute inset-0 z-50 grid place-items-center bg-black px-10 text-center">
@@ -127,6 +130,28 @@ export function QueueCallOverlay({
           <p className="mt-6 text-[6vw] font-semibold leading-tight" style={{ color: accent }}>
             {call.sectorName}
           </p>
+        ) : null}
+        {history.length > 0 ? (
+          <div className="mt-[6vh]">
+            <p className="text-[1.3vw] font-semibold uppercase tracking-[0.35em] text-white/40">
+              Últimas chamadas
+            </p>
+            <div className="mt-4 flex flex-wrap items-stretch justify-center gap-[1.2vw]">
+              {history.map((item, index) => (
+                <div
+                  key={`${item.label}-${index}`}
+                  className="min-w-[10vw] rounded-xl border border-white/10 bg-white/5 px-[1.6vw] py-[1vh]"
+                >
+                  <p className="text-[3vw] font-black leading-none text-white/80">{item.label}</p>
+                  {item.sectorName ? (
+                    <p className="mt-[0.6vh] text-[1.2vw] font-medium uppercase tracking-widest text-white/45">
+                      {item.sectorName}
+                    </p>
+                  ) : null}
+                </div>
+              ))}
+            </div>
+          </div>
         ) : null}
       </div>
     </div>
