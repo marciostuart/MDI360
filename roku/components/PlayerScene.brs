@@ -95,6 +95,8 @@ sub onActivationCode()
 end sub
 
 sub showPairing(visible as boolean)
+    ' A ticket call owns the screen until its timer ends.
+    if m.queueActive = true and visible then return
     m.pairing.visible = visible
     if visible
         m.slide.opacity = 0
@@ -301,6 +303,8 @@ sub playNext()
 end sub
 
 sub advanceItem()
+    ' Never draw content over an active ticket call.
+    if m.queueActive = true then return
     if m.items.Count() = 0 then return
     m.index = (m.index + 1) mod m.items.Count()
     item = m.items[m.index]
