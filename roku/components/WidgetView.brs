@@ -9,6 +9,7 @@ sub init()
     m.hero = m.top.findNode("hero")
     m.sub = m.top.findNode("sub")
     m.lines = m.top.findNode("lines")
+    m.headline = m.top.findNode("headline")
     m.credit = m.top.findNode("credit")
     m.data = m.top.findNode("data")
 
@@ -21,6 +22,15 @@ sub init()
     m.clockTimer.duration = 1
     m.clockTimer.observeField("fire", "onClockTick")
     m.top.appendChild(m.clockTimer)
+
+    ' Rotates news headlines one at a time.
+    m.newsTimer = CreateObject("roSGNode", "Timer")
+    m.newsTimer.repeat = true
+    m.newsTimer.duration = 7
+    m.newsTimer.observeField("fire", "onNewsTick")
+    m.top.appendChild(m.newsTimer)
+    m.newsList = []
+    m.newsIndex = 0
 
     m.config = {}
     m.kind = ""
@@ -39,6 +49,8 @@ end function
 sub onItem()
     item = m.top.item
     m.clockTimer.control = "stop"
+    if m.newsTimer <> invalid then m.newsTimer.control = "stop"
+    m.headline.text = ""
     m.hero.text = ""
     m.sub.text = ""
     m.lines.text = ""
@@ -47,6 +59,7 @@ sub onItem()
     if item = invalid or item.widgetType = invalid then return
     m.kind = item.widgetType
     if item.widgetConfig <> invalid then m.config = item.widgetConfig else m.config = {}
+    applyTheme()
 
     if m.kind = "clock"
         m.title.text = "Agora"
@@ -83,6 +96,42 @@ sub onItem()
     m.data.control = "stop"
     m.data.url = url
     m.data.control = "RUN"
+end sub
+
+' ---------- theme ----------
+
+' Converts #RRGGBB from the panel into Roku's 0xRRGGBBAA.
+function hexToRoku(value as string) as string
+    if value = invalid or Len(value) <> 7 then return ""
+    return "0x" + UCase(Mid(value, 2, 6)) + "FF"
+end function
+
+sub applyTheme()
+    theme = invalid
+    if m.config <> invalid then theme = m.config.theme
+    if theme = invalid then return
+
+    bgColor = ""
+    if theme.background = "solid" and theme.backgroundColor <> invalid
+        bgColor = hexToRoku(theme.backgroundColor)
+    else if theme.gradientTo <> invalid
+        bgColor = hexToRoku(theme.gradientTo)
+    end if
+    if bgColor <> "" then m.bg.color = bgColor
+
+    if theme.accentColor <> invalid and theme.accentColor <> ""
+        accentColor = hexToRoku(theme.accentColor)
+        if accentColor <> "" then m.accent.color = accentColor
+    end if
+
+    if theme.textColor <> invalid
+        textColor = hexToRoku(theme.textColor)
+        if textColor <> ""
+            m.hero.color = textColor
+            m.headline.color = textColor
+            m.lines.color = textColor
+        end if
+    end if
 end sub
 
 ' ---------- clock ----------
@@ -195,18 +244,56 @@ sub onData()
         m.sub.text = ""
         limit = 5
         if m.config.headlines <> invalid then limit = Int(m.config.headlines)
-        text = ""
-        index = 0
+
+        m.newsList = []
         if result.headlines <> invalid
             for each headline in result.headlines
-                if index >= limit then exit for
-                text = text + Chr(8226) + " " + headline + Chr(10)
-                index = index + 1
+                if m.newsList.Count() >= limit then exit for
+                m.newsList.Push(headline)
             end for
         end if
-        m.lines.translation = [120, 240]
-        m.lines.height = 700
-        m.lines.text = text
         m.credit.text = result.credit
+
+        oneAtATime = true
+        if m.config.oneAtATime = false then oneAtATime = false
+
+        if oneAtATime
+            m.lines.text = ""
+            m.newsIndex = 0
+            seconds = 7
+            if m.config.rotateSeconds <> invalid then seconds = Int(m.config.rotateSeconds)
+            m.newsTimer.duration = seconds
+            showHeadline()
+            if m.newsList.Count() > 1 then m.newsTimer.control = "start"
+        else
+            m.headline.text = ""
+            text = ""
+            for each headline in m.newsList
+                text = text + Chr(8226) + " " + headline + Chr(10)
+            end for
+            m.lines.translation = [120, 240]
+            m.lines.height = 700
+            m.lines.text = text
+        end if
     end if
+end sub
+' ---------- news rotation ----------
+
+sub showHeadline()
+    if m.newsList = invalid or m.newsList.Count() = 0
+        m.headline.text = "Sem manchetes agora."
+        return
+    end if
+    position = (m.newsIndex mod m.newsList.Count())
+    counter = ""
+    if m.newsList.Count() > 1
+        counter = (position + 1).ToStr() + "/" + m.newsList.Count().ToStr()
+    end if
+    m.sub.text = counter
+    m.headline.text = m.newsList[position]
+end sub
+
+sub onNewsTick()
+    m.newsIndex = m.newsIndex + 1
+    showHeadline()
 end sub
