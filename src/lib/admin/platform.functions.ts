@@ -171,6 +171,9 @@ export type PlatformOrganization = {
   subscriptionExpiresAt: string | null;
   maxDevices: number;
   maxStorageMb: number;
+  /** Raw override value stored in the database. Null when the plan limit applies. */
+  deviceLimitOverride: number | null;
+  storageLimitMbOverride: number | null;
   linkedDevices: number;
   onlineDevices: number;
   pendingDevices: number;
@@ -248,6 +251,8 @@ export const fetchPlatformOrganizations = createServerFn({ method: "GET" }).hand
         subscriptionExpiresAt: row.expiresAt ? row.expiresAt.toISOString() : null,
         maxDevices: row.deviceOverride ?? row.planDevices ?? 3,
         maxStorageMb: row.storageOverride ?? row.planStorage ?? 2048,
+        deviceLimitOverride: row.deviceOverride ?? null,
+        storageLimitMbOverride: row.storageOverride ?? null,
         linkedDevices: Number(row.linkedDevices ?? 0),
         onlineDevices: Number(row.onlineDevices ?? 0),
         pendingDevices: Number(row.pendingDevices ?? 0),
