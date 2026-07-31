@@ -54,6 +54,19 @@ sub init()
     m.resumeAfterApply = false
     m.report = m.top.findNode("report")
 
+    ' Add-on de senhas: chamada em tela cheia com sinal sonoro e locucao.
+    m.queue = m.top.findNode("queue")
+    m.queueLabel = m.top.findNode("queueLabel")
+    m.queueSector = m.top.findNode("queueSector")
+    m.queueTitle = m.top.findNode("queueTitle")
+    m.announce = m.top.findNode("announce")
+    m.lastCallId = ""
+    m.queueActive = false
+    m.queueTimer = CreateObject("roSGNode", "Timer")
+    m.queueTimer.repeat = false
+    m.queueTimer.observeField("fire", "onQueueTimer")
+    m.top.appendChild(m.queueTimer)
+
     m.prefetch = m.top.findNode("prefetch")
     m.prefetch.observeField("ready", "onPrefetchReady")
     m.prefetch.control = "RUN"
@@ -96,6 +109,10 @@ end sub
 sub onPayload()
     payload = m.sync.payload
     if payload = invalid then return
+
+    ' A ticket call never waits for the current file: it takes over the screen
+    ' immediately, which is the whole point of the queue add-on.
+    handleQueueCall(payload)
 
     ' Nothing on screen yet (or playlist emptied): apply right away.
     if m.items.Count() = 0
@@ -372,6 +389,84 @@ end sub
 
 sub onSlideTimer()
     playNext()
+end sub
+
+' ---------------------------------------------------------------- senhas ----
+
+' Shows the ticket, beeps and speaks it. Called on every sync payload; only a
+' new call id (repeats change it too) triggers a new announcement.
+sub handleQueueCall(payload as object)
+    call = payload.queueCall
+    if call = invalid or call.id = invalid or call.id = "" then return
+    if call.id = m.lastCallId then return
+    m.lastCallId = call.id
+
+    seconds = 20
+    if call.displaySeconds <> invalid and call.displaySeconds > 4 then seconds = call.displaySeconds
+
+    ' Stop whatever is on screen right now.
+    if m.slideTimer <> invalid then m.slideTimer.control = "stop"
+    if m.stallTimer <> invalid then m.stallTimer.control = "stop"
+    m.video.control = "stop"
+    m.video.visible = false
+    m.widget.visible = false
+    m.slide.opacity = 0
+    m.pairing.visible = false
+    if m.cover <> invalid then m.cover.opacity = 0
+
+    label = ""
+    if call.label <> invalid then label = call.label
+    m.queueLabel.text = label
+    if call.sectorName <> invalid and call.sectorName <> ""
+        m.queueSector.text = call.sectorName
+    else
+        m.queueSector.text = ""
+    end if
+    m.queue.visible = true
+    m.queueActive = true
+
+    ' Sinal sonoro: sons do sistema, que tocam mesmo com o volume da playlist
+    ' desativado no Studio (a TV nao esta muda, apenas os videos).
+    beep()
+
+    ' Locucao: o Roku nao tem sintese de voz, entao o servidor entrega um MP3
+    ' pronto com "setor + senha".
+    if call.audioUrl <> invalid and call.audioUrl <> ""
+        content = CreateObject("roSGNode", "ContentNode")
+        content.url = m.sync.baseUrl + call.audioUrl
+        content.streamformat = "mp3"
+        m.announce.control = "stop"
+        m.announce.content = content
+        m.announce.control = "play"
+    end if
+
+    m.queueTimer.control = "stop"
+    m.queueTimer.duration = seconds
+    m.queueTimer.control = "start"
+end sub
+
+' Two short chimes before the announcement.
+sub beep()
+    resource = CreateObject("roAudioResource", "navsingle")
+    if resource = invalid then return
+    resource.trigger(100)
+    sleep(320)
+    resource.trigger(100)
+    sleep(220)
+end sub
+
+' The call is over: hide it and resume the playlist from the next item.
+sub onQueueTimer()
+    m.queueActive = false
+    m.queue.visible = false
+    m.announce.control = "stop"
+
+    if m.items.Count() > 0
+        showPairing(false)
+        playNext()
+    else
+        showPairing(true)
+    end if
 end sub
 
 sub onVideoPosition()
