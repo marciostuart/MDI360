@@ -197,12 +197,6 @@ export const confirmMediaUpload = createServerFn({ method: "POST" })
     return { ok: true };
   });
 
-export const deleteMediaAsset = createServerFn({ method: "POST" })
-  .inputValidator((input: unknown) => z.object({ assetId: z.string().uuid() }).parse(input))
-  .handler(async ({ data }) => {
-    return deleteMediaAssetImpl(data.assetId);
-  });
-
 const airWindowSchema = z
   .object({
     assetId: z.string().uuid(),
@@ -248,7 +242,7 @@ export const setMediaAirWindow = createServerFn({ method: "POST" })
     return { ok: true };
   });
 
-const legacyDeleteMediaAsset = createServerFn({ method: "POST" })
+export const deleteMediaAsset = createServerFn({ method: "POST" })
   .inputValidator((input: unknown) => z.object({ assetId: z.string().uuid() }).parse(input))
   .handler(async ({ data }) => {
     const { getDb, schema } = await import("@/lib/db/index.server");
