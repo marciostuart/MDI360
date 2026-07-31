@@ -108,8 +108,8 @@ export function QueueAddonManager() {
       <header className="space-y-1">
         <h1 className="font-display text-2xl font-semibold">Sistema de senhas</h1>
         <p className="text-sm text-muted-foreground">
-          Habilite a chamada de senhas por tela. Ao chamar, a TV interrompe a playlist, emite o sinal
-          sonoro e anuncia a senha em voz alta — mesmo com o som da tela desativado.
+          Habilite a chamada de senhas por tela. Ao chamar, a TV interrompe a playlist, emite o
+          sinal sonoro e anuncia a senha em voz alta — mesmo com o som da tela desativado.
         </p>
         <a
           href="/senhas"
@@ -124,8 +124,8 @@ export function QueueAddonManager() {
       {panels.length === 0 ? (
         <Card>
           <CardContent className="py-10 text-center text-sm text-muted-foreground">
-            Nenhuma tela vinculada ainda. Vincule uma tela em <strong>Telas</strong> para habilitar o
-            sistema de senhas.
+            Nenhuma tela vinculada ainda. Vincule uma tela em <strong>Telas</strong> para habilitar
+            o sistema de senhas.
           </CardContent>
         </Card>
       ) : null}
