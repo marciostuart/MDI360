@@ -36,9 +36,8 @@ function audioContext(): AudioContext | null {
 }
 
 /**
- * Strong two-tone alert (550 Hz / 440 Hz, square wave), synthesized and
- * repeated so it carries across a noisy waiting room. Played even when the
- * screen is muted: a queue call must always be audible.
+ * Two-tone alert, square wave: 550 Hz for 700 ms then 440 Hz for 1400 ms.
+ * Played even when the screen is muted: a queue call must always be audible.
  */
 async function playChime(): Promise<void> {
   const ctx = audioContext();
@@ -50,23 +49,29 @@ async function playChime(): Promise<void> {
     master.gain.value = 1;
     master.connect(ctx.destination);
 
-    // Three "ding-dong" pairs: 550Hz then 440Hz, square wave only.
-    const notes = [550, 440, 550, 440, 550, 440];
-    notes.forEach((frequency, position) => {
-      const start = now + position * 0.22;
+    // 550 Hz (0.7s) followed by 440 Hz (1.4s), no repetition.
+    const notes: [number, number][] = [
+      [550, 0.7],
+      [440, 1.4],
+    ];
+    let start = now;
+    for (const [frequency, duration] of notes) {
       const osc = ctx.createOscillator();
       const gain = ctx.createGain();
       osc.type = "square";
       osc.frequency.value = frequency;
       gain.gain.setValueAtTime(0.0001, start);
       gain.gain.exponentialRampToValueAtTime(0.55, start + 0.02);
-      gain.gain.exponentialRampToValueAtTime(0.0001, start + 0.21);
+      gain.gain.setValueAtTime(0.55, start + duration - 0.03);
+      gain.gain.exponentialRampToValueAtTime(0.0001, start + duration);
       osc.connect(gain).connect(master);
       osc.start(start);
-      osc.stop(start + 0.22);
-    });
+      osc.stop(start + duration);
+      start += duration;
+    }
 
-    await new Promise((resolve) => window.setTimeout(resolve, notes.length * 220 + 150));
+    const totalMs = (start - now) * 1000;
+    await new Promise((resolve) => window.setTimeout(resolve, totalMs + 150));
   } catch {
     // Audio blocked on this device; the visual call still shows.
   }

@@ -79,7 +79,8 @@ sub init()
     ' A locucao entra depois do sinal sonoro, para nao se sobrepor a ele.
     m.announceTimer = CreateObject("roSGNode", "Timer")
     m.announceTimer.repeat = false
-    m.announceTimer.duration = 1.3
+    ' O sinal sonoro dura 2,1s (550Hz 0,7s + 440Hz 1,4s): a voz entra depois.
+    m.announceTimer.duration = 2.3
     m.announceTimer.observeField("fire", "onAnnounceTimer")
     m.top.appendChild(m.announceTimer)
     ' Se o MP3 do servidor falhar, tentamos uma locucao alternativa.
@@ -448,6 +449,20 @@ sub startNextCall()
     seconds = 20
     if call.displaySeconds <> invalid and call.displaySeconds > 4 then seconds = call.displaySeconds
 
+    ' A tela da chamada sobe ANTES de parar o conteudo: se qualquer passo
+    ' seguinte falhar, a TV mostra a senha em vez de ficar preta.
+    label = ""
+    if call.label <> invalid then label = Str(call.label).Trim()
+    if label = "" then label = "--"
+    m.queueLabel.text = label
+    if call.sectorName <> invalid and call.sectorName <> ""
+        m.queueSector.text = call.sectorName
+    else
+        m.queueSector.text = ""
+    end if
+    m.queue.visible = true
+    m.queueActive = true
+
     ' Stop whatever is on screen right now.
     if m.slideTimer <> invalid then m.slideTimer.control = "stop"
     if m.stallTimer <> invalid then m.stallTimer.control = "stop"
@@ -458,17 +473,7 @@ sub startNextCall()
     m.pairing.visible = false
     if m.cover <> invalid then m.cover.opacity = 0
 
-    label = ""
-    if call.label <> invalid then label = call.label
-    m.queueLabel.text = label
-    if call.sectorName <> invalid and call.sectorName <> ""
-        m.queueSector.text = call.sectorName
-    else
-        m.queueSector.text = ""
-    end if
     showQueueHistory(call)
-    m.queue.visible = true
-    m.queueActive = true
 
     ' Sinal sonoro: MP3 embarcado no canal (o som de sistema do Roku depende de
     ' uma preferencia da TV e por isso nao era confiavel).
