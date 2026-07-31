@@ -89,19 +89,17 @@ function speakLocally(text: string): Promise<boolean> {
       synth.cancel();
       const voice = synth.getVoices().find((v) => v.lang?.toLowerCase().startsWith("pt"));
       let started = false;
-      // Announced twice: on a busy counter the first call is often missed.
-      for (let i = 0; i < 2; i += 1) {
-        const utterance = new SpeechSynthesisUtterance(text);
-        utterance.lang = "pt-BR";
-        utterance.rate = 0.95;
-        utterance.volume = 1;
-        if (voice) utterance.voice = voice;
-        utterance.onstart = () => {
-          started = true;
-        };
-        if (i === 1) utterance.onend = () => resolve(started);
-        synth.speak(utterance);
-      }
+      // Falada uma única vez, por pedido do operador.
+      const utterance = new SpeechSynthesisUtterance(text);
+      utterance.lang = "pt-BR";
+      utterance.rate = 0.95;
+      utterance.volume = 1;
+      if (voice) utterance.voice = voice;
+      utterance.onstart = () => {
+        started = true;
+      };
+      utterance.onend = () => resolve(started);
+      synth.speak(utterance);
       // Some kiosk builds expose speechSynthesis but never fire: give up early
       // so the server-rendered MP3 can take over.
       window.setTimeout(() => resolve(started), 1500);
@@ -177,7 +175,7 @@ export function QueueCallOverlay({
   }, [call]);
 
   const accent = accentColor ?? "#38bdf8";
-  const history = (call.history ?? []).slice(0, 4);
+  const history = (call.history ?? []).slice(0, 3);
 
   return (
     <div className="absolute inset-0 z-50 grid place-items-center bg-black px-10 text-center">
@@ -207,9 +205,20 @@ export function QueueCallOverlay({
             <p className="text-[1.35vw] font-semibold uppercase tracking-[0.35em] text-white/40">
               Últimas chamadas
             </p>
-            <p className="mt-[1.5vh] text-[3.3vw] font-black leading-none tracking-wide text-white/75">
-              {history.map((item) => item.label).join("     ")}
-            </p>
+            <div className="mt-[1.5vh] flex items-start justify-center gap-[4vw]">
+              {history.map((item, index) => (
+                <div key={`${item.label}-${index}`} className="text-center">
+                  <p className="text-[3.3vw] font-black leading-none tracking-wide text-white/75">
+                    {item.label}
+                  </p>
+                  {item.sectorName ? (
+                    <p className="mt-[0.8vh] text-[1.4vw] font-semibold uppercase tracking-[0.2em] text-white/45">
+                      {item.sectorName}
+                    </p>
+                  ) : null}
+                </div>
+              ))}
+            </div>
           </div>
         ) : null}
       </div>
