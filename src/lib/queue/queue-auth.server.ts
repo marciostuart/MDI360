@@ -113,10 +113,10 @@ export async function requireQueueSession(): Promise<QueuePanelSession> {
   return session;
 }
 
-/** "Setor Caixa, senha A012" — the sentence the TV reads out loud. */
+/** "Caixa 2. Senha A 0 1 2." — sector first, then the ticket, as requested. */
 export function buildSpokenText(sectorName: string | null, label: string) {
   const spelled = label.split("").join(" ");
-  if (sectorName) return `Senha ${spelled}. ${sectorName}.`;
+  if (sectorName) return `${sectorName}. Senha ${spelled}.`;
   return `Senha ${spelled}.`;
 }
 
