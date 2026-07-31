@@ -8,6 +8,7 @@ import {
   Loader2,
   LogOut,
   MonitorPlay,
+  BarChart3,
   Settings,
   Tv,
   Images,
@@ -37,6 +38,7 @@ const NAV: NavItem[] = [
   { to: "/studio/conteudos", label: "Conteúdos", icon: Images },
   { to: "/studio/playlists", label: "Playlists", icon: ListVideo },
   { to: "/studio/agenda", label: "Agenda", icon: CalendarClock },
+  { to: "/studio/relatorios", label: "Relatórios", icon: BarChart3 },
   { to: "/studio/configuracoes", label: "Configurações", icon: Settings },
 ];
 

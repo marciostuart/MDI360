@@ -19,6 +19,7 @@ import { Route as StudioAgendaRouteImport } from './routes/studio/agenda'
 import { Route as StudioConfiguracoesRouteImport } from './routes/studio/configuracoes'
 import { Route as StudioConteudosRouteImport } from './routes/studio/conteudos'
 import { Route as StudioPlaylistsRouteImport } from './routes/studio/playlists'
+import { Route as StudioRelatoriosRouteImport } from './routes/studio/relatorios'
 import { Route as StudioTelasRouteImport } from './routes/studio/telas'
 import { Route as TorreIndexRouteImport } from './routes/torre/index'
 import { Route as TorrePlanosRouteImport } from './routes/torre/planos'
@@ -81,6 +82,11 @@ const StudioConteudosRoute = StudioConteudosRouteImport.update({
 const StudioPlaylistsRoute = StudioPlaylistsRouteImport.update({
   id: '/playlists',
   path: '/playlists',
+  getParentRoute: () => StudioRouteRoute,
+} as any)
+const StudioRelatoriosRoute = StudioRelatoriosRouteImport.update({
+  id: '/relatorios',
+  path: '/relatorios',
   getParentRoute: () => StudioRouteRoute,
 } as any)
 const StudioTelasRoute = StudioTelasRouteImport.update({
@@ -160,6 +166,7 @@ export interface FileRoutesByFullPath {
   '/studio/configuracoes': typeof StudioConfiguracoesRoute
   '/studio/conteudos': typeof StudioConteudosRoute
   '/studio/playlists': typeof StudioPlaylistsRoute
+  '/studio/relatorios': typeof StudioRelatoriosRoute
   '/studio/telas': typeof StudioTelasRoute
   '/torre/planos': typeof TorrePlanosRoute
   '/studio/': typeof StudioIndexRoute
@@ -183,6 +190,7 @@ export interface FileRoutesByTo {
   '/studio/configuracoes': typeof StudioConfiguracoesRoute
   '/studio/conteudos': typeof StudioConteudosRoute
   '/studio/playlists': typeof StudioPlaylistsRoute
+  '/studio/relatorios': typeof StudioRelatoriosRoute
   '/studio/telas': typeof StudioTelasRoute
   '/torre/planos': typeof TorrePlanosRoute
   '/studio': typeof StudioIndexRoute
@@ -209,6 +217,7 @@ export interface FileRoutesById {
   '/studio/configuracoes': typeof StudioConfiguracoesRoute
   '/studio/conteudos': typeof StudioConteudosRoute
   '/studio/playlists': typeof StudioPlaylistsRoute
+  '/studio/relatorios': typeof StudioRelatoriosRoute
   '/studio/telas': typeof StudioTelasRoute
   '/torre/planos': typeof TorrePlanosRoute
   '/studio/': typeof StudioIndexRoute
@@ -236,6 +245,7 @@ export interface FileRouteTypes {
     | '/studio/configuracoes'
     | '/studio/conteudos'
     | '/studio/playlists'
+    | '/studio/relatorios'
     | '/studio/telas'
     | '/torre/planos'
     | '/studio/'
@@ -259,6 +269,7 @@ export interface FileRouteTypes {
     | '/studio/configuracoes'
     | '/studio/conteudos'
     | '/studio/playlists'
+    | '/studio/relatorios'
     | '/studio/telas'
     | '/torre/planos'
     | '/studio'
@@ -284,6 +295,7 @@ export interface FileRouteTypes {
     | '/studio/configuracoes'
     | '/studio/conteudos'
     | '/studio/playlists'
+    | '/studio/relatorios'
     | '/studio/telas'
     | '/torre/planos'
     | '/studio/'
@@ -388,6 +400,13 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof StudioPlaylistsRouteImport
       parentRoute: typeof StudioRouteRoute
     }
+    '/studio/relatorios': {
+      id: '/studio/relatorios'
+      path: '/relatorios'
+      fullPath: '/studio/relatorios'
+      preLoaderRoute: typeof StudioRelatoriosRouteImport
+      parentRoute: typeof StudioRouteRoute
+    }
     '/studio/telas': {
       id: '/studio/telas'
       path: '/telas'
@@ -487,6 +506,7 @@ interface StudioRouteRouteChildren {
   StudioConfiguracoesRoute: typeof StudioConfiguracoesRoute
   StudioConteudosRoute: typeof StudioConteudosRoute
   StudioPlaylistsRoute: typeof StudioPlaylistsRoute
+  StudioRelatoriosRoute: typeof StudioRelatoriosRoute
   StudioTelasRoute: typeof StudioTelasRoute
   StudioIndexRoute: typeof StudioIndexRoute
 }
@@ -496,6 +516,7 @@ const StudioRouteRouteChildren: StudioRouteRouteChildren = {
   StudioConfiguracoesRoute: StudioConfiguracoesRoute,
   StudioConteudosRoute: StudioConteudosRoute,
   StudioPlaylistsRoute: StudioPlaylistsRoute,
+  StudioRelatoriosRoute: StudioRelatoriosRoute,
   StudioTelasRoute: StudioTelasRoute,
   StudioIndexRoute: StudioIndexRoute,
 }
