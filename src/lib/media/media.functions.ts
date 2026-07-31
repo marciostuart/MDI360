@@ -399,11 +399,6 @@ export const getMediaAssetDetails = createServerFn({ method: "GET" })
     };
   });
 
-const legacyTagsSchema = z.object({
-  assetId: z.string().uuid(),
-  tags: z.array(z.string().trim().min(1).max(40)).max(12),
-});
-
 /** Replaces the tag list of one file. Tags are normalized (lowercase, unique). */
 export const setMediaTags = createServerFn({ method: "POST" })
   .inputValidator((input: unknown) => tagsSchema.parse(input))
