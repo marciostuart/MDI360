@@ -2,6 +2,7 @@ import { createFileRoute } from "@tanstack/react-router";
 import { useCallback, useEffect, useRef, useState } from "react";
 
 import { WidgetView } from "@/components/widgets/widget-view";
+import * as mediaCache from "@/lib/player/media-cache";
 import type { WidgetConfig } from "@/lib/widgets/catalog";
 
 type PlayerItem = {
@@ -86,6 +87,10 @@ function PlayerScreen() {
   const pendingSyncRef = useRef<SyncResponse | null>(null);
   const [hasPending, setHasPending] = useState(false);
   const syncRef = useRef<SyncResponse | null>(null);
+  // URLs already fully downloaded to this device. A file only enters the
+  // rotation after its download finishes, so the TV never buffers on air.
+  const [readyUrls, setReadyUrls] = useState<Set<string>>(new Set());
+  const [localSrc, setLocalSrc] = useState<string | null>(null);
 
   const applySync = useCallback((data: SyncResponse, resetIndex: boolean) => {
     pendingSyncRef.current = null;
@@ -275,8 +280,76 @@ function PlayerScreen() {
     };
   }, [token, linked, runSync, resetDevice]);
 
-  const items = sync?.playlist?.items ?? [];
+  const allItems = sync?.playlist?.items ?? [];
+  const downloadUrls = allItems
+    .filter((item) => (item.kind === "image" || item.kind === "video") && item.url)
+    .map((item) => item.url as string);
+  const downloadKey = downloadUrls.join("|");
+
+  // Downloads missing files in the background and removes from the local cache
+  // anything that is no longer in the playlist (e.g. deleted in the Studio).
+  useEffect(() => {
+    let cancelled = false;
+    const urls = downloadKey ? downloadKey.split("|") : [];
+
+    const run = async () => {
+      const removed = await mediaCache.prune(urls);
+      if (removed.length && !cancelled) {
+        setReadyUrls((previous) => {
+          const next = new Set(previous);
+          for (const url of removed) next.delete(url);
+          return next;
+        });
+      }
+      for (const url of urls) {
+        if (cancelled) return;
+        const ok = (await mediaCache.isCached(url)) || (await mediaCache.download(url));
+        if (cancelled) return;
+        if (ok) {
+          setReadyUrls((previous) => {
+            if (previous.has(url)) return previous;
+            const next = new Set(previous);
+            next.add(url);
+            return next;
+          });
+        }
+      }
+    };
+
+    void run();
+    return () => {
+      cancelled = true;
+    };
+  }, [downloadKey]);
+
+  // Widgets and web pages need no download; files wait for the cache.
+  const items = allItems.filter((item) => {
+    if (item.kind === "widget" || item.kind === "web") return true;
+    return Boolean(item.url) && readyUrls.has(item.url as string);
+  });
   const current = items[index % Math.max(items.length, 1)];
+
+  // Playback always reads from the local copy when there is one.
+  useEffect(() => {
+    let revoked: string | null = null;
+    let cancelled = false;
+    setLocalSrc(null);
+    const url = current?.url;
+    if (!url || (current?.kind !== "image" && current?.kind !== "video")) return;
+    void mediaCache.localUrl(url).then((objectUrl) => {
+      if (!objectUrl) return;
+      if (cancelled) {
+        URL.revokeObjectURL(objectUrl);
+        return;
+      }
+      revoked = objectUrl;
+      setLocalSrc(objectUrl);
+    });
+    return () => {
+      cancelled = true;
+      if (revoked) URL.revokeObjectURL(revoked);
+    };
+  }, [current?.url, current?.kind, index]);
 
   // Playback reporting: one row per item that actually went on screen, which
   // feeds the customer's exhibition reports and the live "no ar agora" view.
@@ -301,10 +374,7 @@ function PlayerScreen() {
     if (timerRef.current) window.clearTimeout(timerRef.current);
     if (!current || items.length === 0) return;
     if (current.kind === "video") return;
-    timerRef.current = window.setTimeout(
-      () => advance(),
-      Math.max(1000, current.durationMs),
-    );
+    timerRef.current = window.setTimeout(() => advance(), Math.max(1000, current.durationMs));
     return () => {
       if (timerRef.current) window.clearTimeout(timerRef.current);
     };
@@ -323,23 +393,28 @@ function PlayerScreen() {
       {items.length === 0 ? (
         <SplashScreen
           branding={sync.branding}
-          message={error ?? "Nenhuma playlist programada para este horário."}
+          message={
+            error ??
+            (allItems.length > 0
+              ? "Baixando conteúdo para esta tela…"
+              : "Nenhuma playlist programada para este horário.")
+          }
         />
       ) : current?.kind === "video" ? (
         <FadeLayer enabled={fade} step={index}>
           <video
-          key={`${current.id}-${index}`}
-          src={current.url ?? undefined}
-          className="h-screen w-screen object-contain"
-          autoPlay
-          muted={current.isMuted || sync.device?.audioEnabled === false}
-          playsInline
-          loop={items.length === 1 && !hasPending}
-          onEnded={() => {
-            if (items.length === 1 && !hasPending) return;
-            advance();
-          }}
-          onError={() => advance()}
+            key={`${current.id}-${index}-${localSrc ? "local" : "remote"}`}
+            src={localSrc ?? current.url ?? undefined}
+            className="h-screen w-screen object-contain"
+            autoPlay
+            muted={current.isMuted || sync.device?.audioEnabled === false}
+            playsInline
+            loop={items.length === 1 && !hasPending}
+            onEnded={() => {
+              if (items.length === 1 && !hasPending) return;
+              advance();
+            }}
+            onError={() => advance()}
           />
         </FadeLayer>
       ) : current?.kind === "widget" && current.widgetConfig ? (
@@ -349,20 +424,20 @@ function PlayerScreen() {
       ) : current?.kind === "web" ? (
         <FadeLayer enabled={fade} step={index}>
           <iframe
-          key={`${current.id}-${index}`}
-          src={current.url ?? undefined}
-          title={current.name}
-          className="h-screen w-screen border-0"
-          sandbox="allow-scripts allow-same-origin"
+            key={`${current.id}-${index}`}
+            src={current.url ?? undefined}
+            title={current.name}
+            className="h-screen w-screen border-0"
+            sandbox="allow-scripts allow-same-origin"
           />
         </FadeLayer>
       ) : (
         <FadeLayer enabled={fade} step={index}>
           <img
-          key={`${current?.id}-${index}`}
-          src={current?.url ?? undefined}
-          alt={current?.name ?? ""}
-          className="h-screen w-screen object-contain"
+            key={`${current?.id}-${index}-${localSrc ? "local" : "remote"}`}
+            src={localSrc ?? current?.url ?? undefined}
+            alt={current?.name ?? ""}
+            className="h-screen w-screen object-contain"
           />
         </FadeLayer>
       )}
