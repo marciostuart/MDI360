@@ -202,6 +202,160 @@ function AirWindowEditor({ item }: { item: MediaListItem }) {
   );
 }
 
+/** Editable tag chips for one file. Tags drive the library filter. */
+function TagEditor({ item }: { item: MediaListItem }) {
+  const queryClient = useQueryClient();
+  const saveFn = useServerFn(setMediaTags);
+  const [draft, setDraft] = useState("");
+  const [adding, setAdding] = useState(false);
+
+  const save = useMutation({
+    mutationFn: (tags: string[]) => saveFn({ data: { assetId: item.id, tags } }),
+    onSuccess: async () => {
+      await queryClient.invalidateQueries({ queryKey: ["media-assets"] });
+    },
+    onError: () => toast.error("Não foi possível salvar as tags."),
+  });
+
+  const commit = () => {
+    const value = draft.trim().toLowerCase();
+    setDraft("");
+    setAdding(false);
+    if (!value || item.tags.includes(value)) return;
+    save.mutate([...item.tags, value]);
+  };
+
+  return (
+    <div className="flex flex-wrap items-center gap-1.5">
+      <TagIcon className="size-3.5 text-muted-foreground" />
+      {item.tags.map((tag) => (
+        <Badge key={tag} variant="secondary" className="gap-1">
+          {tag}
+          <button
+            type="button"
+            aria-label={`Remover tag ${tag}`}
+            className="text-muted-foreground transition-colors hover:text-destructive"
+            onClick={() => save.mutate(item.tags.filter((entry) => entry !== tag))}
+          >
+            <X className="size-3" />
+          </button>
+        </Badge>
+      ))}
+      {adding ? (
+        <Input
+          autoFocus
+          value={draft}
+          placeholder="nova tag"
+          className="h-7 w-32 text-xs"
+          onChange={(event) => setDraft(event.target.value)}
+          onBlur={commit}
+          onKeyDown={(event) => {
+            if (event.key === "Enter") commit();
+            if (event.key === "Escape") {
+              setDraft("");
+              setAdding(false);
+            }
+          }}
+        />
+      ) : (
+        <Button
+          variant="ghost"
+          size="sm"
+          className="h-7 gap-1 px-2 text-xs text-muted-foreground"
+          onClick={() => setAdding(true)}
+          disabled={save.isPending}
+        >
+          <Plus className="size-3" /> tag
+        </Button>
+      )}
+    </div>
+  );
+}
+
+/**
+ * Thumbnail on the right side of each row. When a real thumb cannot be
+ * rendered (video without poster, widget, storage offline) it degrades to a
+ * "Preview" button. Both open the same fullscreen modal.
+ */
+function MediaPreview({ item }: { item: MediaListItem }) {
+  const [open, setOpen] = useState(false);
+  const [thumbFailed, setThumbFailed] = useState(false);
+
+  const canThumb =
+    !thumbFailed &&
+    ((item.kind === "image" && Boolean(item.previewUrl)) ||
+      (item.kind === "video" && Boolean(item.previewUrl)) ||
+      (item.kind === "widget" && Boolean(item.widgetConfig)));
+
+  return (
+    <>
+      {canThumb ? (
+        <button
+          type="button"
+          onClick={() => setOpen(true)}
+          aria-label={`Pré-visualizar ${item.name}`}
+          className="grid h-16 w-28 shrink-0 place-items-center overflow-hidden rounded-lg border border-border bg-secondary transition-colors hover:border-primary/60"
+        >
+          {item.kind === "image" ? (
+            <img
+              src={item.previewUrl!}
+              alt={item.name}
+              loading="lazy"
+              className="size-full object-cover"
+              onError={() => setThumbFailed(true)}
+            />
+          ) : item.kind === "video" ? (
+            <video
+              src={item.previewUrl!}
+              muted
+              preload="metadata"
+              playsInline
+              className="size-full object-cover"
+              onError={() => setThumbFailed(true)}
+            />
+          ) : (
+            <div className="pointer-events-none size-full origin-top-left scale-[0.14] [height:457px] [width:800px]">
+              <WidgetView config={item.widgetConfig!} />
+            </div>
+          )}
+        </button>
+      ) : (
+        <Button
+          variant="outline"
+          size="sm"
+          className="shrink-0 gap-1.5"
+          onClick={() => setOpen(true)}
+        >
+          <Eye className="size-4" /> Preview
+        </Button>
+      )}
+
+      <Dialog open={open} onOpenChange={setOpen}>
+        <DialogContent className="max-w-[96vw] border-none bg-background/95 p-2 sm:max-w-[92vw]">
+          <DialogTitle className="px-2 text-sm font-medium">{item.name}</DialogTitle>
+          <div className="grid max-h-[85vh] min-h-[50vh] place-items-center overflow-hidden rounded-lg bg-secondary">
+            {item.kind === "image" && item.previewUrl ? (
+              <img
+                src={item.previewUrl}
+                alt={item.name}
+                className="max-h-[85vh] w-full object-contain"
+              />
+            ) : item.kind === "video" && item.previewUrl ? (
+              <video src={item.previewUrl} controls autoPlay className="max-h-[85vh] w-full" />
+            ) : item.kind === "widget" && item.widgetConfig ? (
+              <WidgetView config={item.widgetConfig} />
+            ) : (
+              <p className="p-10 text-sm text-muted-foreground">
+                Não foi possível pré-visualizar este arquivo.
+              </p>
+            )}
+          </div>
+        </DialogContent>
+      </Dialog>
+    </>
+  );
+}
+
 /**
  * Uploads through XHR (instead of fetch) purely so the browser gives us real
  * byte-level progress events to drive the bar.
