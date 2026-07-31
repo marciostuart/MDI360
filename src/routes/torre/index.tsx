@@ -29,7 +29,8 @@ export const Route = createFileRoute("/torre/")({
       { title: "Torre de Controle | MDI 360" },
       {
         name: "description",
-        content: "Painel da plataforma MDI 360: contas, telas vinculadas, armazenamento e carga do servidor.",
+        content:
+          "Painel da plataforma MDI 360: contas, telas vinculadas, armazenamento e carga do servidor.",
       },
       { name: "robots", content: "noindex, nofollow" },
       { property: "og:title", content: "Torre de Controle MDI 360" },
@@ -63,7 +64,9 @@ function MetricCard({
 }) {
   return (
     <Card className="relative overflow-hidden transition-transform duration-300 hover:-translate-y-1">
-      <div className={`pointer-events-none absolute inset-0 bg-gradient-to-br ${tone.split(" text-")[0]}`} />
+      <div
+        className={`pointer-events-none absolute inset-0 bg-gradient-to-br ${tone.split(" text-")[0]}`}
+      />
       <CardHeader className="relative flex-row items-center justify-between space-y-0 pb-2">
         <CardTitle className="text-xs font-medium uppercase tracking-wide text-muted-foreground">
           {label}

@@ -6,7 +6,14 @@ import { useState } from "react";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
-import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
+import {
+  Table,
+  TableBody,
+  TableCell,
+  TableHead,
+  TableHeader,
+  TableRow,
+} from "@/components/ui/table";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { getNowPlaying, getPlaybackReport, type ReportRow } from "@/lib/reports/reports.functions";
 
@@ -78,13 +85,13 @@ export function PlaybackReports() {
             <Radio className="size-4 text-primary" />
             No ar agora
           </CardTitle>
-          {now.isFetching ? <Loader2 className="size-4 animate-spin text-muted-foreground" /> : null}
+          {now.isFetching ? (
+            <Loader2 className="size-4 animate-spin text-muted-foreground" />
+          ) : null}
         </CardHeader>
         <CardContent>
           {(now.data?.items.length ?? 0) === 0 ? (
-            <p className="py-4 text-sm text-muted-foreground">
-              Nenhuma tela vinculada ainda.
-            </p>
+            <p className="py-4 text-sm text-muted-foreground">Nenhuma tela vinculada ainda.</p>
           ) : (
             <div className="grid gap-3 sm:grid-cols-2 xl:grid-cols-3">
               {now.data?.items.map((item) => (
@@ -136,9 +143,7 @@ export function PlaybackReports() {
             <>
               <div className="mb-6 grid gap-4 sm:grid-cols-2">
                 <div className="rounded-lg border p-4">
-                  <p className="text-xs uppercase tracking-wide text-muted-foreground">
-                    Exibições
-                  </p>
+                  <p className="text-xs uppercase tracking-wide text-muted-foreground">Exibições</p>
                   <p className="mt-1 text-2xl font-semibold tabular-nums">
                     {report.data?.totalPlays ?? 0}
                   </p>

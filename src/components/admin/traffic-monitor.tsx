@@ -125,9 +125,7 @@ export function TrafficMonitor() {
               </strong>{" "}
               <span className="text-muted-foreground">/s</span>
             </span>
-            <span className="text-muted-foreground tabular-nums">
-              pico {peak.toFixed(2)} req/s
-            </span>
+            <span className="text-muted-foreground tabular-nums">pico {peak.toFixed(2)} req/s</span>
           </div>
         </CardHeader>
         <CardContent className="h-64">
