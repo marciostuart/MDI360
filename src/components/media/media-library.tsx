@@ -560,14 +560,38 @@ export function MediaLibrary() {
   const items = library.data?.items ?? [];
   const storageMissing = library.data && !library.data.storageReady;
 
+  const allTags = Array.from(new Set(items.flatMap((item) => item.tags))).sort();
+  const term = search.trim().toLowerCase();
+  const visibleItems = items
+    .filter((item) => {
+      const matchesTerm =
+        !term ||
+        item.name.toLowerCase().includes(term) ||
+        item.tags.some((tag) => tag.includes(term));
+      const matchesTag = tagFilter === "all" || item.tags.includes(tagFilter);
+      return matchesTerm && matchesTag;
+    })
+    .sort((a, b) => {
+      if (sortBy === "name") return a.name.localeCompare(b.name, "pt-BR");
+      const diff = new Date(a.createdAt).getTime() - new Date(b.createdAt).getTime();
+      return sortBy === "oldest" ? diff : -diff;
+    });
+
   return (
     <div className="space-y-6">
-      <div>
-        <h1 className="text-3xl font-semibold">Conteúdos</h1>
-        <p className="mt-2 max-w-2xl text-sm text-muted-foreground">
-          Envie imagens e vídeos. Cada arquivo é otimizado para o formato da tela antes de ir para o
-          seu MinIO, e as telas baixam por links temporários.
-        </p>
+      <div className="flex flex-wrap items-start justify-between gap-4">
+        <div>
+          <h1 className="text-3xl font-semibold">Conteúdos</h1>
+          <p className="mt-2 max-w-2xl text-sm text-muted-foreground">
+            Envie imagens e vídeos. Cada arquivo é otimizado para o formato da tela antes de ir para
+            o armazenamento, e as telas baixam por links temporários. Use tags para organizar e
+            encontrar seus arquivos rapidamente.
+          </p>
+        </div>
+        <Button className="gap-2" onClick={() => setShowUpload((value) => !value)}>
+          <UploadCloud className="size-4" />
+          {showUpload ? "Fechar envio" : "Enviar novos arquivos"}
+        </Button>
       </div>
 
       {storageMissing ? (
