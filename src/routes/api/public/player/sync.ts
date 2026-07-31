@@ -138,6 +138,7 @@ export const Route = createFileRoute("/api/public/player/sync")({
             playlist,
             branding,
             queueCall,
+            queueCalls,
             commands: commands.map((c) => c.kind),
             syncIntervalMs: 60_000,
             // Seed for the long-poll channel (/api/public/player/events).
