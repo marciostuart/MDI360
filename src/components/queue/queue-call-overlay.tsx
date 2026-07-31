@@ -128,20 +128,21 @@ function speakLocally(text: string): Promise<boolean> {
   });
 }
 
-/** Server-rendered MP3 (pt-BR), used whenever the device has no speech engine. */
-async function speakFromServer(audioUrl?: string): Promise<void> {
-  if (!audioUrl) return;
+/** Server-rendered MP3 (pt-BR) — the same voice the Roku channel plays. */
+async function speakFromServer(audioUrl?: string): Promise<boolean> {
+  if (!audioUrl) return false;
   try {
     const audio = new Audio(audioUrl);
     audio.volume = 1;
     await audio.play();
-    await new Promise<void>((resolve) => {
-      audio.onended = () => resolve();
-      audio.onerror = () => resolve();
-      window.setTimeout(resolve, 15000);
+    return await new Promise<boolean>((resolve) => {
+      audio.onended = () => resolve(true);
+      audio.onerror = () => resolve(false);
+      window.setTimeout(() => resolve(true), 15000);
     });
   } catch {
     // Nothing else to try; the ticket is still shown large on screen.
+    return false;
   }
 }
 
@@ -182,7 +183,7 @@ export function QueueCallOverlay({
     const blink = window.setInterval(() => setFlash((value) => !value), 700);
     const timer = window.setTimeout(
       () => doneRef.current(),
-      Math.max(5, call.displaySeconds) * 1000,
+      Math.max(10, call.displaySeconds) * 1000,
     );
 
     return () => {
