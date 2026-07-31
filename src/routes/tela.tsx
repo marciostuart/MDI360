@@ -97,6 +97,8 @@ function PlayerScreen() {
   // rotation after its download finishes, so the TV never buffers on air.
   const [readyUrls, setReadyUrls] = useState<Set<string>>(new Set());
   const [localSrc, setLocalSrc] = useState<string | null>(null);
+  /** True during the last FADE_MS of an item, so it fades out before swapping. */
+  const [leaving, setLeaving] = useState(false);
   // Queue add-on: the call currently taking over the screen, plus the ones
   // waiting for their turn. Calls never overlap: each one owns the screen for
   // its full display time before the next enters.
@@ -443,16 +445,29 @@ function PlayerScreen() {
     return () => controller.abort();
   }, [token, current, index, sync?.playlist?.id]);
 
-  // Images advance on a timer; videos advance when they end.
+  // Every new item starts fully visible again.
+  useEffect(() => {
+    setLeaving(false);
+  }, [index]);
+
+  // Images advance on a timer; videos advance when they end. With the fade
+  // transition on, the outgoing item dims during its final FADE_MS so the
+  // effect happens at the end of the exhibition too, not only at the start.
   useEffect(() => {
     if (timerRef.current) window.clearTimeout(timerRef.current);
+    if (leaveRef.current) window.clearTimeout(leaveRef.current);
     if (!current || items.length === 0) return;
     if (current.kind === "video") return;
-    timerRef.current = window.setTimeout(() => advance(), Math.max(1000, current.durationMs));
+    const total = Math.max(1000, current.durationMs);
+    if (fade && total > FADE_MS * 2) {
+      leaveRef.current = window.setTimeout(() => setLeaving(true), total - FADE_MS);
+    }
+    timerRef.current = window.setTimeout(() => advance(), total);
     return () => {
       if (timerRef.current) window.clearTimeout(timerRef.current);
+      if (leaveRef.current) window.clearTimeout(leaveRef.current);
     };
-  }, [current, items.length, advance]);
+  }, [current, items.length, advance, fade]);
 
   // Watchdog: qualquer sinal de vida (item trocou, chamada exibida, servidor
   // respondeu) renova o relogio. Se nada acontecer por 2 minutos, a tela se
@@ -507,7 +522,7 @@ function PlayerScreen() {
           }
         />
       ) : current?.kind === "video" ? (
-        <FadeLayer enabled={fade} step={index}>
+        <FadeLayer enabled={fade} step={index} leaving={leaving}>
           <video
             key={`${current.id}-${index}-${localSrc ? "local" : "remote"}`}
             src={localSrc ?? current.url ?? undefined}
@@ -524,11 +539,11 @@ function PlayerScreen() {
           />
         </FadeLayer>
       ) : current?.kind === "widget" && current.widgetConfig ? (
-        <FadeLayer enabled={fade} step={index} key={`${current.id}-${index}`}>
+        <FadeLayer enabled={fade} step={index} leaving={leaving} key={`${current.id}-${index}`}>
           <WidgetView config={current.widgetConfig} accentColor={sync.branding?.color ?? null} />
         </FadeLayer>
       ) : current?.kind === "web" ? (
-        <FadeLayer enabled={fade} step={index}>
+        <FadeLayer enabled={fade} step={index} leaving={leaving}>
           <iframe
             key={`${current.id}-${index}`}
             src={current.url ?? undefined}
@@ -538,7 +553,7 @@ function PlayerScreen() {
           />
         </FadeLayer>
       ) : (
-        <FadeLayer enabled={fade} step={index}>
+        <FadeLayer enabled={fade} step={index} leaving={leaving}>
           <img
             key={`${current?.id}-${index}-${localSrc ? "local" : "remote"}`}
             src={localSrc ?? current?.url ?? undefined}
@@ -559,10 +574,12 @@ function PlayerScreen() {
 function FadeLayer({
   enabled,
   step,
+  leaving = false,
   children,
 }: {
   enabled: boolean;
   step: number;
+  leaving?: boolean;
   children: React.ReactNode;
 }) {
   const [visible, setVisible] = useState(!enabled);
@@ -582,7 +599,10 @@ function FadeLayer({
   return (
     <div
       className="h-screen w-screen"
-      style={{ opacity: visible ? 1 : 0, transition: "opacity 700ms ease-in-out" }}
+      style={{
+        opacity: visible && !leaving ? 1 : 0,
+        transition: `opacity ${FADE_MS}ms ease-in-out`,
+      }}
     >
       {children}
     </div>
