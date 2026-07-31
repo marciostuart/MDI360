@@ -308,7 +308,7 @@ export function MediaLibrary() {
     };
 
     for (const { file, id } of queue) {
-      let stopOptimizing: (() => void) | null = null;
+      const stopper: { fn: (() => void) | null } = { fn: null };
       try {
         patch(id, { phase: "preparing", percent: 0 });
         const prepared = await prepareUpload(file, preset);
@@ -337,8 +337,8 @@ export function MediaLibrary() {
         patch(id, { phase: "uploading", percent: 0 });
         await uploadWithProgress(form, (percent) => {
           if (percent >= 100) {
-            if (!stopOptimizing) {
-              stopOptimizing = startOptimizingAnimation(
+            if (!stopper.fn) {
+              stopper.fn = startOptimizingAnimation(
                 id,
                 prepared.blob.size,
                 prepared.kind === "video",
@@ -348,7 +348,7 @@ export function MediaLibrary() {
           }
           patch(id, { phase: "uploading", percent });
         });
-        stopOptimizing?.();
+        stopper.fn?.();
         patch(id, { phase: "done", percent: 100 });
         scheduleDismiss(id);
 
@@ -360,7 +360,7 @@ export function MediaLibrary() {
         );
         prepared.notes.forEach((note) => toast.info(note));
       } catch (error) {
-        stopOptimizing?.();
+        stopper.fn?.();
         const message = error instanceof Error ? error.message : "Falha no envio.";
         patch(id, { phase: "error", percent: 100, message });
         toast.error(message);
