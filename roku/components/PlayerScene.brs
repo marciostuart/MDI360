@@ -10,6 +10,14 @@ sub init()
     m.pairingCode = m.top.findNode("pairingCode")
     m.cover = m.top.findNode("cover")
     m.fadeAnim = m.top.findNode("fadeAnim")
+    m.fadeOutAnim = m.top.findNode("fadeOutAnim")
+    ' Fecha a cortina nos ultimos 0,6s do arquivo e so entao troca o conteudo.
+    m.fadingOut = false
+    m.fadeOutTimer = CreateObject("roSGNode", "Timer")
+    m.fadeOutTimer.repeat = false
+    m.fadeOutTimer.duration = 0.6
+    m.fadeOutTimer.observeField("fire", "onFadeOutDone")
+    m.top.appendChild(m.fadeOutTimer)
     m.brandLabel = m.top.findNode("brandLabel")
     m.pairingTitle = m.top.findNode("pairingTitle")
     m.statusLabel = m.top.findNode("statusLabel")
@@ -357,10 +365,19 @@ sub playNext()
     advanceItem()
 end sub
 
+' Desconta o tempo do fade de saida do tempo de exibicao, para que o total
+' na tela continue sendo o configurado pelo cliente.
+function slideSeconds(durationMs as integer) as float
+    seconds = durationMs / 1000.0
+    if m.transition = "fade" and seconds > 1.5 then seconds = seconds - 0.6
+    return seconds
+end function
+
 sub advanceItem()
     ' Never draw content over an active ticket call.
     if m.queueActive = true then return
     if m.items.Count() = 0 then return
+    cancelFadeOut()
     beat()
     m.index = (m.index + 1) mod m.items.Count()
     item = m.items[m.index]
@@ -397,7 +414,7 @@ sub advanceItem()
         m.widget.visible = true
         duration = 15000
         if item.durationMs <> invalid and item.durationMs > 1000 then duration = item.durationMs
-        m.slideTimer.duration = duration / 1000.0
+        m.slideTimer.duration = slideSeconds(duration)
         m.slideTimer.control = "start"
         revealContent()
     else if item.kind = "video"
@@ -429,7 +446,7 @@ sub advanceItem()
         m.slide.opacity = 1
         duration = 10000
         if item.durationMs <> invalid and item.durationMs > 1000 then duration = item.durationMs
-        m.slideTimer.duration = duration / 1000.0
+        m.slideTimer.duration = slideSeconds(duration)
         m.slideTimer.control = "start"
         revealContent()
     end if
@@ -448,7 +465,40 @@ sub revealContent()
 end sub
 
 sub onSlideTimer()
+    if m.transition = "fade"
+        beginFadeOut()
+    else
+        playNext()
+    end if
+end sub
+
+' Fecha a cortina preta sobre o conteudo atual; a troca ocorre quando ela
+' termina, criando o mesmo efeito do inicio tambem no fim da exibicao.
+sub beginFadeOut()
+    if m.fadingOut = true then return
+    if m.cover = invalid or m.fadeOutAnim = invalid
+        playNext()
+        return
+    end if
+    m.fadingOut = true
+    if m.fadeAnim <> invalid then m.fadeAnim.control = "stop"
+    m.cover.opacity = 0
+    m.fadeOutAnim.control = "start"
+    m.fadeOutTimer.control = "start"
+end sub
+
+sub onFadeOutDone()
+    m.fadingOut = false
+    if m.fadeOutAnim <> invalid then m.fadeOutAnim.control = "stop"
+    if m.cover <> invalid then m.cover.opacity = 1
     playNext()
+end sub
+
+' Cancela um fade de saida em andamento (chamada de senha, novo payload...).
+sub cancelFadeOut()
+    m.fadingOut = false
+    if m.fadeOutTimer <> invalid then m.fadeOutTimer.control = "stop"
+    if m.fadeOutAnim <> invalid then m.fadeOutAnim.control = "stop"
 end sub
 
 ' ---------------------------------------------------------------- senhas ----
@@ -521,6 +571,7 @@ sub startNextCall()
     ' Stop whatever is on screen right now.
     if m.slideTimer <> invalid then m.slideTimer.control = "stop"
     if m.stallTimer <> invalid then m.stallTimer.control = "stop"
+    cancelFadeOut()
     m.video.control = "stop"
     m.video.content = invalid
     m.video.visible = false
@@ -716,6 +767,15 @@ sub onVideoPosition()
         m.videoStallTicks = 0
         beat()
     end if
+
+    ' Ultimos 0,6s do video: fecha a cortina e ja troca de item no fim do fade.
+    if m.transition = "fade" and m.queueActive <> true and m.fadingOut <> true
+        total = m.video.duration
+        if total <> invalid and total > 2 and (total - m.video.position) <= 0.7
+            if m.stallTimer <> invalid then m.stallTimer.control = "stop"
+            beginFadeOut()
+        end if
+    end if
 end sub
 
 ' ------------------------------------------------------------- watchdog ----
@@ -835,6 +895,7 @@ sub onVideoState()
         beat()
         ' Uma chamada de senha esta no ar: o conteudo retoma quando ela acabar.
         if m.queueActive = true then return
+        if m.fadingOut = true then return
         playNext()
     end if
 end sub

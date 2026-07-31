@@ -48,6 +48,12 @@
                               fieldToInterp="cover.opacity" />
     </Animation>
 
+    <!-- Cortina fechando: mesmo efeito no fim da exibicao do arquivo. -->
+    <Animation id="fadeOutAnim" duration="0.6" repeat="false" easeFunction="linear">
+      <FloatFieldInterpolator id="fadeOutInterp" key="[0.0,1.0]" keyValue="[0.0,1.0]"
+                              fieldToInterp="cover.opacity" />
+    </Animation>
+
     <Group id="pairing" translation="[0,0]">
       <Label id="brandLabel" text="MDI 360" translation="[0,420]" width="1920"
              horizAlign="center" color="0x8A8A8AFF">
