@@ -1,6 +1,16 @@
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { useServerFn } from "@tanstack/react-start";
-import { Film, Gauge, Image as ImageIcon, Loader2, Trash2, UploadCloud } from "lucide-react";
+import {
+  CheckCircle2,
+  Film,
+  Gauge,
+  Image as ImageIcon,
+  Loader2,
+  Sparkles,
+  Trash2,
+  UploadCloud,
+  XCircle,
+} from "lucide-react";
 import { useRef, useState } from "react";
 import { toast } from "sonner";
 
@@ -31,6 +41,60 @@ import {
 } from "@/lib/media/presets";
 import { getWidgetDefinition } from "@/lib/widgets/catalog";
 
+type UploadPhase = "preparing" | "uploading" | "optimizing" | "done" | "error";
+
+type UploadProgressItem = {
+  id: string;
+  name: string;
+  phase: UploadPhase;
+  percent: number;
+  message?: string;
+};
+
+const PHASE_LABEL: Record<UploadPhase, string> = {
+  preparing: "Preparando arquivo",
+  uploading: "Enviando",
+  optimizing: "Otimizando arquivo",
+  done: "Concluído",
+  error: "Falhou",
+};
+
+/**
+ * Uploads through XHR (instead of fetch) purely so the browser gives us real
+ * byte-level progress events to drive the bar.
+ */
+function uploadWithProgress(
+  form: FormData,
+  onProgress: (percent: number) => void,
+): Promise<void> {
+  return new Promise((resolve, reject) => {
+    const xhr = new XMLHttpRequest();
+    xhr.open("POST", "/api/media/upload");
+    xhr.upload.onprogress = (event) => {
+      if (event.lengthComputable) {
+        onProgress(Math.min(99, Math.round((event.loaded / event.total) * 100)));
+      }
+    };
+    xhr.upload.onload = () => onProgress(100);
+    xhr.onerror = () => reject(new Error("Falha de rede ao enviar o arquivo."));
+    xhr.onload = () => {
+      if (xhr.status >= 200 && xhr.status < 300) {
+        resolve();
+        return;
+      }
+      let message = `Falha ao enviar o arquivo (HTTP ${xhr.status}).`;
+      try {
+        const payload = JSON.parse(xhr.responseText) as { error?: string };
+        if (payload?.error) message = payload.error;
+      } catch {
+        // resposta não-JSON: mantém a mensagem genérica
+      }
+      reject(new Error(message));
+    };
+    xhr.send(form);
+  });
+}
+
 export function MediaLibrary() {
   const queryClient = useQueryClient();
   const listFn = useServerFn(listMediaAssets);
@@ -39,6 +103,7 @@ export function MediaLibrary() {
 
   const [presetId, setPresetId] = useState(DEFAULT_CANVAS_PRESET.id);
   const [busy, setBusy] = useState(false);
+  const [uploads, setUploads] = useState<UploadProgressItem[]>([]);
   const inputRef = useRef<HTMLInputElement>(null);
 
   const library = useQuery({ queryKey: ["media-assets"], queryFn: () => listFn({}) });
@@ -57,8 +122,23 @@ export function MediaLibrary() {
     const preset = getCanvasPreset(presetId);
     setBusy(true);
 
-    for (const file of Array.from(files)) {
+    const queue = Array.from(files).map((file) => ({
+      file,
+      id: `${file.name}-${file.size}-${Math.random().toString(36).slice(2, 8)}`,
+    }));
+
+    setUploads(
+      queue.map(({ file, id }) => ({ id, name: file.name, phase: "preparing", percent: 0 })),
+    );
+
+    const patch = (id: string, next: Partial<UploadProgressItem>) =>
+      setUploads((current) =>
+        current.map((item) => (item.id === id ? { ...item, ...next } : item)),
+      );
+
+    for (const { file, id } of queue) {
       try {
+        patch(id, { phase: "preparing", percent: 0 });
         const prepared = await prepareUpload(file, preset);
         const ticket = await ticketFn({
           data: {
@@ -82,11 +162,13 @@ export function MediaLibrary() {
         form.append("assetId", ticket.assetId);
         form.append("file", prepared.blob, `${ticket.assetId}.${prepared.extension}`);
 
-        const response = await fetch("/api/media/upload", { method: "POST", body: form });
-        if (!response.ok) {
-          const payload = (await response.json().catch(() => null)) as { error?: string } | null;
-          throw new Error(payload?.error ?? `Falha ao enviar o arquivo (HTTP ${response.status}).`);
-        }
+        patch(id, { phase: "uploading", percent: 0 });
+        await uploadWithProgress(form, (percent) => {
+          patch(id, { phase: percent >= 100 ? "optimizing" : "uploading", percent });
+        });
+        // O servidor ainda converte/grava o arquivo depois do último byte:
+        // a barra fica cheia em "Otimizando arquivo" até a resposta chegar.
+        patch(id, { phase: "done", percent: 100 });
 
         const saved = prepared.originalBytes - prepared.blob.size;
         toast.success(
@@ -96,7 +178,9 @@ export function MediaLibrary() {
         );
         prepared.notes.forEach((note) => toast.info(note));
       } catch (error) {
-        toast.error(error instanceof Error ? error.message : "Falha no envio.");
+        const message = error instanceof Error ? error.message : "Falha no envio.";
+        patch(id, { phase: "error", percent: 100, message });
+        toast.error(message);
       }
     }
 
@@ -174,6 +258,57 @@ export function MediaLibrary() {
               onChange={(event) => handleFiles(event.target.files)}
             />
           </label>
+
+          {uploads.length > 0 ? (
+            <div className="space-y-3">
+              {uploads.map((item) => {
+                const barColor =
+                  item.phase === "error"
+                    ? "bg-destructive"
+                    : item.phase === "optimizing"
+                      ? "bg-amber-500"
+                      : item.phase === "done"
+                        ? "bg-emerald-500"
+                        : "bg-primary";
+                return (
+                  <div key={item.id} className="space-y-1.5 rounded-lg border border-border p-3">
+                    <div className="flex items-center justify-between gap-3 text-xs">
+                      <span className="truncate font-medium">{item.name}</span>
+                      <span className="flex shrink-0 items-center gap-1.5 text-muted-foreground">
+                        {item.phase === "optimizing" ? (
+                          <Sparkles className="size-3.5 animate-pulse text-amber-500" />
+                        ) : item.phase === "done" ? (
+                          <CheckCircle2 className="size-3.5 text-emerald-500" />
+                        ) : item.phase === "error" ? (
+                          <XCircle className="size-3.5 text-destructive" />
+                        ) : (
+                          <Loader2 className="size-3.5 animate-spin" />
+                        )}
+                        {PHASE_LABEL[item.phase]}
+                        {item.phase === "uploading" ? ` · ${item.percent}%` : null}
+                      </span>
+                    </div>
+                    <div
+                      className="h-2 w-full overflow-hidden rounded-full bg-secondary"
+                      role="progressbar"
+                      aria-valuenow={item.percent}
+                      aria-valuemin={0}
+                      aria-valuemax={100}
+                      aria-label={`${PHASE_LABEL[item.phase]} — ${item.name}`}
+                    >
+                      <div
+                        className={`h-full rounded-full transition-all duration-300 ${barColor}`}
+                        style={{ width: `${item.phase === "preparing" ? 4 : item.percent}%` }}
+                      />
+                    </div>
+                    {item.message ? (
+                      <p className="text-xs text-destructive">{item.message}</p>
+                    ) : null}
+                  </div>
+                );
+              })}
+            </div>
+          ) : null}
         </CardContent>
       </Card>
 
