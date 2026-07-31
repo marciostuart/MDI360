@@ -148,6 +148,8 @@ export const saveQueuePanel = createServerFn({ method: "POST" })
       .limit(1);
     if (!owned[0]) throw new Error("Tela não encontrada.");
 
+    const { toQueueError } = await import("@/lib/queue/queue-errors.server");
+    try {
     const existing = await db
       .select({ id: schema.queuePanels.id })
       .from(schema.queuePanels)
@@ -189,6 +191,10 @@ export const saveQueuePanel = createServerFn({ method: "POST" })
         mode: data.mode,
         displaySeconds: data.displaySeconds,
       });
+    }
+
+    } catch (error) {
+      throw toQueueError(error);
     }
 
     const { notifyDevice } = await import("@/lib/player/realtime.server");
