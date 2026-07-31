@@ -90,6 +90,19 @@ sub init()
     m.prefetch.observeField("ready", "onPrefetchReady")
     m.prefetch.control = "RUN"
 
+    ' Watchdog geral: se nada progredir (video parado, chamada travada, sync
+    ' mudo) por mais de 2 minutos, o canal se recupera sozinho.
+    m.lastBeat = uptimeSeconds()
+    m.queueStartedAt = 0
+    m.queueDeadline = 0
+    m.recoveries = 0
+    m.watchdogTimer = CreateObject("roSGNode", "Timer")
+    m.watchdogTimer.repeat = true
+    m.watchdogTimer.duration = 15
+    m.watchdogTimer.observeField("fire", "onWatchdog")
+    m.top.appendChild(m.watchdogTimer)
+    m.watchdogTimer.control = "start"
+
     m.sync = m.top.findNode("sync")
     m.widget.baseUrl = m.sync.baseUrl
     m.statusLabel.text = "Iniciando MDI 360..."
@@ -105,6 +118,20 @@ end sub
 
 sub onStatusText()
     m.statusLabel.text = m.sync.statusText
+end sub
+
+' Segundos desde que a TV ligou: base do watchdog (nao depende de fuso/relogio).
+function uptimeSeconds() as integer
+    return CreateObject("roDeviceInfo").GetGeneralMemoryLevel() * 0 + Int(CreateObject("roTimespan").TotalSeconds()) * 0 + Int(m_now())
+end function
+
+function m_now() as double
+    return CreateObject("roDateTime").AsSeconds()
+end function
+
+' Marca que algo progrediu (conteudo trocou, video andou, servidor respondeu).
+sub beat()
+    m.lastBeat = uptimeSeconds()
 end sub
 
 sub onActivationCode()
@@ -130,6 +157,7 @@ end sub
 sub onPayload()
     payload = m.sync.payload
     if payload = invalid then return
+    beat()
 
     ' A ticket call never waits for the current file: it takes over the screen
     ' immediately, which is the whole point of the queue add-on.
@@ -325,6 +353,7 @@ sub advanceItem()
     ' Never draw content over an active ticket call.
     if m.queueActive = true then return
     if m.items.Count() = 0 then return
+    beat()
     m.index = (m.index + 1) mod m.items.Count()
     item = m.items[m.index]
 
@@ -445,18 +474,27 @@ sub startNextCall()
     if m.pendingCalls.Count() = 0 then return
     call = m.pendingCalls.Shift()
     if call = invalid then return
+    beat()
 
     seconds = 20
     if call.displaySeconds <> invalid and call.displaySeconds > 4 then seconds = call.displaySeconds
 
+    ' O relogio da chamada comeca ANTES de qualquer outra coisa: mesmo que um
+    ' passo abaixo falhe, a tela nunca fica presa na chamada.
+    m.queueTimer.control = "stop"
+    m.queueTimer.duration = seconds
+    m.queueTimer.control = "start"
+    m.queueStartedAt = uptimeSeconds()
+    m.queueDeadline = m.queueStartedAt + seconds + 10
+
     ' A tela da chamada sobe ANTES de parar o conteudo: se qualquer passo
     ' seguinte falhar, a TV mostra a senha em vez de ficar preta.
     label = ""
-    if call.label <> invalid then label = Str(call.label).Trim()
+    if call.label <> invalid then label = safeText(call.label)
     if label = "" then label = "--"
     m.queueLabel.text = label
-    if call.sectorName <> invalid and call.sectorName <> ""
-        m.queueSector.text = call.sectorName
+    if call.sectorName <> invalid and safeText(call.sectorName) <> ""
+        m.queueSector.text = safeText(call.sectorName)
     else
         m.queueSector.text = ""
     end if
@@ -467,6 +505,7 @@ sub startNextCall()
     if m.slideTimer <> invalid then m.slideTimer.control = "stop"
     if m.stallTimer <> invalid then m.stallTimer.control = "stop"
     m.video.control = "stop"
+    m.video.content = invalid
     m.video.visible = false
     m.widget.visible = false
     m.slide.opacity = 0
@@ -486,19 +525,25 @@ sub startNextCall()
     m.pendingAnnounceUrl = ""
     m.pendingSpokenText = ""
     m.announceFallbackUsed = false
-    if call.spokenText <> invalid then m.pendingSpokenText = call.spokenText
-    if call.audioUrl <> invalid and call.audioUrl <> ""
-        m.pendingAnnounceUrl = m.sync.baseUrl + call.audioUrl
+    if call.spokenText <> invalid then m.pendingSpokenText = safeText(call.spokenText)
+    if call.audioUrl <> invalid and safeText(call.audioUrl) <> ""
+        m.pendingAnnounceUrl = m.sync.baseUrl + safeText(call.audioUrl)
         m.announceTimer.control = "start"
     else if m.pendingSpokenText <> ""
         m.pendingAnnounceUrl = fallbackAnnounceUrl(m.pendingSpokenText)
         m.announceTimer.control = "start"
     end if
-
-    m.queueTimer.control = "stop"
-    m.queueTimer.duration = seconds
-    m.queueTimer.control = "start"
 end sub
+
+' Converte qualquer valor do JSON em texto sem risco de erro de tipo (Str()
+' com string quebrava a thread de render e travava a TV).
+function safeText(value as dynamic) as string
+    if value = invalid then return ""
+    if Type(value) = "roString" or Type(value) = "String" then return value.Trim()
+    if Type(value) = "roInt" or Type(value) = "Integer" then return Str(value).Trim()
+    if Type(value) = "roFloat" or Type(value) = "Float" or Type(value) = "Double" or Type(value) = "roDouble" then return Str(value).Trim()
+    return ""
+end function
 
 ' Dois toques curtos antes da locucao. Usa um Audio node com MP3 do pacote:
 ' Mostra as ultimas senhas chamadas antes desta (ex.: "A011   A010   A009").
@@ -507,8 +552,8 @@ sub showQueueHistory(call as object)
     parts = []
     if call.history <> invalid and Type(call.history) = "roArray"
         for each item in call.history
-            if item <> invalid and item.label <> invalid and item.label <> ""
-                parts.push(item.label)
+            if item <> invalid and item.label <> invalid and safeText(item.label) <> ""
+                parts.push(safeText(item.label))
             end if
             if parts.Count() >= 4 then exit for
         end for
@@ -577,6 +622,9 @@ end sub
 ' The call is over: show the next one in line, or resume the playlist.
 sub onQueueTimer()
     m.queueActive = false
+    m.queueStartedAt = 0
+    m.queueDeadline = 0
+    beat()
     m.announce.control = "stop"
     m.announceTimer.control = "stop"
     m.pendingAnnounceUrl = ""
@@ -603,6 +651,80 @@ sub onVideoPosition()
     if m.video.position > m.videoPosition
         m.videoPosition = m.video.position
         m.videoStallTicks = 0
+        beat()
+    end if
+end sub
+
+' ------------------------------------------------------------- watchdog ----
+
+' Roda a cada 15s. Duas redes de protecao:
+' 1) chamada de senha que passou do seu tempo -> encerra e volta ao conteudo;
+' 2) nada progrediu por mais de 2 minutos -> reinicializa o canal por completo.
+sub onWatchdog()
+    now = uptimeSeconds()
+
+    if m.queueActive = true and m.queueDeadline > 0 and now > m.queueDeadline
+        onQueueTimer()
+        return
+    end if
+
+    ' Um video saudavel move a posicao; imagens/widgets batem o beat na troca.
+    if now - m.lastBeat < 120 then return
+
+    recoverFromFreeze()
+end sub
+
+' Pane: devolve o canal ao estado inicial (sem sair do app, para a TV nunca
+' voltar para a tela inicial do Roku) e forca uma nova sincronizacao.
+sub recoverFromFreeze()
+    beat()
+    m.recoveries = m.recoveries + 1
+
+    ' 1. Encerra qualquer chamada presa e libera a tela.
+    m.queueActive = false
+    m.queueDeadline = 0
+    m.pendingCalls = []
+    m.queue.visible = false
+    m.announce.control = "stop"
+    m.chime.control = "stop"
+    m.announceTimer.control = "stop"
+    m.queueTimer.control = "stop"
+
+    ' 2. Zera o player de video e os temporizadores de conteudo.
+    m.slideTimer.control = "stop"
+    m.stallTimer.control = "stop"
+    m.video.control = "stop"
+    m.video.content = invalid
+    m.video.visible = false
+    m.videoPosition = 0
+    m.videoStallTicks = 0
+    m.videoRetries = 0
+    if m.cover <> invalid then m.cover.opacity = 0
+
+    ' 3. Reinicia as tarefas de rede (sync/prefetch/report podem ter morrido).
+    if m.sync <> invalid
+        m.sync.control = "stop"
+        m.sync.control = "RUN"
+    end if
+    if m.prefetch <> invalid
+        m.prefetch.control = "stop"
+        m.prefetch.control = "RUN"
+    end if
+    if m.report <> invalid
+        m.report.control = "stop"
+        m.report.control = "RUN"
+    end if
+
+    ' 4. Forca a proxima playlist a ser reaplicada e retoma a exibicao.
+    m.revision = -1
+    m.pendingPayload = invalid
+    m.statusLabel.text = "Recuperando exibicao..."
+    if m.items.Count() > 0
+        showPairing(false)
+        m.index = -1
+        advanceItem()
+    else
+        showPairing(true)
     end if
 end sub
 
@@ -635,12 +757,16 @@ sub onVideoState()
     state = m.video.state
     if state = "playing"
         m.videoRetries = 0
+        beat()
         ' Only now the first frame is on screen: safe to lift the curtain.
         revealContent()
     end if
     if state = "finished" or state = "error"
         if m.stallTimer <> invalid then m.stallTimer.control = "stop"
         m.videoRetries = 0
+        beat()
+        ' Uma chamada de senha esta no ar: o conteudo retoma quando ela acabar.
+        if m.queueActive = true then return
         playNext()
     end if
 end sub
