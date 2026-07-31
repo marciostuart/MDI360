@@ -4,7 +4,10 @@ export function toQueueError(error: unknown): Error {
   const message = error instanceof Error ? error.message : String(error);
 
   // Tables created by migration 0010_queue_addon are missing on this server.
-  if (code === "42P01" || /queue_(panels|sectors|calls|sessions)".* does not exist/i.test(message)) {
+  if (
+    code === "42P01" ||
+    /queue_(panels|sectors|calls|sessions)".* does not exist/i.test(message)
+  ) {
     return new Error(
       "O add-on de senhas ainda não foi migrado neste servidor. Atualize a stack (re-pull da imagem) para aplicar a migração 0010_queue_addon.",
     );
