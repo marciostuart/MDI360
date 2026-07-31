@@ -2,6 +2,8 @@ import { desc, eq } from "drizzle-orm";
 
 import { getDb, schema } from "@/lib/db/index.server";
 
+export type QueueCallHistoryItem = { label: string; sectorName: string | null };
+
 export type QueueCallPayload = {
   /** Unique per announcement: repeats change it, so the TV calls again. */
   id: string;
@@ -12,6 +14,8 @@ export type QueueCallPayload = {
   audioUrl: string;
   displaySeconds: number;
   calledAt: string;
+  /** Chamadas anteriores (mais recente primeiro), exibidas ao lado da atual. */
+  history: QueueCallHistoryItem[];
 };
 
 /**
@@ -50,10 +54,12 @@ export async function recentQueueCalls(deviceId: string): Promise<QueueCallPaylo
   const window = (seconds * maxQueued + 15) * 1000;
   const now = Date.now();
 
-  return calls
-    .filter((call) => now - call.calledAt.getTime() <= window)
-    .reverse()
-    .map((call) => ({
+  // `calls` vem do mais recente para o mais antigo: o historico de cada chamada
+  // sao as que vieram logo antes dela.
+  const fresh = calls.filter((call) => now - call.calledAt.getTime() <= window);
+
+  return fresh
+    .map((call, index) => ({
       id: `${call.id}:${call.repeatCount}`,
       label: call.label,
       sectorName: call.sectorName,
@@ -61,5 +67,11 @@ export async function recentQueueCalls(deviceId: string): Promise<QueueCallPaylo
       audioUrl: `/api/public/player/announce?call=${call.id}&r=${call.repeatCount}`,
       displaySeconds: seconds,
       calledAt: call.calledAt.toISOString(),
-    }));
+      history: calls
+        .slice(index + 1)
+        .filter((prev) => prev.label !== call.label)
+        .slice(0, 4)
+        .map((prev) => ({ label: prev.label, sectorName: prev.sectorName })),
+    }))
+    .reverse();
 }
