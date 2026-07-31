@@ -245,6 +245,9 @@ export function MediaLibrary() {
   const [busy, setBusy] = useState(false);
   const [uploads, setUploads] = useState<UploadProgressItem[]>([]);
   const inputRef = useRef<HTMLInputElement>(null);
+  const composerRef = useRef<HTMLDivElement>(null);
+  /** Widget picked from the grid for customization (null = creating a new one). */
+  const [editingWidget, setEditingWidget] = useState<WidgetDraft | null>(null);
 
   const library = useQuery({ queryKey: ["media-assets"], queryFn: () => listFn({}) });
 
