@@ -52,6 +52,9 @@ export type MediaListItem = {
   previewUrl: string | null;
   widgetType: string | null;
   widgetConfig: WidgetConfig | null;
+  /** Optional airing window (ISO strings) — file only plays inside it. */
+  airStartAt: string | null;
+  airEndAt: string | null;
 };
 
 /** Library of the caller's organization. Never returns another tenant's rows. */
@@ -100,6 +103,8 @@ export const listMediaAssets = createServerFn({ method: "GET" }).handler(
           previewUrl,
           widgetType: row.widgetType,
           widgetConfig: (row.widgetConfig as WidgetConfig | null) ?? null,
+          airStartAt: row.airStartAt ? row.airStartAt.toISOString() : null,
+          airEndAt: row.airEndAt ? row.airEndAt.toISOString() : null,
         } satisfies MediaListItem;
       }),
     );
