@@ -17,7 +17,14 @@ type PlayerItem = {
 };
 
 type SyncResponse = {
-  device: { id: string; name: string; canvasPreset: string; audioEnabled?: boolean };
+  device: {
+    id: string;
+    name: string;
+    canvasPreset: string;
+    audioEnabled?: boolean;
+    /** "fade" faz um crossfade suave entre arquivos; "none" corta seco. */
+    transitionEffect?: string;
+  };
   playlist: { id: string; name: string; revision: number; items: PlayerItem[] } | null;
   branding: {
     name: string | null;
@@ -275,6 +282,8 @@ function PlayerScreen() {
 
   if (!sync) return <SplashScreen branding={null} />;
 
+  const fade = sync.device?.transitionEffect === "fade";
+
   return (
     <div className="relative min-h-screen overflow-hidden bg-black">
       {items.length === 0 ? (
@@ -283,7 +292,8 @@ function PlayerScreen() {
           message={error ?? "Nenhuma playlist programada para este horário."}
         />
       ) : current?.kind === "video" ? (
-        <video
+        <FadeLayer enabled={fade} step={index}>
+          <video
           key={`${current.id}-${index}`}
           src={current.url ?? undefined}
           className="h-screen w-screen object-contain"
@@ -296,27 +306,69 @@ function PlayerScreen() {
             setIndex((value) => value + 1);
           }}
           onError={() => setIndex((value) => value + 1)}
-        />
+          />
+        </FadeLayer>
       ) : current?.kind === "widget" && current.widgetConfig ? (
-        <div key={`${current.id}-${index}`} className="h-screen w-screen">
+        <FadeLayer enabled={fade} step={index} key={`${current.id}-${index}`}>
           <WidgetView config={current.widgetConfig} accentColor={sync.branding?.color ?? null} />
-        </div>
+        </FadeLayer>
       ) : current?.kind === "web" ? (
-        <iframe
+        <FadeLayer enabled={fade} step={index}>
+          <iframe
           key={`${current.id}-${index}`}
           src={current.url ?? undefined}
           title={current.name}
           className="h-screen w-screen border-0"
           sandbox="allow-scripts allow-same-origin"
-        />
+          />
+        </FadeLayer>
       ) : (
-        <img
+        <FadeLayer enabled={fade} step={index}>
+          <img
           key={`${current?.id}-${index}`}
           src={current?.url ?? undefined}
           alt={current?.name ?? ""}
           className="h-screen w-screen object-contain"
-        />
+          />
+        </FadeLayer>
       )}
+    </div>
+  );
+}
+
+/**
+ * Optional soft transition (per screen). When disabled the child is rendered
+ * as-is, so the cut stays instantaneous and costs nothing on weak hardware.
+ */
+function FadeLayer({
+  enabled,
+  step,
+  children,
+}: {
+  enabled: boolean;
+  step: number;
+  children: React.ReactNode;
+}) {
+  const [visible, setVisible] = useState(!enabled);
+
+  useEffect(() => {
+    if (!enabled) {
+      setVisible(true);
+      return;
+    }
+    setVisible(false);
+    const raf = window.requestAnimationFrame(() => setVisible(true));
+    return () => window.cancelAnimationFrame(raf);
+  }, [enabled, step]);
+
+  if (!enabled) return <div className="h-screen w-screen">{children}</div>;
+
+  return (
+    <div
+      className="h-screen w-screen"
+      style={{ opacity: visible ? 1 : 0, transition: "opacity 700ms ease-in-out" }}
+    >
+      {children}
     </div>
   );
 }
