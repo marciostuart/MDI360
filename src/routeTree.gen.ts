@@ -27,6 +27,7 @@ import { Route as StudioTelasRouteImport } from './routes/studio/telas'
 import { Route as TorreIndexRouteImport } from './routes/torre/index'
 import { Route as TorrePlanosRouteImport } from './routes/torre/planos'
 import { Route as ApiBrandingLogoRouteImport } from './routes/api/branding/logo'
+import { Route as ApiMediaReplaceRouteImport } from './routes/api/media/replace'
 import { Route as ApiMediaUploadRouteImport } from './routes/api/media/upload'
 import { Route as ApiPublicWidgetDataRouteImport } from './routes/api/public/widget-data'
 import { Route as TorreClientesIndexRouteImport } from './routes/torre/clientes/index'
@@ -128,6 +129,11 @@ const ApiBrandingLogoRoute = ApiBrandingLogoRouteImport.update({
   path: '/api/branding/logo',
   getParentRoute: () => rootRouteImport,
 } as any)
+const ApiMediaReplaceRoute = ApiMediaReplaceRouteImport.update({
+  id: '/api/media/replace',
+  path: '/api/media/replace',
+  getParentRoute: () => rootRouteImport,
+} as any)
 const ApiMediaUploadRoute = ApiMediaUploadRouteImport.update({
   id: '/api/media/upload',
   path: '/api/media/upload',
@@ -199,6 +205,7 @@ export interface FileRoutesByFullPath {
   '/studio/': typeof StudioIndexRoute
   '/torre/': typeof TorreIndexRoute
   '/api/branding/logo': typeof ApiBrandingLogoRoute
+  '/api/media/replace': typeof ApiMediaReplaceRoute
   '/api/media/upload': typeof ApiMediaUploadRoute
   '/api/public/widget-data': typeof ApiPublicWidgetDataRoute
   '/torre/clientes/$organizationId': typeof TorreClientesOrganizationIdRoute
@@ -227,6 +234,7 @@ export interface FileRoutesByTo {
   '/studio': typeof StudioIndexRoute
   '/torre': typeof TorreIndexRoute
   '/api/branding/logo': typeof ApiBrandingLogoRoute
+  '/api/media/replace': typeof ApiMediaReplaceRoute
   '/api/media/upload': typeof ApiMediaUploadRoute
   '/api/public/widget-data': typeof ApiPublicWidgetDataRoute
   '/torre/clientes/$organizationId': typeof TorreClientesOrganizationIdRoute
@@ -258,6 +266,7 @@ export interface FileRoutesById {
   '/studio/': typeof StudioIndexRoute
   '/torre/': typeof TorreIndexRoute
   '/api/branding/logo': typeof ApiBrandingLogoRoute
+  '/api/media/replace': typeof ApiMediaReplaceRoute
   '/api/media/upload': typeof ApiMediaUploadRoute
   '/api/public/widget-data': typeof ApiPublicWidgetDataRoute
   '/torre/clientes/$organizationId': typeof TorreClientesOrganizationIdRoute
@@ -290,6 +299,7 @@ export interface FileRouteTypes {
     | '/studio/'
     | '/torre/'
     | '/api/branding/logo'
+    | '/api/media/replace'
     | '/api/media/upload'
     | '/api/public/widget-data'
     | '/torre/clientes/$organizationId'
@@ -318,6 +328,7 @@ export interface FileRouteTypes {
     | '/studio'
     | '/torre'
     | '/api/branding/logo'
+    | '/api/media/replace'
     | '/api/media/upload'
     | '/api/public/widget-data'
     | '/torre/clientes/$organizationId'
@@ -348,6 +359,7 @@ export interface FileRouteTypes {
     | '/studio/'
     | '/torre/'
     | '/api/branding/logo'
+    | '/api/media/replace'
     | '/api/media/upload'
     | '/api/public/widget-data'
     | '/torre/clientes/$organizationId'
@@ -368,6 +380,7 @@ export interface RootRouteChildren {
   SenhasRoute: typeof SenhasRoute
   TelaRoute: typeof TelaRoute
   ApiBrandingLogoRoute: typeof ApiBrandingLogoRoute
+  ApiMediaReplaceRoute: typeof ApiMediaReplaceRoute
   ApiMediaUploadRoute: typeof ApiMediaUploadRoute
   ApiPublicWidgetDataRoute: typeof ApiPublicWidgetDataRoute
   ApiPublicPlayerAnnounceRoute: typeof ApiPublicPlayerAnnounceRoute
@@ -506,6 +519,13 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof ApiBrandingLogoRouteImport
       parentRoute: typeof rootRouteImport
     }
+    '/api/media/replace': {
+      id: '/api/media/replace'
+      path: '/api/media/replace'
+      fullPath: '/api/media/replace'
+      preLoaderRoute: typeof ApiMediaReplaceRouteImport
+      parentRoute: typeof rootRouteImport
+    }
     '/api/media/upload': {
       id: '/api/media/upload'
       path: '/api/media/upload'
@@ -633,6 +653,7 @@ const rootRouteChildren: RootRouteChildren = {
   SenhasRoute: SenhasRoute,
   TelaRoute: TelaRoute,
   ApiBrandingLogoRoute: ApiBrandingLogoRoute,
+  ApiMediaReplaceRoute: ApiMediaReplaceRoute,
   ApiMediaUploadRoute: ApiMediaUploadRoute,
   ApiPublicWidgetDataRoute: ApiPublicWidgetDataRoute,
   ApiPublicPlayerAnnounceRoute: ApiPublicPlayerAnnounceRoute,

@@ -250,6 +250,155 @@ const tagsSchema = z.object({
   tags: z.array(z.string().trim().min(1).max(40)).max(12),
 });
 
+/** Renames one file. Playlists reference it by id, so nothing else changes. */
+export const renameMediaAsset = createServerFn({ method: "POST" })
+  .inputValidator((input: unknown) =>
+    z
+      .object({ assetId: z.string().uuid(), name: z.string().trim().min(1).max(160) })
+      .parse(input),
+  )
+  .handler(async ({ data }) => {
+    const { getDb, schema } = await import("@/lib/db/index.server");
+    const { requireUser } = await import("@/lib/auth/session.server");
+    const { and, eq } = await import("drizzle-orm");
+    const user = await requireUser();
+
+    await getDb()
+      .update(schema.mediaAssets)
+      .set({ name: data.name })
+      .where(
+        and(
+          eq(schema.mediaAssets.id, data.assetId),
+          eq(schema.mediaAssets.organizationId, user.organizationId),
+        ),
+      );
+
+    const { notifyOrganization } = await import("@/lib/player/realtime.server");
+    notifyOrganization(user.organizationId);
+    return { ok: true };
+  });
+
+export type MediaUsageRow = { id: string; name: string; position: number };
+export type MediaStatsRow = { id: string; label: string; plays: number; seconds: number };
+export type MediaDetails = {
+  usage: MediaUsageRow[];
+  totalPlays: number;
+  totalSeconds: number;
+  firstPlayedAt: string | null;
+  lastPlayedAt: string | null;
+  byDevice: MediaStatsRow[];
+  byPlaylist: MediaStatsRow[];
+  /** Últimos 14 dias (data ISO + exibições) para o mini-histórico. */
+  daily: { day: string; plays: number }[];
+};
+
+/** Where the file is used + proof-of-play numbers for a single file. */
+export const getMediaAssetDetails = createServerFn({ method: "GET" })
+  .inputValidator((input: unknown) => z.object({ assetId: z.string().uuid() }).parse(input))
+  .handler(async ({ data }): Promise<MediaDetails> => {
+    const empty: MediaDetails = {
+      usage: [],
+      totalPlays: 0,
+      totalSeconds: 0,
+      firstPlayedAt: null,
+      lastPlayedAt: null,
+      byDevice: [],
+      byPlaylist: [],
+      daily: [],
+    };
+    const { isDatabaseConfigured, getDb, schema } = await import("@/lib/db/index.server");
+    if (!isDatabaseConfigured()) return empty;
+
+    const { requireUser } = await import("@/lib/auth/session.server");
+    const { and, eq, sql } = await import("drizzle-orm");
+    const user = await requireUser();
+    const db = getDb();
+
+    const owned = await db
+      .select({ id: schema.mediaAssets.id })
+      .from(schema.mediaAssets)
+      .where(
+        and(
+          eq(schema.mediaAssets.id, data.assetId),
+          eq(schema.mediaAssets.organizationId, user.organizationId),
+        ),
+      )
+      .limit(1);
+    if (!owned[0]) return empty;
+
+    const usage = await db
+      .select({
+        id: schema.playlists.id,
+        name: schema.playlists.name,
+        position: schema.playlistItems.position,
+      })
+      .from(schema.playlistItems)
+      .innerJoin(schema.playlists, eq(schema.playlists.id, schema.playlistItems.playlistId))
+      .where(eq(schema.playlistItems.mediaAssetId, data.assetId))
+      .orderBy(schema.playlists.name)
+      .limit(200);
+
+    const plays = sql<number>`count(*)::int`;
+    const seconds = sql<number>`(coalesce(sum(${schema.playbackEvents.durationMs}), 0) / 1000)::int`;
+    const scope = and(
+      eq(schema.playbackEvents.organizationId, user.organizationId),
+      eq(schema.playbackEvents.mediaAssetId, data.assetId),
+    );
+
+    const totals = await db
+      .select({
+        plays,
+        seconds,
+        first: sql<string | null>`min(${schema.playbackEvents.startedAt})`,
+        last: sql<string | null>`max(${schema.playbackEvents.startedAt})`,
+      })
+      .from(schema.playbackEvents)
+      .where(scope);
+
+    const byDevice = await db
+      .select({ id: schema.devices.id, label: schema.devices.name, plays, seconds })
+      .from(schema.playbackEvents)
+      .innerJoin(schema.devices, eq(schema.devices.id, schema.playbackEvents.deviceId))
+      .where(scope)
+      .groupBy(schema.devices.id, schema.devices.name)
+      .orderBy(sql`count(*) desc`)
+      .limit(50);
+
+    const byPlaylist = await db
+      .select({ id: schema.playlists.id, label: schema.playlists.name, plays, seconds })
+      .from(schema.playbackEvents)
+      .innerJoin(schema.playlists, eq(schema.playlists.id, schema.playbackEvents.playlistId))
+      .where(scope)
+      .groupBy(schema.playlists.id, schema.playlists.name)
+      .orderBy(sql`count(*) desc`)
+      .limit(50);
+
+    const dailyRows = await db
+      .select({
+        day: sql<string>`to_char(date_trunc('day', ${schema.playbackEvents.startedAt}), 'YYYY-MM-DD')`,
+        plays,
+      })
+      .from(schema.playbackEvents)
+      .where(and(scope, sql`${schema.playbackEvents.startedAt} > now() - interval '14 days'`))
+      .groupBy(sql`date_trunc('day', ${schema.playbackEvents.startedAt})`)
+      .orderBy(sql`date_trunc('day', ${schema.playbackEvents.startedAt}) asc`);
+
+    const total = totals[0];
+    const toIso = (value: string | Date | null | undefined) =>
+      value ? new Date(value).toISOString() : null;
+
+    return {
+      usage,
+      totalPlays: total?.plays ?? 0,
+      totalSeconds: total?.seconds ?? 0,
+      firstPlayedAt: toIso(total?.first ?? null),
+      lastPlayedAt: toIso(total?.last ?? null),
+      byDevice,
+      byPlaylist,
+      daily: dailyRows,
+    };
+  });
+
 /** Replaces the tag list of one file. Tags are normalized (lowercase, unique). */
 export const setMediaTags = createServerFn({ method: "POST" })
   .inputValidator((input: unknown) => tagsSchema.parse(input))

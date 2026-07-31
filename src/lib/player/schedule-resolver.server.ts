@@ -138,6 +138,11 @@ export async function resolvePlaylistForDevice(
 
   const storageReady = isStorageConfigured();
   const items: PlayerItem[] = [];
+  /**
+   * Item id + underlying object key. Mixed into the revision so a screen also
+   * re-syncs when a file is *replaced* in place (same playlist, new content).
+   */
+  const fingerSource: string[] = [];
   for (const row of itemRows) {
     if (row.status !== "ready") continue;
     // Per-file airing window (flash offers): outside it the file never plays,
@@ -157,6 +162,7 @@ export async function resolvePlaylistForDevice(
         widgetType: row.widgetType,
         widgetConfig: (row.widgetConfig as WidgetConfig | null) ?? null,
       });
+      fingerSource.push(`${row.id}:${JSON.stringify(row.widgetConfig ?? null)}`);
       continue;
     }
     let url: string | null = row.kind === "web" ? row.sourceUrl : null;
@@ -180,12 +186,13 @@ export async function resolvePlaylistForDevice(
       widgetType: null,
       widgetConfig: null,
     });
+    fingerSource.push(`${row.id}:${row.storageKey ?? row.sourceUrl ?? ""}`);
   }
 
   return {
     id: playlist.id,
     name: playlist.name,
-    revision: playlist.revision * 1000 + fingerprint(items.map((item) => item.id)),
+    revision: playlist.revision * 1000 + fingerprint(fingerSource),
     items,
   };
 }
