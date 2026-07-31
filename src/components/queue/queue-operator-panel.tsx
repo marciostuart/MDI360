@@ -1,12 +1,19 @@
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { useServerFn } from "@tanstack/react-start";
-import { Bell, Loader2, LogOut, Plus, RotateCcw, Trash2 } from "lucide-react";
+import { Bell, Loader2, LogOut, Pencil, Plus, RotateCcw, Trash2 } from "lucide-react";
 import { useState } from "react";
 import { toast } from "sonner";
 
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
+import {
+  Dialog,
+  DialogContent,
+  DialogFooter,
+  DialogHeader,
+  DialogTitle,
+} from "@/components/ui/dialog";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import {
@@ -131,6 +138,7 @@ function OperatorConsole({ state }: { state: NonNullable<Awaited<ReturnType<type
 
   const [sectorName, setSectorName] = useState("");
   const [sectorPrefix, setSectorPrefix] = useState("");
+  const [editing, setEditing] = useState<{ id: string; name: string; prefix: string } | null>(null);
 
   const invalidate = () => queryClient.invalidateQueries({ queryKey: ["queue-operator"] });
 
@@ -166,6 +174,23 @@ function OperatorConsole({ state }: { state: NonNullable<Awaited<ReturnType<type
   const deleteSectorMutation = useMutation({
     mutationFn: (sectorId: string) => removeSector({ data: { sectorId } }),
     onSuccess: invalidate,
+    onError: (error: Error) => toast.error(error.message),
+  });
+
+  const editSectorMutation = useMutation({
+    mutationFn: () =>
+      saveSector({
+        data: {
+          sectorId: editing!.id,
+          name: editing!.name,
+          prefix: editing!.prefix || undefined,
+        },
+      }),
+    onSuccess: async () => {
+      setEditing(null);
+      toast.success("Setor atualizado.");
+      await invalidate();
+    },
     onError: (error: Error) => toast.error(error.message),
   });
 
@@ -246,7 +271,10 @@ function OperatorConsole({ state }: { state: NonNullable<Awaited<ReturnType<type
                     onClick={() => callMutation.mutate(sector.id)}
                   >
                     <Bell className="size-5" />
-                    {sector.name}
+                    <span className="truncate">
+                      {sector.prefix ? `${sector.prefix} · ` : ""}
+                      {sector.name}
+                    </span>
                     <Badge variant="secondary" className="ml-2">
                       {sector.lastNumber}
                     </Badge>
@@ -254,7 +282,18 @@ function OperatorConsole({ state }: { state: NonNullable<Awaited<ReturnType<type
                   <Button
                     variant="ghost"
                     size="icon"
+                    aria-label={`Editar ${sector.name}`}
+                    onClick={() =>
+                      setEditing({ id: sector.id, name: sector.name, prefix: sector.prefix ?? "" })
+                    }
+                  >
+                    <Pencil className="size-4" />
+                  </Button>
+                  <Button
+                    variant="ghost"
+                    size="icon"
                     className="text-destructive"
+                    aria-label={`Remover ${sector.name}`}
                     onClick={() => deleteSectorMutation.mutate(sector.id)}
                   >
                     <Trash2 className="size-4" />
@@ -353,6 +392,58 @@ function OperatorConsole({ state }: { state: NonNullable<Awaited<ReturnType<type
           </div>
         </CardContent>
       </Card>
+
+      <Dialog open={editing !== null} onOpenChange={(open) => (open ? null : setEditing(null))}>
+        <DialogContent className="sm:max-w-sm">
+          <DialogHeader>
+            <DialogTitle>Editar setor</DialogTitle>
+          </DialogHeader>
+          {editing ? (
+            <form
+              className="space-y-4"
+              onSubmit={(event) => {
+                event.preventDefault();
+                editSectorMutation.mutate();
+              }}
+            >
+              <div className="space-y-1.5">
+                <Label htmlFor="edit-sector-name">Nome</Label>
+                <Input
+                  id="edit-sector-name"
+                  value={editing.name}
+                  onChange={(event) =>
+                    setEditing((value) => (value ? { ...value, name: event.target.value } : value))
+                  }
+                  required
+                />
+              </div>
+              <div className="space-y-1.5">
+                <Label htmlFor="edit-sector-prefix">Prefixo</Label>
+                <Input
+                  id="edit-sector-prefix"
+                  value={editing.prefix}
+                  maxLength={3}
+                  placeholder="C"
+                  onChange={(event) =>
+                    setEditing((value) =>
+                      value ? { ...value, prefix: event.target.value.toUpperCase() } : value,
+                    )
+                  }
+                />
+              </div>
+              <DialogFooter>
+                <Button type="button" variant="ghost" onClick={() => setEditing(null)}>
+                  Cancelar
+                </Button>
+                <Button type="submit" disabled={editSectorMutation.isPending}>
+                  {editSectorMutation.isPending ? <Loader2 className="size-4 animate-spin" /> : null}
+                  Salvar
+                </Button>
+              </DialogFooter>
+            </form>
+          ) : null}
+        </DialogContent>
+      </Dialog>
     </div>
   );
 }
