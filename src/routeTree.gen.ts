@@ -11,6 +11,7 @@
 import { Route as rootRouteImport } from './routes/__root'
 import { Route as IndexRouteImport } from './routes/index'
 import { Route as EntrarRouteImport } from './routes/entrar'
+import { Route as SenhasRouteImport } from './routes/senhas'
 import { Route as StudioRouteRouteImport } from './routes/studio/route'
 import { Route as TelaRouteImport } from './routes/tela'
 import { Route as TorreRouteRouteImport } from './routes/torre/route'
@@ -43,6 +44,11 @@ const IndexRoute = IndexRouteImport.update({
 const EntrarRoute = EntrarRouteImport.update({
   id: '/entrar',
   path: '/entrar',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const SenhasRoute = SenhasRouteImport.update({
+  id: '/senhas',
+  path: '/senhas',
   getParentRoute: () => rootRouteImport,
 } as any)
 const StudioRouteRoute = StudioRouteRouteImport.update({
@@ -167,6 +173,7 @@ export interface FileRoutesByFullPath {
   '/studio': typeof StudioRouteRouteWithChildren
   '/torre': typeof TorreRouteRouteWithChildren
   '/entrar': typeof EntrarRoute
+  '/senhas': typeof SenhasRoute
   '/tela': typeof TelaRoute
   '/studio/agenda': typeof StudioAgendaRoute
   '/studio/configuracoes': typeof StudioConfiguracoesRoute
@@ -192,6 +199,7 @@ export interface FileRoutesByFullPath {
 export interface FileRoutesByTo {
   '/': typeof IndexRoute
   '/entrar': typeof EntrarRoute
+  '/senhas': typeof SenhasRoute
   '/tela': typeof TelaRoute
   '/studio/agenda': typeof StudioAgendaRoute
   '/studio/configuracoes': typeof StudioConfiguracoesRoute
@@ -220,6 +228,7 @@ export interface FileRoutesById {
   '/studio': typeof StudioRouteRouteWithChildren
   '/torre': typeof TorreRouteRouteWithChildren
   '/entrar': typeof EntrarRoute
+  '/senhas': typeof SenhasRoute
   '/tela': typeof TelaRoute
   '/studio/agenda': typeof StudioAgendaRoute
   '/studio/configuracoes': typeof StudioConfiguracoesRoute
@@ -249,6 +258,7 @@ export interface FileRouteTypes {
     | '/studio'
     | '/torre'
     | '/entrar'
+    | '/senhas'
     | '/tela'
     | '/studio/agenda'
     | '/studio/configuracoes'
@@ -274,6 +284,7 @@ export interface FileRouteTypes {
   to:
     | '/'
     | '/entrar'
+    | '/senhas'
     | '/tela'
     | '/studio/agenda'
     | '/studio/configuracoes'
@@ -301,6 +312,7 @@ export interface FileRouteTypes {
     | '/studio'
     | '/torre'
     | '/entrar'
+    | '/senhas'
     | '/tela'
     | '/studio/agenda'
     | '/studio/configuracoes'
@@ -329,6 +341,7 @@ export interface RootRouteChildren {
   StudioRouteRoute: typeof StudioRouteRouteWithChildren
   TorreRouteRoute: typeof TorreRouteRouteWithChildren
   EntrarRoute: typeof EntrarRoute
+  SenhasRoute: typeof SenhasRoute
   TelaRoute: typeof TelaRoute
   ApiBrandingLogoRoute: typeof ApiBrandingLogoRoute
   ApiMediaUploadRoute: typeof ApiMediaUploadRoute
@@ -354,6 +367,13 @@ declare module '@tanstack/react-router' {
       path: '/entrar'
       fullPath: '/entrar'
       preLoaderRoute: typeof EntrarRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/senhas': {
+      id: '/senhas'
+      path: '/senhas'
+      fullPath: '/senhas'
+      preLoaderRoute: typeof SenhasRouteImport
       parentRoute: typeof rootRouteImport
     }
     '/studio': {
@@ -569,6 +589,7 @@ const rootRouteChildren: RootRouteChildren = {
   StudioRouteRoute: StudioRouteRouteWithChildren,
   TorreRouteRoute: TorreRouteRouteWithChildren,
   EntrarRoute: EntrarRoute,
+  SenhasRoute: SenhasRoute,
   TelaRoute: TelaRoute,
   ApiBrandingLogoRoute: ApiBrandingLogoRoute,
   ApiMediaUploadRoute: ApiMediaUploadRoute,
