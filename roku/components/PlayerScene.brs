@@ -72,6 +72,9 @@ sub onPayload()
 
     if payload.playlist = invalid or payload.playlist.items = invalid or payload.playlist.items.Count() = 0
         m.items = []
+        ' Forget the revision: when the same playlist comes back (unchanged
+        ' revision) we must accept it again instead of ignoring it below.
+        m.revision = -1
         m.pairingTitle.text = "Aguardando conteudo"
         m.pairingCode.text = ""
         m.statusLabel.text = "Tela vinculada. Publique uma playlist no Studio."
