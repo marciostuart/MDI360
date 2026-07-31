@@ -1,22 +1,10 @@
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { useServerFn } from "@tanstack/react-start";
-import {
-  ArrowDown,
-  ArrowUp,
-  Film,
-  Gauge,
-  Image as ImageIcon,
-  ListVideo,
-  Loader2,
-  Plus,
-  Save,
-  Trash2,
-  Volume2,
-  VolumeX,
-} from "lucide-react";
-import { useEffect, useState } from "react";
+import { ListVideo, Loader2, Plus, Search, Settings2, Trash2 } from "lucide-react";
+import { useState } from "react";
 import { toast } from "sonner";
 
+import { PlaylistEditorDialog } from "@/components/playlists/playlist-editor-dialog";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
@@ -29,22 +17,11 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select";
-import { listMediaAssets } from "@/lib/media/media.functions";
 import {
   createPlaylist,
   deletePlaylist,
-  getPlaylist,
   listPlaylists,
-  setPlaylistItems,
 } from "@/lib/playlists/playlists.functions";
-
-type DraftItem = {
-  mediaAssetId: string;
-  name: string;
-  kind: "image" | "video" | "web" | "widget";
-  durationMs: number;
-  isMuted: boolean;
-};
 
 function formatDuration(ms: number) {
   const total = Math.round(ms / 1000);
@@ -56,105 +33,37 @@ function formatDuration(ms: number) {
 export function PlaylistManager() {
   const queryClient = useQueryClient();
   const listFn = useServerFn(listPlaylists);
-  const getFn = useServerFn(getPlaylist);
   const createFn = useServerFn(createPlaylist);
   const deleteFn = useServerFn(deletePlaylist);
-  const saveItemsFn = useServerFn(setPlaylistItems);
-  const mediaFn = useServerFn(listMediaAssets);
 
-  const [selectedId, setSelectedId] = useState<string | null>(null);
+  const [showCreate, setShowCreate] = useState(false);
   const [newName, setNewName] = useState("");
-  const [draft, setDraft] = useState<DraftItem[]>([]);
-  const [pickerId, setPickerId] = useState<string>("");
+  const [search, setSearch] = useState("");
+  const [sortBy, setSortBy] = useState<"newest" | "oldest" | "name">("newest");
+  const [editing, setEditing] = useState<{ id: string; name: string } | null>(null);
 
   const playlists = useQuery({ queryKey: ["playlists"], queryFn: () => listFn({}) });
-  const media = useQuery({ queryKey: ["media-assets"], queryFn: () => mediaFn({}) });
-
-  const detail = useQuery({
-    queryKey: ["playlist", selectedId],
-    queryFn: () => getFn({ data: { playlistId: selectedId! } }),
-    enabled: Boolean(selectedId),
-  });
-
-  useEffect(() => {
-    if (!detail.data) return;
-    setDraft(
-      detail.data.items.map((item) => ({
-        mediaAssetId: item.mediaAssetId,
-        name: item.name,
-        kind: item.kind,
-        durationMs: item.durationMs,
-        isMuted: item.isMuted,
-      })),
-    );
-  }, [detail.data]);
 
   const createMutation = useMutation({
     mutationFn: (name: string) => createFn({ data: { name } }),
-    onSuccess: async (result) => {
+    onSuccess: async (result, name) => {
       setNewName("");
+      setShowCreate(false);
       await queryClient.invalidateQueries({ queryKey: ["playlists"] });
-      setSelectedId(result.id);
-      toast.success("Playlist criada.");
+      setEditing({ id: result.id, name });
+      toast.success("Lista criada. Arraste os conteúdos para montá-la.");
     },
-    onError: () => toast.error("Não foi possível criar a playlist."),
+    onError: () => toast.error("Não foi possível criar a lista."),
   });
 
   const deleteMutation = useMutation({
     mutationFn: (playlistId: string) => deleteFn({ data: { playlistId } }),
     onSuccess: async () => {
-      setSelectedId(null);
-      setDraft([]);
       await queryClient.invalidateQueries({ queryKey: ["playlists"] });
-      toast.success("Playlist excluída.");
+      toast.success("Lista excluída.");
     },
+    onError: () => toast.error("Não foi possível excluir a lista."),
   });
-
-  const saveMutation = useMutation({
-    mutationFn: () =>
-      saveItemsFn({
-        data: {
-          playlistId: selectedId!,
-          items: draft.map((item) => ({
-            mediaAssetId: item.mediaAssetId,
-            durationMs: item.durationMs,
-            isMuted: item.isMuted,
-          })),
-        },
-      }),
-    onSuccess: async () => {
-      await queryClient.invalidateQueries({ queryKey: ["playlists"] });
-      await queryClient.invalidateQueries({ queryKey: ["playlist", selectedId] });
-      toast.success("Playlist publicada. As telas vão sincronizar em até 1 minuto.");
-    },
-    onError: () => toast.error("Não foi possível salvar a playlist."),
-  });
-
-  const readyMedia = (media.data?.items ?? []).filter((item) => item.status === "ready");
-
-  function move(from: number, to: number) {
-    if (to < 0 || to >= draft.length) return;
-    const next = [...draft];
-    const [moved] = next.splice(from, 1);
-    next.splice(to, 0, moved!);
-    setDraft(next);
-  }
-
-  function addItem() {
-    const asset = readyMedia.find((item) => item.id === pickerId);
-    if (!asset) return;
-    setDraft((items) => [
-      ...items,
-      {
-        mediaAssetId: asset.id,
-        name: asset.name,
-        kind: asset.kind,
-        durationMs: asset.kind === "video" ? (asset.durationMs ?? 15000) : 10000,
-        isMuted: true,
-      },
-    ]);
-    setPickerId("");
-  }
 
   if (playlists.data && !playlists.data.configured) {
     return (
@@ -166,13 +75,35 @@ export function PlaylistManager() {
     );
   }
 
+  const items = playlists.data?.items ?? [];
+  const term = search.trim().toLowerCase();
+  const visible = items
+    .filter((item) => !term || item.name.toLowerCase().includes(term))
+    .sort((a, b) => {
+      if (sortBy === "name") return a.name.localeCompare(b.name, "pt-BR");
+      const diff = new Date(a.updatedAt).getTime() - new Date(b.updatedAt).getTime();
+      return sortBy === "oldest" ? diff : -diff;
+    });
+
   return (
-    <div className="grid gap-6 lg:grid-cols-[320px_1fr]">
-      <div className="space-y-4">
+    <div className="space-y-6">
+      <div className="flex flex-wrap items-start justify-between gap-4">
+        <p className="max-w-2xl text-sm text-muted-foreground">
+          Clique no nome de uma lista para abrir o montador: à esquerda ficam todos os conteúdos
+          disponíveis (arquivos, entretenimento e ferramentas) e à direita a sequência da lista.
+          Basta arrastar e soltar na ordem desejada.
+        </p>
+        <Button className="gap-2" onClick={() => setShowCreate((value) => !value)}>
+          <Plus className="size-4" />
+          {showCreate ? "Fechar" : "Nova lista"}
+        </Button>
+      </div>
+
+      {showCreate ? (
         <Card>
           <CardContent className="space-y-3 pt-6">
-            <Label htmlFor="playlist-name">Nova playlist</Label>
-            <div className="flex gap-2">
+            <Label htmlFor="playlist-name">Nome da nova lista</Label>
+            <div className="flex max-w-md gap-2">
               <Input
                 id="playlist-name"
                 value={newName}
@@ -180,7 +111,6 @@ export function PlaylistManager() {
                 placeholder="Ex.: Vitrine manhã"
               />
               <Button
-                size="icon"
                 onClick={() => createMutation.mutate(newName.trim())}
                 disabled={newName.trim().length === 0 || createMutation.isPending}
               >
@@ -189,203 +119,109 @@ export function PlaylistManager() {
                 ) : (
                   <Plus className="size-4" />
                 )}
+                Criar
               </Button>
             </div>
           </CardContent>
         </Card>
+      ) : null}
 
-        <div className="space-y-2">
-          {playlists.isPending ? (
-            <p className="text-sm text-muted-foreground">Carregando…</p>
-          ) : (playlists.data?.items.length ?? 0) === 0 ? (
-            <p className="text-sm text-muted-foreground">
-              Nenhuma playlist ainda. Crie a primeira acima.
-            </p>
-          ) : (
-            playlists.data!.items.map((playlist) => (
-              <button
-                key={playlist.id}
-                type="button"
-                onClick={() => setSelectedId(playlist.id)}
-                className={`w-full rounded-lg border p-3 text-left transition-colors ${
-                  selectedId === playlist.id
-                    ? "border-primary bg-primary/5"
-                    : "border-border hover:bg-muted/50"
-                }`}
-              >
-                <p className="truncate text-sm font-medium">{playlist.name}</p>
-                <p className="mt-1 text-xs text-muted-foreground">
-                  {playlist.itemCount} item(ns) · {formatDuration(playlist.totalDurationMs)}
-                </p>
-              </button>
-            ))
-          )}
+      <div className="flex flex-wrap items-center gap-2">
+        <div className="relative min-w-[220px] flex-1">
+          <Search className="pointer-events-none absolute left-3 top-1/2 size-4 -translate-y-1/2 text-muted-foreground" />
+          <Input
+            value={search}
+            onChange={(event) => setSearch(event.target.value)}
+            placeholder="Pesquisar listas"
+            className="pl-9"
+            aria-label="Pesquisar listas"
+          />
         </div>
+        <Select value={sortBy} onValueChange={(value) => setSortBy(value as typeof sortBy)}>
+          <SelectTrigger className="w-[210px]" aria-label="Ordenar">
+            <SelectValue />
+          </SelectTrigger>
+          <SelectContent>
+            <SelectItem value="newest">Alteração mais recente</SelectItem>
+            <SelectItem value="oldest">Alteração mais antiga</SelectItem>
+            <SelectItem value="name">Nome (A-Z)</SelectItem>
+          </SelectContent>
+        </Select>
       </div>
 
-      <Card>
-        <CardContent className="pt-6">
-          {!selectedId ? (
-            <div className="py-16 text-center text-sm text-muted-foreground">
-              <ListVideo className="mx-auto mb-3 size-8 opacity-40" />
-              Selecione uma playlist para montar a sequência.
-            </div>
-          ) : (
-            <div className="space-y-5">
-              <div className="flex flex-wrap items-end gap-2">
-                <div className="min-w-48 flex-1">
-                  <Label>Adicionar conteúdo</Label>
-                  <Select value={pickerId} onValueChange={setPickerId}>
-                    <SelectTrigger className="mt-1">
-                      <SelectValue placeholder="Escolha um conteúdo da biblioteca" />
-                    </SelectTrigger>
-                    <SelectContent>
-                      {readyMedia.map((asset) => (
-                        <SelectItem key={asset.id} value={asset.id}>
-                          {asset.name}
-                        </SelectItem>
-                      ))}
-                    </SelectContent>
-                  </Select>
+      {playlists.isPending ? (
+        <div className="grid place-items-center py-10">
+          <Loader2 className="size-5 animate-spin text-muted-foreground" />
+        </div>
+      ) : items.length === 0 ? (
+        <p className="text-sm text-muted-foreground">
+          Nenhuma lista ainda. Crie a primeira pelo botão acima.
+        </p>
+      ) : visible.length === 0 ? (
+        <p className="text-sm text-muted-foreground">Nenhuma lista encontrada com essa busca.</p>
+      ) : (
+        <div className="divide-y divide-border overflow-hidden rounded-xl border border-border">
+          {visible.map((playlist) => (
+            <div key={playlist.id} className="flex flex-wrap items-center gap-4 p-4">
+              <div className="min-w-[220px] flex-1 space-y-2">
+                <div className="flex items-center gap-2">
+                  <ListVideo className="size-4 shrink-0 text-muted-foreground" />
+                  <button
+                    type="button"
+                    onClick={() => setEditing({ id: playlist.id, name: playlist.name })}
+                    className="truncate text-left text-sm font-medium underline-offset-4 hover:text-primary hover:underline"
+                  >
+                    {playlist.name}
+                  </button>
                 </div>
-                <Button variant="secondary" onClick={addItem} disabled={!pickerId}>
-                  <Plus className="size-4" />
-                  Adicionar
-                </Button>
+                <div className="flex flex-wrap gap-1.5">
+                  <Badge variant="secondary">{playlist.itemCount} item(ns)</Badge>
+                  <Badge variant="outline">{formatDuration(playlist.totalDurationMs)}</Badge>
+                  <Badge variant="outline">
+                    Atualizada em {new Date(playlist.updatedAt).toLocaleDateString("pt-BR")}
+                  </Badge>
+                  {playlist.itemCount === 0 ? (
+                    <Badge variant="destructive">Vazia</Badge>
+                  ) : null}
+                </div>
+              </div>
+
+              <div className="flex items-center gap-2">
                 <Button
-                  onClick={() => saveMutation.mutate()}
-                  disabled={saveMutation.isPending}
+                  variant="outline"
+                  size="sm"
+                  className="gap-2"
+                  onClick={() => setEditing({ id: playlist.id, name: playlist.name })}
                 >
-                  {saveMutation.isPending ? (
-                    <Loader2 className="size-4 animate-spin" />
-                  ) : (
-                    <Save className="size-4" />
-                  )}
-                  Publicar
+                  <Settings2 className="size-4" />
+                  Gerenciar
                 </Button>
                 <Button
                   variant="ghost"
-                  className="text-destructive"
-                  onClick={() => deleteMutation.mutate(selectedId)}
+                  size="icon"
+                  className="size-8 text-muted-foreground"
+                  onClick={() => deleteMutation.mutate(playlist.id)}
+                  disabled={deleteMutation.isPending}
+                  aria-label={`Remover ${playlist.name}`}
                 >
                   <Trash2 className="size-4" />
                 </Button>
               </div>
-
-              {readyMedia.length === 0 ? (
-                <p className="text-sm text-muted-foreground">
-                  Envie conteúdos em “Conteúdos” para montar a playlist.
-                </p>
-              ) : null}
-
-              <div className="space-y-2">
-                {draft.length === 0 ? (
-                  <p className="text-sm text-muted-foreground">
-                    A playlist está vazia. Adicione conteúdos e clique em Publicar.
-                  </p>
-                ) : (
-                  draft.map((item, position) => (
-                    <div
-                      key={`${item.mediaAssetId}-${position}`}
-                      className="flex flex-wrap items-center gap-3 rounded-lg border border-border p-3"
-                    >
-                      <span className="grid size-8 place-items-center rounded-md bg-muted text-muted-foreground">
-                        {item.kind === "video" ? (
-                          <Film className="size-4" />
-                        ) : item.kind === "widget" ? (
-                          <Gauge className="size-4" />
-                        ) : (
-                          <ImageIcon className="size-4" />
-                        )}
-                      </span>
-                      <div className="min-w-32 flex-1">
-                        <p className="truncate text-sm font-medium">{item.name}</p>
-                        <Badge variant="secondary" className="mt-1 text-[10px]">
-                          {item.kind === "video"
-                            ? "Vídeo"
-                            : item.kind === "widget"
-                              ? "Widget"
-                              : "Imagem"}
-                        </Badge>
-                      </div>
-                      <div className="flex items-center gap-2">
-                        <Input
-                          type="number"
-                          min={1}
-                          max={600}
-                          value={Math.round(item.durationMs / 1000)}
-                          onChange={(event) =>
-                            setDraft((items) =>
-                              items.map((entry, i) =>
-                                i === position
-                                  ? {
-                                      ...entry,
-                                      durationMs:
-                                        Math.max(1, Number(event.target.value) || 1) * 1000,
-                                    }
-                                  : entry,
-                              ),
-                            )
-                          }
-                          className="w-20"
-                        />
-                        <span className="text-xs text-muted-foreground">seg</span>
-                      </div>
-                      {item.kind === "video" ? (
-                        <Button
-                          size="sm"
-                          variant={item.isMuted ? "outline" : "secondary"}
-                          onClick={() =>
-                            setDraft((items) =>
-                              items.map((entry, i) =>
-                                i === position ? { ...entry, isMuted: !entry.isMuted } : entry,
-                              ),
-                            )
-                          }
-                          title="Som deste vídeo (a TV pode bloquear o áudio globalmente)"
-                        >
-                          {item.isMuted ? (
-                            <VolumeX className="size-3.5" />
-                          ) : (
-                            <Volume2 className="size-3.5" />
-                          )}
-                          {item.isMuted ? "Sem som" : "Com som"}
-                        </Button>
-                      ) : null}
-                      <div className="flex gap-1">
-                        <Button
-                          size="icon"
-                          variant="ghost"
-                          onClick={() => move(position, position - 1)}
-                        >
-                          <ArrowUp className="size-4" />
-                        </Button>
-                        <Button
-                          size="icon"
-                          variant="ghost"
-                          onClick={() => move(position, position + 1)}
-                        >
-                          <ArrowDown className="size-4" />
-                        </Button>
-                        <Button
-                          size="icon"
-                          variant="ghost"
-                          className="text-destructive"
-                          onClick={() =>
-                            setDraft((items) => items.filter((_, i) => i !== position))
-                          }
-                        >
-                          <Trash2 className="size-4" />
-                        </Button>
-                      </div>
-                    </div>
-                  ))
-                )}
-              </div>
             </div>
-          )}
-        </CardContent>
-      </Card>
+          ))}
+        </div>
+      )}
+
+      {editing ? (
+        <PlaylistEditorDialog
+          playlistId={editing.id}
+          playlistName={editing.name}
+          open
+          onOpenChange={(open) => {
+            if (!open) setEditing(null);
+          }}
+        />
+      ) : null}
     </div>
   );
 }
