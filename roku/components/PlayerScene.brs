@@ -485,6 +485,37 @@ sub startNextCall()
 end sub
 
 ' Dois toques curtos antes da locucao. Usa um Audio node com MP3 do pacote:
+' Mostra as ultimas senhas chamadas antes desta (ex.: "A011   A010   A009").
+sub showQueueHistory(call as object)
+    if m.queueHistory = invalid then return
+    parts = []
+    if call.history <> invalid and Type(call.history) = "roArray"
+        for each item in call.history
+            if item <> invalid and item.label <> invalid and item.label <> ""
+                parts.push(item.label)
+            end if
+            if parts.Count() >= 4 then exit for
+        end for
+    end if
+
+    if parts.Count() = 0
+        m.queueHistory.text = ""
+        m.queueHistory.visible = false
+        if m.queueHistoryTitle <> invalid then m.queueHistoryTitle.visible = false
+        return
+    end if
+
+    text = ""
+    for each part in parts
+        if text <> "" then text = text + "     "
+        text = text + part
+    end for
+    m.queueHistory.text = text
+    m.queueHistory.visible = true
+    if m.queueHistoryTitle <> invalid then m.queueHistoryTitle.visible = true
+end sub
+
+' Dois toques curtos antes da locucao. Usa um Audio node com MP3 do pacote:
 ' funciona mesmo quando os efeitos sonoros do Roku estao desligados e nao
 ' bloqueia a thread de render (o sleep antigo travava a animacao da tela).
 sub beep()
