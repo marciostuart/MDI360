@@ -8,6 +8,8 @@ sub init()
     m.widget = m.top.findNode("widget")
     m.pairing = m.top.findNode("pairing")
     m.pairingCode = m.top.findNode("pairingCode")
+    m.cover = m.top.findNode("cover")
+    m.fadeAnim = m.top.findNode("fadeAnim")
     m.brandLabel = m.top.findNode("brandLabel")
     m.pairingTitle = m.top.findNode("pairingTitle")
     m.statusLabel = m.top.findNode("statusLabel")
@@ -15,6 +17,8 @@ sub init()
     m.items = []
     m.index = -1
     m.revision = -1
+    ' Per-TV setting sent by the server: "none" (hard cut) or "fade".
+    m.transition = "none"
 
     m.slideTimer = CreateObject("roSGNode", "Timer")
     m.slideTimer.repeat = false
@@ -26,6 +30,7 @@ sub init()
     ' The remote is irrelevant on signage, and trick play only wastes memory.
     m.video.enableTrickPlay = false
     m.video.enableUI = false
+    m.video.enableCC = false
 
     ' Stall watchdog: a video that stops advancing (weak Wi-Fi, slow upstream,
     ' heavy bitrate for this Roku) is resumed once and then skipped, so the
@@ -72,6 +77,8 @@ sub showPairing(visible as boolean)
         m.video.visible = false
         m.video.control = "stop"
         m.widget.visible = false
+        if m.fadeAnim <> invalid then m.fadeAnim.control = "stop"
+        if m.cover <> invalid then m.cover.opacity = 0
     end if
 end sub
 
@@ -83,6 +90,13 @@ sub onPayload()
     ' every video plays silently no matter what the playlist item asks for.
     m.audioEnabled = true
     if payload.device <> invalid and payload.device.audioEnabled = false then m.audioEnabled = false
+    if payload.device <> invalid and payload.device.transitionEffect <> invalid
+        if payload.device.transitionEffect = "fade"
+            m.transition = "fade"
+        else
+            m.transition = "none"
+        end if
+    end if
 
     ' Whitelabel: the splash text and brand name come from the customer account.
     if payload.branding <> invalid
@@ -142,6 +156,15 @@ sub playNext()
 
     if item.kind <> "video" and m.stallTimer <> invalid then m.stallTimer.control = "stop"
 
+    ' Blackout before swapping: hides the Video node's file name/spinner and
+    ' gives the fade something to fade from.
+    if m.fadeAnim <> invalid then m.fadeAnim.control = "stop"
+    if item.kind = "video" or m.transition = "fade"
+        m.cover.opacity = 1
+    else
+        m.cover.opacity = 0
+    end if
+
     if item.kind = "widget"
         m.video.control = "stop"
         m.video.visible = false
@@ -156,6 +179,7 @@ sub playNext()
         if item.durationMs <> invalid and item.durationMs > 1000 then duration = item.durationMs
         m.slideTimer.duration = duration / 1000.0
         m.slideTimer.control = "start"
+        revealContent()
     else if item.kind = "video"
         ' A single-video playlist replays the same node, so reset the player
         ' before loading the content again — otherwise it stays on "finished".
@@ -163,7 +187,8 @@ sub playNext()
         content = CreateObject("roSGNode", "ContentNode")
         content.url = item.url
         content.streamformat = streamFormatFor(item.url)
-        content.title = item.name
+        ' No title / no description: Roku would flash the file name on screen.
+        content.title = ""
         m.video.content = content
         content.StreamBitrate = 0
         content.StreamQualities = ["HD"]
@@ -186,6 +211,19 @@ sub playNext()
         if item.durationMs <> invalid and item.durationMs > 1000 then duration = item.durationMs
         m.slideTimer.duration = duration / 1000.0
         m.slideTimer.control = "start"
+        revealContent()
+    end if
+end sub
+
+' Removes the black curtain — instantly, or with a soft fade when the customer
+' enabled the transition for this TV.
+sub revealContent()
+    if m.cover = invalid then return
+    if m.transition = "fade" and m.fadeAnim <> invalid
+        m.cover.opacity = 1
+        m.fadeAnim.control = "start"
+    else
+        m.cover.opacity = 0
     end if
 end sub
 
@@ -228,7 +266,11 @@ end sub
 
 sub onVideoState()
     state = m.video.state
-    if state = "playing" then m.videoRetries = 0
+    if state = "playing"
+        m.videoRetries = 0
+        ' Only now the first frame is on screen: safe to lift the curtain.
+        revealContent()
+    end if
     if state = "finished" or state = "error"
         if m.stallTimer <> invalid then m.stallTimer.control = "stop"
         m.videoRetries = 0
