@@ -127,7 +127,9 @@ export function QueueAddonManager() {
           </CardHeader>
           <CardContent>
             <Button asChild>
-              <a href="/#planos">Ver planos e fazer upgrade</a>
+              <a href={PUBLIC_SITE_URL} target="_blank" rel="noopener noreferrer">
+                Falar com o time e fazer upgrade
+              </a>
             </Button>
           </CardContent>
         </Card>
