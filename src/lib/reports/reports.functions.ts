@@ -8,16 +8,6 @@ export type ReportRow = {
   seconds: number;
 };
 
-export type PlaybackReport = {
-  configured: boolean;
-  from: string;
-  totalPlays: number;
-  totalSeconds: number;
-  byDevice: ReportRow[];
-  byPlaylist: ReportRow[];
-  byMedia: ReportRow[];
-};
-
 export type NowPlayingRow = {
   deviceId: string;
   deviceName: string;
@@ -29,74 +19,102 @@ export type NowPlayingRow = {
   startedAt: string | null;
 };
 
-const rangeSchema = z.object({ days: z.number().int().min(1).max(90).default(7) });
+/** Consulta do relatório: agrupada por TV ou por arquivo, com janela livre. */
+export type ReportGroup = "device" | "media";
 
-/** Playback totals of the caller's organization, grouped three ways. */
-export const getPlaybackReport = createServerFn({ method: "GET" })
-  .inputValidator((input: unknown) => rangeSchema.parse(input ?? {}))
-  .handler(async ({ data }): Promise<PlaybackReport> => {
+export type ReportQueryResult = {
+  configured: boolean;
+  group: ReportGroup;
+  from: string;
+  to: string;
+  /** Total de linhas (grupos) encontradas, para a paginação. */
+  totalRows: number;
+  page: number;
+  pageSize: number;
+  totalPlays: number;
+  totalSeconds: number;
+  rows: ReportRow[];
+};
+
+const querySchema = z.object({
+  group: z.enum(["device", "media"]).default("device"),
+  from: z.string().min(1),
+  to: z.string().min(1),
+  page: z.number().int().default(1),
+  pageSize: z.number().int().default(25),
+});
+
+/**
+ * Relatório de exibição por período livre (data e hora inicial/final), agrupado
+ * por TV ou por arquivo. A paginação acontece no banco: um lojista com muitas
+ * telas nunca traz milhares de linhas de uma vez para a tela.
+ */
+export const queryPlaybackReport = createServerFn({ method: "GET" })
+  .inputValidator((input: unknown) => querySchema.parse(input ?? {}))
+  .handler(async ({ data }): Promise<ReportQueryResult> => {
     const { isDatabaseConfigured, getDb, schema } = await import("@/lib/db/index.server");
-    const from = new Date(Date.now() - data.days * 24 * 3600 * 1000);
-    const empty = {
-      from: from.toISOString(),
-      totalPlays: 0,
-      totalSeconds: 0,
-      byDevice: [],
-      byPlaylist: [],
-      byMedia: [],
+
+    const parsedFrom = new Date(data.from);
+    const parsedTo = new Date(data.to);
+    const validRange =
+      !Number.isNaN(parsedFrom.getTime()) &&
+      !Number.isNaN(parsedTo.getTime()) &&
+      parsedFrom.getTime() < parsedTo.getTime();
+    if (!validRange) throw new Error("Informe um período válido: a data final deve ser posterior.");
+
+    const page = Math.max(1, data.page);
+    const pageSize = Math.min(200, Math.max(5, data.pageSize));
+    const base = {
+      group: data.group,
+      from: parsedFrom.toISOString(),
+      to: parsedTo.toISOString(),
+      page,
+      pageSize,
     };
-    if (!isDatabaseConfigured()) return { configured: false, ...empty };
+    if (!isDatabaseConfigured()) {
+      return { configured: false, ...base, totalRows: 0, totalPlays: 0, totalSeconds: 0, rows: [] };
+    }
 
     const { requireUser } = await import("@/lib/auth/session.server");
-    const { and, eq, gte, sql } = await import("drizzle-orm");
+    const { and, eq, gte, lte, sql } = await import("drizzle-orm");
     const user = await requireUser();
     const db = getDb();
 
+    const joined = data.group === "device" ? schema.devices : schema.mediaAssets;
+    const joinOn =
+      data.group === "device"
+        ? eq(schema.devices.id, schema.playbackEvents.deviceId)
+        : eq(schema.mediaAssets.id, schema.playbackEvents.mediaAssetId);
+
     const scope = and(
       eq(schema.playbackEvents.organizationId, user.organizationId),
-      gte(schema.playbackEvents.startedAt, from),
+      gte(schema.playbackEvents.startedAt, parsedFrom),
+      lte(schema.playbackEvents.startedAt, parsedTo),
     );
+
     const plays = sql<number>`count(*)::int`;
     const seconds = sql<number>`(coalesce(sum(${schema.playbackEvents.durationMs}), 0) / 1000)::int`;
 
-    const [deviceRows, playlistRows, mediaRows] = await Promise.all([
-      db
-        .select({ id: schema.devices.id, label: schema.devices.name, plays, seconds })
-        .from(schema.playbackEvents)
-        .innerJoin(schema.devices, eq(schema.devices.id, schema.playbackEvents.deviceId))
-        .where(scope)
-        .groupBy(schema.devices.id, schema.devices.name)
-        .orderBy(sql`count(*) desc`)
-        .limit(100),
-      db
-        .select({ id: schema.playlists.id, label: schema.playlists.name, plays, seconds })
-        .from(schema.playbackEvents)
-        .innerJoin(schema.playlists, eq(schema.playlists.id, schema.playbackEvents.playlistId))
-        .where(scope)
-        .groupBy(schema.playlists.id, schema.playlists.name)
-        .orderBy(sql`count(*) desc`)
-        .limit(100),
-      db
-        .select({ id: schema.mediaAssets.id, label: schema.mediaAssets.name, plays, seconds })
-        .from(schema.playbackEvents)
-        .innerJoin(
-          schema.mediaAssets,
-          eq(schema.mediaAssets.id, schema.playbackEvents.mediaAssetId),
-        )
-        .where(scope)
-        .groupBy(schema.mediaAssets.id, schema.mediaAssets.name)
-        .orderBy(sql`count(*) desc`)
-        .limit(200),
-    ]);
+    const grouped = await db
+      .select({ id: joined.id, label: joined.name, plays, seconds })
+      .from(schema.playbackEvents)
+      .innerJoin(joined, joinOn)
+      .where(scope)
+      .groupBy(joined.id, joined.name)
+      .orderBy(sql`count(*) desc`)
+      .limit(2000);
+
+    const totalPlays = grouped.reduce((total, row) => total + row.plays, 0);
+    const totalSeconds = grouped.reduce((total, row) => total + row.seconds, 0);
+    const start = (page - 1) * pageSize;
 
     return {
       configured: true,
-      from: from.toISOString(),
-      totalPlays: deviceRows.reduce((total, row) => total + row.plays, 0),
-      totalSeconds: deviceRows.reduce((total, row) => total + row.seconds, 0),
-      byDevice: deviceRows,
-      byPlaylist: playlistRows,
-      byMedia: mediaRows,
+      ...base,
+      totalRows: grouped.length,
+      totalPlays,
+      totalSeconds,
+      rows: grouped.slice(start, start + pageSize),
     };
   });
 
