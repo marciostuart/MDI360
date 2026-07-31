@@ -493,7 +493,7 @@ sub startNextCall()
     ' (texto, nulo ou absurdo) deixava a senha na tela para sempre.
     seconds = 20
     wanted = safeNumber(call.displaySeconds)
-    if wanted >= 5 then seconds = wanted
+    if wanted >= 10 then seconds = wanted
     if seconds > 120 then seconds = 120
 
     ' O relogio da chamada comeca ANTES de qualquer outra coisa: mesmo que um
@@ -531,12 +531,9 @@ sub startNextCall()
 
     showQueueHistory(call)
 
-    ' Sinal sonoro: MP3 embarcado no canal (o som de sistema do Roku depende de
-    ' uma preferencia da TV e por isso nao era confiavel).
-    beep()
-
-    ' Locucao: o Roku nao tem sintese de voz, entao o servidor entrega um MP3
-    ' pronto com "setor + senha". Toca logo depois do sinal sonoro.
+    ' Prepara a locucao ANTES de tocar o sinal sonoro: o sinal e a voz usam o
+    ' mesmo Audio node, entao qualquer "stop" depois do beep() cancelava o tom
+    ' bitonal e a chamada ia direto para a voz.
     if m.announceTimer <> invalid then m.announceTimer.control = "stop"
     if m.announce <> invalid then m.announce.control = "stop"
     m.pendingAnnounceUrl = ""
@@ -552,6 +549,12 @@ sub startNextCall()
     else if m.pendingSpokenText <> ""
         m.pendingAnnounceUrl = fallbackAnnounceUrl(m.pendingSpokenText)
     end if
+
+    ' Sinal sonoro: MP3 embarcado no canal (o som de sistema do Roku depende de
+    ' uma preferencia da TV e por isso nao era confiavel). A locucao entra
+    ' quando ele terminar (onAnnounceState) ou pelo timer de seguranca.
+    beep()
+
     if m.pendingAnnounceUrl <> "" and m.announceTimer <> invalid
         m.announceTimer.control = "start"
     end if

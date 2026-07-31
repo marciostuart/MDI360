@@ -48,7 +48,7 @@ export async function recentQueueCalls(deviceId: string): Promise<QueueCallPaylo
     .orderBy(desc(schema.queueCalls.calledAt))
     .limit(maxQueued);
 
-  const seconds = Math.max(panel.displaySeconds, 5);
+  const seconds = Math.max(panel.displaySeconds, 10);
   // Wide enough to cover a queue that is still draining, narrow enough that a
   // screen that reloads does not replay calls from minutes ago.
   const window = (seconds * maxQueued + 15) * 1000;
