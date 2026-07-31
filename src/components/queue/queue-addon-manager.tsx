@@ -108,8 +108,8 @@ export function QueueAddonManager() {
       <header className="space-y-1">
         <h1 className="font-display text-2xl font-semibold">Sistema de senhas</h1>
         <p className="text-sm text-muted-foreground">
-          Habilite a chamada de senhas por tela. Ao chamar, a TV interrompe a playlist, emite o sinal
-          sonoro e anuncia a senha em voz alta — mesmo com o som da tela desativado.
+          Habilite a chamada de senhas por tela. Ao chamar, a TV interrompe a playlist, emite o
+          sinal sonoro e anuncia a senha em voz alta — mesmo com o som da tela desativado.
         </p>
         <a
           href="/senhas"
@@ -124,8 +124,8 @@ export function QueueAddonManager() {
       {panels.length === 0 ? (
         <Card>
           <CardContent className="py-10 text-center text-sm text-muted-foreground">
-            Nenhuma tela vinculada ainda. Vincule uma tela em <strong>Telas</strong> para habilitar o
-            sistema de senhas.
+            Nenhuma tela vinculada ainda. Vincule uma tela em <strong>Telas</strong> para habilitar
+            o sistema de senhas.
           </CardContent>
         </Card>
       ) : null}
@@ -188,10 +188,26 @@ export function QueueAddonManager() {
                   className="grid gap-3 rounded-lg border border-border p-4 sm:grid-cols-2"
                   onSubmit={(event) => {
                     event.preventDefault();
+                    const username = form.username.trim().toLowerCase();
+                    const password = form.password.trim();
+                    if (username.length < 3) {
+                      toast.error("O usuário do operador precisa de ao menos 3 caracteres.");
+                      return;
+                    }
+                    if (!panel.panelId && password.length < 6) {
+                      toast.error("Defina uma senha com ao menos 6 caracteres para o operador.");
+                      return;
+                    }
+                    if (password.length > 0 && password.length < 6) {
+                      toast.error(
+                        "A nova senha precisa de ao menos 6 caracteres (deixe o campo vazio para manter a atual).",
+                      );
+                      return;
+                    }
                     saveMutation.mutate({
                       deviceId: panel.deviceId,
-                      username: form.username,
-                      password: form.password || undefined,
+                      username,
+                      password: password || undefined,
                       mode: form.mode === "sector" ? "sector" : "sequential",
                       displaySeconds: form.displaySeconds,
                     });
@@ -212,13 +228,15 @@ export function QueueAddonManager() {
                   </div>
                   <div className="space-y-1.5">
                     <Label htmlFor={`pass-${panel.deviceId}`}>
-                      Senha {panel.panelId ? "(deixe vazio para manter)" : ""}
+                      Senha {panel.panelId ? "(deixe vazio para manter)" : "(mínimo 6 caracteres)"}
                     </Label>
                     <Input
                       id={`pass-${panel.deviceId}`}
                       type="password"
                       value={form.password}
                       autoComplete="new-password"
+                      minLength={6}
+                      required={!panel.panelId}
                       onChange={(event) =>
                         setForm((value) => ({ ...value, password: event.target.value }))
                       }
