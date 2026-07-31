@@ -302,6 +302,29 @@ export function DeviceManager() {
                     />
                   </div>
 
+                  <div className="flex items-center justify-between gap-3 rounded-lg border border-border p-3">
+                    <div className="flex items-center gap-2">
+                      <Sparkles className="size-4 text-muted-foreground" />
+                      <div>
+                        <p className="text-sm font-medium">Transição suave</p>
+                        <p className="text-xs text-muted-foreground">
+                          {device.transitionEffect === "fade"
+                            ? "Os arquivos trocam com fade entre um e outro."
+                            : "Troca em corte seco, sem efeito."}
+                        </p>
+                      </div>
+                    </div>
+                    <Switch
+                      checked={device.transitionEffect === "fade"}
+                      onCheckedChange={(checked) =>
+                        transitionMutation.mutate({
+                          deviceId: device.id,
+                          transitionEffect: checked ? "fade" : "none",
+                        })
+                      }
+                    />
+                  </div>
+
                   <div className="flex flex-wrap gap-2">
                     <Button
                       size="sm"
