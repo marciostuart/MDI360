@@ -47,6 +47,7 @@ sub init()
     m.playlistId = invalid
     ' Payload that arrived mid-exhibition: applied only at the next boundary.
     m.pendingPayload = invalid
+    m.resumeAfterApply = false
     m.report = m.top.findNode("report")
 
     m.sync = m.top.findNode("sync")
@@ -162,7 +163,14 @@ sub applyPayload(payload as object)
     end if
 
     m.playlistId = payload.playlist.id
-    if payload.playlist.revision = m.revision then return
+    if payload.playlist.revision = m.revision
+        ' Only settings changed: keep the list and just continue playing.
+        if m.resumeAfterApply
+            m.resumeAfterApply = false
+            advanceItem()
+        end if
+        return
+    end if
     m.revision = payload.playlist.revision
 
     playable = []
@@ -189,9 +197,15 @@ sub playNext()
     if m.pendingPayload <> invalid
         pending = m.pendingPayload
         m.pendingPayload = invalid
+        m.resumeAfterApply = true
         applyPayload(pending)
+        m.resumeAfterApply = false
         return
     end if
+    advanceItem()
+end sub
+
+sub advanceItem()
     if m.items.Count() = 0 then return
     m.index = (m.index + 1) mod m.items.Count()
     item = m.items[m.index]
