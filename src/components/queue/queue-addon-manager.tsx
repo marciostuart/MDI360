@@ -6,7 +6,7 @@ import { toast } from "sonner";
 
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
-import { Card, CardContent } from "@/components/ui/card";
+import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import {
@@ -102,6 +102,38 @@ export function QueueAddonManager() {
   }
 
   const panels = data?.items ?? [];
+
+  if (data && data.configured && !data.available) {
+    return (
+      <div className="space-y-6">
+        <header className="space-y-1">
+          <h1 className="font-display text-2xl font-semibold">Sistema de senhas</h1>
+          <p className="text-sm text-muted-foreground">
+            Chamada de senhas com sinal sonoro e locução nas suas telas.
+          </p>
+        </header>
+
+        <Card className="border-primary/40">
+          <CardHeader>
+            <CardTitle className="flex items-center gap-2">
+              <Ticket className="size-4 text-primary" />
+              Recurso disponível somente nos planos pagos
+            </CardTitle>
+            <CardDescription>
+              Seu plano atual é o Gratuito (1 tela e 4 GB de armazenamento). Faça o upgrade para
+              liberar o sistema de chamada de senhas, com painel exclusivo do operador, sinal
+              sonoro e locução automática nas TVs.
+            </CardDescription>
+          </CardHeader>
+          <CardContent>
+            <Button asChild>
+              <a href="/#planos">Ver planos e fazer upgrade</a>
+            </Button>
+          </CardContent>
+        </Card>
+      </div>
+    );
+  }
 
   return (
     <div className="space-y-6">
