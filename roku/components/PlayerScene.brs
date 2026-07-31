@@ -79,7 +79,8 @@ sub init()
     ' A locucao entra depois do sinal sonoro, para nao se sobrepor a ele.
     m.announceTimer = CreateObject("roSGNode", "Timer")
     m.announceTimer.repeat = false
-    m.announceTimer.duration = 1.3
+    ' O sinal sonoro dura 2,1s (550Hz 0,7s + 440Hz 1,4s): a voz entra depois.
+    m.announceTimer.duration = 2.3
     m.announceTimer.observeField("fire", "onAnnounceTimer")
     m.top.appendChild(m.announceTimer)
     ' Se o MP3 do servidor falhar, tentamos uma locucao alternativa.
