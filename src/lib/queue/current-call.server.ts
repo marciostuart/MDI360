@@ -58,11 +58,30 @@ export async function recentQueueCalls(deviceId: string): Promise<QueueCallPaylo
   // sao as que vieram logo antes dela.
   const fresh = calls.filter((call) => now - call.calledAt.getTime() <= window);
 
+  // Older rows (or rows created before the sector snapshot existed) may have a
+  // null sectorName: resolve it from the sector table so every player shows the
+  // sector, not just the ticket number.
+  const missing = Array.from(
+    new Set(fresh.filter((c) => !c.sectorName && c.sectorId).map((c) => c.sectorId as string)),
+  );
+  const sectorNames = new Map<string, string>();
+  if (missing.length > 0) {
+    const { inArray } = await import("drizzle-orm");
+    const rows = await db
+      .select({ id: schema.queueSectors.id, name: schema.queueSectors.name })
+      .from(schema.queueSectors)
+      .where(inArray(schema.queueSectors.id, missing));
+    for (const row of rows) sectorNames.set(row.id, row.name);
+  }
+
+  const sectorOf = (call: (typeof fresh)[number]): string | null =>
+    call.sectorName ?? (call.sectorId ? (sectorNames.get(call.sectorId) ?? null) : null);
+
   return fresh
     .map((call, index) => ({
       id: `${call.id}:${call.repeatCount}`,
       label: call.label,
-      sectorName: call.sectorName,
+      sectorName: sectorOf(call),
       spokenText: call.spokenText,
       audioUrl: `/api/public/player/announce?call=${call.id}&r=${call.repeatCount}`,
       displaySeconds: seconds,
@@ -71,7 +90,7 @@ export async function recentQueueCalls(deviceId: string): Promise<QueueCallPaylo
         .slice(index + 1)
         .filter((prev) => prev.label !== call.label)
         .slice(0, 4)
-        .map((prev) => ({ label: prev.label, sectorName: prev.sectorName })),
+        .map((prev) => ({ label: prev.label, sectorName: sectorOf(prev) })),
     }))
     .reverse();
 }

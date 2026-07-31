@@ -182,17 +182,23 @@ export function QueueCallOverlay({
   return (
     <div className="absolute inset-0 z-50 grid place-items-center bg-black px-10 text-center">
       <div>
-        <p className="text-[3vw] font-semibold uppercase tracking-[0.4em]" style={{ color: accent }}>
+        <p
+          className="text-[2.7vw] font-semibold uppercase tracking-[0.35em]"
+          style={{ color: accent }}
+        >
           Senha chamada
         </p>
         <p
-          className="mt-4 text-[18vw] font-black leading-none text-white"
+          className="mt-[2vh] text-[17.7vw] font-black leading-none text-white"
           style={{ opacity: flash ? 1 : 0.45, transition: "opacity 300ms linear" }}
         >
           {call.label}
         </p>
         {call.sectorName ? (
-          <p className="mt-6 text-[6vw] font-semibold leading-tight" style={{ color: accent }}>
+          <p
+            className="mt-[2vh] text-[5vw] font-bold uppercase leading-tight"
+            style={{ color: accent }}
+          >
             {call.sectorName}
           </p>
         ) : null}
