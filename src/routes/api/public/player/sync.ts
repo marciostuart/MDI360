@@ -16,8 +16,13 @@ export const Route = createFileRoute("/api/public/player/sync")({
   server: {
     handlers: {
       POST: async ({ request }) => {
+        try {
         const { recordTraffic } = await import("@/lib/admin/traffic.server");
-        recordTraffic(0, 0);
+        try {
+          recordTraffic(0, 0);
+        } catch {
+          // Metrics must never break playback.
+        }
         const { isDatabaseConfigured, getDb, schema } = await import("@/lib/db/index.server");
         if (!isDatabaseConfigured()) {
           return Response.json({ error: "Serviço indisponível." }, { status: 503 });
@@ -62,7 +67,13 @@ export const Route = createFileRoute("/api/public/player/sync")({
         // Kept for players installed before the queue became a list.
         const queueCall = queueCalls.length > 0 ? queueCalls[queueCalls.length - 1] : null;
 
-        const { revisionFor } = await import("@/lib/player/realtime.server");
+        let revision = 0;
+        try {
+          const { revisionFor } = await import("@/lib/player/realtime.server");
+          revision = revisionFor(device.id, device.organizationId);
+        } catch {
+          revision = 0;
+        }
 
         // Whitelabel branding of the organization that owns this screen.
         let branding: {
@@ -142,10 +153,14 @@ export const Route = createFileRoute("/api/public/player/sync")({
             commands: commands.map((c) => c.kind),
             syncIntervalMs: 60_000,
             // Seed for the long-poll channel (/api/public/player/events).
-            revision: revisionFor(device.id, device.organizationId),
+            revision,
           },
           { headers: { "cache-control": "no-store" } },
         );
+        } catch (cause) {
+          console.error("[player/sync] falha inesperada:", cause);
+          return Response.json({ error: "Falha ao sincronizar." }, { status: 500 });
+        }
       },
     },
   },

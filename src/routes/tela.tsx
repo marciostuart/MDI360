@@ -257,7 +257,7 @@ function PlayerScreen() {
           await resetDevice();
           return;
         }
-        if (!response.ok) throw new Error("sync");
+        if (!response.ok) throw new Error(`sync ${response.status}`);
         const data = (await response.json()) as SyncResponse;
         if (typeof data.revision === "number") revisionRef.current = data.revision;
 
@@ -283,7 +283,8 @@ function PlayerScreen() {
           window.location.reload();
         }
         setError(null);
-      } catch {
+      } catch (cause) {
+        console.error("[player] falha ao sincronizar:", cause);
         setError("Sem conexão com o servidor. Tentando novamente…");
       }
     },
@@ -296,6 +297,11 @@ function PlayerScreen() {
 
     // Safety net: even if the push channel dies, the screen refreshes itself.
     const interval = window.setInterval(() => void runSync(token), 60_000);
+    // A screen that linked but never received its first payload must not sit on
+    // the splash for a whole minute: retry fast until content arrives.
+    const bootstrap = window.setInterval(() => {
+      if (!syncRef.current) void runSync(token);
+    }, 5_000);
 
     // Push channel: one long-poll request that the server answers the instant
     // something changes for this screen. Costs a single idle connection.
@@ -331,6 +337,7 @@ function PlayerScreen() {
     return () => {
       stopped = true;
       window.clearInterval(interval);
+      window.clearInterval(bootstrap);
     };
   }, [token, linked, runSync, resetDevice]);
 
@@ -466,23 +473,25 @@ function PlayerScreen() {
 
   if (!linked) return <ActivationScreen code={activationCode} message={error} />;
 
-  if (!sync) return <SplashScreen branding={null} />;
-
-  const fade = sync.device?.transitionEffect === "fade";
-
   // The call replaces the playlist (instead of only covering it) so videos
-  // stop right away and no content plays behind the announcement.
+  // stop right away and no content plays behind the announcement. It works even
+  // before the first sync payload arrives.
   if (activeCall) {
     return (
       <div className="relative min-h-screen overflow-hidden bg-black">
         <QueueCallOverlay
           call={activeCall}
-          accentColor={sync.branding?.color ?? null}
+          accentColor={sync?.branding?.color ?? null}
           onDone={startNextCall}
         />
       </div>
     );
   }
+
+  if (!sync)
+    return <SplashScreen branding={null} message={error ?? "Conectando ao servidor…"} />;
+
+  const fade = sync.device?.transitionEffect === "fade";
 
   return (
     <div className="relative min-h-screen overflow-hidden bg-black">
