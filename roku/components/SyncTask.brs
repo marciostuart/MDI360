@@ -56,19 +56,25 @@ sub runLoop()
     linked = false
     revision = 0
 
+    ' Give the network stack a moment to initialize on cold boot before the
+    ' first register call. This avoids transient DNS failures right after
+    ' the channel launches.
+    sleep(1500)
+
     while true
         token = registryRead("deviceToken")
 
         if token = ""
             linked = false
-            m.top.statusText = "Registrando esta tela..."
+            m.top.activationCode = ""
+            m.top.statusText = "Gerando codigo de ativacao..."
             res = postJson(baseUrl + "/api/public/player/register", "", FormatJson({ appVersion: "roku-1.0.0" }))
-            if res.code = 200 and res.body <> invalid and res.body.deviceToken <> invalid
+            if res.code = 200 and res.body <> invalid and res.body.deviceToken <> invalid and res.body.activationCode <> invalid
                 registryWrite("deviceToken", res.body.deviceToken)
                 m.top.activationCode = res.body.activationCode
-                m.top.statusText = ""
+                m.top.statusText = "Codigo: " + res.body.activationCode
             else
-                m.top.statusText = "Sem conexao com o servidor (HTTP " + res.code.ToStr() + ") - " + baseUrl + ". Tentando novamente..."
+                m.top.statusText = "Falha ao registrar (HTTP " + res.code.ToStr() + "). Tentando em 5s..."
                 sleep(5000)
             end if
         else if not linked
@@ -82,6 +88,7 @@ sub runLoop()
                 registryDelete("deviceToken")
                 m.top.activationCode = ""
                 m.top.payload = {}
+                m.top.statusText = "Tela removida. Gerando novo codigo..."
             else if res.code = 200 and res.body <> invalid
                 state = ""
                 if res.body.state <> invalid then state = res.body.state
@@ -93,14 +100,16 @@ sub runLoop()
                     m.top.statusText = "Tela bloqueada. Fale com o suporte."
                     sleep(30000)
                 else
+                    ' Keep showing the same code; only overwrite it if the server
+                    ' actually returns a different one (should not happen while pending).
                     if res.body.activationCode <> invalid and res.body.activationCode <> ""
                         m.top.activationCode = res.body.activationCode
                     end if
-                    m.top.statusText = ""
+                    m.top.statusText = "Aguardando vinculacao..."
                     sleep(5000)
                 end if
             else
-                m.top.statusText = "Sem conexao com o servidor (HTTP " + res.code.ToStr() + "). Tentando novamente..."
+                m.top.statusText = "Sem conexao (HTTP " + res.code.ToStr() + "). Reconectando..."
                 sleep(10000)
             end if
         else
@@ -111,6 +120,7 @@ sub runLoop()
                 ' which decides between keeping the code or registering again.
                 linked = false
                 m.top.payload = {}
+                m.top.statusText = "Tela desvinculada."
             else if res.code = 200 and res.body <> invalid
                 m.top.statusText = ""
                 m.top.payload = res.body
@@ -141,7 +151,7 @@ sub runLoop()
                     end if
                 end while
             else
-                m.top.statusText = "Sem conexao com o servidor (HTTP " + res.code.ToStr() + "). Tentando novamente..."
+                m.top.statusText = "Sem conexao (HTTP " + res.code.ToStr() + "). Reconectando..."
                 sleep(10000)
             end if
         end if
