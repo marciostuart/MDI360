@@ -242,7 +242,20 @@ export const replaceDevice = createServerFn({ method: "POST" })
       )
       .limit(1);
     const next = target[0];
-    if (!next) throw new Error("Código inválido ou já utilizado.");
+    if (!next) {
+      // Distinguish "typed wrong" from "that screen is already linked": the
+      // customer needs to know the new TV has to be showing an activation code.
+      const claimed = await db
+        .select({ id: schema.devices.id })
+        .from(schema.devices)
+        .where(eq(schema.devices.pairingCode, data.code))
+        .limit(1);
+      throw new Error(
+        claimed[0]
+          ? "Essa tela já está vinculada. Remova-a antes de usar o código, ou informe o código exibido em uma tela nova."
+          : "Código inválido ou já utilizado.",
+      );
+    }
     if (next.id === old.id) throw new Error("Informe o código de outra tela.");
 
     // The new device inherits everything the customer had configured.
@@ -287,9 +300,11 @@ export const replaceDevice = createServerFn({ method: "POST" })
       createdBy: user.id,
     });
 
-    const { notifyDevice } = await import("@/lib/player/realtime.server");
+    const { notifyDevice, notifyOrganization } = await import("@/lib/player/realtime.server");
     notifyDevice(old.id);
     notifyDevice(next.id);
+    // The Studio list and every other screen of the customer refresh too.
+    notifyOrganization(user.organizationId);
 
     return { ok: true, deviceId: next.id };
   });
