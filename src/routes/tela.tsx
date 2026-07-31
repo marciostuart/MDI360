@@ -85,6 +85,8 @@ function PlayerScreen() {
   const [error, setError] = useState<string | null>(null);
   const [index, setIndex] = useState(0);
   const timerRef = useRef<number | null>(null);
+  /** Ultimo sinal de vida do player, usado pelo watchdog. */
+  const beatRef = useRef<number>(Date.now());
   const revisionRef = useRef(0);
   // Sync data that arrived while a file was on screen. It is only applied on
   // the next item boundary so nothing is ever cut mid-exhibition.
@@ -444,6 +446,21 @@ function PlayerScreen() {
       if (timerRef.current) window.clearTimeout(timerRef.current);
     };
   }, [current, items.length, advance]);
+
+  // Watchdog: qualquer sinal de vida (item trocou, chamada exibida, servidor
+  // respondeu) renova o relogio. Se nada acontecer por 2 minutos, a tela se
+  // recarrega sozinha em vez de ficar congelada.
+  useEffect(() => {
+    beatRef.current = Date.now();
+  }, [index, current, sync, activeCall, linked]);
+
+  useEffect(() => {
+    if (!linked) return;
+    const interval = window.setInterval(() => {
+      if (Date.now() - beatRef.current > 120_000) window.location.reload();
+    }, 15_000);
+    return () => window.clearInterval(interval);
+  }, [linked]);
 
   if (!ready) return <div className="min-h-screen bg-black" />;
 
