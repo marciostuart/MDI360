@@ -58,6 +58,8 @@ sub init()
     m.queue = m.top.findNode("queue")
     m.queueLabel = m.top.findNode("queueLabel")
     m.queueSector = m.top.findNode("queueSector")
+    m.queueHistory = m.top.findNode("queueHistory")
+    m.queueHistoryTitle = m.top.findNode("queueHistoryTitle")
     m.queueTitle = m.top.findNode("queueTitle")
     m.announce = m.top.findNode("announce")
     m.chime = m.top.findNode("chime")
@@ -459,6 +461,7 @@ sub startNextCall()
     else
         m.queueSector.text = ""
     end if
+    showQueueHistory(call)
     m.queue.visible = true
     m.queueActive = true
 
