@@ -63,6 +63,9 @@ async function wipeLocalCache() {
   }
 }
 
+/** Duration of the soft transition, used both on entry and on exit. */
+const FADE_MS = 700;
+
 export const Route = createFileRoute("/tela")({
   head: () => ({
     meta: [
@@ -97,12 +100,14 @@ function PlayerScreen() {
   // rotation after its download finishes, so the TV never buffers on air.
   const [readyUrls, setReadyUrls] = useState<Set<string>>(new Set());
   const [localSrc, setLocalSrc] = useState<string | null>(null);
+  const leaveRef = useRef<number | null>(null);
   /** True during the last FADE_MS of an item, so it fades out before swapping. */
   const [leaving, setLeaving] = useState(false);
   // Queue add-on: the call currently taking over the screen, plus the ones
   // waiting for their turn. Calls never overlap: each one owns the screen for
   // its full display time before the next enters.
   const [activeCall, setActiveCall] = useState<QueueCallPayload | null>(null);
+  const fade = sync?.device?.transitionEffect === "fade";
   const activeCallRef = useRef<QueueCallPayload | null>(null);
   const waitingCallsRef = useRef<QueueCallPayload[]>([]);
   const seenCallIdsRef = useRef<Set<string>>(new Set());
@@ -507,8 +512,6 @@ function PlayerScreen() {
       </div>
     );
 
-  const fade = sync.device?.transitionEffect === "fade";
-
   return (
     <div className="relative min-h-screen overflow-hidden bg-black">
       {items.length === 0 ? (
@@ -531,6 +534,13 @@ function PlayerScreen() {
             muted={current.isMuted || sync.device?.audioEnabled === false || Boolean(activeCall)}
             playsInline
             loop={items.length === 1 && !hasPending}
+            onTimeUpdate={(event) => {
+              if (!fade || leaving) return;
+              const el = event.currentTarget;
+              if (!Number.isFinite(el.duration) || el.duration <= FADE_MS / 500) return;
+              if (items.length === 1 && !hasPending) return;
+              if (el.duration - el.currentTime <= FADE_MS / 1000) setLeaving(true);
+            }}
             onEnded={() => {
               if (items.length === 1 && !hasPending) return;
               advance();
