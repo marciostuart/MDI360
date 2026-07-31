@@ -710,74 +710,68 @@ export function MediaLibrary() {
         <WidgetComposer editing={editingWidget} onCancelEditing={() => setEditingWidget(null)} />
       </div>
 
+      <div className="flex flex-wrap items-center gap-2">
+        <div className="relative min-w-[220px] flex-1">
+          <Search className="pointer-events-none absolute left-3 top-1/2 size-4 -translate-y-1/2 text-muted-foreground" />
+          <Input
+            value={search}
+            onChange={(event) => setSearch(event.target.value)}
+            placeholder="Pesquisar por nome ou tag"
+            className="pl-9"
+            aria-label="Pesquisar conteúdos"
+          />
+        </div>
+        <Select value={tagFilter} onValueChange={setTagFilter}>
+          <SelectTrigger className="w-[190px]" aria-label="Filtrar por tag">
+            <SelectValue placeholder="Todas as tags" />
+          </SelectTrigger>
+          <SelectContent>
+            <SelectItem value="all">Todas as tags</SelectItem>
+            {allTags.map((tag) => (
+              <SelectItem key={tag} value={tag}>
+                {tag}
+              </SelectItem>
+            ))}
+          </SelectContent>
+        </Select>
+        <Select value={sortBy} onValueChange={(value) => setSortBy(value as typeof sortBy)}>
+          <SelectTrigger className="w-[210px]" aria-label="Ordenar">
+            <SelectValue />
+          </SelectTrigger>
+          <SelectContent>
+            <SelectItem value="newest">Envio mais recente</SelectItem>
+            <SelectItem value="oldest">Envio mais antigo</SelectItem>
+            <SelectItem value="name">Nome (A-Z)</SelectItem>
+          </SelectContent>
+        </Select>
+      </div>
+
       {library.isPending ? (
         <div className="grid place-items-center py-10">
           <Loader2 className="size-5 animate-spin text-muted-foreground" />
         </div>
       ) : items.length === 0 ? (
         <p className="text-sm text-muted-foreground">
-          Nenhum conteúdo por aqui ainda. Envie o primeiro arquivo acima.
+          Nenhum conteúdo por aqui ainda. Envie o primeiro arquivo pelo botão acima.
+        </p>
+      ) : visibleItems.length === 0 ? (
+        <p className="text-sm text-muted-foreground">
+          Nenhum conteúdo encontrado com esses filtros.
         </p>
       ) : (
-        <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
-          {items.map((item) => (
-            <Card key={item.id} className="overflow-hidden">
-              <div className="grid aspect-video place-items-center bg-secondary">
-                {item.kind === "widget" && item.widgetConfig ? (
-                  <WidgetView config={item.widgetConfig} />
-                ) : item.kind === "image" && item.previewUrl ? (
-                  <img
-                    src={item.previewUrl}
-                    alt={item.name}
-                    className="size-full object-contain"
-                    loading="lazy"
-                  />
-                ) : item.kind === "video" && item.previewUrl ? (
-                  <video
-                    src={item.previewUrl}
-                    muted
-                    controls
-                    className="size-full object-contain"
-                  />
-                ) : item.kind === "video" ? (
-                  <Film className="size-8 text-muted-foreground" />
-                ) : item.kind === "widget" ? (
-                  <Gauge className="size-8 text-muted-foreground" />
-                ) : (
-                  <ImageIcon className="size-8 text-muted-foreground" />
-                )}
-              </div>
-              <CardContent className="space-y-2 pt-4">
-                <div className="flex items-start justify-between gap-2">
+        <div className="divide-y divide-border overflow-hidden rounded-xl border border-border">
+          {visibleItems.map((item) => (
+            <div key={item.id} className="flex flex-wrap items-start gap-4 p-4">
+              <div className="min-w-[220px] flex-1 space-y-2">
+                <div className="flex items-center gap-2">
+                  {item.kind === "video" ? (
+                    <Film className="size-4 shrink-0 text-muted-foreground" />
+                  ) : item.kind === "widget" ? (
+                    <Gauge className="size-4 shrink-0 text-muted-foreground" />
+                  ) : (
+                    <ImageIcon className="size-4 shrink-0 text-muted-foreground" />
+                  )}
                   <p className="truncate text-sm font-medium">{item.name}</p>
-                  {item.kind === "widget" && item.widgetConfig ? (
-                    <Button
-                      variant="ghost"
-                      size="icon"
-                      className="size-8 text-muted-foreground"
-                      onClick={() => {
-                        setEditingWidget({
-                          assetId: item.id,
-                          name: item.name,
-                          config: item.widgetConfig!,
-                        });
-                        composerRef.current?.scrollIntoView({ behavior: "smooth", block: "start" });
-                      }}
-                      aria-label={`Personalizar ${item.name}`}
-                    >
-                      <Pencil className="size-4" />
-                    </Button>
-                  ) : null}
-                  <Button
-                    variant="ghost"
-                    size="icon"
-                    className="size-8 text-muted-foreground"
-                    onClick={() => removeMutation.mutate(item.id)}
-                    disabled={removeMutation.isPending}
-                    aria-label={`Remover ${item.name}`}
-                  >
-                    <Trash2 className="size-4" />
-                  </Button>
                 </div>
                 <div className="flex flex-wrap gap-1.5">
                   {item.kind === "widget" ? (
@@ -795,21 +789,51 @@ export function MediaLibrary() {
                   {item.kind === "widget" ? null : (
                     <Badge variant="outline">{formatBytes(item.byteSize)}</Badge>
                   )}
+                  <Badge variant="outline">
+                    {new Date(item.createdAt).toLocaleDateString("pt-BR")}
+                  </Badge>
                   {item.status !== "ready" ? (
                     <Badge variant="destructive">
                       {item.status === "uploading" ? "Envio incompleto" : "Falhou"}
                     </Badge>
                   ) : null}
                 </div>
-                {item.originalByteSize && item.byteSize && item.originalByteSize > item.byteSize ? (
-                  <p className="text-xs text-muted-foreground">
-                    Original {formatBytes(item.originalByteSize)} → otimizado{" "}
-                    {formatBytes(item.byteSize)}
-                  </p>
-                ) : null}
+                <TagEditor item={item} />
                 <AirWindowEditor item={item} />
-              </CardContent>
-            </Card>
+              </div>
+
+              <div className="flex items-center gap-2">
+                <MediaPreview item={item} />
+                {item.kind === "widget" && item.widgetConfig ? (
+                  <Button
+                    variant="ghost"
+                    size="icon"
+                    className="size-8 text-muted-foreground"
+                    onClick={() => {
+                      setEditingWidget({
+                        assetId: item.id,
+                        name: item.name,
+                        config: item.widgetConfig!,
+                      });
+                      composerRef.current?.scrollIntoView({ behavior: "smooth", block: "start" });
+                    }}
+                    aria-label={`Personalizar ${item.name}`}
+                  >
+                    <Pencil className="size-4" />
+                  </Button>
+                ) : null}
+                <Button
+                  variant="ghost"
+                  size="icon"
+                  className="size-8 text-muted-foreground"
+                  onClick={() => removeMutation.mutate(item.id)}
+                  disabled={removeMutation.isPending}
+                  aria-label={`Remover ${item.name}`}
+                >
+                  <Trash2 className="size-4" />
+                </Button>
+              </div>
+            </div>
           ))}
         </div>
       )}
