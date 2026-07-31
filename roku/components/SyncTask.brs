@@ -55,6 +55,8 @@ sub runLoop()
     intervalMs = 60000
     linked = false
     revision = 0
+    ' First status check of a waiting cycle is instant; the rest long-poll.
+    m.firstStatus = true
 
     ' Give the network stack a moment to initialize on cold boot before the
     ' first register call. This avoids transient DNS failures right after
@@ -73,6 +75,7 @@ sub runLoop()
                 registryWrite("deviceToken", res.body.deviceToken)
                 m.top.activationCode = res.body.activationCode
                 m.top.statusText = "Codigo: " + res.body.activationCode
+                m.firstStatus = true
             else
                 m.top.statusText = "Falha ao registrar (HTTP " + res.code.ToStr() + "). Tentando em 5s..."
                 sleep(5000)
@@ -95,6 +98,7 @@ sub runLoop()
                 m.top.activationCode = ""
                 m.top.payload = {}
                 m.top.statusText = "Tela removida. Gerando novo codigo..."
+                m.firstStatus = true
             else if res.code = 200 and res.body <> invalid
                 state = ""
                 if res.body.state <> invalid then state = res.body.state
