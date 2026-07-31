@@ -701,9 +701,10 @@ export function MediaLibrary() {
                 );
               })}
             </div>
-          ) : null}
-        </CardContent>
-      </Card>
+            ) : null}
+          </CardContent>
+        </Card>
+      ) : null}
 
       <div ref={composerRef}>
         <WidgetComposer editing={editingWidget} onCancelEditing={() => setEditingWidget(null)} />
