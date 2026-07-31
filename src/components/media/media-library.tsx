@@ -3,14 +3,19 @@ import { useServerFn } from "@tanstack/react-start";
 import {
   CheckCircle2,
   CalendarClock,
+  Eye,
   Film,
   Gauge,
   Image as ImageIcon,
   Loader2,
   Pencil,
+  Plus,
+  Search,
   Sparkles,
+  Tag as TagIcon,
   Trash2,
   UploadCloud,
+  X,
   XCircle,
 } from "lucide-react";
 import { useEffect, useRef, useState } from "react";
@@ -19,6 +24,7 @@ import { toast } from "sonner";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
+import { Dialog, DialogContent, DialogTitle } from "@/components/ui/dialog";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import {
@@ -35,6 +41,7 @@ import {
   deleteMediaAsset,
   listMediaAssets,
   setMediaAirWindow,
+  setMediaTags,
 } from "@/lib/media/media.functions";
 import type { MediaListItem } from "@/lib/media/media.functions";
 import { prepareUpload } from "@/lib/media/optimize-client";
