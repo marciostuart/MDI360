@@ -354,6 +354,95 @@ export const playbackEvents = pgTable(
 );
 
 /* ------------------------------------------------------------------ */
+/* Add-on: sistema de chamada de senhas                                */
+/* ------------------------------------------------------------------ */
+
+/**
+ * One panel per screen. Holds the credentials of the operator that only ever
+ * manages queue calls — never the Studio. Password is stored hashed.
+ */
+export const queuePanels = pgTable(
+  "queue_panels",
+  {
+    id: uuid("id").primaryKey().defaultRandom(),
+    organizationId: uuid("organization_id")
+      .notNull()
+      .references(() => organizations.id, { onDelete: "cascade" }),
+    deviceId: uuid("device_id")
+      .notNull()
+      .references(() => devices.id, { onDelete: "cascade" }),
+    isEnabled: boolean("is_enabled").notNull().default(true),
+    /** "sequential" = só o número · "sector" = setor + número. */
+    mode: text("mode").notNull().default("sequential"),
+    /** Prefix used in sequential mode ("A" -> A001). Optional. */
+    prefix: text("prefix"),
+    lastNumber: integer("last_number").notNull().default(0),
+    /** Seconds the call stays on the TV before playback resumes. */
+    displaySeconds: integer("display_seconds").notNull().default(20),
+    username: text("username").notNull(),
+    passwordHash: text("password_hash").notNull(),
+    createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
+  },
+  (t) => [
+    uniqueIndex("queue_panels_device_unique").on(t.deviceId),
+    uniqueIndex("queue_panels_username_unique").on(t.username),
+  ],
+);
+
+export const queueSectors = pgTable(
+  "queue_sectors",
+  {
+    id: uuid("id").primaryKey().defaultRandom(),
+    panelId: uuid("panel_id")
+      .notNull()
+      .references(() => queuePanels.id, { onDelete: "cascade" }),
+    name: text("name").notNull(),
+    prefix: text("prefix"),
+    lastNumber: integer("last_number").notNull().default(0),
+    position: integer("position").notNull().default(0),
+    createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
+  },
+  (t) => [index("queue_sectors_panel_idx").on(t.panelId, t.position)],
+);
+
+export const queueCalls = pgTable(
+  "queue_calls",
+  {
+    id: uuid("id").primaryKey().defaultRandom(),
+    panelId: uuid("panel_id")
+      .notNull()
+      .references(() => queuePanels.id, { onDelete: "cascade" }),
+    sectorId: uuid("sector_id").references(() => queueSectors.id, { onDelete: "set null" }),
+    /** Snapshot of the sector name, so history survives a rename/removal. */
+    sectorName: text("sector_name"),
+    number: integer("number").notNull(),
+    /** Ready-to-show ticket ("A012", "032"). */
+    label: text("label").notNull(),
+    /** Sentence the TV speaks out loud. */
+    spokenText: text("spoken_text").notNull(),
+    /** Bumped when the operator repeats the same call. */
+    repeatCount: integer("repeat_count").notNull().default(0),
+    createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
+    calledAt: timestamp("called_at", { withTimezone: true }).notNull().defaultNow(),
+  },
+  (t) => [index("queue_calls_panel_idx").on(t.panelId, t.calledAt)],
+);
+
+/** Operator sessions of the queue panel. Separate from Studio sessions. */
+export const queueSessions = pgTable(
+  "queue_sessions",
+  {
+    id: text("id").primaryKey(),
+    panelId: uuid("panel_id")
+      .notNull()
+      .references(() => queuePanels.id, { onDelete: "cascade" }),
+    expiresAt: timestamp("expires_at", { withTimezone: true }).notNull(),
+    createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
+  },
+  (t) => [index("queue_sessions_panel_idx").on(t.panelId)],
+);
+
+/* ------------------------------------------------------------------ */
 /* Relations                                                            */
 /* ------------------------------------------------------------------ */
 

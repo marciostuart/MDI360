@@ -71,6 +71,13 @@
       "when": 1785446571961,
       "tag": "0009_media_air_window",
       "breakpoints": true
+    },
+    {
+      "idx": 10,
+      "version": "7",
+      "when": 1785446571962,
+      "tag": "0010_queue_addon",
+      "breakpoints": true
     }
   ]
 }
