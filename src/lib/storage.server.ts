@@ -3,6 +3,8 @@ import {
   PutObjectCommand,
   S3Client,
   DeleteObjectCommand,
+  DeleteObjectsCommand,
+  ListObjectsV2Command,
   HeadBucketCommand,
 } from "@aws-sdk/client-s3";
 import { getSignedUrl } from "@aws-sdk/s3-request-presigner";
@@ -188,6 +190,29 @@ export function createUploadUrl(key: string, contentType: string, expiresInSecon
 
 export async function deleteObject(key: string) {
   await getClient().send(new DeleteObjectCommand({ Bucket: getBucket(), Key: key }));
+}
+
+/**
+ * Removes every object under a prefix (e.g. `org/<id>/`). Used when a customer
+ * account is deleted so no media survives the database cascade.
+ */
+export async function deleteObjectsByPrefix(prefix: string) {
+  const client = getClient();
+  const Bucket = getBucket();
+  let ContinuationToken: string | undefined;
+
+  do {
+    const listed = await client.send(
+      new ListObjectsV2Command({ Bucket, Prefix: prefix, ContinuationToken }),
+    );
+    const keys = (listed.Contents ?? []).map((o) => o.Key).filter((k): k is string => Boolean(k));
+    if (keys.length) {
+      await client.send(
+        new DeleteObjectsCommand({ Bucket, Delete: { Objects: keys.map((Key) => ({ Key })) } }),
+      );
+    }
+    ContinuationToken = listed.IsTruncated ? listed.NextContinuationToken : undefined;
+  } while (ContinuationToken);
 }
 
 /** Uploads bytes straight from our server to MinIO (no browser CORS involved). */

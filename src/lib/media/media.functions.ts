@@ -129,22 +129,43 @@ export const createMediaUploadTicket = createServerFn({ method: "POST" })
     const assetId = randomUUID();
     const storageKey = `org/${user.organizationId}/media/${assetId}.${data.extension}`;
 
-    await getDb().insert(schema.mediaAssets).values({
-      id: assetId,
-      organizationId: user.organizationId,
-      name: data.name,
-      kind: data.kind,
-      status: "uploading",
-      canvasPreset: data.canvasPreset,
-      storageKey,
-      mimeType: data.mimeType,
-      byteSize: data.byteSize,
-      originalByteSize: data.originalByteSize,
-      durationMs: data.durationMs ?? null,
-      width: data.width,
-      height: data.height,
-      createdBy: user.id,
-    });
+    const { getOrgLimits } = await import("@/lib/admin/limits.server");
+    const limits = await getOrgLimits(user.organizationId);
+    if (limits.expired || limits.subscriptionStatus === "suspended") {
+      throw new Error("Assinatura inativa. Fale com o suporte para reativar sua conta.");
+    }
+    const quotaBytes = limits.maxStorageMb * 1024 * 1024;
+
+    // Atomic reservation: the row (and therefore the quota consumption) is only
+    // created if the declared size still fits. Two parallel uploads can no
+    // longer both pass a read-then-write check and overshoot the plan.
+    const { sql } = await import("drizzle-orm");
+    const inserted = await getDb().execute(sql`
+      insert into media_assets
+        (id, organization_id, name, kind, status, canvas_preset, storage_key,
+         mime_type, byte_size, original_byte_size, duration_ms, width, height, created_by)
+      select ${assetId}::uuid, ${user.organizationId}::uuid, ${data.name}, ${data.kind}::media_kind,
+             'uploading'::media_status, ${data.canvasPreset}, ${storageKey},
+             ${data.mimeType}, ${data.byteSize}, ${data.originalByteSize},
+             ${data.durationMs ?? null}, ${data.width}, ${data.height}, ${user.id}::uuid
+      where (
+        select coalesce(sum(byte_size), 0) from media_assets
+        where organization_id = ${user.organizationId}::uuid
+      ) + ${data.byteSize} <= ${quotaBytes}
+      returning id
+    `);
+
+    const rowCount = Array.isArray(inserted)
+      ? inserted.length
+      : ((inserted as { rowCount?: number; rows?: unknown[] }).rowCount ??
+        (inserted as { rows?: unknown[] }).rows?.length ??
+        0);
+
+    if (!rowCount) {
+      throw new Error(
+        `Espaço esgotado: seu plano tem ${limits.maxStorageMb} MB. Remova arquivos ou faça upgrade.`,
+      );
+    }
 
     const uploadUrl = await createUploadUrl(storageKey, data.mimeType, 900);
     return { assetId, uploadUrl };
