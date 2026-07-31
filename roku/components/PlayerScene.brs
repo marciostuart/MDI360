@@ -160,6 +160,9 @@ sub applyPayload(payload as object)
 
     if payload.playlist = invalid or payload.playlist.items = invalid or payload.playlist.items.Count() = 0
         m.items = []
+        m.allItems = []
+        m.readyMap = {}
+        if m.prefetch <> invalid then m.prefetch.urls = []
         ' Forget the revision: when the same playlist comes back (unchanged
         ' revision) we must accept it again instead of ignoring it below.
         m.revision = -1
