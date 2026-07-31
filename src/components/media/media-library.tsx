@@ -527,6 +527,7 @@ export function MediaLibrary() {
                     {formatBytes(item.byteSize)}
                   </p>
                 ) : null}
+                <AirWindowEditor item={item} />
               </CardContent>
             </Card>
           ))}
