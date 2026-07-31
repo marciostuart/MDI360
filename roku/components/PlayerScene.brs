@@ -60,12 +60,23 @@ sub init()
     m.queueSector = m.top.findNode("queueSector")
     m.queueTitle = m.top.findNode("queueTitle")
     m.announce = m.top.findNode("announce")
-    m.lastCallId = ""
+    m.chime = m.top.findNode("chime")
+    m.seenCalls = {}
+    ' Chamadas aguardando a vez: uma chamada nunca corta a anterior.
+    m.pendingCalls = []
+    m.pendingAnnounceUrl = ""
     m.queueActive = false
     m.queueTimer = CreateObject("roSGNode", "Timer")
     m.queueTimer.repeat = false
     m.queueTimer.observeField("fire", "onQueueTimer")
     m.top.appendChild(m.queueTimer)
+
+    ' A locucao entra depois do sinal sonoro, para nao se sobrepor a ele.
+    m.announceTimer = CreateObject("roSGNode", "Timer")
+    m.announceTimer.repeat = false
+    m.announceTimer.duration = 1.3
+    m.announceTimer.observeField("fire", "onAnnounceTimer")
+    m.top.appendChild(m.announceTimer)
 
     m.prefetch = m.top.findNode("prefetch")
     m.prefetch.observeField("ready", "onPrefetchReady")
@@ -397,13 +408,35 @@ end sub
 
 ' ---------------------------------------------------------------- senhas ----
 
-' Shows the ticket, beeps and speaks it. Called on every sync payload; only a
-' new call id (repeats change it too) triggers a new announcement.
+' Enfileira as chamadas recebidas no payload (nunca vistas antes) e inicia a
+' primeira se a tela estiver livre. Chamadas em sequencia formam fila.
 sub handleQueueCall(payload as object)
-    call = payload.queueCall
-    if call = invalid or call.id = invalid or call.id = "" then return
-    if call.id = m.lastCallId then return
-    m.lastCallId = call.id
+    calls = payload.queueCalls
+    if calls = invalid or Type(calls) <> "roArray"
+        calls = []
+        if payload.queueCall <> invalid then calls.push(payload.queueCall)
+    end if
+    if calls.Count() = 0 then return
+
+    added = false
+    for each call in calls
+        if call <> invalid and call.id <> invalid and call.id <> ""
+            if m.seenCalls[call.id] <> true
+                m.seenCalls[call.id] = true
+                m.pendingCalls.push(call)
+                added = true
+            end if
+        end if
+    end for
+
+    if added and m.queueActive <> true then startNextCall()
+end sub
+
+' Coloca na tela a proxima chamada da fila (se houver).
+sub startNextCall()
+    if m.pendingCalls.Count() = 0 then return
+    call = m.pendingCalls.Shift()
+    if call = invalid then return
 
     seconds = 20
     if call.displaySeconds <> invalid and call.displaySeconds > 4 then seconds = call.displaySeconds
@@ -429,19 +462,18 @@ sub handleQueueCall(payload as object)
     m.queue.visible = true
     m.queueActive = true
 
-    ' Sinal sonoro: sons do sistema, que tocam mesmo com o volume da playlist
-    ' desativado no Studio (a TV nao esta muda, apenas os videos).
+    ' Sinal sonoro: MP3 embarcado no canal (o som de sistema do Roku depende de
+    ' uma preferencia da TV e por isso nao era confiavel).
     beep()
 
     ' Locucao: o Roku nao tem sintese de voz, entao o servidor entrega um MP3
-    ' pronto com "setor + senha".
+    ' pronto com "setor + senha". Toca logo depois do sinal sonoro.
+    m.announceTimer.control = "stop"
+    m.announce.control = "stop"
+    m.pendingAnnounceUrl = ""
     if call.audioUrl <> invalid and call.audioUrl <> ""
-        content = CreateObject("roSGNode", "ContentNode")
-        content.url = m.sync.baseUrl + call.audioUrl
-        content.streamformat = "mp3"
-        m.announce.control = "stop"
-        m.announce.content = content
-        m.announce.control = "play"
+        m.pendingAnnounceUrl = m.sync.baseUrl + call.audioUrl
+        m.announceTimer.control = "start"
     end if
 
     m.queueTimer.control = "stop"
@@ -449,21 +481,43 @@ sub handleQueueCall(payload as object)
     m.queueTimer.control = "start"
 end sub
 
-' Two short chimes before the announcement.
+' Dois toques curtos antes da locucao. Usa um Audio node com MP3 do pacote:
+' funciona mesmo quando os efeitos sonoros do Roku estao desligados e nao
+' bloqueia a thread de render (o sleep antigo travava a animacao da tela).
 sub beep()
-    resource = CreateObject("roAudioResource", "navsingle")
-    if resource = invalid then return
-    resource.trigger(100)
-    sleep(320)
-    resource.trigger(100)
-    sleep(220)
+    if m.chime = invalid then return
+    content = CreateObject("roSGNode", "ContentNode")
+    content.url = "pkg:/audio/chime.mp3"
+    content.streamformat = "mp3"
+    m.chime.control = "stop"
+    m.chime.content = content
+    m.chime.control = "play"
 end sub
 
-' The call is over: hide it and resume the playlist from the next item.
+' Hora da locucao: o sinal sonoro ja terminou.
+sub onAnnounceTimer()
+    if m.pendingAnnounceUrl = "" then return
+    content = CreateObject("roSGNode", "ContentNode")
+    content.url = m.pendingAnnounceUrl
+    content.streamformat = "mp3"
+    m.announce.control = "stop"
+    m.announce.content = content
+    m.announce.control = "play"
+end sub
+
+' The call is over: show the next one in line, or resume the playlist.
 sub onQueueTimer()
     m.queueActive = false
-    m.queue.visible = false
     m.announce.control = "stop"
+    m.announceTimer.control = "stop"
+    m.pendingAnnounceUrl = ""
+
+    if m.pendingCalls.Count() > 0
+        startNextCall()
+        return
+    end if
+
+    m.queue.visible = false
 
     if m.items.Count() > 0
         showPairing(false)

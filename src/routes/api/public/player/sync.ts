@@ -50,14 +50,17 @@ export const Route = createFileRoute("/api/public/player/sync")({
 
         const playlist = await resolvePlaylistForDevice(device.id);
 
-        // Queue add-on: latest ticket call for this screen (null when off).
-        const { currentQueueCall } = await import("@/lib/queue/current-call.server");
-        let queueCall = null;
+        // Queue add-on: pending ticket calls for this screen, oldest first. The
+        // player plays them one at a time, respecting each display time.
+        const { recentQueueCalls } = await import("@/lib/queue/current-call.server");
+        let queueCalls: Awaited<ReturnType<typeof recentQueueCalls>> = [];
         try {
-          queueCall = await currentQueueCall(device.id);
+          queueCalls = await recentQueueCalls(device.id);
         } catch {
-          queueCall = null;
+          queueCalls = [];
         }
+        // Kept for players installed before the queue became a list.
+        const queueCall = queueCalls.length > 0 ? queueCalls[queueCalls.length - 1] : null;
 
         const { revisionFor } = await import("@/lib/player/realtime.server");
 
@@ -135,6 +138,7 @@ export const Route = createFileRoute("/api/public/player/sync")({
             playlist,
             branding,
             queueCall,
+            queueCalls,
             commands: commands.map((c) => c.kind),
             syncIntervalMs: 60_000,
             // Seed for the long-poll channel (/api/public/player/events).

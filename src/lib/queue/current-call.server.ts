@@ -15,11 +15,11 @@ export type QueueCallPayload = {
 };
 
 /**
- * Latest queue call of a screen, or null when the add-on is off / nothing was
- * called yet. Rides along the normal /sync payload, which the push channel
- * already delivers in well under a second.
+ * Recent queue calls of a screen, oldest first. The player shows them one at a
+ * time, respecting the configured display time of each one, so a burst of
+ * sector calls becomes a queue instead of overlapping announcements.
  */
-export async function currentQueueCall(deviceId: string): Promise<QueueCallPayload | null> {
+export async function recentQueueCalls(deviceId: string): Promise<QueueCallPayload[]> {
   const db = getDb();
 
   const panels = await db
@@ -33,29 +33,33 @@ export async function currentQueueCall(deviceId: string): Promise<QueueCallPaylo
     .limit(1);
 
   const panel = panels[0];
-  if (!panel || !panel.isEnabled) return null;
+  if (!panel || !panel.isEnabled) return [];
+
+  const maxQueued = 8;
 
   const calls = await db
     .select()
     .from(schema.queueCalls)
     .where(eq(schema.queueCalls.panelId, panel.id))
     .orderBy(desc(schema.queueCalls.calledAt))
-    .limit(1);
+    .limit(maxQueued);
 
-  const call = calls[0];
-  if (!call) return null;
+  const seconds = Math.max(panel.displaySeconds, 5);
+  // Wide enough to cover a queue that is still draining, narrow enough that a
+  // screen that reloads does not replay calls from minutes ago.
+  const window = (seconds * maxQueued + 15) * 1000;
+  const now = Date.now();
 
-  // Old calls must not interrupt playback after a screen reload.
-  const age = Date.now() - call.calledAt.getTime();
-  if (age > Math.max(panel.displaySeconds, 15) * 1000) return null;
-
-  return {
-    id: `${call.id}:${call.repeatCount}`,
-    label: call.label,
-    sectorName: call.sectorName,
-    spokenText: call.spokenText,
-    audioUrl: `/api/public/player/announce?call=${call.id}&r=${call.repeatCount}`,
-    displaySeconds: panel.displaySeconds,
-    calledAt: call.calledAt.toISOString(),
-  };
+  return calls
+    .filter((call) => now - call.calledAt.getTime() <= window)
+    .reverse()
+    .map((call) => ({
+      id: `${call.id}:${call.repeatCount}`,
+      label: call.label,
+      sectorName: call.sectorName,
+      spokenText: call.spokenText,
+      audioUrl: `/api/public/player/announce?call=${call.id}&r=${call.repeatCount}`,
+      displaySeconds: seconds,
+      calledAt: call.calledAt.toISOString(),
+    }));
 }
