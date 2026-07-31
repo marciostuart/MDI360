@@ -50,6 +50,15 @@ export const Route = createFileRoute("/api/public/player/sync")({
 
         const playlist = await resolvePlaylistForDevice(device.id);
 
+        // Queue add-on: latest ticket call for this screen (null when off).
+        const { currentQueueCall } = await import("@/lib/queue/current-call.server");
+        let queueCall = null;
+        try {
+          queueCall = await currentQueueCall(device.id);
+        } catch {
+          queueCall = null;
+        }
+
         const { revisionFor } = await import("@/lib/player/realtime.server");
 
         // Whitelabel branding of the organization that owns this screen.
@@ -125,6 +134,7 @@ export const Route = createFileRoute("/api/public/player/sync")({
             },
             playlist,
             branding,
+            queueCall,
             commands: commands.map((c) => c.kind),
             syncIntervalMs: 60_000,
             // Seed for the long-poll channel (/api/public/player/events).
