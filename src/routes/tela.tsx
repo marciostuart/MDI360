@@ -85,6 +85,8 @@ function PlayerScreen() {
   const [error, setError] = useState<string | null>(null);
   const [index, setIndex] = useState(0);
   const timerRef = useRef<number | null>(null);
+  /** Ultimo sinal de vida do player, usado pelo watchdog. */
+  const beatRef = useRef<number>(Date.now());
   const revisionRef = useRef(0);
   // Sync data that arrived while a file was on screen. It is only applied on
   // the next item boundary so nothing is ever cut mid-exhibition.
