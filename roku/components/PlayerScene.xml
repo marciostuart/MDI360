@@ -13,6 +13,26 @@
          stream buffers and provides the optional fade between items. -->
     <Rectangle id="cover" width="1920" height="1080" color="0x000000FF" opacity="0" />
 
+    <!-- Add-on de senhas: chamada em tela cheia, acima de qualquer conteudo. -->
+    <Group id="queue" visible="false">
+      <Rectangle id="queueBg" width="1920" height="1080" color="0x000000FF" />
+      <Label id="queueTitle" text="SENHA CHAMADA" translation="[0,220]" width="1920"
+             horizAlign="center" color="0x38BDF8FF">
+        <Font role="font" uri="font:BoldSystemFontFile" size="52" />
+      </Label>
+      <Label id="queueLabel" translation="[0,320]" width="1920" horizAlign="center"
+             color="0xFFFFFFFF">
+        <Font role="font" uri="font:BoldSystemFontFile" size="340" />
+      </Label>
+      <Label id="queueSector" translation="[0,760]" width="1920" horizAlign="center"
+             color="0x38BDF8FF">
+        <Font role="font" uri="font:BoldSystemFontFile" size="96" />
+      </Label>
+    </Group>
+
+    <!-- Locucao da senha (MP3 gerado pelo servidor). -->
+    <Audio id="announce" />
+
     <Animation id="fadeAnim" duration="0.6" repeat="false" easeFunction="linear">
       <FloatFieldInterpolator id="fadeInterp" key="[0.0,1.0]" keyValue="[1.0,0.0]"
                               fieldToInterp="cover.opacity" />

@@ -8,6 +8,8 @@ export type QueueCallPayload = {
   label: string;
   sectorName: string | null;
   spokenText: string;
+  /** Ready-made MP3 for players without a speech engine (Roku). */
+  audioUrl: string;
   displaySeconds: number;
   calledAt: string;
 };
@@ -52,6 +54,7 @@ export async function currentQueueCall(deviceId: string): Promise<QueueCallPaylo
     label: call.label,
     sectorName: call.sectorName,
     spokenText: call.spokenText,
+    audioUrl: `/api/public/player/announce?call=${call.id}&r=${call.repeatCount}`,
     displaySeconds: panel.displaySeconds,
     calledAt: call.calledAt.toISOString(),
   };
