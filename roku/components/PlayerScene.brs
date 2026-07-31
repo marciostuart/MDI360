@@ -45,6 +45,8 @@ sub init()
     m.top.appendChild(m.stallTimer)
 
     m.playlistId = invalid
+    ' Payload that arrived mid-exhibition: applied only at the next boundary.
+    m.pendingPayload = invalid
     m.report = m.top.findNode("report")
 
     m.sync = m.top.findNode("sync")
@@ -85,6 +87,48 @@ end sub
 sub onPayload()
     payload = m.sync.payload
     if payload = invalid then return
+
+    ' Nothing on screen yet (or playlist emptied): apply right away.
+    if m.items.Count() = 0
+        applyPayload(payload)
+        return
+    end if
+
+    ' Playlist gone: stop immediately, that is the expected behaviour.
+    if payload.playlist = invalid or payload.playlist.items = invalid or payload.playlist.items.Count() = 0
+        m.pendingPayload = invalid
+        applyPayload(payload)
+        return
+    end if
+
+    ' Something is playing: hold the new payload until the current file ends,
+    ' so the content is never cut in the middle.
+    if changesPlayback(payload)
+        m.pendingPayload = payload
+    else
+        applyPayload(payload)
+    end if
+end sub
+
+' True when the payload would change what/how the TV plays (playlist revision,
+' global audio switch or transition setting).
+function changesPlayback(payload as object) as boolean
+    if payload.playlist <> invalid and payload.playlist.revision <> m.revision then return true
+    if payload.device <> invalid
+        audio = true
+        if payload.device.audioEnabled = false then audio = false
+        if audio <> m.audioEnabled then return true
+        if payload.device.transitionEffect <> invalid
+            newTransition = "none"
+            if payload.device.transitionEffect = "fade" then newTransition = "fade"
+            if newTransition <> m.transition then return true
+        end if
+    end if
+    return false
+end function
+
+sub applyPayload(payload as object)
+    m.pendingPayload = invalid
 
     ' Global audio switch of this screen. When the TV is muted in the Studio,
     ' every video plays silently no matter what the playlist item asks for.
@@ -141,6 +185,13 @@ sub onPayload()
 end sub
 
 sub playNext()
+    ' A newer playlist / settings payload waited for this exact moment.
+    if m.pendingPayload <> invalid
+        pending = m.pendingPayload
+        m.pendingPayload = invalid
+        applyPayload(pending)
+        return
+    end if
     if m.items.Count() = 0 then return
     m.index = (m.index + 1) mod m.items.Count()
     item = m.items[m.index]
