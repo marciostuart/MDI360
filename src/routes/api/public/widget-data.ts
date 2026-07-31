@@ -34,17 +34,36 @@ function decodeEntities(value: string) {
     .trim();
 }
 
-function parseRssTitles(xml: string, limit: number) {
+type NewsItem = { title: string; summary: string; image: string | null; publishedAt: string | null };
+
+/** Pulls title, summary and (when present) the item image out of an RSS feed. */
+function parseRssItems(xml: string, limit: number): NewsItem[] {
   const blocks = xml.split(/<item[\s>]/i).slice(1);
-  const titles: string[] = [];
+  const items: NewsItem[] = [];
   for (const block of blocks) {
-    const match = block.match(/<title[^>]*>([\s\S]*?)<\/title>/i);
-    if (!match) continue;
-    const title = decodeEntities(match[1] ?? "");
-    if (title) titles.push(title);
-    if (titles.length >= limit) break;
+    const title = decodeEntities(block.match(/<title[^>]*>([\s\S]*?)<\/title>/i)?.[1] ?? "");
+    if (!title) continue;
+    const summary = decodeEntities(
+      block.match(/<description[^>]*>([\s\S]*?)<\/description>/i)?.[1] ?? "",
+    ).slice(0, 320);
+    const image =
+      block.match(/<media:content[^>]+url="([^"]+)"/i)?.[1] ??
+      block.match(/<media:thumbnail[^>]+url="([^"]+)"/i)?.[1] ??
+      block.match(/<enclosure[^>]+url="([^"]+)"[^>]*type="image/i)?.[1] ??
+      block.match(/<img[^>]+src=(?:"|&quot;)([^"&]+)/i)?.[1] ??
+      null;
+    const publishedAt = decodeEntities(
+      block.match(/<pubDate[^>]*>([\s\S]*?)<\/pubDate>/i)?.[1] ?? "",
+    );
+    items.push({
+      title,
+      summary,
+      image: image && image.startsWith("https://") ? image : null,
+      publishedAt: publishedAt || null,
+    });
+    if (items.length >= limit) break;
   }
-  return titles;
+  return items;
 }
 
 /** Fallback quotes when AwesomeAPI is rate limited: open FX rates + Coinbase. */
@@ -177,8 +196,15 @@ export const Route = createFileRoute("/api/public/widget-data")({
           });
           if (!response.ok) throw new Error("news");
           const xml = await response.text();
+          const items = parseRssItems(xml, 10);
           return Response.json(
-            { source: feed.label, credit: feed.credit, headlines: parseRssTitles(xml, 10) },
+            {
+              source: feed.label,
+              credit: feed.credit,
+              items,
+              // Kept for the Roku channel, which reads plain headlines.
+              headlines: items.map((item) => item.title),
+            },
             { headers: cacheHeaders },
           );
         } catch {
