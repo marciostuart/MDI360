@@ -85,8 +85,14 @@ function ClientDetail() {
       subscriptionExpiresAt: data.organization.subscriptionExpiresAt
         ? data.organization.subscriptionExpiresAt.slice(0, 10)
         : "",
-      deviceLimitOverride: "",
-      storageLimitMbOverride: "",
+      deviceLimitOverride:
+        data.organization.deviceLimitOverride !== null
+          ? String(data.organization.deviceLimitOverride)
+          : "",
+      storageLimitMbOverride:
+        data.organization.storageLimitMbOverride !== null
+          ? String(data.organization.storageLimitMbOverride)
+          : "",
       notes: data.notes ?? "",
     });
   }, [data]);

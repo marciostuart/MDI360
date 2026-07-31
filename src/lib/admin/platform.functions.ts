@@ -171,6 +171,9 @@ export type PlatformOrganization = {
   subscriptionExpiresAt: string | null;
   maxDevices: number;
   maxStorageMb: number;
+  /** Raw override value stored in the database. Null when the plan limit applies. */
+  deviceLimitOverride: number | null;
+  storageLimitMbOverride: number | null;
   linkedDevices: number;
   onlineDevices: number;
   pendingDevices: number;
