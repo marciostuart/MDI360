@@ -85,25 +85,71 @@ export function getWeatherCity(id: string) {
   return WEATHER_CITIES.find((city) => city.id === id) ?? WEATHER_CITIES[0];
 }
 
+/**
+ * Look & feel shared by every widget. Optional so widgets saved before the
+ * theming feature keep parsing — the player merges WIDGET_THEME_DEFAULTS.
+ */
+export const BACKGROUND_MODES = ["solid", "gradient", "image", "scene"] as const;
+export type BackgroundMode = (typeof BACKGROUND_MODES)[number];
+
+const hex = z
+  .string()
+  .trim()
+  .regex(/^#[0-9a-fA-F]{6}$/, "Use uma cor no formato #RRGGBB");
+
+export const widgetThemeSchema = z.object({
+  background: z.enum(BACKGROUND_MODES).default("gradient"),
+  backgroundColor: hex.default("#0A0A0B"),
+  gradientFrom: hex.default("#0F172A"),
+  gradientTo: hex.default("#020617"),
+  /** Public https image used as backdrop (optional). */
+  backgroundImageUrl: z.string().trim().max(600).default(""),
+  /** Dark veil over the image so text stays readable (0–90%). */
+  overlay: z.number().int().min(0).max(90).default(45),
+  textColor: hex.default("#FFFFFF"),
+  /** Empty = follow the organization brand color. */
+  accentColor: z.union([hex, z.literal("")]).default(""),
+  /** Motion: weather scenes, ken-burns on images, news transitions. */
+  animations: z.boolean().default(true),
+  kenBurns: z.boolean().default(true),
+});
+
+export type WidgetTheme = z.infer<typeof widgetThemeSchema>;
+
+export const WIDGET_THEME_DEFAULTS: WidgetTheme = widgetThemeSchema.parse({});
+
+export function resolveWidgetTheme(theme?: Partial<WidgetTheme> | null): WidgetTheme {
+  return { ...WIDGET_THEME_DEFAULTS, ...(theme ?? {}) };
+}
+
 export const widgetConfigSchema = z.discriminatedUnion("type", [
   z.object({
     type: z.literal("clock"),
     timezone: z.string().trim().max(64).default("America/Sao_Paulo"),
     showDate: z.boolean().default(true),
     showSeconds: z.boolean().default(false),
+    theme: widgetThemeSchema.optional(),
   }),
   z.object({
     type: z.literal("weather"),
     cityId: z.enum(WEATHER_CITY_IDS as [string, ...string[]]),
+    theme: widgetThemeSchema.optional(),
   }),
   z.object({
     type: z.literal("currency"),
     pairs: z.array(z.enum(CURRENCY_IDS as [string, ...string[]])).min(1).max(5),
+    theme: widgetThemeSchema.optional(),
   }),
   z.object({
     type: z.literal("news"),
     feedId: z.enum(NEWS_FEED_IDS as [string, ...string[]]),
     headlines: z.number().int().min(1).max(10).default(5),
+    /** One headline at a time, rotating — much easier to read on a TV. */
+    oneAtATime: z.boolean().default(true),
+    rotateSeconds: z.number().int().min(3).max(30).default(7),
+    showSummary: z.boolean().default(true),
+    showImage: z.boolean().default(true),
+    theme: widgetThemeSchema.optional(),
   }),
 ]);
 
