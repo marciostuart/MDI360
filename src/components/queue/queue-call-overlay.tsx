@@ -36,10 +36,29 @@ function audioContext(): AudioContext | null {
 }
 
 /**
- * Two-tone alert, square wave: 550 Hz for 700 ms then 440 Hz for 1400 ms.
- * Played even when the screen is muted: a queue call must always be audible.
+ * Exactly the Roku signal: the same chime.mp3 shipped with the channel, served
+ * from /chime.mp3. If the file cannot play (autoplay block, missing asset) we
+ * fall back to synthesizing the same two-tone square wave (550 Hz / 700 ms then
+ * 440 Hz / 1400 ms) with Web Audio.
  */
 async function playChime(): Promise<void> {
+  const played = await new Promise<boolean>((resolve) => {
+    try {
+      const audio = new Audio("/chime.mp3");
+      audio.volume = 1;
+      audio.onended = () => resolve(true);
+      audio.onerror = () => resolve(false);
+      window.setTimeout(() => resolve(true), 6000);
+      void audio.play().catch(() => resolve(false));
+    } catch {
+      resolve(false);
+    }
+  });
+  if (played) return;
+  await playSynthChime();
+}
+
+async function playSynthChime(): Promise<void> {
   const ctx = audioContext();
   if (!ctx) return;
   try {
@@ -126,11 +145,15 @@ async function speakFromServer(audioUrl?: string): Promise<void> {
   }
 }
 
-/** Chime, then voice — local engine first, server MP3 as fallback. */
+/**
+ * Chime, then voice. Same order and same voice as the Roku channel: the
+ * server-rendered MP3 is preferred, and the device speech engine is only a
+ * fallback for when that MP3 cannot be fetched or played.
+ */
 async function announce(call: QueueCallPayload): Promise<void> {
   await playChime();
-  const spoken = await speakLocally(call.spokenText);
-  if (!spoken) await speakFromServer(call.audioUrl);
+  const spoken = await speakFromServer(call.audioUrl);
+  if (!spoken) await speakLocally(call.spokenText);
 }
 
 /**
