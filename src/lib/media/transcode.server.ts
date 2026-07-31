@@ -6,7 +6,7 @@ import { join } from "node:path";
 import { getCanvasPreset } from "./presets";
 
 export type TranscodeResult = {
-  body: Uint8Array;
+  body: Uint8Array<ArrayBuffer>;
   mimeType: "video/mp4";
   extension: "mp4";
   transcoded: boolean;
@@ -112,7 +112,9 @@ export async function transcodeVideoToStandardMp4(
       throw new Error(result.stderr.slice(-400) || `ffmpeg saiu com código ${result.code}`);
     }
 
-    const body = new Uint8Array(await readFile(outputPath));
+    const raw = await readFile(outputPath);
+    const body = new Uint8Array(raw.byteLength);
+    body.set(raw);
     if (body.byteLength < 1024) throw new Error("Saída do ffmpeg vazia.");
 
     return { body, mimeType: "video/mp4", extension: "mp4", transcoded: true };
