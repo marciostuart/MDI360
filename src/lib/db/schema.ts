@@ -231,6 +231,13 @@ export const mediaAssets = pgTable(
     width: integer("width"),
     height: integer("height"),
     checksum: text("checksum"),
+    /**
+     * Optional airing window for this file. When set, the file only plays
+     * between these two instants — no matter in how many playlists it sits.
+     * Used for flash offers ("31/07 das 12h às 14h").
+     */
+    airStartAt: timestamp("air_start_at", { withTimezone: true }),
+    airEndAt: timestamp("air_end_at", { withTimezone: true }),
     createdBy: uuid("created_by").references(() => users.id, { onDelete: "set null" }),
     createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
   },

@@ -2,6 +2,7 @@ import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { useServerFn } from "@tanstack/react-start";
 import {
   CheckCircle2,
+  CalendarClock,
   Film,
   Gauge,
   Image as ImageIcon,
@@ -17,6 +18,7 @@ import { toast } from "sonner";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
+import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import {
   Select,
@@ -31,7 +33,9 @@ import {
   createMediaUploadTicket,
   deleteMediaAsset,
   listMediaAssets,
+  setMediaAirWindow,
 } from "@/lib/media/media.functions";
+import type { MediaListItem } from "@/lib/media/media.functions";
 import { prepareUpload } from "@/lib/media/optimize-client";
 import {
   CANVAS_PRESETS,
@@ -58,6 +62,141 @@ const PHASE_LABEL: Record<UploadPhase, string> = {
   done: "Concluído",
   error: "Falhou",
 };
+
+/** ISO instant -> value accepted by <input type="datetime-local"> (hora local). */
+function toLocalInput(iso: string | null) {
+  if (!iso) return "";
+  const date = new Date(iso);
+  const pad = (value: number) => String(value).padStart(2, "0");
+  return `${date.getFullYear()}-${pad(date.getMonth() + 1)}-${pad(date.getDate())}T${pad(
+    date.getHours(),
+  )}:${pad(date.getMinutes())}`;
+}
+
+function formatWindowLabel(start: string | null, end: string | null) {
+  const fmt = (iso: string) =>
+    new Date(iso).toLocaleString("pt-BR", {
+      day: "2-digit",
+      month: "2-digit",
+      year: "numeric",
+      hour: "2-digit",
+      minute: "2-digit",
+    });
+  if (start && end) return `${fmt(start)} → ${fmt(end)}`;
+  if (start) return `A partir de ${fmt(start)}`;
+  if (end) return `Até ${fmt(end)}`;
+  return null;
+}
+
+/**
+ * Per-file airing window: a flash offer only plays inside the chosen date/time
+ * range, in every playlist it was added to.
+ */
+function AirWindowEditor({ item }: { item: MediaListItem }) {
+  const queryClient = useQueryClient();
+  const saveFn = useServerFn(setMediaAirWindow);
+  const [open, setOpen] = useState(false);
+  const [start, setStart] = useState(toLocalInput(item.airStartAt));
+  const [end, setEnd] = useState(toLocalInput(item.airEndAt));
+
+  const save = useMutation({
+    mutationFn: (payload: { airStartAt: string | null; airEndAt: string | null }) =>
+      saveFn({ data: { assetId: item.id, ...payload } }),
+    onSuccess: async () => {
+      toast.success("Janela de veiculação atualizada.");
+      await queryClient.invalidateQueries({ queryKey: ["media-assets"] });
+    },
+    onError: () => toast.error("Verifique as datas: o fim precisa ser depois do início."),
+  });
+
+  const label = formatWindowLabel(item.airStartAt, item.airEndAt);
+  const now = Date.now();
+  const isFuture = item.airStartAt ? new Date(item.airStartAt).getTime() > now : false;
+  const isExpired = item.airEndAt ? new Date(item.airEndAt).getTime() < now : false;
+
+  return (
+    <div className="space-y-2 border-t border-border pt-3">
+      <div className="flex flex-wrap items-center justify-between gap-2">
+        <div className="flex flex-wrap items-center gap-1.5 text-xs text-muted-foreground">
+          <CalendarClock className="size-3.5" />
+          {label ? (
+            <span>{label}</span>
+          ) : (
+            <span>Sempre disponível</span>
+          )}
+          {label && isFuture ? <Badge variant="outline">Agendado</Badge> : null}
+          {label && isExpired ? <Badge variant="destructive">Encerrado</Badge> : null}
+          {label && !isFuture && !isExpired ? <Badge>No ar</Badge> : null}
+        </div>
+        <Button variant="ghost" size="sm" onClick={() => setOpen((value) => !value)}>
+          {open ? "Fechar" : label ? "Editar janela" : "Agendar"}
+        </Button>
+      </div>
+
+      {open ? (
+        <div className="space-y-2">
+          <div className="grid gap-2 sm:grid-cols-2">
+            <div>
+              <Label htmlFor={`start-${item.id}`} className="text-xs">
+                Início
+              </Label>
+              <Input
+                id={`start-${item.id}`}
+                type="datetime-local"
+                className="mt-1"
+                value={start}
+                onChange={(event) => setStart(event.target.value)}
+              />
+            </div>
+            <div>
+              <Label htmlFor={`end-${item.id}`} className="text-xs">
+                Fim
+              </Label>
+              <Input
+                id={`end-${item.id}`}
+                type="datetime-local"
+                className="mt-1"
+                value={end}
+                onChange={(event) => setEnd(event.target.value)}
+              />
+            </div>
+          </div>
+          <p className="text-xs text-muted-foreground">
+            Fora desta janela o arquivo é ignorado em todas as playlists. Deixe em branco para
+            exibir sempre.
+          </p>
+          <div className="flex gap-2">
+            <Button
+              size="sm"
+              disabled={save.isPending}
+              onClick={() =>
+                save.mutate({
+                  airStartAt: start ? new Date(start).toISOString() : null,
+                  airEndAt: end ? new Date(end).toISOString() : null,
+                })
+              }
+            >
+              {save.isPending ? <Loader2 className="size-4 animate-spin" /> : null}
+              Salvar janela
+            </Button>
+            <Button
+              size="sm"
+              variant="outline"
+              disabled={save.isPending || (!item.airStartAt && !item.airEndAt)}
+              onClick={() => {
+                setStart("");
+                setEnd("");
+                save.mutate({ airStartAt: null, airEndAt: null });
+              }}
+            >
+              Remover agendamento
+            </Button>
+          </div>
+        </div>
+      ) : null}
+    </div>
+  );
+}
 
 /**
  * Uploads through XHR (instead of fetch) purely so the browser gives us real
@@ -388,6 +527,7 @@ export function MediaLibrary() {
                     {formatBytes(item.byteSize)}
                   </p>
                 ) : null}
+                <AirWindowEditor item={item} />
               </CardContent>
             </Card>
           ))}
