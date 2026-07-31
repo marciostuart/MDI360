@@ -39,6 +39,7 @@ type SyncResponse = {
   revision?: number;
   /** Add-on de senhas: chamada mais recente desta tela (null quando inativo). */
   queueCall?: QueueCallPayload | null;
+  queueCalls?: QueueCallPayload[] | null;
 };
 
 const TOKEN_KEY = "mdi360.deviceToken";
