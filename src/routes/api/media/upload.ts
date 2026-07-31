@@ -47,6 +47,8 @@ export const Route = createFileRoute("/api/media/upload")({
             mimeType: schema.mediaAssets.mimeType,
             byteSize: schema.mediaAssets.byteSize,
             status: schema.mediaAssets.status,
+            kind: schema.mediaAssets.kind,
+            canvasPreset: schema.mediaAssets.canvasPreset,
           })
           .from(schema.mediaAssets)
           .where(
@@ -82,10 +84,45 @@ export const Route = createFileRoute("/api/media/upload")({
           return Response.json({ error: "Este conteúdo já foi enviado." }, { status: 409 });
         }
 
+        let storageKey = row.storageKey;
+        let mimeType = row.mimeType ?? file.type ?? undefined;
+        let storedBytes = file.size;
+
         try {
           const { putObject } = await import("@/lib/storage.server");
-          const body = new Uint8Array(await file.arrayBuffer());
-          await putObject(row.storageKey, body, row.mimeType ?? file.type ?? undefined);
+          let body = new Uint8Array(await file.arrayBuffer());
+
+          // Every video becomes the same standard MP4 (H.264/AAC, faststart,
+          // capped to the screen preset), so the players never deal with an
+          // exotic codec or an oversized bitrate.
+          if (row.kind === "video") {
+            const { transcodeVideoToStandardMp4, isFfmpegMissing } = await import(
+              "@/lib/media/transcode.server"
+            );
+            try {
+              const converted = await transcodeVideoToStandardMp4(body, row.canvasPreset);
+              body = converted.body;
+              mimeType = converted.mimeType;
+              storageKey = storageKey.replace(/\.[^./]+$/, "") + ".mp4";
+              storedBytes = body.byteLength;
+            } catch (error) {
+              if (isFfmpegMissing(error)) {
+                console.error("ffmpeg indisponível — vídeo salvo sem conversão");
+              } else {
+                console.error("video transcode failed", describeStorageError(error));
+                await db.delete(schema.mediaAssets).where(scope);
+                return Response.json(
+                  {
+                    error:
+                      "Não foi possível converter este vídeo. Envie um MP4/WebM com vídeo válido.",
+                  },
+                  { status: 422 },
+                );
+              }
+            }
+          }
+
+          await putObject(storageKey, body as Uint8Array<ArrayBuffer>, mimeType);
         } catch (error) {
           const detail = describeStorageError(error);
           console.error("media upload failed", detail);
@@ -99,11 +136,11 @@ export const Route = createFileRoute("/api/media/upload")({
 
         await db
           .update(schema.mediaAssets)
-          .set({ status: "ready", byteSize: file.size })
+          .set({ status: "ready", byteSize: storedBytes, storageKey, mimeType })
           .where(scope);
 
         const { recordTraffic } = await import("@/lib/admin/traffic.server");
-        recordTraffic(file.size, 0);
+        recordTraffic(storedBytes, 0);
 
         return Response.json({ ok: true });
       },

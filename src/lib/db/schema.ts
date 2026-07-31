@@ -180,6 +180,11 @@ export const devices = pgTable(
      * silently, even if the playlist item asks for sound.
      */
     audioEnabled: boolean("audio_enabled").notNull().default(true),
+    /**
+     * Transition played between playlist items on this screen.
+     * "none" = corte seco (default), "fade" = crossfade suave.
+     */
+    transitionEffect: text("transition_effect").notNull().default("none"),
     /** Screen shape this TV/totem uses; drives which media fits it. */
     canvasPreset: text("canvas_preset").notNull().default("landscape-fhd"),
     appVersion: text("app_version"),

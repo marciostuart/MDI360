@@ -5,6 +5,7 @@ import {
   Loader2,
   MonitorSmartphone,
   RefreshCw,
+  Sparkles,
   Trash2,
   Tv,
   Volume2,
@@ -32,6 +33,7 @@ import {
   listDevices,
   sendDeviceCommand,
   setDeviceAudio,
+  setDeviceTransition,
   setDevicePlaylist,
 } from "@/lib/devices/devices.functions";
 import { listPlaylists } from "@/lib/playlists/playlists.functions";
@@ -57,6 +59,7 @@ export function DeviceManager() {
   const playlistsFn = useServerFn(listPlaylists);
   const setPlaylistFn = useServerFn(setDevicePlaylist);
   const setAudioFn = useServerFn(setDeviceAudio);
+  const setTransitionFn = useServerFn(setDeviceTransition);
 
   const [name, setName] = useState("");
   const [code, setCode] = useState("");
@@ -125,6 +128,20 @@ export function DeviceManager() {
       await refresh();
     },
     onError: () => toast.error("Não foi possível alterar o áudio desta tela."),
+  });
+
+  const transitionMutation = useMutation({
+    mutationFn: (vars: { deviceId: string; transitionEffect: "none" | "fade" }) =>
+      setTransitionFn({ data: vars }),
+    onSuccess: async (_data, vars) => {
+      toast.success(
+        vars.transitionEffect === "fade"
+          ? "Transição suave ativada nesta tela."
+          : "Transição desativada: os arquivos trocam em corte seco.",
+      );
+      await refresh();
+    },
+    onError: () => toast.error("Não foi possível alterar a transição desta tela."),
   });
 
   const items = devices.data?.items ?? [];
@@ -281,6 +298,29 @@ export function DeviceManager() {
                       checked={device.audioEnabled}
                       onCheckedChange={(checked) =>
                         audioMutation.mutate({ deviceId: device.id, audioEnabled: checked })
+                      }
+                    />
+                  </div>
+
+                  <div className="flex items-center justify-between gap-3 rounded-lg border border-border p-3">
+                    <div className="flex items-center gap-2">
+                      <Sparkles className="size-4 text-muted-foreground" />
+                      <div>
+                        <p className="text-sm font-medium">Transição suave</p>
+                        <p className="text-xs text-muted-foreground">
+                          {device.transitionEffect === "fade"
+                            ? "Os arquivos trocam com fade entre um e outro."
+                            : "Troca em corte seco, sem efeito."}
+                        </p>
+                      </div>
+                    </div>
+                    <Switch
+                      checked={device.transitionEffect === "fade"}
+                      onCheckedChange={(checked) =>
+                        transitionMutation.mutate({
+                          deviceId: device.id,
+                          transitionEffect: checked ? "fade" : "none",
+                        })
                       }
                     />
                   </div>
