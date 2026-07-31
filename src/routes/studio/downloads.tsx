@@ -1,5 +1,6 @@
 import { createFileRoute } from "@tanstack/react-router";
 import { Download, MonitorPlay, Smartphone, Tv2 } from "lucide-react";
+import { useEffect, useState } from "react";
 
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
@@ -65,7 +66,30 @@ function StepList({ steps }: { steps: readonly string[] }) {
   );
 }
 
+/** Confirma se o arquivo existe antes de oferecer o download (evita erro 404). */
+function useFileAvailable(url: string) {
+  const [available, setAvailable] = useState<boolean | null>(null);
+
+  useEffect(() => {
+    let active = true;
+    fetch(url, { method: "HEAD" })
+      .then((res) => {
+        if (active) setAvailable(res.ok);
+      })
+      .catch(() => {
+        if (active) setAvailable(false);
+      });
+    return () => {
+      active = false;
+    };
+  }, [url]);
+
+  return available;
+}
+
 function DownloadsPage() {
+  const androidReady = useFileAvailable("/mdi360-android.apk");
+
   return (
     <div className="space-y-6">
       <header className="space-y-1">
@@ -87,12 +111,35 @@ function DownloadsPage() {
             </CardDescription>
           </CardHeader>
           <CardContent className="space-y-4">
-            <Button asChild className="w-full">
-              <a href="/mdi360-android.apk" download>
-                <Download className="size-4" />
-                Baixar APK Android
-              </a>
-            </Button>
+            {androidReady === false ? (
+              <div className="space-y-3">
+                <Button className="w-full" disabled>
+                  <Download className="size-4" />
+                  APK em preparação
+                </Button>
+                <p className="rounded-md border border-dashed p-3 text-sm text-muted-foreground">
+                  O arquivo de instalação Android ainda não foi publicado nesta versão. Enquanto
+                  isso, use qualquer TV Box, Smart TV ou notebook abrindo{" "}
+                  <a
+                    className="font-medium text-primary"
+                    href="/tela"
+                    target="_blank"
+                    rel="noreferrer"
+                  >
+                    /tela
+                  </a>{" "}
+                  no navegador em tela cheia — o código de ativação aparece do mesmo jeito e a tela
+                  funciona igual ao app.
+                </p>
+              </div>
+            ) : (
+              <Button asChild className="w-full" disabled={androidReady === null}>
+                <a href="/mdi360-android.apk" download>
+                  <Download className="size-4" />
+                  Baixar APK Android
+                </a>
+              </Button>
+            )}
             <StepList steps={ANDROID_STEPS} />
           </CardContent>
         </Card>
