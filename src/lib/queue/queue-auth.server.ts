@@ -126,10 +126,21 @@ export function spokenLabel(label: string) {
   return prefix ? `${prefix.split("").join(" ")} ${number}` : number;
 }
 
-/** "Caixa 2. Senha doze." — sector first, then the ticket, as requested. */
+/**
+ * Sector name as it should be *spoken*: any number inside the name loses its
+ * leading zeros so "Guichê 01" is read "Guichê um" and "Guichê 103"
+ * "Guichê cento e três".
+ */
+export function spokenSectorName(sectorName: string) {
+  return sectorName
+    .trim()
+    .replace(/\d+/g, (digits) => String(Number(digits)));
+}
+
+/** "Senha doze. Caixa 2." — ticket first, then the sector, as requested. */
 export function buildSpokenText(sectorName: string | null, label: string) {
   const spoken = spokenLabel(label);
-  if (sectorName) return `${sectorName}. Senha ${spoken}.`;
+  if (sectorName) return `Senha ${spoken}. ${spokenSectorName(sectorName)}.`;
   return `Senha ${spoken}.`;
 }
 
