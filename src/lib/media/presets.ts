@@ -58,7 +58,7 @@ export const CANVAS_PRESET_IDS = CANVAS_PRESETS.map((preset) => preset.id);
 /** Hard ceilings. Anything above is rejected before it reaches the storage. */
 export const MAX_IMAGE_BYTES = 40 * 1024 * 1024; // original picked by the user
 export const MAX_OPTIMIZED_IMAGE_BYTES = 8 * 1024 * 1024; // after normalization
-export const MAX_VIDEO_BYTES = 400 * 1024 * 1024;
+export const MAX_VIDEO_BYTES = 1024 * 1024 * 1024; // 1 GB
 export const MAX_VIDEO_DURATION_MS = 10 * 60 * 1000;
 
 export const ALLOWED_IMAGE_TYPES = ["image/jpeg", "image/png", "image/webp", "image/avif"];

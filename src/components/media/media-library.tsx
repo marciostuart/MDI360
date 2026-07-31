@@ -318,6 +318,9 @@ export function MediaLibrary() {
 
     for (const { file, id } of queue) {
       const stopper: { fn: (() => void) | null } = { fn: null };
+      // Guardamos o id do "ticket" para poder descartar a reserva caso o envio
+      // falhe: nada de linha fantasma no painel nem espaço preso no MinIO.
+      let ticketAssetId: string | null = null;
       try {
         patch(id, { phase: "preparing", percent: 0 });
         const prepared = await prepareUpload(file, preset);
@@ -335,6 +338,7 @@ export function MediaLibrary() {
             canvasPreset: preset.id,
           },
         });
+        ticketAssetId = ticket.assetId;
 
         // O arquivo sobe pelo nosso servidor, que fala com o MinIO pela rede
         // interna. Assim não dependemos de CORS no navegador e conseguimos
@@ -370,6 +374,13 @@ export function MediaLibrary() {
         prepared.notes.forEach((note) => toast.info(note));
       } catch (error) {
         stopper.fn?.();
+        if (ticketAssetId) {
+          try {
+            await deleteFn({ data: { assetId: ticketAssetId } });
+          } catch {
+            // melhor esforço: o servidor também limpa a reserva nos erros dele
+          }
+        }
         const message = error instanceof Error ? error.message : "Falha no envio.";
         patch(id, { phase: "error", percent: 100, message });
         toast.error(message);
