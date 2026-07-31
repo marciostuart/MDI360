@@ -7,6 +7,7 @@ import {
   Gauge,
   Image as ImageIcon,
   Loader2,
+  Pencil,
   Sparkles,
   Trash2,
   UploadCloud,
@@ -27,7 +28,7 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select";
-import { WidgetComposer } from "@/components/widgets/widget-composer";
+import { WidgetComposer, type WidgetDraft } from "@/components/widgets/widget-composer";
 import { WidgetView } from "@/components/widgets/widget-view";
 import {
   createMediaUploadTicket,
@@ -451,7 +452,9 @@ export function MediaLibrary() {
         </CardContent>
       </Card>
 
-      <WidgetComposer />
+      <div ref={composerRef}>
+        <WidgetComposer editing={editingWidget} onCancelEditing={() => setEditingWidget(null)} />
+      </div>
 
       {library.isPending ? (
         <div className="grid place-items-center py-10">
@@ -488,6 +491,24 @@ export function MediaLibrary() {
               <CardContent className="space-y-2 pt-4">
                 <div className="flex items-start justify-between gap-2">
                   <p className="truncate text-sm font-medium">{item.name}</p>
+                  {item.kind === "widget" && item.widgetConfig ? (
+                    <Button
+                      variant="ghost"
+                      size="icon"
+                      className="size-8 text-muted-foreground"
+                      onClick={() => {
+                        setEditingWidget({
+                          assetId: item.id,
+                          name: item.name,
+                          config: item.widgetConfig!,
+                        });
+                        composerRef.current?.scrollIntoView({ behavior: "smooth", block: "start" });
+                      }}
+                      aria-label={`Personalizar ${item.name}`}
+                    >
+                      <Pencil className="size-4" />
+                    </Button>
+                  ) : null}
                   <Button
                     variant="ghost"
                     size="icon"
