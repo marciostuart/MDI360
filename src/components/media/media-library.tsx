@@ -13,7 +13,7 @@ import {
   UploadCloud,
   XCircle,
 } from "lucide-react";
-import { useRef, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { toast } from "sonner";
 
 import { Badge } from "@/components/ui/badge";
@@ -239,10 +239,21 @@ export function MediaLibrary() {
   const [uploads, setUploads] = useState<UploadProgressItem[]>([]);
   const inputRef = useRef<HTMLInputElement>(null);
   const composerRef = useRef<HTMLDivElement>(null);
+  /** Timers da animação de otimização + auto-dismiss das barras concluídas. */
+  const timersRef = useRef<ReturnType<typeof setInterval>[]>([]);
   /** Widget picked from the grid for customization (null = creating a new one). */
   const [editingWidget, setEditingWidget] = useState<WidgetDraft | null>(null);
 
   const library = useQuery({ queryKey: ["media-assets"], queryFn: () => listFn({}) });
+
+  // Nunca deixa timers de animação/auto-dismiss vivos após sair da página.
+  useEffect(
+    () => () => {
+      timersRef.current.forEach((timer) => clearInterval(timer));
+      timersRef.current = [];
+    },
+    [],
+  );
 
   const removeMutation = useMutation({
     mutationFn: (assetId: string) => deleteFn({ data: { assetId } }),
@@ -272,7 +283,41 @@ export function MediaLibrary() {
         current.map((item) => (item.id === id ? { ...item, ...next } : item)),
       );
 
+    /**
+     * O ffmpeg roda dentro da mesma requisição HTTP, então não existe um canal
+     * de progresso real vindo do servidor. Estimamos o tempo pelo tamanho do
+     * arquivo e avançamos a barra âmbar de forma assintótica (nunca chega a
+     * 100% sozinha) — quando a resposta chega, ela completa em verde.
+     */
+    const startOptimizingAnimation = (id: string, byteSize: number, isVideo: boolean) => {
+      const estimateMs = isVideo
+        ? Math.min(Math.max((byteSize / (1.6 * 1024 * 1024)) * 1000, 4000), 180000)
+        : 1500;
+      const startedAt = Date.now();
+      patch(id, { phase: "optimizing", percent: 0 });
+      const timer = setInterval(() => {
+        const ratio = (Date.now() - startedAt) / estimateMs;
+        // Curva que desacelera: 96% é o teto enquanto a resposta não volta.
+        const percent = Math.min(96, Math.round(96 * (1 - Math.exp(-2.2 * ratio))));
+        patch(id, { percent });
+      }, 250);
+      timersRef.current.push(timer);
+      return () => {
+        clearInterval(timer);
+        timersRef.current = timersRef.current.filter((entry) => entry !== timer);
+      };
+    };
+
+    /** Barra verde cheia por alguns segundos e depois a caixa volta ao normal. */
+    const scheduleDismiss = (id: string) => {
+      const timer = setTimeout(() => {
+        setUploads((current) => current.filter((item) => item.id !== id));
+      }, 4000) as unknown as ReturnType<typeof setInterval>;
+      timersRef.current.push(timer);
+    };
+
     for (const { file, id } of queue) {
+      const stopper: { fn: (() => void) | null } = { fn: null };
       try {
         patch(id, { phase: "preparing", percent: 0 });
         const prepared = await prepareUpload(file, preset);
@@ -300,11 +345,21 @@ export function MediaLibrary() {
 
         patch(id, { phase: "uploading", percent: 0 });
         await uploadWithProgress(form, (percent) => {
-          patch(id, { phase: percent >= 100 ? "optimizing" : "uploading", percent });
+          if (percent >= 100) {
+            if (!stopper.fn) {
+              stopper.fn = startOptimizingAnimation(
+                id,
+                prepared.blob.size,
+                prepared.kind === "video",
+              );
+            }
+            return;
+          }
+          patch(id, { phase: "uploading", percent });
         });
-        // O servidor ainda converte/grava o arquivo depois do último byte:
-        // a barra fica cheia em "Otimizando arquivo" até a resposta chegar.
+        stopper.fn?.();
         patch(id, { phase: "done", percent: 100 });
+        scheduleDismiss(id);
 
         const saved = prepared.originalBytes - prepared.blob.size;
         toast.success(
@@ -314,6 +369,7 @@ export function MediaLibrary() {
         );
         prepared.notes.forEach((note) => toast.info(note));
       } catch (error) {
+        stopper.fn?.();
         const message = error instanceof Error ? error.message : "Falha no envio.";
         patch(id, { phase: "error", percent: 100, message });
         toast.error(message);
@@ -419,7 +475,9 @@ export function MediaLibrary() {
                           <Loader2 className="size-3.5 animate-spin" />
                         )}
                         {PHASE_LABEL[item.phase]}
-                        {item.phase === "uploading" ? ` · ${item.percent}%` : null}
+                        {item.phase === "uploading" || item.phase === "optimizing"
+                          ? ` · ${item.percent}%`
+                          : null}
                       </span>
                     </div>
                     <div
