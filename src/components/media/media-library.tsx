@@ -13,7 +13,7 @@ import {
   UploadCloud,
   XCircle,
 } from "lucide-react";
-import { useRef, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { toast } from "sonner";
 
 import { Badge } from "@/components/ui/badge";
@@ -245,6 +245,15 @@ export function MediaLibrary() {
   const [editingWidget, setEditingWidget] = useState<WidgetDraft | null>(null);
 
   const library = useQuery({ queryKey: ["media-assets"], queryFn: () => listFn({}) });
+
+  // Nunca deixa timers de animação/auto-dismiss vivos após sair da página.
+  useEffect(
+    () => () => {
+      timersRef.current.forEach((timer) => clearInterval(timer));
+      timersRef.current = [];
+    },
+    [],
+  );
 
   const removeMutation = useMutation({
     mutationFn: (assetId: string) => deleteFn({ data: { assetId } }),
