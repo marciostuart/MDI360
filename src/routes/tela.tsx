@@ -473,23 +473,25 @@ function PlayerScreen() {
 
   if (!linked) return <ActivationScreen code={activationCode} message={error} />;
 
-  if (!sync) return <SplashScreen branding={null} />;
-
-  const fade = sync.device?.transitionEffect === "fade";
-
   // The call replaces the playlist (instead of only covering it) so videos
-  // stop right away and no content plays behind the announcement.
+  // stop right away and no content plays behind the announcement. It works even
+  // before the first sync payload arrives.
   if (activeCall) {
     return (
       <div className="relative min-h-screen overflow-hidden bg-black">
         <QueueCallOverlay
           call={activeCall}
-          accentColor={sync.branding?.color ?? null}
+          accentColor={sync?.branding?.color ?? null}
           onDone={startNextCall}
         />
       </div>
     );
   }
+
+  if (!sync)
+    return <SplashScreen branding={null} message={error ?? "Conectando ao servidor…"} />;
+
+  const fade = sync.device?.transitionEffect === "fade";
 
   return (
     <div className="relative min-h-screen overflow-hidden bg-black">
