@@ -604,9 +604,10 @@ export function MediaLibrary() {
         </Card>
       ) : null}
 
-      <Card>
-        <CardContent className="space-y-4 pt-6">
-          <div className="max-w-sm space-y-2">
+      {showUpload || uploads.length > 0 ? (
+        <Card>
+          <CardContent className="space-y-4 pt-6">
+            <div className="max-w-sm space-y-2">
             <Label>Formato da tela</Label>
             <Select value={presetId} onValueChange={setPresetId}>
               <SelectTrigger>
