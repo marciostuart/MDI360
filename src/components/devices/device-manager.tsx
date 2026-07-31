@@ -4,6 +4,7 @@ import {
   Link2,
   Loader2,
   MonitorSmartphone,
+  Replace,
   RefreshCw,
   Sparkles,
   Trash2,
@@ -17,6 +18,14 @@ import { toast } from "sonner";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
+import {
+  Dialog,
+  DialogContent,
+  DialogDescription,
+  DialogFooter,
+  DialogHeader,
+  DialogTitle,
+} from "@/components/ui/dialog";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import {
@@ -31,6 +40,7 @@ import {
   deleteDevice,
   linkDevice,
   listDevices,
+  replaceDevice,
   sendDeviceCommand,
   setDeviceAudio,
   setDeviceTransition,
@@ -60,10 +70,13 @@ export function DeviceManager() {
   const setPlaylistFn = useServerFn(setDevicePlaylist);
   const setAudioFn = useServerFn(setDeviceAudio);
   const setTransitionFn = useServerFn(setDeviceTransition);
+  const replaceFn = useServerFn(replaceDevice);
 
   const [name, setName] = useState("");
   const [code, setCode] = useState("");
   const [presetId, setPresetId] = useState(DEFAULT_CANVAS_PRESET.id);
+  const [replaceTarget, setReplaceTarget] = useState<{ id: string; name: string } | null>(null);
+  const [replaceCode, setReplaceCode] = useState("");
 
   const devices = useQuery({
     queryKey: ["devices"],
@@ -105,6 +118,24 @@ export function DeviceManager() {
       commandFn({ data: vars }),
     onSuccess: () => toast.success("Comando enviado. A tela executa no próximo contato."),
     onError: () => toast.error("Não foi possível enviar o comando."),
+  });
+
+  const replaceMutation = useMutation({
+    mutationFn: (vars: { deviceId: string; code: string }) => replaceFn({ data: vars }),
+    onSuccess: async () => {
+      toast.success(
+        "Tela substituída: toda a programação foi transferida e o aparelho antigo apagou o cache.",
+      );
+      setReplaceTarget(null);
+      setReplaceCode("");
+      await refresh();
+    },
+    onError: (error: unknown) =>
+      toast.error(
+        error instanceof Error && error.message
+          ? error.message
+          : "Não foi possível substituir esta tela.",
+      ),
   });
 
   const playlistMutation = useMutation({
@@ -339,6 +370,17 @@ export function DeviceManager() {
                     </Button>
                     <Button
                       size="sm"
+                      variant="outline"
+                      onClick={() => {
+                        setReplaceTarget({ id: device.id, name: device.name });
+                        setReplaceCode("");
+                      }}
+                    >
+                      <Replace className="size-3.5" />
+                      Substituir
+                    </Button>
+                    <Button
+                      size="sm"
                       variant="ghost"
                       className="text-muted-foreground"
                       onClick={() => removeMutation.mutate(device.id)}
@@ -353,6 +395,66 @@ export function DeviceManager() {
           })}
         </div>
       )}
+
+      <Dialog
+        open={replaceTarget !== null}
+        onOpenChange={(open) => {
+          if (!open && !replaceMutation.isPending) {
+            setReplaceTarget(null);
+            setReplaceCode("");
+          }
+        }}
+      >
+        <DialogContent>
+          <DialogHeader>
+            <DialogTitle>Substituir tela</DialogTitle>
+            <DialogDescription>
+              Informe o código de ativação exibido no novo aparelho. Toda a programação de{" "}
+              <span className="font-medium">{replaceTarget?.name}</span> (playlist, agenda, áudio,
+              transição, senhas e histórico) passa para a nova tela. A tela antiga é desvinculada,
+              apaga o cache e volta a exibir um código livre para uso futuro.
+            </DialogDescription>
+          </DialogHeader>
+          <div className="space-y-2">
+            <Label htmlFor="replace-code">Código da nova TV</Label>
+            <Input
+              id="replace-code"
+              value={replaceCode}
+              onChange={(event) =>
+                setReplaceCode(
+                  event.target.value.toUpperCase().replace(/[^A-Z0-9]/g, "").slice(0, 6),
+                )
+              }
+              placeholder="ABC123"
+              className="font-display uppercase tracking-[0.3em]"
+              maxLength={6}
+            />
+          </div>
+          <DialogFooter>
+            <Button
+              variant="ghost"
+              onClick={() => setReplaceTarget(null)}
+              disabled={replaceMutation.isPending}
+            >
+              Cancelar
+            </Button>
+            <Button
+              onClick={() =>
+                replaceTarget &&
+                replaceMutation.mutate({ deviceId: replaceTarget.id, code: replaceCode })
+              }
+              disabled={replaceCode.length !== 6 || replaceMutation.isPending}
+            >
+              {replaceMutation.isPending ? (
+                <Loader2 className="size-4 animate-spin" />
+              ) : (
+                <Replace className="size-4" />
+              )}
+              Transferir programação
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
     </div>
   );
 }
