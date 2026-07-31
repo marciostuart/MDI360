@@ -19,6 +19,7 @@ import { Route as StudioAgendaRouteImport } from './routes/studio/agenda'
 import { Route as StudioConfiguracoesRouteImport } from './routes/studio/configuracoes'
 import { Route as StudioConteudosRouteImport } from './routes/studio/conteudos'
 import { Route as StudioPlaylistsRouteImport } from './routes/studio/playlists'
+import { Route as StudioRelatoriosRouteImport } from './routes/studio/relatorios'
 import { Route as StudioTelasRouteImport } from './routes/studio/telas'
 import { Route as TorreIndexRouteImport } from './routes/torre/index'
 import { Route as TorrePlanosRouteImport } from './routes/torre/planos'
@@ -28,6 +29,7 @@ import { Route as ApiPublicWidgetDataRouteImport } from './routes/api/public/wid
 import { Route as TorreClientesIndexRouteImport } from './routes/torre/clientes/index'
 import { Route as TorreClientesOrganizationIdRouteImport } from './routes/torre/clientes/$organizationId'
 import { Route as ApiPublicPlayerEventsRouteImport } from './routes/api/public/player/events'
+import { Route as ApiPublicPlayerPlaybackRouteImport } from './routes/api/public/player/playback'
 import { Route as ApiPublicPlayerRegisterRouteImport } from './routes/api/public/player/register'
 import { Route as ApiPublicPlayerStatusRouteImport } from './routes/api/public/player/status'
 import { Route as ApiPublicPlayerSyncRouteImport } from './routes/api/public/player/sync'
@@ -82,6 +84,11 @@ const StudioPlaylistsRoute = StudioPlaylistsRouteImport.update({
   path: '/playlists',
   getParentRoute: () => StudioRouteRoute,
 } as any)
+const StudioRelatoriosRoute = StudioRelatoriosRouteImport.update({
+  id: '/relatorios',
+  path: '/relatorios',
+  getParentRoute: () => StudioRouteRoute,
+} as any)
 const StudioTelasRoute = StudioTelasRouteImport.update({
   id: '/telas',
   path: '/telas',
@@ -128,6 +135,11 @@ const ApiPublicPlayerEventsRoute = ApiPublicPlayerEventsRouteImport.update({
   path: '/api/public/player/events',
   getParentRoute: () => rootRouteImport,
 } as any)
+const ApiPublicPlayerPlaybackRoute = ApiPublicPlayerPlaybackRouteImport.update({
+  id: '/api/public/player/playback',
+  path: '/api/public/player/playback',
+  getParentRoute: () => rootRouteImport,
+} as any)
 const ApiPublicPlayerRegisterRoute = ApiPublicPlayerRegisterRouteImport.update({
   id: '/api/public/player/register',
   path: '/api/public/player/register',
@@ -154,6 +166,7 @@ export interface FileRoutesByFullPath {
   '/studio/configuracoes': typeof StudioConfiguracoesRoute
   '/studio/conteudos': typeof StudioConteudosRoute
   '/studio/playlists': typeof StudioPlaylistsRoute
+  '/studio/relatorios': typeof StudioRelatoriosRoute
   '/studio/telas': typeof StudioTelasRoute
   '/torre/planos': typeof TorrePlanosRoute
   '/studio/': typeof StudioIndexRoute
@@ -164,6 +177,7 @@ export interface FileRoutesByFullPath {
   '/torre/clientes/$organizationId': typeof TorreClientesOrganizationIdRoute
   '/torre/clientes/': typeof TorreClientesIndexRoute
   '/api/public/player/events': typeof ApiPublicPlayerEventsRoute
+  '/api/public/player/playback': typeof ApiPublicPlayerPlaybackRoute
   '/api/public/player/register': typeof ApiPublicPlayerRegisterRoute
   '/api/public/player/status': typeof ApiPublicPlayerStatusRoute
   '/api/public/player/sync': typeof ApiPublicPlayerSyncRoute
@@ -176,6 +190,7 @@ export interface FileRoutesByTo {
   '/studio/configuracoes': typeof StudioConfiguracoesRoute
   '/studio/conteudos': typeof StudioConteudosRoute
   '/studio/playlists': typeof StudioPlaylistsRoute
+  '/studio/relatorios': typeof StudioRelatoriosRoute
   '/studio/telas': typeof StudioTelasRoute
   '/torre/planos': typeof TorrePlanosRoute
   '/studio': typeof StudioIndexRoute
@@ -186,6 +201,7 @@ export interface FileRoutesByTo {
   '/torre/clientes/$organizationId': typeof TorreClientesOrganizationIdRoute
   '/torre/clientes': typeof TorreClientesIndexRoute
   '/api/public/player/events': typeof ApiPublicPlayerEventsRoute
+  '/api/public/player/playback': typeof ApiPublicPlayerPlaybackRoute
   '/api/public/player/register': typeof ApiPublicPlayerRegisterRoute
   '/api/public/player/status': typeof ApiPublicPlayerStatusRoute
   '/api/public/player/sync': typeof ApiPublicPlayerSyncRoute
@@ -201,6 +217,7 @@ export interface FileRoutesById {
   '/studio/configuracoes': typeof StudioConfiguracoesRoute
   '/studio/conteudos': typeof StudioConteudosRoute
   '/studio/playlists': typeof StudioPlaylistsRoute
+  '/studio/relatorios': typeof StudioRelatoriosRoute
   '/studio/telas': typeof StudioTelasRoute
   '/torre/planos': typeof TorrePlanosRoute
   '/studio/': typeof StudioIndexRoute
@@ -211,6 +228,7 @@ export interface FileRoutesById {
   '/torre/clientes/$organizationId': typeof TorreClientesOrganizationIdRoute
   '/torre/clientes/': typeof TorreClientesIndexRoute
   '/api/public/player/events': typeof ApiPublicPlayerEventsRoute
+  '/api/public/player/playback': typeof ApiPublicPlayerPlaybackRoute
   '/api/public/player/register': typeof ApiPublicPlayerRegisterRoute
   '/api/public/player/status': typeof ApiPublicPlayerStatusRoute
   '/api/public/player/sync': typeof ApiPublicPlayerSyncRoute
@@ -227,6 +245,7 @@ export interface FileRouteTypes {
     | '/studio/configuracoes'
     | '/studio/conteudos'
     | '/studio/playlists'
+    | '/studio/relatorios'
     | '/studio/telas'
     | '/torre/planos'
     | '/studio/'
@@ -237,6 +256,7 @@ export interface FileRouteTypes {
     | '/torre/clientes/$organizationId'
     | '/torre/clientes/'
     | '/api/public/player/events'
+    | '/api/public/player/playback'
     | '/api/public/player/register'
     | '/api/public/player/status'
     | '/api/public/player/sync'
@@ -249,6 +269,7 @@ export interface FileRouteTypes {
     | '/studio/configuracoes'
     | '/studio/conteudos'
     | '/studio/playlists'
+    | '/studio/relatorios'
     | '/studio/telas'
     | '/torre/planos'
     | '/studio'
@@ -259,6 +280,7 @@ export interface FileRouteTypes {
     | '/torre/clientes/$organizationId'
     | '/torre/clientes'
     | '/api/public/player/events'
+    | '/api/public/player/playback'
     | '/api/public/player/register'
     | '/api/public/player/status'
     | '/api/public/player/sync'
@@ -273,6 +295,7 @@ export interface FileRouteTypes {
     | '/studio/configuracoes'
     | '/studio/conteudos'
     | '/studio/playlists'
+    | '/studio/relatorios'
     | '/studio/telas'
     | '/torre/planos'
     | '/studio/'
@@ -283,6 +306,7 @@ export interface FileRouteTypes {
     | '/torre/clientes/$organizationId'
     | '/torre/clientes/'
     | '/api/public/player/events'
+    | '/api/public/player/playback'
     | '/api/public/player/register'
     | '/api/public/player/status'
     | '/api/public/player/sync'
@@ -298,6 +322,7 @@ export interface RootRouteChildren {
   ApiMediaUploadRoute: typeof ApiMediaUploadRoute
   ApiPublicWidgetDataRoute: typeof ApiPublicWidgetDataRoute
   ApiPublicPlayerEventsRoute: typeof ApiPublicPlayerEventsRoute
+  ApiPublicPlayerPlaybackRoute: typeof ApiPublicPlayerPlaybackRoute
   ApiPublicPlayerRegisterRoute: typeof ApiPublicPlayerRegisterRoute
   ApiPublicPlayerStatusRoute: typeof ApiPublicPlayerStatusRoute
   ApiPublicPlayerSyncRoute: typeof ApiPublicPlayerSyncRoute
@@ -375,6 +400,13 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof StudioPlaylistsRouteImport
       parentRoute: typeof StudioRouteRoute
     }
+    '/studio/relatorios': {
+      id: '/studio/relatorios'
+      path: '/relatorios'
+      fullPath: '/studio/relatorios'
+      preLoaderRoute: typeof StudioRelatoriosRouteImport
+      parentRoute: typeof StudioRouteRoute
+    }
     '/studio/telas': {
       id: '/studio/telas'
       path: '/telas'
@@ -438,6 +470,13 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof ApiPublicPlayerEventsRouteImport
       parentRoute: typeof rootRouteImport
     }
+    '/api/public/player/playback': {
+      id: '/api/public/player/playback'
+      path: '/api/public/player/playback'
+      fullPath: '/api/public/player/playback'
+      preLoaderRoute: typeof ApiPublicPlayerPlaybackRouteImport
+      parentRoute: typeof rootRouteImport
+    }
     '/api/public/player/register': {
       id: '/api/public/player/register'
       path: '/api/public/player/register'
@@ -467,6 +506,7 @@ interface StudioRouteRouteChildren {
   StudioConfiguracoesRoute: typeof StudioConfiguracoesRoute
   StudioConteudosRoute: typeof StudioConteudosRoute
   StudioPlaylistsRoute: typeof StudioPlaylistsRoute
+  StudioRelatoriosRoute: typeof StudioRelatoriosRoute
   StudioTelasRoute: typeof StudioTelasRoute
   StudioIndexRoute: typeof StudioIndexRoute
 }
@@ -476,6 +516,7 @@ const StudioRouteRouteChildren: StudioRouteRouteChildren = {
   StudioConfiguracoesRoute: StudioConfiguracoesRoute,
   StudioConteudosRoute: StudioConteudosRoute,
   StudioPlaylistsRoute: StudioPlaylistsRoute,
+  StudioRelatoriosRoute: StudioRelatoriosRoute,
   StudioTelasRoute: StudioTelasRoute,
   StudioIndexRoute: StudioIndexRoute,
 }
@@ -512,6 +553,7 @@ const rootRouteChildren: RootRouteChildren = {
   ApiMediaUploadRoute: ApiMediaUploadRoute,
   ApiPublicWidgetDataRoute: ApiPublicWidgetDataRoute,
   ApiPublicPlayerEventsRoute: ApiPublicPlayerEventsRoute,
+  ApiPublicPlayerPlaybackRoute: ApiPublicPlayerPlaybackRoute,
   ApiPublicPlayerRegisterRoute: ApiPublicPlayerRegisterRoute,
   ApiPublicPlayerStatusRoute: ApiPublicPlayerStatusRoute,
   ApiPublicPlayerSyncRoute: ApiPublicPlayerSyncRoute,
