@@ -1,0 +1,10 @@
+<?xml version="1.0" encoding="utf-8" ?>
+<component name="PrefetchTask" extends="Task">
+  <script type="text/brightscript" uri="pkg:/components/PrefetchTask.brs" />
+  <interface>
+    <!-- URLs of the current playlist. -->
+    <field id="urls" type="array" />
+    <!-- { url: true } for every file already confirmed as playable. -->
+    <field id="ready" type="assocarray" alwaysNotify="true" />
+  </interface>
+</component>

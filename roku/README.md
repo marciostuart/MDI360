@@ -20,6 +20,14 @@ consumo baixíssimo de memória e nenhuma dependência de WebView.
 
 Somente itens do tipo *página web* são pulados na playlist.
 
+## Arquivos novos só entram quando estão prontos
+
+`PrefetchTask` confere cada arquivo da playlist antes de liberá-lo para
+exibição. Enquanto um arquivo recém-publicado ainda não está disponível, a TV
+continua reproduzindo o que já tem; quando fica pronto, ele passa a ser exibido
+na sua posição da playlist. Arquivos excluídos no servidor saem da lista e da
+verificação na sincronização seguinte.
+
 ## Como testar em uma TV Roku
 
 1. Na TV: Configurações → Sistema → Avançado → **Modo desenvolvedor**. Anote o IP e a senha.

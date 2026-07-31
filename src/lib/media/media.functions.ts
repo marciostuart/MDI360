@@ -283,5 +283,10 @@ export const deleteMediaAsset = createServerFn({ method: "POST" })
       }
     }
 
+    // Push the change right away: every screen re-syncs and drops the file
+    // from its local cache instead of waiting for the periodic sync.
+    const { notifyOrganization } = await import("@/lib/player/realtime.server");
+    notifyOrganization(user.organizationId);
+
     return { ok: true };
   });

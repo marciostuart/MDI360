@@ -44,5 +44,6 @@
 
     <SyncTask id="sync" />
     <ReportTask id="report" />
+    <PrefetchTask id="prefetch" />
   </children>
 </component>
