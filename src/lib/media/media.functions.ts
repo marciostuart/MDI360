@@ -52,6 +52,8 @@ export type MediaListItem = {
   previewUrl: string | null;
   widgetType: string | null;
   widgetConfig: WidgetConfig | null;
+  /** Free-form labels used by the library filter. */
+  tags: string[];
   /** Optional airing window (ISO strings) — file only plays inside it. */
   airStartAt: string | null;
   airEndAt: string | null;
@@ -103,6 +105,7 @@ export const listMediaAssets = createServerFn({ method: "GET" }).handler(
           previewUrl,
           widgetType: row.widgetType,
           widgetConfig: (row.widgetConfig as WidgetConfig | null) ?? null,
+          tags: row.tags ?? [],
           airStartAt: row.airStartAt ? row.airStartAt.toISOString() : null,
           airEndAt: row.airEndAt ? row.airEndAt.toISOString() : null,
         } satisfies MediaListItem;
@@ -240,6 +243,37 @@ export const setMediaAirWindow = createServerFn({ method: "POST" })
     notifyOrganization(user.organizationId);
 
     return { ok: true };
+  });
+
+const tagsSchema = z.object({
+  assetId: z.string().uuid(),
+  tags: z.array(z.string().trim().min(1).max(40)).max(12),
+});
+
+/** Replaces the tag list of one file. Tags are normalized (lowercase, unique). */
+export const setMediaTags = createServerFn({ method: "POST" })
+  .inputValidator((input: unknown) => tagsSchema.parse(input))
+  .handler(async ({ data }) => {
+    const { getDb, schema } = await import("@/lib/db/index.server");
+    const { requireUser } = await import("@/lib/auth/session.server");
+    const { and, eq } = await import("drizzle-orm");
+    const user = await requireUser();
+
+    const tags = Array.from(
+      new Set(data.tags.map((tag) => tag.trim().toLowerCase()).filter(Boolean)),
+    );
+
+    await getDb()
+      .update(schema.mediaAssets)
+      .set({ tags })
+      .where(
+        and(
+          eq(schema.mediaAssets.id, data.assetId),
+          eq(schema.mediaAssets.organizationId, user.organizationId),
+        ),
+      );
+
+    return { tags };
   });
 
 export const deleteMediaAsset = createServerFn({ method: "POST" })

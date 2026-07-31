@@ -3,14 +3,19 @@ import { useServerFn } from "@tanstack/react-start";
 import {
   CheckCircle2,
   CalendarClock,
+  Eye,
   Film,
   Gauge,
   Image as ImageIcon,
   Loader2,
   Pencil,
+  Plus,
+  Search,
   Sparkles,
+  Tag as TagIcon,
   Trash2,
   UploadCloud,
+  X,
   XCircle,
 } from "lucide-react";
 import { useEffect, useRef, useState } from "react";
@@ -19,6 +24,7 @@ import { toast } from "sonner";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
+import { Dialog, DialogContent, DialogTitle } from "@/components/ui/dialog";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import {
@@ -35,6 +41,7 @@ import {
   deleteMediaAsset,
   listMediaAssets,
   setMediaAirWindow,
+  setMediaTags,
 } from "@/lib/media/media.functions";
 import type { MediaListItem } from "@/lib/media/media.functions";
 import { prepareUpload } from "@/lib/media/optimize-client";
@@ -195,6 +202,160 @@ function AirWindowEditor({ item }: { item: MediaListItem }) {
   );
 }
 
+/** Editable tag chips for one file. Tags drive the library filter. */
+function TagEditor({ item }: { item: MediaListItem }) {
+  const queryClient = useQueryClient();
+  const saveFn = useServerFn(setMediaTags);
+  const [draft, setDraft] = useState("");
+  const [adding, setAdding] = useState(false);
+
+  const save = useMutation({
+    mutationFn: (tags: string[]) => saveFn({ data: { assetId: item.id, tags } }),
+    onSuccess: async () => {
+      await queryClient.invalidateQueries({ queryKey: ["media-assets"] });
+    },
+    onError: () => toast.error("Não foi possível salvar as tags."),
+  });
+
+  const commit = () => {
+    const value = draft.trim().toLowerCase();
+    setDraft("");
+    setAdding(false);
+    if (!value || item.tags.includes(value)) return;
+    save.mutate([...item.tags, value]);
+  };
+
+  return (
+    <div className="flex flex-wrap items-center gap-1.5">
+      <TagIcon className="size-3.5 text-muted-foreground" />
+      {item.tags.map((tag) => (
+        <Badge key={tag} variant="secondary" className="gap-1">
+          {tag}
+          <button
+            type="button"
+            aria-label={`Remover tag ${tag}`}
+            className="text-muted-foreground transition-colors hover:text-destructive"
+            onClick={() => save.mutate(item.tags.filter((entry) => entry !== tag))}
+          >
+            <X className="size-3" />
+          </button>
+        </Badge>
+      ))}
+      {adding ? (
+        <Input
+          autoFocus
+          value={draft}
+          placeholder="nova tag"
+          className="h-7 w-32 text-xs"
+          onChange={(event) => setDraft(event.target.value)}
+          onBlur={commit}
+          onKeyDown={(event) => {
+            if (event.key === "Enter") commit();
+            if (event.key === "Escape") {
+              setDraft("");
+              setAdding(false);
+            }
+          }}
+        />
+      ) : (
+        <Button
+          variant="ghost"
+          size="sm"
+          className="h-7 gap-1 px-2 text-xs text-muted-foreground"
+          onClick={() => setAdding(true)}
+          disabled={save.isPending}
+        >
+          <Plus className="size-3" /> tag
+        </Button>
+      )}
+    </div>
+  );
+}
+
+/**
+ * Thumbnail on the right side of each row. When a real thumb cannot be
+ * rendered (video without poster, widget, storage offline) it degrades to a
+ * "Preview" button. Both open the same fullscreen modal.
+ */
+function MediaPreview({ item }: { item: MediaListItem }) {
+  const [open, setOpen] = useState(false);
+  const [thumbFailed, setThumbFailed] = useState(false);
+
+  const canThumb =
+    !thumbFailed &&
+    ((item.kind === "image" && Boolean(item.previewUrl)) ||
+      (item.kind === "video" && Boolean(item.previewUrl)) ||
+      (item.kind === "widget" && Boolean(item.widgetConfig)));
+
+  return (
+    <>
+      {canThumb ? (
+        <button
+          type="button"
+          onClick={() => setOpen(true)}
+          aria-label={`Pré-visualizar ${item.name}`}
+          className="grid h-16 w-28 shrink-0 place-items-center overflow-hidden rounded-lg border border-border bg-secondary transition-colors hover:border-primary/60"
+        >
+          {item.kind === "image" ? (
+            <img
+              src={item.previewUrl!}
+              alt={item.name}
+              loading="lazy"
+              className="size-full object-cover"
+              onError={() => setThumbFailed(true)}
+            />
+          ) : item.kind === "video" ? (
+            <video
+              src={item.previewUrl!}
+              muted
+              preload="metadata"
+              playsInline
+              className="size-full object-cover"
+              onError={() => setThumbFailed(true)}
+            />
+          ) : (
+            <div className="pointer-events-none size-full origin-top-left scale-[0.14] [height:457px] [width:800px]">
+              <WidgetView config={item.widgetConfig!} />
+            </div>
+          )}
+        </button>
+      ) : (
+        <Button
+          variant="outline"
+          size="sm"
+          className="shrink-0 gap-1.5"
+          onClick={() => setOpen(true)}
+        >
+          <Eye className="size-4" /> Preview
+        </Button>
+      )}
+
+      <Dialog open={open} onOpenChange={setOpen}>
+        <DialogContent className="max-w-[96vw] border-none bg-background/95 p-2 sm:max-w-[92vw]">
+          <DialogTitle className="px-2 text-sm font-medium">{item.name}</DialogTitle>
+          <div className="grid max-h-[85vh] min-h-[50vh] place-items-center overflow-hidden rounded-lg bg-secondary">
+            {item.kind === "image" && item.previewUrl ? (
+              <img
+                src={item.previewUrl}
+                alt={item.name}
+                className="max-h-[85vh] w-full object-contain"
+              />
+            ) : item.kind === "video" && item.previewUrl ? (
+              <video src={item.previewUrl} controls autoPlay className="max-h-[85vh] w-full" />
+            ) : item.kind === "widget" && item.widgetConfig ? (
+              <WidgetView config={item.widgetConfig} />
+            ) : (
+              <p className="p-10 text-sm text-muted-foreground">
+                Não foi possível pré-visualizar este arquivo.
+              </p>
+            )}
+          </div>
+        </DialogContent>
+      </Dialog>
+    </>
+  );
+}
+
 /**
  * Uploads through XHR (instead of fetch) purely so the browser gives us real
  * byte-level progress events to drive the bar.
@@ -243,6 +404,10 @@ export function MediaLibrary() {
   const timersRef = useRef<ReturnType<typeof setInterval>[]>([]);
   /** Widget picked from the grid for customization (null = creating a new one). */
   const [editingWidget, setEditingWidget] = useState<WidgetDraft | null>(null);
+  const [showUpload, setShowUpload] = useState(false);
+  const [search, setSearch] = useState("");
+  const [tagFilter, setTagFilter] = useState("all");
+  const [sortBy, setSortBy] = useState<"newest" | "oldest" | "name">("newest");
 
   const library = useQuery({ queryKey: ["media-assets"], queryFn: () => listFn({}) });
 
@@ -395,14 +560,38 @@ export function MediaLibrary() {
   const items = library.data?.items ?? [];
   const storageMissing = library.data && !library.data.storageReady;
 
+  const allTags = Array.from(new Set(items.flatMap((item) => item.tags))).sort();
+  const term = search.trim().toLowerCase();
+  const visibleItems = items
+    .filter((item) => {
+      const matchesTerm =
+        !term ||
+        item.name.toLowerCase().includes(term) ||
+        item.tags.some((tag) => tag.includes(term));
+      const matchesTag = tagFilter === "all" || item.tags.includes(tagFilter);
+      return matchesTerm && matchesTag;
+    })
+    .sort((a, b) => {
+      if (sortBy === "name") return a.name.localeCompare(b.name, "pt-BR");
+      const diff = new Date(a.createdAt).getTime() - new Date(b.createdAt).getTime();
+      return sortBy === "oldest" ? diff : -diff;
+    });
+
   return (
     <div className="space-y-6">
-      <div>
-        <h1 className="text-3xl font-semibold">Conteúdos</h1>
-        <p className="mt-2 max-w-2xl text-sm text-muted-foreground">
-          Envie imagens e vídeos. Cada arquivo é otimizado para o formato da tela antes de ir para o
-          seu MinIO, e as telas baixam por links temporários.
-        </p>
+      <div className="flex flex-wrap items-start justify-between gap-4">
+        <div>
+          <h1 className="text-3xl font-semibold">Conteúdos</h1>
+          <p className="mt-2 max-w-2xl text-sm text-muted-foreground">
+            Envie imagens e vídeos. Cada arquivo é otimizado para o formato da tela antes de ir para
+            o armazenamento, e as telas baixam por links temporários. Use tags para organizar e
+            encontrar seus arquivos rapidamente.
+          </p>
+        </div>
+        <Button className="gap-2" onClick={() => setShowUpload((value) => !value)}>
+          <UploadCloud className="size-4" />
+          {showUpload ? "Fechar envio" : "Enviar novos arquivos"}
+        </Button>
       </div>
 
       {storageMissing ? (
@@ -415,9 +604,10 @@ export function MediaLibrary() {
         </Card>
       ) : null}
 
-      <Card>
-        <CardContent className="space-y-4 pt-6">
-          <div className="max-w-sm space-y-2">
+      {showUpload || uploads.length > 0 ? (
+        <Card>
+          <CardContent className="space-y-4 pt-6">
+            <div className="max-w-sm space-y-2">
             <Label>Formato da tela</Label>
             <Select value={presetId} onValueChange={setPresetId}>
               <SelectTrigger>
@@ -511,12 +701,49 @@ export function MediaLibrary() {
                 );
               })}
             </div>
-          ) : null}
-        </CardContent>
-      </Card>
+            ) : null}
+          </CardContent>
+        </Card>
+      ) : null}
 
       <div ref={composerRef}>
         <WidgetComposer editing={editingWidget} onCancelEditing={() => setEditingWidget(null)} />
+      </div>
+
+      <div className="flex flex-wrap items-center gap-2">
+        <div className="relative min-w-[220px] flex-1">
+          <Search className="pointer-events-none absolute left-3 top-1/2 size-4 -translate-y-1/2 text-muted-foreground" />
+          <Input
+            value={search}
+            onChange={(event) => setSearch(event.target.value)}
+            placeholder="Pesquisar por nome ou tag"
+            className="pl-9"
+            aria-label="Pesquisar conteúdos"
+          />
+        </div>
+        <Select value={tagFilter} onValueChange={setTagFilter}>
+          <SelectTrigger className="w-[190px]" aria-label="Filtrar por tag">
+            <SelectValue placeholder="Todas as tags" />
+          </SelectTrigger>
+          <SelectContent>
+            <SelectItem value="all">Todas as tags</SelectItem>
+            {allTags.map((tag) => (
+              <SelectItem key={tag} value={tag}>
+                {tag}
+              </SelectItem>
+            ))}
+          </SelectContent>
+        </Select>
+        <Select value={sortBy} onValueChange={(value) => setSortBy(value as typeof sortBy)}>
+          <SelectTrigger className="w-[210px]" aria-label="Ordenar">
+            <SelectValue />
+          </SelectTrigger>
+          <SelectContent>
+            <SelectItem value="newest">Envio mais recente</SelectItem>
+            <SelectItem value="oldest">Envio mais antigo</SelectItem>
+            <SelectItem value="name">Nome (A-Z)</SelectItem>
+          </SelectContent>
+        </Select>
       </div>
 
       {library.isPending ? (
@@ -525,68 +752,26 @@ export function MediaLibrary() {
         </div>
       ) : items.length === 0 ? (
         <p className="text-sm text-muted-foreground">
-          Nenhum conteúdo por aqui ainda. Envie o primeiro arquivo acima.
+          Nenhum conteúdo por aqui ainda. Envie o primeiro arquivo pelo botão acima.
+        </p>
+      ) : visibleItems.length === 0 ? (
+        <p className="text-sm text-muted-foreground">
+          Nenhum conteúdo encontrado com esses filtros.
         </p>
       ) : (
-        <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
-          {items.map((item) => (
-            <Card key={item.id} className="overflow-hidden">
-              <div className="grid aspect-video place-items-center bg-secondary">
-                {item.kind === "widget" && item.widgetConfig ? (
-                  <WidgetView config={item.widgetConfig} />
-                ) : item.kind === "image" && item.previewUrl ? (
-                  <img
-                    src={item.previewUrl}
-                    alt={item.name}
-                    className="size-full object-contain"
-                    loading="lazy"
-                  />
-                ) : item.kind === "video" && item.previewUrl ? (
-                  <video
-                    src={item.previewUrl}
-                    muted
-                    controls
-                    className="size-full object-contain"
-                  />
-                ) : item.kind === "video" ? (
-                  <Film className="size-8 text-muted-foreground" />
-                ) : item.kind === "widget" ? (
-                  <Gauge className="size-8 text-muted-foreground" />
-                ) : (
-                  <ImageIcon className="size-8 text-muted-foreground" />
-                )}
-              </div>
-              <CardContent className="space-y-2 pt-4">
-                <div className="flex items-start justify-between gap-2">
+        <div className="divide-y divide-border overflow-hidden rounded-xl border border-border">
+          {visibleItems.map((item) => (
+            <div key={item.id} className="flex flex-wrap items-start gap-4 p-4">
+              <div className="min-w-[220px] flex-1 space-y-2">
+                <div className="flex items-center gap-2">
+                  {item.kind === "video" ? (
+                    <Film className="size-4 shrink-0 text-muted-foreground" />
+                  ) : item.kind === "widget" ? (
+                    <Gauge className="size-4 shrink-0 text-muted-foreground" />
+                  ) : (
+                    <ImageIcon className="size-4 shrink-0 text-muted-foreground" />
+                  )}
                   <p className="truncate text-sm font-medium">{item.name}</p>
-                  {item.kind === "widget" && item.widgetConfig ? (
-                    <Button
-                      variant="ghost"
-                      size="icon"
-                      className="size-8 text-muted-foreground"
-                      onClick={() => {
-                        setEditingWidget({
-                          assetId: item.id,
-                          name: item.name,
-                          config: item.widgetConfig!,
-                        });
-                        composerRef.current?.scrollIntoView({ behavior: "smooth", block: "start" });
-                      }}
-                      aria-label={`Personalizar ${item.name}`}
-                    >
-                      <Pencil className="size-4" />
-                    </Button>
-                  ) : null}
-                  <Button
-                    variant="ghost"
-                    size="icon"
-                    className="size-8 text-muted-foreground"
-                    onClick={() => removeMutation.mutate(item.id)}
-                    disabled={removeMutation.isPending}
-                    aria-label={`Remover ${item.name}`}
-                  >
-                    <Trash2 className="size-4" />
-                  </Button>
                 </div>
                 <div className="flex flex-wrap gap-1.5">
                   {item.kind === "widget" ? (
@@ -604,21 +789,51 @@ export function MediaLibrary() {
                   {item.kind === "widget" ? null : (
                     <Badge variant="outline">{formatBytes(item.byteSize)}</Badge>
                   )}
+                  <Badge variant="outline">
+                    {new Date(item.createdAt).toLocaleDateString("pt-BR")}
+                  </Badge>
                   {item.status !== "ready" ? (
                     <Badge variant="destructive">
                       {item.status === "uploading" ? "Envio incompleto" : "Falhou"}
                     </Badge>
                   ) : null}
                 </div>
-                {item.originalByteSize && item.byteSize && item.originalByteSize > item.byteSize ? (
-                  <p className="text-xs text-muted-foreground">
-                    Original {formatBytes(item.originalByteSize)} → otimizado{" "}
-                    {formatBytes(item.byteSize)}
-                  </p>
-                ) : null}
+                <TagEditor item={item} />
                 <AirWindowEditor item={item} />
-              </CardContent>
-            </Card>
+              </div>
+
+              <div className="flex items-center gap-2">
+                <MediaPreview item={item} />
+                {item.kind === "widget" && item.widgetConfig ? (
+                  <Button
+                    variant="ghost"
+                    size="icon"
+                    className="size-8 text-muted-foreground"
+                    onClick={() => {
+                      setEditingWidget({
+                        assetId: item.id,
+                        name: item.name,
+                        config: item.widgetConfig!,
+                      });
+                      composerRef.current?.scrollIntoView({ behavior: "smooth", block: "start" });
+                    }}
+                    aria-label={`Personalizar ${item.name}`}
+                  >
+                    <Pencil className="size-4" />
+                  </Button>
+                ) : null}
+                <Button
+                  variant="ghost"
+                  size="icon"
+                  className="size-8 text-muted-foreground"
+                  onClick={() => removeMutation.mutate(item.id)}
+                  disabled={removeMutation.isPending}
+                  aria-label={`Remover ${item.name}`}
+                >
+                  <Trash2 className="size-4" />
+                </Button>
+              </div>
+            </div>
           ))}
         </div>
       )}
