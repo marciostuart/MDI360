@@ -40,7 +40,6 @@
     </Group>
 
     <!-- Locucao da senha (MP3 gerado pelo servidor). -->
-    <Audio id="announce" />
     <!-- Sinal sonoro da chamada: MP3 embarcado no canal, sempre audivel. -->
     <Audio id="chime" />
 
