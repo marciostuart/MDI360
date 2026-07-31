@@ -25,6 +25,21 @@ export type PlayerPlaylist = {
 } | null;
 
 /** Minutes since midnight in the given IANA timezone, plus the weekday index. */
+/**
+ * Small stable fingerprint of the ids currently allowed on air. Mixed into the
+ * playlist revision so a screen reloads the moment a file's airing window opens
+ * or closes, even though the playlist itself never changed.
+ */
+function fingerprint(ids: string[]) {
+  let hash = 0;
+  for (const id of ids) {
+    for (let i = 0; i < id.length; i += 1) {
+      hash = (hash * 31 + id.charCodeAt(i)) % 100003;
+    }
+  }
+  return hash % 997;
+}
+
 function localNow(timezone: string) {
   const formatter = new Intl.DateTimeFormat("en-US", {
     timeZone: timezone,
@@ -113,6 +128,8 @@ export async function resolvePlaylistForDevice(
       status: schema.mediaAssets.status,
       widgetType: schema.mediaAssets.widgetType,
       widgetConfig: schema.mediaAssets.widgetConfig,
+      airStartAt: schema.mediaAssets.airStartAt,
+      airEndAt: schema.mediaAssets.airEndAt,
     })
     .from(schema.playlistItems)
     .innerJoin(schema.mediaAssets, eq(schema.mediaAssets.id, schema.playlistItems.mediaAssetId))
@@ -123,6 +140,10 @@ export async function resolvePlaylistForDevice(
   const items: PlayerItem[] = [];
   for (const row of itemRows) {
     if (row.status !== "ready") continue;
+    // Per-file airing window (flash offers): outside it the file never plays,
+    // no matter which playlist it belongs to.
+    if (row.airStartAt && row.airStartAt > now) continue;
+    if (row.airEndAt && row.airEndAt < now) continue;
     // Widgets render locally on the TV from open data; they carry no file URL.
     if (row.kind === "widget") {
       items.push({
@@ -161,5 +182,10 @@ export async function resolvePlaylistForDevice(
     });
   }
 
-  return { id: playlist.id, name: playlist.name, revision: playlist.revision, items };
+  return {
+    id: playlist.id,
+    name: playlist.name,
+    revision: playlist.revision * 1000 + fingerprint(items.map((item) => item.id)),
+    items,
+  };
 }
