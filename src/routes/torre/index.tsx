@@ -22,6 +22,7 @@ import {
 } from "@/lib/admin/platform.functions";
 import { formatBytes } from "@/lib/admin/format";
 import { TrafficMonitor } from "@/components/admin/traffic-monitor";
+import { PendingDevicesReset } from "@/components/admin/pending-devices-reset";
 
 export const Route = createFileRoute("/torre/")({
   head: () => ({
@@ -186,6 +187,8 @@ function TowerOverview() {
       </div>
 
       <TrafficMonitor />
+
+      <PendingDevicesReset />
 
       <div className="grid gap-4 lg:grid-cols-2">
         <Card>
