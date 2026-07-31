@@ -13,6 +13,11 @@ function supported() {
   return typeof window !== "undefined" && "caches" in window;
 }
 
+/** False on browsers without the Cache API — playback then streams directly. */
+export function isSupported() {
+  return supported();
+}
+
 async function openCache() {
   return caches.open(CACHE_NAME);
 }
