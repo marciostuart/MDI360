@@ -1,7 +1,7 @@
 import { useMutation, useQueryClient } from "@tanstack/react-query";
 import { useServerFn } from "@tanstack/react-start";
-import { Loader2, Plus } from "lucide-react";
-import { useState } from "react";
+import { Loader2, Plus, RotateCcw, Save, X } from "lucide-react";
+import { useEffect, useState } from "react";
 import { toast } from "sonner";
 
 import { Button } from "@/components/ui/button";
@@ -15,6 +15,7 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select";
+import { Slider } from "@/components/ui/slider";
 import { Switch } from "@/components/ui/switch";
 import { WidgetView } from "@/components/widgets/widget-view";
 import {
@@ -22,20 +23,53 @@ import {
   NEWS_FEEDS,
   WEATHER_CITIES,
   WIDGET_CATALOG,
+  WIDGET_THEME_DEFAULTS,
   getWidgetDefinition,
+  resolveWidgetTheme,
+  type BackgroundMode,
   type WidgetConfig,
+  type WidgetTheme,
   type WidgetType,
 } from "@/lib/widgets/catalog";
 import { saveWidgetAsset } from "@/lib/widgets/widgets.functions";
 
+const BACKGROUND_LABELS: { id: BackgroundMode; label: string; hint: string }[] = [
+  { id: "scene", label: "Cenário animado", hint: "Sol, nuvens, chuva ou tempestade conforme o clima" },
+  { id: "gradient", label: "Degradê", hint: "Duas cores livres" },
+  { id: "solid", label: "Cor sólida", hint: "Fundo chapado" },
+  { id: "image", label: "Imagem", hint: "URL pública (https) com zoom suave" },
+];
+
+export type WidgetDraft = { assetId: string; name: string; config: WidgetConfig };
+
 /** Builds an information widget and drops it in the library like any content. */
-export function WidgetComposer() {
+export function WidgetComposer({
+  editing,
+  onCancelEditing,
+}: {
+  editing?: WidgetDraft | null;
+  onCancelEditing?: () => void;
+} = {}) {
   const queryClient = useQueryClient();
   const saveFn = useServerFn(saveWidgetAsset);
 
   const [type, setType] = useState<WidgetType>("clock");
   const [name, setName] = useState("Relógio e data");
   const [config, setConfig] = useState<WidgetConfig>(getWidgetDefinition("clock").defaultConfig);
+
+  // Loading an existing widget from the library turns this into an editor.
+  useEffect(() => {
+    if (!editing) return;
+    setType(editing.config.type);
+    setName(editing.name);
+    setConfig(editing.config);
+  }, [editing]);
+
+  const theme: WidgetTheme = resolveWidgetTheme(config.theme);
+
+  function patchTheme(patch: Partial<WidgetTheme>) {
+    setConfig({ ...config, theme: { ...theme, ...patch } } as WidgetConfig);
+  }
 
   function pickType(next: WidgetType) {
     const definition = getWidgetDefinition(next);
@@ -45,10 +79,16 @@ export function WidgetComposer() {
   }
 
   const saveMutation = useMutation({
-    mutationFn: () => saveFn({ data: { name: name.trim(), config } }),
+    mutationFn: () =>
+      saveFn({
+        data: { name: name.trim(), config, ...(editing ? { assetId: editing.assetId } : {}) },
+      }),
     onSuccess: async () => {
-      toast.success("Widget adicionado à biblioteca. Já pode entrar em uma playlist.");
+      toast.success(
+        editing ? "Widget atualizado. As telas recebem a mudança na sequência." : "Widget adicionado à biblioteca. Já pode entrar em uma playlist.",
+      );
       await queryClient.invalidateQueries({ queryKey: ["media-assets"] });
+      onCancelEditing?.();
     },
     onError: () => toast.error("Não foi possível salvar o widget."),
   });
@@ -60,8 +100,9 @@ export function WidgetComposer() {
           <div>
             <h2 className="font-display text-lg font-semibold">Widgets de informação</h2>
             <p className="mt-1 text-sm text-muted-foreground">
-              Relógio, clima, cotações e notícias. Os dados vêm de fontes públicas e abertas, com
-              crédito exibido automaticamente na tela quando a licença exige.
+              Relógio, clima, cotações e notícias — com fundo, cores e animações personalizáveis. Os
+              dados vêm de fontes públicas e abertas, com crédito exibido automaticamente na tela
+              quando a licença exige.
             </p>
           </div>
 
@@ -202,24 +243,233 @@ export function WidgetComposer() {
                   }
                 />
               </div>
+
+              <div className="sm:col-span-2 space-y-4 rounded-lg border border-border p-4">
+                <label className="flex items-center gap-2 text-sm">
+                  <Switch
+                    checked={config.oneAtATime}
+                    onCheckedChange={(checked) => setConfig({ ...config, oneAtATime: checked })}
+                  />
+                  Uma notícia por vez (leitura confortável na TV)
+                </label>
+
+                {config.oneAtATime ? (
+                  <>
+                    <div className="space-y-2">
+                      <Label>
+                        Tempo de cada notícia: {config.rotateSeconds}s
+                      </Label>
+                      <Slider
+                        min={3}
+                        max={30}
+                        step={1}
+                        value={[config.rotateSeconds]}
+                        onValueChange={([value]) =>
+                          setConfig({ ...config, rotateSeconds: value ?? 7 })
+                        }
+                      />
+                      <p className="text-xs text-muted-foreground">
+                        Deixe a duração do widget na playlist maior que manchetes × tempo para
+                        exibir todas.
+                      </p>
+                    </div>
+                    <div className="flex flex-wrap gap-6">
+                      <label className="flex items-center gap-2 text-sm">
+                        <Switch
+                          checked={config.showSummary}
+                          onCheckedChange={(checked) =>
+                            setConfig({ ...config, showSummary: checked })
+                          }
+                        />
+                        Mostrar resumo
+                      </label>
+                      <label className="flex items-center gap-2 text-sm">
+                        <Switch
+                          checked={config.showImage}
+                          onCheckedChange={(checked) => setConfig({ ...config, showImage: checked })}
+                        />
+                        Usar a foto da notícia como fundo
+                      </label>
+                    </div>
+                  </>
+                ) : null}
+              </div>
             </div>
           ) : null}
 
-          <Button
-            onClick={() => saveMutation.mutate()}
-            disabled={
-              saveMutation.isPending ||
-              name.trim().length === 0 ||
-              (config.type === "currency" && config.pairs.length === 0)
-            }
-          >
-            {saveMutation.isPending ? (
-              <Loader2 className="size-4 animate-spin" />
-            ) : (
-              <Plus className="size-4" />
-            )}
-            Adicionar à biblioteca
-          </Button>
+          {/* ---------- appearance, shared by every widget ---------- */}
+          <div className="space-y-4 rounded-lg border border-border p-4">
+            <div className="flex items-center justify-between gap-2">
+              <div>
+                <h3 className="text-sm font-semibold">Aparência</h3>
+                <p className="text-xs text-muted-foreground">
+                  Fundo, cores e animações deste widget.
+                </p>
+              </div>
+              <Button
+                type="button"
+                variant="ghost"
+                size="sm"
+                onClick={() => patchTheme(WIDGET_THEME_DEFAULTS)}
+              >
+                <RotateCcw className="size-4" />
+                Padrão
+              </Button>
+            </div>
+
+            <div className="grid gap-4 sm:grid-cols-2">
+              <div className="space-y-2">
+                <Label>Fundo</Label>
+                <Select
+                  value={theme.background}
+                  onValueChange={(value) => patchTheme({ background: value as BackgroundMode })}
+                >
+                  <SelectTrigger>
+                    <SelectValue />
+                  </SelectTrigger>
+                  <SelectContent>
+                    {BACKGROUND_LABELS.map((option) => (
+                      <SelectItem key={option.id} value={option.id}>
+                        {option.label}
+                      </SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+                <p className="text-xs text-muted-foreground">
+                  {BACKGROUND_LABELS.find((option) => option.id === theme.background)?.hint}
+                </p>
+              </div>
+
+              <div className="space-y-2">
+                <Label>Cor de destaque</Label>
+                <div className="flex items-center gap-2">
+                  <Input
+                    type="color"
+                    className="h-10 w-16 p-1"
+                    value={theme.accentColor || "#38BDF8"}
+                    onChange={(event) => patchTheme({ accentColor: event.target.value })}
+                  />
+                  <Button
+                    type="button"
+                    variant="outline"
+                    size="sm"
+                    onClick={() => patchTheme({ accentColor: "" })}
+                  >
+                    Usar cor da marca
+                  </Button>
+                </div>
+              </div>
+
+              {theme.background === "solid" ? (
+                <div className="space-y-2">
+                  <Label>Cor do fundo</Label>
+                  <Input
+                    type="color"
+                    className="h-10 w-16 p-1"
+                    value={theme.backgroundColor}
+                    onChange={(event) => patchTheme({ backgroundColor: event.target.value })}
+                  />
+                </div>
+              ) : null}
+
+              {theme.background === "gradient" ? (
+                <div className="space-y-2">
+                  <Label>Degradê</Label>
+                  <div className="flex items-center gap-2">
+                    <Input
+                      type="color"
+                      className="h-10 w-16 p-1"
+                      value={theme.gradientFrom}
+                      onChange={(event) => patchTheme({ gradientFrom: event.target.value })}
+                    />
+                    <Input
+                      type="color"
+                      className="h-10 w-16 p-1"
+                      value={theme.gradientTo}
+                      onChange={(event) => patchTheme({ gradientTo: event.target.value })}
+                    />
+                  </div>
+                </div>
+              ) : null}
+
+              <div className="space-y-2">
+                <Label>Cor do texto</Label>
+                <Input
+                  type="color"
+                  className="h-10 w-16 p-1"
+                  value={theme.textColor}
+                  onChange={(event) => patchTheme({ textColor: event.target.value })}
+                />
+              </div>
+            </div>
+
+            {theme.background === "image" ? (
+              <div className="grid gap-4 sm:grid-cols-2">
+                <div className="space-y-2 sm:col-span-2">
+                  <Label htmlFor="widget-bg">Imagem de fundo (URL https)</Label>
+                  <Input
+                    id="widget-bg"
+                    value={theme.backgroundImageUrl}
+                    onChange={(event) => patchTheme({ backgroundImageUrl: event.target.value })}
+                    placeholder="https://.../fundo.jpg"
+                  />
+                </div>
+                <div className="space-y-2">
+                  <Label>Escurecer a imagem: {theme.overlay}%</Label>
+                  <Slider
+                    min={0}
+                    max={90}
+                    step={5}
+                    value={[theme.overlay]}
+                    onValueChange={([value]) => patchTheme({ overlay: value ?? 45 })}
+                  />
+                </div>
+              </div>
+            ) : null}
+
+            <div className="flex flex-wrap gap-6">
+              <label className="flex items-center gap-2 text-sm">
+                <Switch
+                  checked={theme.animations}
+                  onCheckedChange={(checked) => patchTheme({ animations: checked })}
+                />
+                Animações
+              </label>
+              <label className="flex items-center gap-2 text-sm">
+                <Switch
+                  checked={theme.kenBurns}
+                  onCheckedChange={(checked) => patchTheme({ kenBurns: checked })}
+                />
+                Zoom suave na imagem
+              </label>
+            </div>
+          </div>
+
+          <div className="flex flex-wrap gap-2">
+            <Button
+              onClick={() => saveMutation.mutate()}
+              disabled={
+                saveMutation.isPending ||
+                name.trim().length === 0 ||
+                (config.type === "currency" && config.pairs.length === 0)
+              }
+            >
+              {saveMutation.isPending ? (
+                <Loader2 className="size-4 animate-spin" />
+              ) : editing ? (
+                <Save className="size-4" />
+              ) : (
+                <Plus className="size-4" />
+              )}
+              {editing ? "Salvar alterações" : "Adicionar à biblioteca"}
+            </Button>
+            {editing ? (
+              <Button type="button" variant="outline" onClick={() => onCancelEditing?.()}>
+                <X className="size-4" />
+                Cancelar edição
+              </Button>
+            ) : null}
+          </div>
         </div>
 
         <div className="space-y-2">
