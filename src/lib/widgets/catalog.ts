@@ -193,7 +193,15 @@ export const WIDGET_CATALOG: {
     label: "Notícias",
     description: "Manchetes de feeds públicos, com crédito automático da fonte.",
     defaultDurationMs: 20000,
-    defaultConfig: { type: "news", feedId: "agencia-brasil", headlines: 5 },
+    defaultConfig: {
+      type: "news",
+      feedId: "agencia-brasil",
+      headlines: 5,
+      oneAtATime: true,
+      rotateSeconds: 7,
+      showSummary: true,
+      showImage: true,
+    },
   },
 ];
 
