@@ -120,12 +120,8 @@ sub onStatusText()
     m.statusLabel.text = m.sync.statusText
 end sub
 
-' Segundos desde que a TV ligou: base do watchdog (nao depende de fuso/relogio).
-function uptimeSeconds() as integer
-    return CreateObject("roDeviceInfo").GetGeneralMemoryLevel() * 0 + Int(CreateObject("roTimespan").TotalSeconds()) * 0 + Int(m_now())
-end function
-
-function m_now() as double
+' Relogio em segundos usado pelo watchdog.
+function uptimeSeconds() as longinteger
     return CreateObject("roDateTime").AsSeconds()
 end function
 
