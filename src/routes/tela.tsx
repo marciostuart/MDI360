@@ -191,38 +191,51 @@ function PlayerScreen() {
     if (!token || linked) return;
     let cancelled = false;
 
-    const check = async () => {
+    const check = async (wait: boolean) => {
       try {
         const response = await fetch("/api/public/player/status", {
           method: "POST",
-          headers: { authorization: `Bearer ${token}` },
+          headers: { "content-type": "application/json", authorization: `Bearer ${token}` },
+          body: JSON.stringify({ wait }),
         });
         if (response.status === 401) {
           await resetDevice();
-          return;
+          return false;
         }
         const data = (await response.json()) as {
           state: "waiting" | "linked" | "blocked";
           activationCode?: string | null;
         };
-        if (cancelled) return;
+        if (cancelled) return false;
         setError(null);
         if (data.state === "linked") {
           setLinked(true);
+          return true;
         } else if (data.state === "waiting" && data.activationCode) {
           setActivationCode(data.activationCode);
           window.localStorage.setItem(CODE_KEY, data.activationCode);
         }
+        return false;
       } catch {
         if (!cancelled) setError("Sem conexão com o servidor. Tentando novamente…");
+        await new Promise((resolve) => window.setTimeout(resolve, 5_000));
+        return false;
       }
     };
 
-    void check();
-    const interval = window.setInterval(() => void check(), 5_000);
+    // Push channel for unlinked screens: the request stays open and the server
+    // answers the moment the code is claimed (or the screen is replaced), so
+    // linking and "Substituir tela" are immediate.
+    void (async () => {
+      let first = true;
+      while (!cancelled) {
+        const linkedNow = await check(!first);
+        first = false;
+        if (linkedNow) return;
+      }
+    })();
     return () => {
       cancelled = true;
-      window.clearInterval(interval);
     };
   }, [token, linked, resetDevice]);
 
