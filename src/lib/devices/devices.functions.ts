@@ -192,6 +192,108 @@ export const deleteDevice = createServerFn({ method: "POST" })
     return { ok: true };
   });
 
+/**
+ * Swaps a screen for a new device: the whole programming (name, format,
+ * playlist, audio, transition, schedules, queue panel and playback history)
+ * moves to the device showing the informed activation code, and the old row is
+ * removed — which wipes its cache, releases its code and makes it show a fresh
+ * activation code for future use.
+ */
+export const replaceDevice = createServerFn({ method: "POST" })
+  .inputValidator((input: unknown) =>
+    z
+      .object({
+        deviceId: z.string().uuid(),
+        code: z
+          .string()
+          .trim()
+          .transform((value) => value.toUpperCase().replace(/[^A-Z0-9]/g, ""))
+          .refine((value) => value.length === 6, "Informe o código de 6 caracteres"),
+      })
+      .parse(input),
+  )
+  .handler(async ({ data }) => {
+    const { getDb, schema, isDatabaseConfigured } = await import("@/lib/db/index.server");
+    if (!isDatabaseConfigured()) throw new Error("Banco de dados não configurado.");
+
+    const { requireUser } = await import("@/lib/auth/session.server");
+    const { and, eq, isNull } = await import("drizzle-orm");
+    const user = await requireUser();
+    const db = getDb();
+
+    const current = await db
+      .select()
+      .from(schema.devices)
+      .where(
+        and(
+          eq(schema.devices.id, data.deviceId),
+          eq(schema.devices.organizationId, user.organizationId),
+        ),
+      )
+      .limit(1);
+    const old = current[0];
+    if (!old) throw new Error("Tela não encontrada.");
+
+    const target = await db
+      .select({ id: schema.devices.id })
+      .from(schema.devices)
+      .where(
+        and(eq(schema.devices.pairingCode, data.code), isNull(schema.devices.organizationId)),
+      )
+      .limit(1);
+    const next = target[0];
+    if (!next) throw new Error("Código inválido ou já utilizado.");
+    if (next.id === old.id) throw new Error("Informe o código de outra tela.");
+
+    // The new device inherits everything the customer had configured.
+    await db
+      .update(schema.devices)
+      .set({
+        organizationId: user.organizationId,
+        name: old.name,
+        canvasPreset: old.canvasPreset,
+        defaultPlaylistId: old.defaultPlaylistId,
+        audioEnabled: old.audioEnabled,
+        transitionEffect: old.transitionEffect,
+        status: "active",
+        pairingExpiresAt: null,
+      })
+      .where(eq(schema.devices.id, next.id));
+
+    // Schedules, queue add-on and playback history follow the programming.
+    await db
+      .update(schema.schedules)
+      .set({ deviceId: next.id })
+      .where(eq(schema.schedules.deviceId, old.id));
+    await db
+      .delete(schema.queuePanels)
+      .where(eq(schema.queuePanels.deviceId, next.id));
+    await db
+      .update(schema.queuePanels)
+      .set({ deviceId: next.id })
+      .where(eq(schema.queuePanels.deviceId, old.id));
+    await db
+      .update(schema.playbackEvents)
+      .set({ deviceId: next.id })
+      .where(eq(schema.playbackEvents.deviceId, old.id));
+
+    // Removing the old row unlinks it: the app wipes the local cache and shows
+    // a new activation code, and the previous code is free again.
+    await db.delete(schema.devices).where(eq(schema.devices.id, old.id));
+
+    await db.insert(schema.deviceCommands).values({
+      deviceId: next.id,
+      kind: "sync_playlist",
+      createdBy: user.id,
+    });
+
+    const { notifyDevice } = await import("@/lib/player/realtime.server");
+    notifyDevice(old.id);
+    notifyDevice(next.id);
+
+    return { ok: true, deviceId: next.id };
+  });
+
 /** Queues a remote command. Ownership is verified before anything is written. */
 /**
  * Sets (or clears) the playlist a screen plays by default. Both the screen and
