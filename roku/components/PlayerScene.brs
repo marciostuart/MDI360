@@ -98,7 +98,8 @@ sub init()
     m.recoveries = 0
     m.watchdogTimer = CreateObject("roSGNode", "Timer")
     m.watchdogTimer.repeat = true
-    m.watchdogTimer.duration = 15
+    ' Verificacao a cada 5s: uma chamada presa volta ao conteudo rapidamente.
+    m.watchdogTimer.duration = 5
     m.watchdogTimer.observeField("fire", "onWatchdog")
     m.top.appendChild(m.watchdogTimer)
     m.watchdogTimer.control = "start"
@@ -691,9 +692,13 @@ end sub
 sub onWatchdog()
     now = uptimeSeconds()
 
-    if m.queueActive = true and m.queueDeadline > 0 and now > m.queueDeadline
-        onQueueTimer()
-        return
+    if m.queueActive = true
+        ' Sem prazo valido (payload estranho) tambem encerra: nenhuma chamada
+        ' pode ficar na tela para sempre.
+        if m.queueDeadline <= 0 or now > m.queueDeadline
+            onQueueTimer()
+            return
+        end if
     end if
 
     ' Um video saudavel move a posicao; imagens/widgets batem o beat na troca.
@@ -712,11 +717,12 @@ sub recoverFromFreeze()
     m.queueActive = false
     m.queueDeadline = 0
     m.pendingCalls = []
-    m.queue.visible = false
-    m.announce.control = "stop"
-    m.chime.control = "stop"
-    m.announceTimer.control = "stop"
-    m.queueTimer.control = "stop"
+    m.seenCalls = {}
+    if m.queue <> invalid then m.queue.visible = false
+    if m.announce <> invalid then m.announce.control = "stop"
+    if m.chime <> invalid then m.chime.control = "stop"
+    if m.announceTimer <> invalid then m.announceTimer.control = "stop"
+    if m.queueTimer <> invalid then m.queueTimer.control = "stop"
 
     ' 2. Zera o player de video e os temporizadores de conteudo.
     m.slideTimer.control = "stop"
