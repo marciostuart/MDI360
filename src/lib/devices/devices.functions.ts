@@ -15,6 +15,8 @@ export type DeviceListItem = {
   pairingExpiresAt: string | null;
   defaultPlaylistId: string | null;
   audioEnabled: boolean;
+  /** "none" = corte seco · "fade" = transição suave entre arquivos. */
+  transitionEffect: string;
   appVersion: string | null;
   lastSeenAt: string | null;
   online: boolean;
@@ -53,6 +55,7 @@ export const listDevices = createServerFn({ method: "GET" }).handler(
         pairingExpiresAt: row.pairingExpiresAt ? row.pairingExpiresAt.toISOString() : null,
         defaultPlaylistId: row.defaultPlaylistId,
         audioEnabled: row.audioEnabled,
+        transitionEffect: row.transitionEffect,
         appVersion: row.appVersion,
         lastSeenAt: row.lastSeenAt ? row.lastSeenAt.toISOString() : null,
         online: row.lastSeenAt ? now - row.lastSeenAt.getTime() < DEVICE_ONLINE_WINDOW_MS : false,
@@ -267,6 +270,41 @@ export const setDeviceAudio = createServerFn({ method: "POST" })
     const updated = await getDb()
       .update(schema.devices)
       .set({ audioEnabled: data.audioEnabled })
+      .where(
+        and(
+          eq(schema.devices.id, data.deviceId),
+          eq(schema.devices.organizationId, user.organizationId),
+        ),
+      )
+      .returning({ id: schema.devices.id });
+
+    if (!updated[0]) throw new Error("Tela não encontrada.");
+
+    const { notifyDevice } = await import("@/lib/player/realtime.server");
+    notifyDevice(data.deviceId);
+
+    return { ok: true };
+  });
+
+/**
+ * Transition between playlist items on this screen. Optional per TV: some
+ * customers want a hard cut, others prefer a soft crossfade.
+ */
+export const setDeviceTransition = createServerFn({ method: "POST" })
+  .inputValidator((input: unknown) =>
+    z
+      .object({ deviceId: z.string().uuid(), transitionEffect: z.enum(["none", "fade"]) })
+      .parse(input),
+  )
+  .handler(async ({ data }) => {
+    const { getDb, schema } = await import("@/lib/db/index.server");
+    const { requireUser } = await import("@/lib/auth/session.server");
+    const { and, eq } = await import("drizzle-orm");
+    const user = await requireUser();
+
+    const updated = await getDb()
+      .update(schema.devices)
+      .set({ transitionEffect: data.transitionEffect })
       .where(
         and(
           eq(schema.devices.id, data.deviceId),

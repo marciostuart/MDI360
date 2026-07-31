@@ -5,6 +5,7 @@ import {
   Loader2,
   MonitorSmartphone,
   RefreshCw,
+  Sparkles,
   Trash2,
   Tv,
   Volume2,
@@ -32,6 +33,7 @@ import {
   listDevices,
   sendDeviceCommand,
   setDeviceAudio,
+  setDeviceTransition,
   setDevicePlaylist,
 } from "@/lib/devices/devices.functions";
 import { listPlaylists } from "@/lib/playlists/playlists.functions";
@@ -57,6 +59,7 @@ export function DeviceManager() {
   const playlistsFn = useServerFn(listPlaylists);
   const setPlaylistFn = useServerFn(setDevicePlaylist);
   const setAudioFn = useServerFn(setDeviceAudio);
+  const setTransitionFn = useServerFn(setDeviceTransition);
 
   const [name, setName] = useState("");
   const [code, setCode] = useState("");
@@ -125,6 +128,20 @@ export function DeviceManager() {
       await refresh();
     },
     onError: () => toast.error("Não foi possível alterar o áudio desta tela."),
+  });
+
+  const transitionMutation = useMutation({
+    mutationFn: (vars: { deviceId: string; transitionEffect: "none" | "fade" }) =>
+      setTransitionFn({ data: vars }),
+    onSuccess: async (_data, vars) => {
+      toast.success(
+        vars.transitionEffect === "fade"
+          ? "Transição suave ativada nesta tela."
+          : "Transição desativada: os arquivos trocam em corte seco.",
+      );
+      await refresh();
+    },
+    onError: () => toast.error("Não foi possível alterar a transição desta tela."),
   });
 
   const items = devices.data?.items ?? [];
