@@ -657,3 +657,89 @@ export const fetchLiveTraffic = createServerFn({ method: "GET" }).handler(
     }
   },
 );
+
+export type PendingDevice = {
+  id: string;
+  pairingCode: string | null;
+  createdAt: string | null;
+  lastSeenAt: string | null;
+};
+
+/** Screens that generated an activation code and were never claimed. */
+export const fetchPendingDevices = createServerFn({ method: "GET" }).handler(
+  async (): Promise<PendingDevice[]> => {
+    const { isDatabaseConfigured, getDb, schema } = await import("@/lib/db/index.server");
+    if (!isDatabaseConfigured()) return [];
+    try {
+      await requirePlatform();
+      const { isNull, desc } = await import("drizzle-orm");
+      const rows = await getDb()
+        .select({
+          id: schema.devices.id,
+          pairingCode: schema.devices.pairingCode,
+          createdAt: schema.devices.createdAt,
+          lastSeenAt: schema.devices.lastSeenAt,
+        })
+        .from(schema.devices)
+        .where(isNull(schema.devices.organizationId))
+        .orderBy(desc(schema.devices.createdAt))
+        .limit(200);
+      return rows.map((row) => ({
+        id: row.id,
+        pairingCode: row.pairingCode,
+        createdAt: row.createdAt ? row.createdAt.toISOString() : null,
+        lastSeenAt: row.lastSeenAt ? row.lastSeenAt.toISOString() : null,
+      }));
+    } catch {
+      return [];
+    }
+  },
+);
+
+/**
+ * Releases stuck activation codes. Deleting an unclaimed row frees its code and
+ * makes the TV register again in seconds (its token stops working, so the app
+ * wipes the local state and asks for a new code). Never touches linked screens.
+ */
+export const resetPendingDevices = createServerFn({ method: "POST" })
+  .inputValidator((input: unknown) =>
+    z
+      .object({
+        // Empty/undefined = release every unclaimed code.
+        code: z
+          .string()
+          .trim()
+          .transform((value) => value.toUpperCase().replace(/[^A-Z0-9]/g, ""))
+          .optional(),
+      })
+      .parse(input ?? {}),
+  )
+  .handler(async ({ data }): Promise<{ ok: boolean; removed: number; message?: string }> => {
+    const { isDatabaseConfigured, getDb, schema } = await import("@/lib/db/index.server");
+    if (!isDatabaseConfigured()) return { ok: false, removed: 0, message: "Banco indisponível." };
+
+    await requirePlatform();
+    const { and, eq, isNull } = await import("drizzle-orm");
+    const db = getDb();
+
+    const where = data.code
+      ? and(isNull(schema.devices.organizationId), eq(schema.devices.pairingCode, data.code))
+      : isNull(schema.devices.organizationId);
+
+    const removed = await db.delete(schema.devices).where(where).returning({
+      id: schema.devices.id,
+    });
+
+    // Wakes any TV still holding an open connection so it re-registers now.
+    const { notifyDevice } = await import("@/lib/player/realtime.server");
+    for (const row of removed) notifyDevice(row.id);
+
+    if (data.code && removed.length === 0) {
+      return {
+        ok: false,
+        removed: 0,
+        message: "Código não encontrado entre as telas aguardando vínculo.",
+      };
+    }
+    return { ok: true, removed: removed.length };
+  });
