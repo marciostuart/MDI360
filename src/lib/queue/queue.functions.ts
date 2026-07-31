@@ -37,76 +37,81 @@ export const listQueuePanels = createServerFn({ method: "GET" }).handler(
     const { DEVICE_ONLINE_WINDOW_MS } = await import("@/lib/devices/devices.functions");
     const user = await requireUser();
     const db = getDb();
+    const { toQueueError } = await import("@/lib/queue/queue-errors.server");
 
-    const rows = await db
-      .select({
-        deviceId: schema.devices.id,
-        deviceName: schema.devices.name,
-        lastSeenAt: schema.devices.lastSeenAt,
-        panelId: schema.queuePanels.id,
-        isEnabled: schema.queuePanels.isEnabled,
-        mode: schema.queuePanels.mode,
-        username: schema.queuePanels.username,
-        displaySeconds: schema.queuePanels.displaySeconds,
-      })
-      .from(schema.devices)
-      .leftJoin(schema.queuePanels, eq(schema.queuePanels.deviceId, schema.devices.id))
-      .where(eq(schema.devices.organizationId, user.organizationId))
-      .orderBy(desc(schema.devices.createdAt))
-      .limit(200);
-
-    const panelIds = rows.map((r) => r.panelId).filter((id): id is string => Boolean(id));
-
-    const sectorCounts = new Map<string, number>();
-    const lastCalls = new Map<string, { label: string; at: string }>();
-    if (panelIds.length > 0) {
-      const { inArray } = await import("drizzle-orm");
-      const sectors = await db
-        .select({ panelId: schema.queueSectors.panelId, total: sql<number>`count(*)::int` })
-        .from(schema.queueSectors)
-        .where(inArray(schema.queueSectors.panelId, panelIds))
-        .groupBy(schema.queueSectors.panelId);
-      for (const row of sectors) sectorCounts.set(row.panelId, Number(row.total));
-
-      const calls = await db
+    try {
+      const rows = await db
         .select({
-          panelId: schema.queueCalls.panelId,
-          label: schema.queueCalls.label,
-          calledAt: schema.queueCalls.calledAt,
+          deviceId: schema.devices.id,
+          deviceName: schema.devices.name,
+          lastSeenAt: schema.devices.lastSeenAt,
+          panelId: schema.queuePanels.id,
+          isEnabled: schema.queuePanels.isEnabled,
+          mode: schema.queuePanels.mode,
+          username: schema.queuePanels.username,
+          displaySeconds: schema.queuePanels.displaySeconds,
         })
-        .from(schema.queueCalls)
-        .where(inArray(schema.queueCalls.panelId, panelIds))
-        .orderBy(desc(schema.queueCalls.calledAt))
+        .from(schema.devices)
+        .leftJoin(schema.queuePanels, eq(schema.queuePanels.deviceId, schema.devices.id))
+        .where(eq(schema.devices.organizationId, user.organizationId))
+        .orderBy(desc(schema.devices.createdAt))
         .limit(200);
-      for (const call of calls) {
-        if (!lastCalls.has(call.panelId)) {
-          lastCalls.set(call.panelId, { label: call.label, at: call.calledAt.toISOString() });
+
+      const panelIds = rows.map((r) => r.panelId).filter((id): id is string => Boolean(id));
+
+      const sectorCounts = new Map<string, number>();
+      const lastCalls = new Map<string, { label: string; at: string }>();
+      if (panelIds.length > 0) {
+        const { inArray } = await import("drizzle-orm");
+        const sectors = await db
+          .select({ panelId: schema.queueSectors.panelId, total: sql<number>`count(*)::int` })
+          .from(schema.queueSectors)
+          .where(inArray(schema.queueSectors.panelId, panelIds))
+          .groupBy(schema.queueSectors.panelId);
+        for (const row of sectors) sectorCounts.set(row.panelId, Number(row.total));
+
+        const calls = await db
+          .select({
+            panelId: schema.queueCalls.panelId,
+            label: schema.queueCalls.label,
+            calledAt: schema.queueCalls.calledAt,
+          })
+          .from(schema.queueCalls)
+          .where(inArray(schema.queueCalls.panelId, panelIds))
+          .orderBy(desc(schema.queueCalls.calledAt))
+          .limit(200);
+        for (const call of calls) {
+          if (!lastCalls.has(call.panelId)) {
+            lastCalls.set(call.panelId, { label: call.label, at: call.calledAt.toISOString() });
+          }
         }
       }
-    }
 
-    const now = Date.now();
-    return {
-      configured: true,
-      items: rows.map((row) => {
-        const last = row.panelId ? lastCalls.get(row.panelId) : undefined;
-        return {
-          deviceId: row.deviceId,
-          deviceName: row.deviceName,
-          deviceOnline: row.lastSeenAt
-            ? now - row.lastSeenAt.getTime() < DEVICE_ONLINE_WINDOW_MS
-            : false,
-          panelId: row.panelId ?? null,
-          isEnabled: row.isEnabled ?? false,
-          mode: row.mode ?? "sequential",
-          username: row.username ?? null,
-          displaySeconds: row.displaySeconds ?? 20,
-          sectorCount: row.panelId ? (sectorCounts.get(row.panelId) ?? 0) : 0,
-          lastCallLabel: last?.label ?? null,
-          lastCallAt: last?.at ?? null,
-        };
-      }),
-    };
+      const now = Date.now();
+      return {
+        configured: true,
+        items: rows.map((row) => {
+          const last = row.panelId ? lastCalls.get(row.panelId) : undefined;
+          return {
+            deviceId: row.deviceId,
+            deviceName: row.deviceName,
+            deviceOnline: row.lastSeenAt
+              ? now - row.lastSeenAt.getTime() < DEVICE_ONLINE_WINDOW_MS
+              : false,
+            panelId: row.panelId ?? null,
+            isEnabled: row.isEnabled ?? false,
+            mode: row.mode ?? "sequential",
+            username: row.username ?? null,
+            displaySeconds: row.displaySeconds ?? 20,
+            sectorCount: row.panelId ? (sectorCounts.get(row.panelId) ?? 0) : 0,
+            lastCallLabel: last?.label ?? null,
+            lastCallAt: last?.at ?? null,
+          };
+        }),
+      };
+    } catch (error) {
+      throw toQueueError(error);
+    }
   },
 );
 
@@ -148,47 +153,52 @@ export const saveQueuePanel = createServerFn({ method: "POST" })
       .limit(1);
     if (!owned[0]) throw new Error("Tela não encontrada.");
 
-    const existing = await db
-      .select({ id: schema.queuePanels.id })
-      .from(schema.queuePanels)
-      .where(eq(schema.queuePanels.deviceId, data.deviceId))
-      .limit(1);
+    const { toQueueError } = await import("@/lib/queue/queue-errors.server");
+    try {
+      const existing = await db
+        .select({ id: schema.queuePanels.id })
+        .from(schema.queuePanels)
+        .where(eq(schema.queuePanels.deviceId, data.deviceId))
+        .limit(1);
 
-    const taken = await db
-      .select({ id: schema.queuePanels.id })
-      .from(schema.queuePanels)
-      .where(
-        existing[0]
-          ? and(
-              eq(schema.queuePanels.username, data.username),
-              ne(schema.queuePanels.id, existing[0].id),
-            )
-          : eq(schema.queuePanels.username, data.username),
-      )
-      .limit(1);
-    if (taken[0]) throw new Error("Este usuário já está em uso por outro painel.");
+      const taken = await db
+        .select({ id: schema.queuePanels.id })
+        .from(schema.queuePanels)
+        .where(
+          existing[0]
+            ? and(
+                eq(schema.queuePanels.username, data.username),
+                ne(schema.queuePanels.id, existing[0].id),
+              )
+            : eq(schema.queuePanels.username, data.username),
+        )
+        .limit(1);
+      if (taken[0]) throw new Error("Este usuário já está em uso por outro painel.");
 
-    if (existing[0]) {
-      await db
-        .update(schema.queuePanels)
-        .set({
+      if (existing[0]) {
+        await db
+          .update(schema.queuePanels)
+          .set({
+            username: data.username,
+            mode: data.mode,
+            displaySeconds: data.displaySeconds,
+            isEnabled: true,
+            ...(data.password ? { passwordHash: await hashQueuePassword(data.password) } : {}),
+          })
+          .where(eq(schema.queuePanels.id, existing[0].id));
+      } else {
+        if (!data.password) throw new Error("Defina uma senha para o operador.");
+        await db.insert(schema.queuePanels).values({
+          organizationId: user.organizationId,
+          deviceId: data.deviceId,
           username: data.username,
+          passwordHash: await hashQueuePassword(data.password),
           mode: data.mode,
           displaySeconds: data.displaySeconds,
-          isEnabled: true,
-          ...(data.password ? { passwordHash: await hashQueuePassword(data.password) } : {}),
-        })
-        .where(eq(schema.queuePanels.id, existing[0].id));
-    } else {
-      if (!data.password) throw new Error("Defina uma senha para o operador.");
-      await db.insert(schema.queuePanels).values({
-        organizationId: user.organizationId,
-        deviceId: data.deviceId,
-        username: data.username,
-        passwordHash: await hashQueuePassword(data.password),
-        mode: data.mode,
-        displaySeconds: data.displaySeconds,
-      });
+        });
+      }
+    } catch (error) {
+      throw toQueueError(error);
     }
 
     const { notifyDevice } = await import("@/lib/player/realtime.server");
