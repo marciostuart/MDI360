@@ -3,11 +3,6 @@
 
 sub init()
     m.top.functionName = "runLoop"
-    m.top.observeField("report", "onReport")
-end sub
-
-sub onReport()
-    ' The task loop below picks the value up; observing keeps it awake.
 end sub
 
 function registryRead(key as string) as string

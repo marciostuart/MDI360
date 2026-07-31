@@ -23,12 +23,17 @@ sub init()
 
     m.video.observeField("state", "onVideoState")
 
+    m.playlistId = invalid
+    m.report = m.top.findNode("report")
+
     m.sync = m.top.findNode("sync")
     m.widget.baseUrl = m.sync.baseUrl
     m.statusLabel.text = "Iniciando MDI 360..."
     m.sync.observeField("activationCode", "onActivationCode")
     m.sync.observeField("payload", "onPayload")
     m.sync.observeField("statusText", "onStatusText")
+    m.report.baseUrl = m.sync.baseUrl
+    m.report.control = "RUN"
     m.sync.control = "RUN"
 
     m.top.setFocus(true)
@@ -82,6 +87,7 @@ sub onPayload()
         return
     end if
 
+    m.playlistId = payload.playlist.id
     if payload.playlist.revision = m.revision then return
     m.revision = payload.playlist.revision
 
@@ -108,6 +114,15 @@ sub playNext()
     if m.items.Count() = 0 then return
     m.index = (m.index + 1) mod m.items.Count()
     item = m.items[m.index]
+
+    ' Tell the server what went on screen (playback reports / live view).
+    if m.report <> invalid
+        m.report.report = {
+            playlistId: m.playlistId,
+            mediaAssetId: item.mediaAssetId,
+            durationMs: item.durationMs
+        }
+    end if
 
     if item.kind = "widget"
         m.video.control = "stop"

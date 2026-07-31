@@ -34,5 +34,6 @@
     </Group>
 
     <SyncTask id="sync" />
+    <ReportTask id="report" />
   </children>
 </component>
