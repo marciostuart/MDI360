@@ -404,6 +404,10 @@ export function MediaLibrary() {
   const timersRef = useRef<ReturnType<typeof setInterval>[]>([]);
   /** Widget picked from the grid for customization (null = creating a new one). */
   const [editingWidget, setEditingWidget] = useState<WidgetDraft | null>(null);
+  const [showUpload, setShowUpload] = useState(false);
+  const [search, setSearch] = useState("");
+  const [tagFilter, setTagFilter] = useState("all");
+  const [sortBy, setSortBy] = useState<"newest" | "oldest" | "name">("newest");
 
   const library = useQuery({ queryKey: ["media-assets"], queryFn: () => listFn({}) });
 
