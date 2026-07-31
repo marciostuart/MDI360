@@ -131,7 +131,7 @@ export const saveQueuePanel = createServerFn({ method: "POST" })
           passwordSchema.optional(),
         ),
         mode: z.enum(["sequential", "sector"]).default("sequential"),
-        displaySeconds: z.number().int().min(5).max(120).default(20),
+        displaySeconds: z.number().int().min(10).max(120).default(20),
       })
       .safeParse(input);
     if (!result.success) {

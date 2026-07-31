@@ -493,7 +493,7 @@ sub startNextCall()
     ' (texto, nulo ou absurdo) deixava a senha na tela para sempre.
     seconds = 20
     wanted = safeNumber(call.displaySeconds)
-    if wanted >= 5 then seconds = wanted
+    if wanted >= 10 then seconds = wanted
     if seconds > 120 then seconds = 120
 
     ' O relogio da chamada comeca ANTES de qualquer outra coisa: mesmo que um

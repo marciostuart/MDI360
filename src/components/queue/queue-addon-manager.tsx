@@ -263,7 +263,7 @@ export function QueueAddonManager() {
                     <Input
                       id={`secs-${panel.deviceId}`}
                       type="number"
-                      min={5}
+                      min={10}
                       max={120}
                       value={form.displaySeconds}
                       onChange={(event) =>
