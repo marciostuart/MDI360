@@ -52,6 +52,8 @@ export type MediaListItem = {
   previewUrl: string | null;
   widgetType: string | null;
   widgetConfig: WidgetConfig | null;
+  /** Free-form labels used by the library filter. */
+  tags: string[];
   /** Optional airing window (ISO strings) — file only plays inside it. */
   airStartAt: string | null;
   airEndAt: string | null;
