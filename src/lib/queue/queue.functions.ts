@@ -120,17 +120,26 @@ export const listQueuePanels = createServerFn({ method: "GET" }).handler(
  * The screen must belong to the caller's organization.
  */
 export const saveQueuePanel = createServerFn({ method: "POST" })
-  .inputValidator((input: unknown) =>
-    z
+  .inputValidator((input: unknown) => {
+    const result = z
       .object({
         deviceId: z.string().uuid(),
         username: usernameSchema,
-        password: passwordSchema.optional(),
+        // An empty field means "keep the current password".
+        password: z.preprocess(
+          (value) => (typeof value === "string" && value.trim() === "" ? undefined : value),
+          passwordSchema.optional(),
+        ),
         mode: z.enum(["sequential", "sector"]).default("sequential"),
         displaySeconds: z.number().int().min(5).max(120).default(20),
       })
-      .parse(input),
-  )
+      .safeParse(input);
+    if (!result.success) {
+      // Readable message instead of the raw Zod issue list.
+      throw new Error(result.error.issues.map((issue) => issue.message).join(" · "));
+    }
+    return result.data;
+  })
   .handler(async ({ data }) => {
     const { getDb, schema, isDatabaseConfigured } = await import("@/lib/db/index.server");
     if (!isDatabaseConfigured()) throw new Error("Banco de dados não configurado.");
