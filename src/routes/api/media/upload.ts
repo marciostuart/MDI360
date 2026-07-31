@@ -18,6 +18,18 @@ export const Route = createFileRoute("/api/media/upload")({
           return Response.json({ error: "Sessão expirada. Entre novamente." }, { status: 401 });
         }
 
+        // Hard ceiling checked *before* parsing the body, so an oversized or
+        // lying client can never make us buffer hundreds of MB in memory.
+        const { MAX_VIDEO_BYTES } = await import("@/lib/media/presets");
+        const ABSOLUTE_MAX = MAX_VIDEO_BYTES + 1024 * 1024; // + multipart overhead
+        const declared = Number(request.headers.get("content-length") ?? 0);
+        if (!declared || Number.isNaN(declared)) {
+          return Response.json({ error: "Envio inválido." }, { status: 411 });
+        }
+        if (declared > ABSOLUTE_MAX) {
+          return Response.json({ error: "Arquivo acima do limite permitido." }, { status: 413 });
+        }
+
         const form = await request.formData();
         const assetId = String(form.get("assetId") ?? "");
         const file = form.get("file");
@@ -33,6 +45,8 @@ export const Route = createFileRoute("/api/media/upload")({
           .select({
             storageKey: schema.mediaAssets.storageKey,
             mimeType: schema.mediaAssets.mimeType,
+            byteSize: schema.mediaAssets.byteSize,
+            status: schema.mediaAssets.status,
           })
           .from(schema.mediaAssets)
           .where(
@@ -48,29 +62,25 @@ export const Route = createFileRoute("/api/media/upload")({
           return Response.json({ error: "Conteúdo não encontrado." }, { status: 404 });
         }
 
-        // Storage quota: block the write before it reaches MinIO.
-        const { getOrgLimits } = await import("@/lib/admin/limits.server");
-        const limits = await getOrgLimits(user.organizationId);
-        const quotaBytes = limits.maxStorageMb * 1024 * 1024;
-        if (limits.expired || limits.subscriptionStatus === "suspended") {
-          return Response.json(
-            { error: "Assinatura inativa. Fale com o suporte para reativar sua conta." },
-            { status: 402 },
-          );
-        }
-        if (limits.usedStorageBytes + file.size > quotaBytes) {
-          return Response.json(
-            {
-              error: `Espaço esgotado: seu plano tem ${limits.maxStorageMb} MB. Remova arquivos ou faça upgrade.`,
-            },
-            { status: 413 },
-          );
-        }
-
         const scope = and(
           eq(schema.mediaAssets.id, assetId),
           eq(schema.mediaAssets.organizationId, user.organizationId),
         );
+
+        // The quota was already reserved when the ticket row was created with
+        // this exact size. Refuse anything bigger than the reservation so the
+        // stored bytes always match what we charged against the plan.
+        const reserved = row.byteSize ?? 0;
+        if (!reserved || file.size > reserved) {
+          await db.delete(schema.mediaAssets).where(scope);
+          return Response.json(
+            { error: "Arquivo diferente do informado no envio. Tente novamente." },
+            { status: 409 },
+          );
+        }
+        if (row.status === "ready") {
+          return Response.json({ error: "Este conteúdo já foi enviado." }, { status: 409 });
+        }
 
         try {
           const { putObject } = await import("@/lib/storage.server");
@@ -79,11 +89,18 @@ export const Route = createFileRoute("/api/media/upload")({
         } catch (error) {
           const detail = describeStorageError(error);
           console.error("media upload failed", detail);
-          await db.update(schema.mediaAssets).set({ status: "failed" }).where(scope);
-          return Response.json({ error: `MinIO recusou o arquivo: ${detail}` }, { status: 502 });
+          // Drop the row so the reserved quota is released instead of leaking.
+          await db.delete(schema.mediaAssets).where(scope);
+          return Response.json(
+            { error: "Não foi possível salvar o arquivo no armazenamento. Tente novamente." },
+            { status: 502 },
+          );
         }
 
-        await db.update(schema.mediaAssets).set({ status: "ready" }).where(scope);
+        await db
+          .update(schema.mediaAssets)
+          .set({ status: "ready", byteSize: file.size })
+          .where(scope);
 
         const { recordTraffic } = await import("@/lib/admin/traffic.server");
         recordTraffic(file.size, 0);
