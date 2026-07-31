@@ -36,7 +36,7 @@ function audioContext(): AudioContext | null {
 }
 
 /**
- * Strong two-tone alert (550 Hz / 750 Hz — deeper, easier on the ear),
+ * Strong two-tone alert (550 Hz / 450 Hz — deeper, easier on the ear),
  * synthesized and repeated so it carries across a noisy waiting room. Played
  * even when the screen is muted: a queue call must always be audible.
  */
@@ -50,8 +50,8 @@ async function playChime(): Promise<void> {
     master.gain.value = 1;
     master.connect(ctx.destination);
 
-    // Three "ding-dong" pairs: 750Hz then 550Hz, sine + square for punch.
-    const notes = [750, 550, 750, 550, 750, 550];
+    // Three "ding-dong" pairs: 550Hz then 450Hz, sine + square for punch.
+    const notes = [550, 450, 550, 450, 550, 450];
     notes.forEach((frequency, position) => {
       const start = now + position * 0.22;
       for (const [type, level] of [
