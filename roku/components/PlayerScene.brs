@@ -155,6 +155,12 @@ sub onPayload()
     if payload = invalid then return
     beat()
 
+    ' Rede de seguranca: se uma chamada passou do seu tempo (timer perdido),
+    ' encerra agora, antes de qualquer outra coisa.
+    if m.queueActive = true and m.queueDeadline > 0 and uptimeSeconds() > m.queueDeadline
+        onQueueTimer()
+    end if
+
     ' A ticket call never waits for the current file: it takes over the screen
     ' immediately, which is the whole point of the queue add-on.
     handleQueueCall(payload)
