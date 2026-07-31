@@ -36,9 +36,9 @@ function audioContext(): AudioContext | null {
 }
 
 /**
- * Strong two-tone alert (550 Hz / 450 Hz — deeper, easier on the ear),
- * synthesized and repeated so it carries across a noisy waiting room. Played
- * even when the screen is muted: a queue call must always be audible.
+ * Strong two-tone alert (550 Hz / 440 Hz, square wave), synthesized and
+ * repeated so it carries across a noisy waiting room. Played even when the
+ * screen is muted: a queue call must always be audible.
  */
 async function playChime(): Promise<void> {
   const ctx = audioContext();
@@ -50,25 +50,20 @@ async function playChime(): Promise<void> {
     master.gain.value = 1;
     master.connect(ctx.destination);
 
-    // Three "ding-dong" pairs: 550Hz then 450Hz, sine + square for punch.
-    const notes = [550, 450, 550, 450, 550, 450];
+    // Three "ding-dong" pairs: 550Hz then 440Hz, square wave only.
+    const notes = [550, 440, 550, 440, 550, 440];
     notes.forEach((frequency, position) => {
       const start = now + position * 0.22;
-      for (const [type, level] of [
-        ["sine", 0.8],
-        ["square", 0.22],
-      ] as const) {
-        const osc = ctx.createOscillator();
-        const gain = ctx.createGain();
-        osc.type = type;
-        osc.frequency.value = frequency;
-        gain.gain.setValueAtTime(0.0001, start);
-        gain.gain.exponentialRampToValueAtTime(level, start + 0.02);
-        gain.gain.exponentialRampToValueAtTime(0.0001, start + 0.21);
-        osc.connect(gain).connect(master);
-        osc.start(start);
-        osc.stop(start + 0.22);
-      }
+      const osc = ctx.createOscillator();
+      const gain = ctx.createGain();
+      osc.type = "square";
+      osc.frequency.value = frequency;
+      gain.gain.setValueAtTime(0.0001, start);
+      gain.gain.exponentialRampToValueAtTime(0.55, start + 0.02);
+      gain.gain.exponentialRampToValueAtTime(0.0001, start + 0.21);
+      osc.connect(gain).connect(master);
+      osc.start(start);
+      osc.stop(start + 0.22);
     });
 
     await new Promise((resolve) => window.setTimeout(resolve, notes.length * 220 + 150));
