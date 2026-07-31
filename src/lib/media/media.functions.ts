@@ -248,16 +248,6 @@ export const setMediaAirWindow = createServerFn({ method: "POST" })
 export const deleteMediaAsset = createServerFn({ method: "POST" })
   .inputValidator((input: unknown) => z.object({ assetId: z.string().uuid() }).parse(input))
   .handler(async ({ data }) => {
-    return deleteHandler(data);
-  });
-
-const deleteHandler = async (data: { assetId: string }) => {
-  return { assetId: data.assetId };
-};
-
-const legacyDeleteMediaAsset = createServerFn({ method: "POST" })
-  .inputValidator((input: unknown) => z.object({ assetId: z.string().uuid() }).parse(input))
-  .handler(async ({ data }) => {
     const { getDb, schema } = await import("@/lib/db/index.server");
     const { requireUser } = await import("@/lib/auth/session.server");
     const { deleteObject, isStorageConfigured } = await import("@/lib/storage.server");
