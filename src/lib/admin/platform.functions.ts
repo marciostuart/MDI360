@@ -533,6 +533,19 @@ export const deleteOrganization = createServerFn({ method: "POST" })
     const { getDb, schema } = await import("@/lib/db/index.server");
     await requirePlatform();
     const { eq } = await import("drizzle-orm");
+
+    // Storage first: the DB cascade would otherwise erase the only pointer to
+    // the customer's objects and leave them orphaned (and still billable).
+    const { isStorageConfigured, deleteObjectsByPrefix } = await import("@/lib/storage.server");
+    if (isStorageConfigured()) {
+      try {
+        await deleteObjectsByPrefix(`org/${data.organizationId}/`);
+      } catch (error) {
+        console.error("failed to purge organization storage", error);
+        return { ok: false, message: "Não foi possível remover as mídias do armazenamento." };
+      }
+    }
+
     await getDb().delete(schema.organizations).where(eq(schema.organizations.id, data.organizationId));
     return { ok: true };
   });
