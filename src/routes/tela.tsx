@@ -602,6 +602,63 @@ function PlayerScreen() {
 }
 
 /**
+ * Conteúdo ao vivo / por streaming (YouTube, lives, rádios).
+ *
+ * Nada é baixado: o endereço abre na hora. No YouTube usamos o player embutido
+ * com todos os elementos de interface desligados e a camada de cliques
+ * bloqueada, então a TV mostra só o vídeo — sem controles, título, sugestões
+ * nem links. Endereços de mídia direta (HLS, MP4, MP3 de rádio) tocam na
+ * própria tag <video>.
+ */
+function StreamLayer({
+  url,
+  name,
+  muted,
+  loop,
+}: {
+  url: string;
+  name: string;
+  muted: boolean;
+  loop: boolean;
+}) {
+  const youtubeId = parseYoutubeId(url);
+
+  if (youtubeId) {
+    const src = buildYoutubeEmbedUrl(youtubeId, {
+      muted,
+      loop,
+      origin: typeof window === "undefined" ? null : window.location.origin,
+    });
+    return (
+      <div className="relative h-screen w-screen overflow-hidden bg-black">
+        <iframe
+          key={src}
+          src={src}
+          title={name}
+          allow="autoplay; encrypted-media"
+          // Sem interação não há hover, e o leve zoom corta qualquer borda da
+          // interface do YouTube que apareça no início da reprodução.
+          className="pointer-events-none absolute left-1/2 top-1/2 h-[102%] w-[102%] -translate-x-1/2 -translate-y-1/2 border-0"
+        />
+      </div>
+    );
+  }
+
+  return (
+    <video
+      key={url}
+      src={url}
+      className="h-screen w-screen bg-black object-contain"
+      autoPlay
+      playsInline
+      muted={muted}
+      loop={loop}
+      controls={false}
+    />
+  );
+}
+
+/**
  * Optional soft transition (per screen). When disabled the child is rendered
  * as-is, so the cut stays instantaneous and costs nothing on weak hardware.
  */
