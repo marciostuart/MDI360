@@ -52,6 +52,8 @@ export type MediaListItem = {
   previewUrl: string | null;
   widgetType: string | null;
   widgetConfig: WidgetConfig | null;
+  /** Origem externa (link do YouTube importado), quando houver. */
+  sourceUrl: string | null;
   /** Free-form labels used by the library filter. */
   tags: string[];
   /** Optional airing window (ISO strings) — file only plays inside it. */
@@ -105,6 +107,7 @@ export const listMediaAssets = createServerFn({ method: "GET" }).handler(
           previewUrl,
           widgetType: row.widgetType,
           widgetConfig: (row.widgetConfig as WidgetConfig | null) ?? null,
+          sourceUrl: row.sourceUrl,
           tags: row.tags ?? [],
           airStartAt: row.airStartAt ? row.airStartAt.toISOString() : null,
           airEndAt: row.airEndAt ? row.airEndAt.toISOString() : null,
