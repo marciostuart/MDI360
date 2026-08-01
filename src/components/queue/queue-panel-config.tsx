@@ -239,6 +239,24 @@ export function QueuePanelConfig({
 
       {data ? (
         <>
+          <section className="flex flex-wrap items-center justify-between gap-3 rounded-md border border-border px-3 py-2">
+            <div>
+              <p className="text-sm font-medium">Emissão no terminal (/emitir)</p>
+              <p className="text-xs text-muted-foreground">
+                Quando ligado, esta tela aparece no terminal de emissão — que usa o seu próprio
+                login do painel. As mudanças chegam ao terminal em poucos segundos.
+              </p>
+            </div>
+            <Switch
+              checked={issuingEnabled}
+              disabled={issuingMutation.isPending}
+              onCheckedChange={(checked) =>
+                issuingMutation.mutate({ sectorId: null, enabled: checked })
+              }
+              aria-label="Liberar emissão de senhas no terminal"
+            />
+          </section>
+
           <section className="space-y-2">
             <p className="text-xs font-semibold uppercase tracking-wider text-muted-foreground">
               Filas / setores
@@ -271,6 +289,17 @@ export function QueuePanelConfig({
                           <Badge variant="destructive">{sector.waitingPriority} pref.</Badge>
                         ) : null}
                         <Badge variant="secondary">{sector.waitingNormal} na fila</Badge>
+                        <span className="flex items-center gap-1.5">
+                          <span className="text-xs text-muted-foreground">Emissão</span>
+                          <Switch
+                            checked={sector.issuingEnabled}
+                            disabled={issuingMutation.isPending}
+                            onCheckedChange={(checked) =>
+                              issuingMutation.mutate({ sectorId: sector.id, enabled: checked })
+                            }
+                            aria-label={`Liberar emissão de senhas em ${sector.name}`}
+                          />
+                        </span>
                         <Button
                           variant="outline"
                           size="sm"
