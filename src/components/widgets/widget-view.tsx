@@ -461,7 +461,7 @@ function WeatherWidget({
       ) : (
         <>
           <Block block={layout.city} className="uppercase tracking-[0.28em] opacity-70">
-            {data?.city ?? city.label}
+            {data?.city ?? place}
           </Block>
           <Block
             block={layout.temp}
