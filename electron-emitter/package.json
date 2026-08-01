@@ -1,8 +1,8 @@
 {
   "name": "mdi360-emissor",
-  "productName": "MDI360 Emissor",
-  "version": "1.1.0",
-  "description": "Terminal de emissao de senhas MDI 360 com impressao termica ESC/POS",
+  "productName": "MDI360 Impressor",
+  "version": "2.0.0",
+  "description": "Servico impressor de senhas MDI 360 (ESC/POS) - escuta o servidor e imprime cada senha emitida",
   "main": "main.cjs",
   "author": "MDI 360",
   "license": "UNLICENSED",

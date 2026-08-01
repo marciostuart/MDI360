@@ -1,0 +1,84 @@
+<!doctype html>
+<html lang="pt-BR">
+  <head>
+    <meta charset="utf-8" />
+    <title>MDI360 Impressor de Senhas</title>
+    <style>
+      :root { color-scheme: dark; }
+      * { box-sizing: border-box; }
+      body { margin: 0; padding: 28px; font-family: Segoe UI, system-ui, sans-serif; background: #0e1116; color: #e8edf5; }
+      h1 { font-size: 20px; margin: 0 0 4px; }
+      p.sub { margin: 0 0 20px; color: #97a3b6; font-size: 13px; }
+      .card { border: 1px solid #232c39; border-radius: 12px; padding: 18px; margin-bottom: 16px; background: #121821; }
+      .state { display: flex; align-items: center; gap: 10px; font-size: 16px; font-weight: 600; }
+      .dot { width: 12px; height: 12px; border-radius: 50%; background: #ff7b72; }
+      .dot.on { background: #58d68d; }
+      .meta { margin-top: 8px; font-size: 13px; color: #97a3b6; }
+      .stats { display: grid; grid-template-columns: repeat(2, 1fr); gap: 12px; margin-top: 14px; }
+      .stat { background: #0e1420; border: 1px solid #1e2836; border-radius: 10px; padding: 12px; }
+      .stat b { display: block; font-size: 22px; }
+      .stat span { font-size: 12px; color: #8e9bad; }
+      table { width: 100%; border-collapse: collapse; font-size: 13px; }
+      th, td { text-align: left; padding: 7px 6px; border-bottom: 1px solid #1c2432; }
+      th { color: #8e9bad; font-weight: 500; font-size: 11px; text-transform: uppercase; letter-spacing: .06em; }
+      .row { display: flex; gap: 10px; }
+      button { padding: 11px 18px; border-radius: 8px; border: 0; font-size: 14px; font-weight: 600; cursor: pointer; }
+      .primary { background: #2f6df6; color: #fff; }
+      .ghost { background: #1b2330; color: #cfd8e6; }
+      .err { color: #ff7b72; font-size: 12px; margin-top: 8px; }
+    </style>
+  </head>
+  <body>
+    <h1>Impressor de senhas</h1>
+    <p class="sub">Este computador fica conectado ao MDI 360 e imprime automaticamente cada senha emitida no totem, tablet ou celular.</p>
+
+    <div class="card">
+      <div class="state"><span class="dot" id="dot"></span><span id="stateText">Conectando...</span></div>
+      <div class="meta" id="meta"></div>
+      <div class="err" id="error"></div>
+      <div class="stats">
+        <div class="stat"><b id="printed">0</b><span>Senhas impressas nesta sessão</span></div>
+        <div class="stat"><b id="panel">—</b><span>Painel vinculado</span></div>
+      </div>
+    </div>
+
+    <div class="card">
+      <table>
+        <thead><tr><th>Hora</th><th>Senha</th><th>Situação</th></tr></thead>
+        <tbody id="history"><tr><td colspan="3" style="color:#8e9bad">Nenhuma senha ainda.</td></tr></tbody>
+      </table>
+    </div>
+
+    <div class="row">
+      <button class="primary" id="config">Configuração (F10)</button>
+      <button class="ghost" id="test">Imprimir teste</button>
+      <button class="ghost" id="quit">Sair</button>
+    </div>
+
+    <script>
+      const el = (id) => document.getElementById(id);
+      function render(status) {
+        el("dot").className = "dot" + (status.connected ? " on" : "");
+        el("stateText").textContent = status.connected ? "Conectado ao servidor" : "Desconectado";
+        el("meta").textContent = status.message || "";
+        el("error").textContent = status.lastError || "";
+        el("printed").textContent = status.printed ?? 0;
+        el("panel").textContent = status.panelName || "—";
+        const rows = (status.history || []).map(
+          (h) => `<tr><td>${h.at}</td><td><b>${h.label}</b></td><td>${h.status}</td></tr>`,
+        );
+        el("history").innerHTML = rows.length
+          ? rows.join("")
+          : '<tr><td colspan="3" style="color:#8e9bad">Nenhuma senha ainda.</td></tr>';
+      }
+      window.mdiEmitter.onStatus(render);
+      window.mdiEmitter.getStatus().then(render);
+      el("config").addEventListener("click", () => window.mdiEmitter.openConfig());
+      el("test").addEventListener("click", async () => {
+        const result = await window.mdiEmitter.testPrint(null);
+        if (!result.ok) el("error").textContent = result.error;
+      });
+      el("quit").addEventListener("click", () => window.mdiEmitter.quit());
+    </script>
+  </body>
+</html>

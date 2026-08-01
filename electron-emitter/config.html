@@ -2,7 +2,7 @@
 <html lang="pt-BR">
   <head>
     <meta charset="utf-8" />
-    <title>MDI360 Emissor · Configuração</title>
+    <title>MDI360 Impressor · Configuração</title>
     <style>
       :root { color-scheme: dark; }
       * { box-sizing: border-box; }
@@ -28,8 +28,8 @@
     </style>
   </head>
   <body>
-    <h1>Configuração do terminal de emissão</h1>
-    <p class="sub">Informe o token do emissor (o código que aparece depois de /emitir/ no endereço gerado no painel) e ajuste a impressora térmica.</p>
+    <h1>Configuração do impressor de senhas</h1>
+    <p class="sub">Informe o token do painel de senhas (o código que aparece depois de /emitir/ no endereço gerado no Studio). Este computador ficará apenas ouvindo o sistema e imprimindo cada senha emitida — a emissão pode ser feita em qualquer tablet, celular ou totem.</p>
 
     <fieldset>
       <legend>Vínculo com o sistema</legend>
@@ -39,11 +39,15 @@
           <input id="serverUrl" placeholder="https://mdi.360bh.com.br" />
         </div>
         <div>
-          <label for="token">Token do emissor</label>
+          <label for="token">Token do painel de senhas</label>
           <input id="token" placeholder="eb2f979144a955a8813b82bfaa2dc5de" spellcheck="false" />
         </div>
       </div>
-      <p class="hint">O terminal abrirá em tela cheia em /emitir/&lt;token&gt;. Ctrl+Shift+C reabre esta configuração, Ctrl+Shift+Q encerra.</p>
+      <div>
+          <label for="pollSeconds">Intervalo de verificação (segundos)</label>
+          <input id="pollSeconds" type="number" min="1" max="30" />
+        </div>
+      <p class="hint">O impressor consulta o servidor neste intervalo e imprime as senhas novas. F10 ou Ctrl+Shift+C reabre esta configuração, Ctrl+Shift+Q encerra.</p>
     </fieldset>
 
     <fieldset>
@@ -106,7 +110,7 @@
       <p class="hint">A TM-T20 em bobina de 80 mm imprime 576 pontos (72 mm). Para bobina de 58 mm use 384 pontos. Áreas menores são centralizadas automaticamente.</p>
       <div class="check">
         <input id="autoPrint" type="checkbox" />
-        <label for="autoPrint" style="margin:0">Imprimir automaticamente cada senha emitida</label>
+        <label for="autoPrint" style="margin:0">Imprimir automaticamente cada senha emitida (recomendado)</label>
       </div>
       <div class="check">
         <input id="showWaitingAhead" type="checkbox" />
@@ -116,14 +120,14 @@
     </fieldset>
 
     <div class="row">
-      <button class="primary" id="start">Salvar e abrir o emissor</button>
+      <button class="primary" id="start">Salvar e conectar</button>
       <button class="ghost" id="test">Imprimir teste</button>
       <button class="ghost" id="quit">Sair</button>
     </div>
     <div class="msg" id="msg"></div>
 
     <script>
-      const fields = ["serverUrl","token","printMode","printerName","leftMarginDots","printWidthDots","labelSize","topFeedLines","bottomFeedLines","cutFeedDots","cutMode","headerText","footerText"];
+      const fields = ["serverUrl","token","printMode","printerName","leftMarginDots","printWidthDots","labelSize","topFeedLines","bottomFeedLines","cutFeedDots","cutMode","headerText","footerText","pollSeconds"];
       const msg = document.getElementById("msg");
       const show = (text, ok) => { msg.textContent = text; msg.className = "msg " + (ok ? "ok" : "err"); };
 
@@ -157,7 +161,7 @@
         const cfg = readForm();
         if (!cfg.token) return show("Informe o token do emissor.", false);
         if (!cfg.serverUrl) return show("Informe o endereço do servidor.", false);
-        await window.mdiEmitter.startKiosk(cfg);
+        await window.mdiEmitter.startService(cfg);
       });
       document.getElementById("test").addEventListener("click", async () => {
         show("Enviando teste...", true);
