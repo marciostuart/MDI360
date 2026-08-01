@@ -622,6 +622,7 @@ function NewsWidget({
 
   const current = items[Math.min(index, Math.max(items.length - 1, 0))];
   const heroImage = config.showImage && current?.image ? current.image : null;
+  const layout = resolveWidgetLayout("news", config.layout as WidgetLayout | undefined);
 
   // One at a time: the headline itself is the hero, with the article photo used
   // as the backdrop so it stays readable from across the room.
@@ -646,76 +647,82 @@ function NewsWidget({
     );
 
   return (
-    <Shell
-      accent={accent}
-      theme={theme}
-      credit={data?.credit ?? null}
-      scene={sceneForNews}
-      align="left"
-    >
-      <div className="flex items-center gap-[1.6cqw]">
-        <span
-          className="rounded-full px-[1.6cqw] py-[0.8cqh] text-[2.2cqh] font-semibold uppercase tracking-[0.24em]"
-          style={{ backgroundColor: accent, color: "#06080B" }}
-        >
-          {data?.source ?? "Notícias"}
-        </span>
-        {config.oneAtATime && items.length > 1 ? (
-          <span className="text-[2.2cqh] tabular-nums opacity-55">
-            {index + 1}/{items.length}
+    <Shell accent={accent} theme={theme} credit={data?.credit ?? null} scene={sceneForNews}>
+      <Block block={layout.source}>
+        <div className="flex items-center gap-[0.6em]">
+          <span
+            className="rounded-full px-[0.8em] py-[0.35em] font-semibold uppercase tracking-[0.24em]"
+            style={{ backgroundColor: accent, color: "#06080B" }}
+          >
+            {data?.source ?? "Notícias"}
           </span>
-        ) : null}
-      </div>
+          {config.oneAtATime && items.length > 1 ? (
+            <span className="tabular-nums opacity-55">
+              {index + 1}/{items.length}
+            </span>
+          ) : null}
+        </div>
+      </Block>
 
       {failed && !data ? (
-        <p className="mt-[4cqh] text-[4cqh] opacity-60">Notícias indisponíveis agora.</p>
+        <p className="absolute left-[6%] top-[45%] text-[4cqh] opacity-60">
+          Notícias indisponíveis agora.
+        </p>
       ) : config.oneAtATime ? (
-        <div key={`${index}-${current?.title ?? ""}`} className="mt-[3.5cqh]">
-          <h2
-            className="font-display text-[7.4cqh] font-semibold leading-[1.12]"
+        <>
+          <Block
+            block={layout.headline}
+            className="font-display font-semibold leading-[1.12]"
             style={{
               textShadow: "0 0.6cqh 2.4cqh rgba(0,0,0,0.6)",
               animation: theme.animations ? "mdi-news-in 0.6s ease-out both" : undefined,
             }}
+            key={`headline-${index}-${current?.title ?? ""}`}
           >
             {current?.title ?? "Sem manchetes agora."}
-          </h2>
+          </Block>
           {config.showSummary && current?.summary ? (
-            <p
-              className="mt-[2.4cqh] max-w-[84%] text-[3.6cqh] leading-[1.4] opacity-80"
+            <Block
+              block={layout.summary}
+              className="leading-[1.4] opacity-80"
               style={{
                 animation: theme.animations ? "mdi-news-in 0.7s ease-out 0.12s both" : undefined,
               }}
+              key={`summary-${index}`}
             >
               {current.summary}
-            </p>
+            </Block>
           ) : null}
           {items.length > 1 ? (
-            <div className="mt-[4cqh] h-[0.5cqh] w-[40%] overflow-hidden rounded-full bg-white/20">
-              <div
-                key={index}
-                className="h-full origin-left rounded-full"
-                style={{
-                  backgroundColor: accent,
-                  animation: theme.animations
-                    ? `mdi-bar-fill ${config.rotateSeconds}s linear forwards`
-                    : undefined,
-                }}
-              />
-            </div>
+            <Block block={layout.progress}>
+              <div className="h-[0.25em] w-full overflow-hidden rounded-full bg-white/20">
+                <div
+                  key={index}
+                  className="h-full origin-left rounded-full"
+                  style={{
+                    backgroundColor: accent,
+                    animation: theme.animations
+                      ? `mdi-bar-fill ${config.rotateSeconds}s linear forwards`
+                      : undefined,
+                  }}
+                />
+              </div>
+            </Block>
           ) : null}
-        </div>
+        </>
       ) : (
-        <ul className="mt-[3.5cqh] w-full space-y-[2.2cqh]">
-          {items.map((item, position) => (
-            <li key={`${position}-${item.title.slice(0, 12)}`} className="flex gap-[1.5cqw]">
-              <span className="font-display text-[4cqh] font-semibold" style={{ color: accent }}>
-                {position + 1}
-              </span>
-              <span className="text-[3.6cqh] leading-snug opacity-90">{item.title}</span>
-            </li>
-          ))}
-        </ul>
+        <Block block={layout.summary} style={{ fontSize: `${layout.headline?.size ?? 4}cqh` }}>
+          <ul className="space-y-[0.5em]">
+            {items.map((item, position) => (
+              <li key={`${position}-${item.title.slice(0, 12)}`} className="flex gap-[0.5em]">
+                <span className="font-display font-semibold" style={{ color: accent }}>
+                  {position + 1}
+                </span>
+                <span className="leading-snug opacity-90">{item.title}</span>
+              </li>
+            ))}
+          </ul>
+        </Block>
       )}
     </Shell>
   );
