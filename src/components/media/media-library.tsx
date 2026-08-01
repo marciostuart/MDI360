@@ -665,6 +665,42 @@ export function MediaLibrary() {
             <p className="text-xs text-muted-foreground">{getCanvasPreset(presetId).description}</p>
           </div>
 
+          {/* Vídeo do YouTube: o servidor baixa e converte para MP4, então a TV
+              reproduz um arquivo comum — sem controles, título, tela final ou
+              vídeos sugeridos, e com o áudio seguindo a configuração do item. */}
+          <div className="space-y-2 rounded-xl border border-border/70 bg-secondary/30 p-4">
+            <Label className="flex items-center gap-2">
+              <Youtube className="size-4 text-destructive" />
+              Vídeo do YouTube
+            </Label>
+            <div className="flex flex-wrap gap-2">
+              <Input
+                value={youtubeUrl}
+                onChange={(event) => setYoutubeUrl(event.target.value)}
+                placeholder="https://www.youtube.com/watch?v=..."
+                className="max-w-md"
+              />
+              <Button
+                variant="secondary"
+                className="gap-2"
+                disabled={!youtubeUrl.trim() || youtubeMutation.isPending}
+                onClick={() => youtubeMutation.mutate(youtubeUrl.trim())}
+              >
+                {youtubeMutation.isPending ? (
+                  <Loader2 className="size-4 animate-spin" />
+                ) : (
+                  <Plus className="size-4" />
+                )}
+                Importar vídeo
+              </Button>
+            </div>
+            <p className="text-xs text-muted-foreground">
+              O vídeo é baixado e convertido no servidor (até 10 minutos de duração). Na TV ele toca
+              como um arquivo seu: sem controles, sem título, sem tela final e sem sugestões — e fica
+              em cache no aparelho até ser removido daqui.
+            </p>
+          </div>
+
           <label className="flex cursor-pointer flex-col items-center gap-3 rounded-xl border border-dashed border-border px-6 py-12 text-center transition-colors hover:border-primary/60">
             <span className="grid size-12 place-items-center rounded-xl bg-secondary text-muted-foreground">
               {busy ? (
