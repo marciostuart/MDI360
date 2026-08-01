@@ -529,6 +529,9 @@ export function QueuePanelConfig({
                     <span className="text-muted-foreground"> · {operator.username}</span>
                   </span>
                   <span className="flex items-center gap-2">
+                    {operator.deskLabel ? (
+                      <Badge>{operator.deskLabel}</Badge>
+                    ) : null}
                     <Badge variant="outline">
                       {operator.sectorIds.length === 0
                         ? "Todas as filas"
@@ -586,6 +589,23 @@ export function QueuePanelConfig({
                     }
                     required
                   />
+                </div>
+                <div className="space-y-1.5">
+                  <Label htmlFor={`op-desk-${panelId}`}>Guichê / mesa (opcional)</Label>
+                  <Input
+                    id={`op-desk-${panelId}`}
+                    value={operatorDraft.deskLabel}
+                    placeholder="Guichê 01"
+                    onChange={(event) =>
+                      setOperatorDraft((draft) =>
+                        draft ? { ...draft, deskLabel: event.target.value } : draft,
+                      )
+                    }
+                  />
+                  <p className="text-xs text-muted-foreground">
+                    Quando preenchido, a TV mostra e fala este guichê na chamada — vários guichês
+                    podem atender a mesma fila sem repetir senha.
+                  </p>
                 </div>
                 <div className="space-y-1.5">
                   <Label htmlFor={`op-pass-${panelId}`}>
