@@ -8,7 +8,7 @@ export type PlayerItem = {
   id: string;
   /** Media library asset behind this item; used by the playback reports. */
   mediaAssetId: string | null;
-  kind: "image" | "video" | "web" | "widget";
+  kind: "image" | "video" | "web" | "widget" | "stream";
   url: string | null;
   durationMs: number;
   isMuted: boolean;

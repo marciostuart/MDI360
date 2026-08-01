@@ -39,7 +39,7 @@ const ticketSchema = z
 export type MediaListItem = {
   id: string;
   name: string;
-  kind: "image" | "video" | "web" | "widget";
+  kind: "image" | "video" | "web" | "widget" | "stream";
   status: "uploading" | "ready" | "failed";
   canvasPreset: string;
   mimeType: string | null;

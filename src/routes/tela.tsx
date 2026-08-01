@@ -9,7 +9,7 @@ import type { WidgetConfig } from "@/lib/widgets/catalog";
 type PlayerItem = {
   id: string;
   mediaAssetId: string | null;
-  kind: "image" | "video" | "web" | "widget";
+  kind: "image" | "video" | "web" | "widget" | "stream";
   url: string | null;
   durationMs: number;
   isMuted: boolean;
