@@ -20,6 +20,7 @@ import { Route as StudioAgendaRouteImport } from './routes/studio/agenda'
 import { Route as StudioConfiguracoesRouteImport } from './routes/studio/configuracoes'
 import { Route as StudioConteudosRouteImport } from './routes/studio/conteudos'
 import { Route as StudioDownloadsRouteImport } from './routes/studio/downloads'
+import { Route as StudioFaturamentoRouteImport } from './routes/studio/faturamento'
 import { Route as StudioPlaylistsRouteImport } from './routes/studio/playlists'
 import { Route as StudioRelatoriosRouteImport } from './routes/studio/relatorios'
 import { Route as StudioSenhasRouteImport } from './routes/studio/senhas'
@@ -92,6 +93,11 @@ const StudioConteudosRoute = StudioConteudosRouteImport.update({
 const StudioDownloadsRoute = StudioDownloadsRouteImport.update({
   id: '/downloads',
   path: '/downloads',
+  getParentRoute: () => StudioRouteRoute,
+} as any)
+const StudioFaturamentoRoute = StudioFaturamentoRouteImport.update({
+  id: '/faturamento',
+  path: '/faturamento',
   getParentRoute: () => StudioRouteRoute,
 } as any)
 const StudioPlaylistsRoute = StudioPlaylistsRouteImport.update({
@@ -197,6 +203,7 @@ export interface FileRoutesByFullPath {
   '/studio/configuracoes': typeof StudioConfiguracoesRoute
   '/studio/conteudos': typeof StudioConteudosRoute
   '/studio/downloads': typeof StudioDownloadsRoute
+  '/studio/faturamento': typeof StudioFaturamentoRoute
   '/studio/playlists': typeof StudioPlaylistsRoute
   '/studio/relatorios': typeof StudioRelatoriosRoute
   '/studio/senhas': typeof StudioSenhasRoute
@@ -226,6 +233,7 @@ export interface FileRoutesByTo {
   '/studio/configuracoes': typeof StudioConfiguracoesRoute
   '/studio/conteudos': typeof StudioConteudosRoute
   '/studio/downloads': typeof StudioDownloadsRoute
+  '/studio/faturamento': typeof StudioFaturamentoRoute
   '/studio/playlists': typeof StudioPlaylistsRoute
   '/studio/relatorios': typeof StudioRelatoriosRoute
   '/studio/senhas': typeof StudioSenhasRoute
@@ -258,6 +266,7 @@ export interface FileRoutesById {
   '/studio/configuracoes': typeof StudioConfiguracoesRoute
   '/studio/conteudos': typeof StudioConteudosRoute
   '/studio/downloads': typeof StudioDownloadsRoute
+  '/studio/faturamento': typeof StudioFaturamentoRoute
   '/studio/playlists': typeof StudioPlaylistsRoute
   '/studio/relatorios': typeof StudioRelatoriosRoute
   '/studio/senhas': typeof StudioSenhasRoute
@@ -291,6 +300,7 @@ export interface FileRouteTypes {
     | '/studio/configuracoes'
     | '/studio/conteudos'
     | '/studio/downloads'
+    | '/studio/faturamento'
     | '/studio/playlists'
     | '/studio/relatorios'
     | '/studio/senhas'
@@ -320,6 +330,7 @@ export interface FileRouteTypes {
     | '/studio/configuracoes'
     | '/studio/conteudos'
     | '/studio/downloads'
+    | '/studio/faturamento'
     | '/studio/playlists'
     | '/studio/relatorios'
     | '/studio/senhas'
@@ -351,6 +362,7 @@ export interface FileRouteTypes {
     | '/studio/configuracoes'
     | '/studio/conteudos'
     | '/studio/downloads'
+    | '/studio/faturamento'
     | '/studio/playlists'
     | '/studio/relatorios'
     | '/studio/senhas'
@@ -468,6 +480,13 @@ declare module '@tanstack/react-router' {
       path: '/downloads'
       fullPath: '/studio/downloads'
       preLoaderRoute: typeof StudioDownloadsRouteImport
+      parentRoute: typeof StudioRouteRoute
+    }
+    '/studio/faturamento': {
+      id: '/studio/faturamento'
+      path: '/faturamento'
+      fullPath: '/studio/faturamento'
+      preLoaderRoute: typeof StudioFaturamentoRouteImport
       parentRoute: typeof StudioRouteRoute
     }
     '/studio/playlists': {
@@ -604,6 +623,7 @@ interface StudioRouteRouteChildren {
   StudioConfiguracoesRoute: typeof StudioConfiguracoesRoute
   StudioConteudosRoute: typeof StudioConteudosRoute
   StudioDownloadsRoute: typeof StudioDownloadsRoute
+  StudioFaturamentoRoute: typeof StudioFaturamentoRoute
   StudioPlaylistsRoute: typeof StudioPlaylistsRoute
   StudioRelatoriosRoute: typeof StudioRelatoriosRoute
   StudioSenhasRoute: typeof StudioSenhasRoute
@@ -616,6 +636,7 @@ const StudioRouteRouteChildren: StudioRouteRouteChildren = {
   StudioConfiguracoesRoute: StudioConfiguracoesRoute,
   StudioConteudosRoute: StudioConteudosRoute,
   StudioDownloadsRoute: StudioDownloadsRoute,
+  StudioFaturamentoRoute: StudioFaturamentoRoute,
   StudioPlaylistsRoute: StudioPlaylistsRoute,
   StudioRelatoriosRoute: StudioRelatoriosRoute,
   StudioSenhasRoute: StudioSenhasRoute,
