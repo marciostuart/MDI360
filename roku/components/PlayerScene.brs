@@ -608,9 +608,17 @@ sub startNextCall()
     ' embarcado no canal (o som de sistema do Roku depende de uma preferencia
     ' da TV e por isso nao era confiavel). A locucao entra quando ele terminar
     ' (onAnnounceState) ou pelo timer de seguranca.
-    beep(customChimeUrl(call, base))
+    chimeUrl = customChimeUrl(call, base)
+    beep(chimeUrl)
 
     if m.pendingAnnounceUrl <> "" and m.announceTimer <> invalid
+        ' Tom personalizado pode ser mais longo que o embarcado: a rede de
+        ' seguranca espera mais para nao cortar o audio do cliente.
+        if chimeUrl <> ""
+            m.announceTimer.duration = 8
+        else
+            m.announceTimer.duration = 2.6
+        end if
         m.announceTimer.control = "start"
     end if
 end sub
