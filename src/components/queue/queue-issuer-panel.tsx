@@ -256,9 +256,6 @@ export function QueueIssuerPanel() {
               <Printer className="size-4" />
               Imprimir novamente
             </Button>
-              <Printer className="size-4" />
-              Imprimir novamente
-            </Button>
             <Button onClick={() => setIssued(null)}>Emitir outra senha</Button>
           </div>
         </div>
