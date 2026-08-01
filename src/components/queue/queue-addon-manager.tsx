@@ -24,6 +24,8 @@ import {
   saveQueuePanel,
   setQueuePanelEnabled,
   QUEUE_THEME_DEFAULTS,
+  QUEUE_SOUND_DEFAULTS,
+  clearQueueChime,
   type QueuePanelSummary,
 } from "@/lib/queue/queue.functions";
 import { listMediaAssets } from "@/lib/media/media.functions";
@@ -74,6 +76,7 @@ export function QueueAddonManager() {
   const savePanel = useServerFn(saveQueuePanel);
   const togglePanel = useServerFn(setQueuePanelEnabled);
   const removePanel = useServerFn(deleteQueuePanel);
+  const removeChime = useServerFn(clearQueueChime);
 
   const { data, isPending } = useQuery({
     queryKey: ["queue-panels"],
@@ -91,6 +94,37 @@ export function QueueAddonManager() {
     priorityPrefix: "",
     displaySeconds: 20,
     ...QUEUE_THEME_DEFAULTS,
+    ...QUEUE_SOUND_DEFAULTS,
+  });
+
+  const [uploadingChime, setUploadingChime] = useState<string | null>(null);
+
+  /** Envia o MP3 do tom de chamada pelo proxy do servidor (sem CORS). */
+  const uploadChime = async (deviceId: string, file: File) => {
+    setUploadingChime(deviceId);
+    try {
+      const body = new FormData();
+      body.append("deviceId", deviceId);
+      body.append("file", file);
+      const response = await fetch("/api/queue/chime", { method: "POST", body });
+      const payload = (await response.json().catch(() => ({}))) as { error?: string };
+      if (!response.ok) throw new Error(payload.error || "Não foi possível enviar o tom.");
+      toast.success("Tom de chamada atualizado.");
+      await invalidate();
+    } catch (error) {
+      toast.error((error as Error).message);
+    } finally {
+      setUploadingChime(null);
+    }
+  };
+
+  const clearChimeMutation = useMutation({
+    mutationFn: (deviceId: string) => removeChime({ data: { deviceId } }),
+    onSuccess: async () => {
+      toast.success("Tom padrão restaurado.");
+      await invalidate();
+    },
+    onError: (error: Error) => toast.error(error.message),
   });
 
   const fetchMedia = useServerFn(listMediaAssets);
@@ -120,6 +154,8 @@ export function QueueAddonManager() {
       themeTicketColor: string;
       themeTextColor: string;
       themeHistoryColor: string;
+      chimeVolume: number;
+      voiceVolume: number;
     }) => savePanel({ data: input }),
     onSuccess: async () => {
       toast.success("Painel de senhas salvo.");
@@ -159,6 +195,8 @@ export function QueueAddonManager() {
       themeTicketColor: panel.themeTicketColor || QUEUE_THEME_DEFAULTS.themeTicketColor,
       themeTextColor: panel.themeTextColor || QUEUE_THEME_DEFAULTS.themeTextColor,
       themeHistoryColor: panel.themeHistoryColor || QUEUE_THEME_DEFAULTS.themeHistoryColor,
+      chimeVolume: panel.chimeVolume ?? QUEUE_SOUND_DEFAULTS.chimeVolume,
+      voiceVolume: panel.voiceVolume ?? QUEUE_SOUND_DEFAULTS.voiceVolume,
     });
   };
 
@@ -326,6 +364,8 @@ export function QueueAddonManager() {
                       themeTicketColor: form.themeTicketColor,
                       themeTextColor: form.themeTextColor,
                       themeHistoryColor: form.themeHistoryColor,
+                      chimeVolume: form.chimeVolume,
+                      voiceVolume: form.voiceVolume,
                     });
                   }}
                 >
