@@ -325,7 +325,11 @@ export function QueueAddonManager() {
               </div>
 
               {panel.panelId ? (
-                <QueuePanelConfig panelId={panel.panelId} kioskToken={panel.kioskToken} />
+                <QueuePanelConfig
+                  panelId={panel.panelId}
+                  kioskToken={panel.kioskToken}
+                  issuingEnabled={panel.issuingEnabled}
+                />
               ) : null}
 
               {editing === panel.deviceId ? (
