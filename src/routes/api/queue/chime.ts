@@ -33,9 +33,26 @@ export const Route = createFileRoute("/api/queue/chime")({
         if (file.size > MAX_CHIME_BYTES) {
           return Response.json({ error: "O tom de chamada deve ter até 2 MB." }, { status: 413 });
         }
-        const type = (file.type || "").toLowerCase();
-        if (!/^audio\/(mpeg|mp3|wav|x-wav|wave|ogg)$/.test(type)) {
+        // Alguns navegadores/TVs enviam o arquivo sem MIME: nesse caso vale a extensão.
+        const declaredType = (file.type || "").toLowerCase();
+        const nameExt = (file.name.split(".").pop() ?? "").toLowerCase();
+        const extension =
+          nameExt === "wav" || nameExt === "ogg" || nameExt === "mp3"
+            ? nameExt
+            : declaredType.includes("wav")
+              ? "wav"
+              : declaredType.includes("ogg")
+                ? "ogg"
+                : declaredType.includes("mpeg") || declaredType.includes("mp3")
+                  ? "mp3"
+                  : "";
+        if (!extension) {
           return Response.json({ error: "Envie um arquivo .mp3, .wav ou .ogg." }, { status: 415 });
+        }
+        const type =
+          extension === "wav" ? "audio/wav" : extension === "ogg" ? "audio/ogg" : "audio/mpeg";
+        if (file.size === 0) {
+          return Response.json({ error: "O arquivo enviado está vazio." }, { status: 400 });
         }
 
         const { getDb, schema, isDatabaseConfigured } = await import("@/lib/db/index.server");
@@ -67,7 +84,6 @@ export const Route = createFileRoute("/api/queue/chime")({
           return Response.json({ error: "Armazenamento não configurado." }, { status: 503 });
         }
 
-        const extension = type.includes("wav") ? "wav" : type.includes("ogg") ? "ogg" : "mp3";
         const key = `org/${user.organizationId}/queue-chimes/${panel.id}-${Date.now()}.${extension}`;
 
         try {
@@ -86,7 +102,8 @@ export const Route = createFileRoute("/api/queue/chime")({
           .set({ chimeStorageKey: key, chimeName: file.name.slice(0, 120) })
           .where(eq(schema.queuePanels.id, panel.id));
 
-        if (panel.key) {
+        // Substituição: o tom anterior sai do MinIO para não acumular lixo.
+        if (panel.key && panel.key !== key) {
           try {
             await deleteObject(panel.key);
           } catch {
