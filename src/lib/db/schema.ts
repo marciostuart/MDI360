@@ -53,6 +53,11 @@ export const plans = pgTable("plans", {
   /** Storage quota in megabytes. */
   maxStorageMb: integer("max_storage_mb").notNull().default(1024),
   priceCents: integer("price_cents").notNull().default(0),
+  /**
+   * Per-screen monthly price. When greater than zero the account is billed per
+   * active screen (prorated by day), instead of the flat `priceCents`.
+   */
+  pricePerDeviceCents: integer("price_per_device_cents").notNull().default(0),
   /** Whether the queue (senhas) add-on is included in this plan. */
   queueEnabled: boolean("queue_enabled").notNull().default(true),
   isActive: boolean("is_active").notNull().default(true),
