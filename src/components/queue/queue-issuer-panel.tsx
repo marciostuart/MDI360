@@ -113,8 +113,10 @@ export function QueueIssuerPanel() {
     [panels, panelId],
   );
 
-  const needsSector = panel?.mode === "sector";
   const sectors = panel?.sectors ?? [];
+  // Se a tela tem setores liberados para emissão, a escolha do atendimento é
+  // sempre perguntada — independente do modo de chamada configurado no painel.
+  const needsSector = sectors.length > 0;
 
   const loginMutation = useMutation({
     mutationFn: () => login({ data: credentials }),
@@ -263,7 +265,7 @@ export function QueueIssuerPanel() {
     );
   }
 
-  const ready = Boolean(panel) && (!needsSector || sectors.length > 0);
+  const ready = Boolean(panel);
 
   return (
     <main className="mx-auto flex min-h-screen max-w-3xl flex-col justify-center gap-6 p-6">
@@ -304,10 +306,11 @@ export function QueueIssuerPanel() {
         </Card>
       ) : null}
 
-      {needsSector && sectors.length === 0 && panels.length > 0 ? (
+      {panel?.mode === "sector" && sectors.length === 0 && panels.length > 0 ? (
         <Card>
           <CardContent className="py-6 text-center text-sm text-muted-foreground">
-            Nenhuma fila liberada para emissão nesta tela.
+            Esta tela está em modo setorizado, mas nenhuma fila está liberada para emissão. Ative a
+            emissão de cada fila em <strong>Sistema de senhas</strong>.
           </CardContent>
         </Card>
       ) : null}
