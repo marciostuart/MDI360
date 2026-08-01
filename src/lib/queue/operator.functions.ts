@@ -257,11 +257,7 @@ export const callNextTicket = createServerFn({ method: "POST" })
      * que chamam ao mesmo tempo nunca recebem a mesma senha — o segundo já
      * pega a seguinte.
      */
-    let ticket:
-      | Awaited<ReturnType<typeof db.select>> extends never
-        ? never
-        : (typeof schema.queueTickets.$inferSelect)
-      | undefined;
+    let ticket: typeof schema.queueTickets.$inferSelect | undefined;
 
     for (let attempt = 0; attempt < 6 && !ticket; attempt += 1) {
       const [nextNormal, nextPriority] = await Promise.all([nextOf("normal"), nextOf("priority")]);
