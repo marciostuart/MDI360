@@ -13,6 +13,7 @@ import {
   Tag as TagIcon,
   Trash2,
   UploadCloud,
+  Youtube,
   X,
   XCircle,
 } from "lucide-react";
@@ -43,6 +44,7 @@ import {
 } from "@/lib/media/media.functions";
 import type { MediaListItem } from "@/lib/media/media.functions";
 import { prepareUpload } from "@/lib/media/optimize-client";
+import { importYoutubeVideo } from "@/lib/media/youtube.functions";
 import {
   CANVAS_PRESETS,
   DEFAULT_CANVAS_PRESET,
@@ -422,7 +424,32 @@ export function MediaLibrary() {
   const [tagFilter, setTagFilter] = useState("all");
   const [sortBy, setSortBy] = useState<"newest" | "oldest" | "name">("newest");
 
-  const library = useQuery({ queryKey: ["media-assets"], queryFn: () => listFn({}) });
+  const [youtubeUrl, setYoutubeUrl] = useState("");
+  const importYoutube = useServerFn(importYoutubeVideo);
+
+  const library = useQuery({
+    queryKey: ["media-assets"],
+    queryFn: () => listFn({}),
+    // Enquanto houver importação do YouTube em andamento, a lista se atualiza
+    // sozinha até o vídeo ficar pronto.
+    refetchInterval: (query) =>
+      (query.state.data?.items ?? []).some(
+        (item) => item.kind === "video" && item.status === "uploading" && item.sourceUrl,
+      )
+        ? 5000
+        : false,
+  });
+
+  const youtubeMutation = useMutation({
+    mutationFn: (url: string) => importYoutube({ data: { url, canvasPreset: presetId } }),
+    onSuccess: async () => {
+      setYoutubeUrl("");
+      toast.success("Importando do YouTube. O vídeo aparece pronto em alguns minutos.");
+      await queryClient.invalidateQueries({ queryKey: ["media-assets"] });
+    },
+    onError: (error) =>
+      toast.error(error instanceof Error ? error.message : "Não foi possível importar o vídeo."),
+  });
 
   // Nunca deixa timers de animação/auto-dismiss vivos após sair da página.
   useEffect(
@@ -801,8 +828,16 @@ export function MediaLibrary() {
                     {new Date(item.createdAt).toLocaleDateString("pt-BR")}
                   </Badge>
                   {item.status !== "ready" ? (
-                    <Badge variant="destructive">
-                      {item.status === "uploading" ? "Envio incompleto" : "Falhou"}
+                    <Badge
+                      variant={
+                        item.status === "uploading" && item.sourceUrl ? "secondary" : "destructive"
+                      }
+                    >
+                      {item.status === "uploading"
+                        ? item.sourceUrl
+                          ? "Importando do YouTube..."
+                          : "Envio incompleto"
+                        : "Falhou"}
                     </Badge>
                   ) : null}
                 </div>
