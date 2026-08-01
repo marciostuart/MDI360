@@ -137,6 +137,19 @@
     font-family: var(--font-display);
     letter-spacing: -0.02em;
   }
+
+  /* Player: nada além do conteúdo pode aparecer na tela de exibição. O Chrome
+     e o WebView do Android desenham um botão de "Play" gigante sobre o vídeo
+     antes de a reprodução começar — estas regras removem esses controles. */
+  video::-webkit-media-controls,
+  video::-webkit-media-controls-enclosure,
+  video::-webkit-media-controls-panel,
+  video::-webkit-media-controls-overlay-play-button,
+  video::-webkit-media-controls-start-playback-button {
+    display: none !important;
+    -webkit-appearance: none !important;
+    opacity: 0 !important;
+  }
 }
 
 /* Faint scanline sheen used behind hero and dashboard headers. */

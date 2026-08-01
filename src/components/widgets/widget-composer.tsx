@@ -18,6 +18,7 @@ import {
 import { Slider } from "@/components/ui/slider";
 import { Switch } from "@/components/ui/switch";
 import { WidgetView } from "@/components/widgets/widget-view";
+import { WidgetLayoutEditor } from "@/components/widgets/widget-layout-editor";
 import {
   CURRENCY_OPTIONS,
   NEWS_FEEDS,
@@ -28,6 +29,7 @@ import {
   resolveWidgetTheme,
   type BackgroundMode,
   type WidgetConfig,
+  type WidgetLayout,
   type WidgetTheme,
   type WidgetType,
 } from "@/lib/widgets/catalog";
@@ -450,6 +452,12 @@ export function WidgetComposer({
               </label>
             </div>
           </div>
+
+          {/* ---------- free layout: drag & drop over a live preview ---------- */}
+          <WidgetLayoutEditor
+            config={config}
+            onChange={(layout: WidgetLayout) => setConfig({ ...config, layout } as WidgetConfig)}
+          />
 
           <div className="flex flex-wrap gap-2">
             <Button

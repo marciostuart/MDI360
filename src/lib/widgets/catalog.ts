@@ -122,6 +122,93 @@ export function resolveWidgetTheme(theme?: Partial<WidgetTheme> | null): WidgetT
   return { ...WIDGET_THEME_DEFAULTS, ...(theme ?? {}) };
 }
 
+/**
+ * Free layout. Every visible piece of a widget is a "block" that the customer
+ * can drag, resize (font size in cqh, so it scales with the screen), align or
+ * hide. Saved widgets without a layout fall back to LAYOUT_PRESETS below, which
+ * reproduce the original design pixel for pixel.
+ */
+export const widgetBlockSchema = z.object({
+  /** Top-left corner, in % of the screen. */
+  x: z.number().min(-10).max(100).default(6),
+  y: z.number().min(-10).max(100).default(10),
+  /** Box width, in % of the screen. */
+  w: z.number().min(5).max(100).default(60),
+  /** Font size in cqh (1cqh = 1% of the screen height). */
+  size: z.number().min(0.8).max(40).default(4),
+  align: z.enum(["left", "center", "right"]).default("left"),
+  hidden: z.boolean().default(false),
+});
+
+export type WidgetBlock = z.infer<typeof widgetBlockSchema>;
+
+export const widgetLayoutSchema = z.record(z.string(), widgetBlockSchema);
+
+export type WidgetLayout = z.infer<typeof widgetLayoutSchema>;
+
+export const WIDGET_BLOCKS: Record<WidgetType, { id: string; label: string }[]> = {
+  clock: [
+    { id: "time", label: "Hora" },
+    { id: "date", label: "Data" },
+  ],
+  weather: [
+    { id: "city", label: "Cidade" },
+    { id: "temp", label: "Temperatura" },
+    { id: "condition", label: "Condição" },
+    { id: "humidity", label: "Umidade" },
+    { id: "icon", label: "Ícone do tempo" },
+    { id: "forecast", label: "Previsão dos dias" },
+  ],
+  currency: [
+    { id: "title", label: "Título" },
+    { id: "quotes", label: "Lista de cotações" },
+  ],
+  news: [
+    { id: "source", label: "Etiqueta da fonte" },
+    { id: "headline", label: "Manchete" },
+    { id: "summary", label: "Resumo" },
+    { id: "progress", label: "Barra de tempo" },
+  ],
+};
+
+export const LAYOUT_PRESETS: Record<WidgetType, WidgetLayout> = {
+  clock: {
+    time: { x: 8, y: 24, w: 84, size: 22, align: "center", hidden: false },
+    date: { x: 8, y: 62, w: 84, size: 4, align: "center", hidden: false },
+  },
+  weather: {
+    city: { x: 6, y: 12, w: 52, size: 3.4, align: "left", hidden: false },
+    temp: { x: 6, y: 19, w: 52, size: 26, align: "left", hidden: false },
+    condition: { x: 6, y: 55, w: 52, size: 4.6, align: "left", hidden: false },
+    humidity: { x: 6, y: 64, w: 52, size: 2.8, align: "left", hidden: false },
+    icon: { x: 64, y: 10, w: 30, size: 13, align: "right", hidden: false },
+    forecast: { x: 62, y: 34, w: 32, size: 2.6, align: "right", hidden: false },
+  },
+  currency: {
+    title: { x: 8, y: 10, w: 84, size: 3.2, align: "center", hidden: false },
+    quotes: { x: 12, y: 22, w: 76, size: 4.2, align: "left", hidden: false },
+  },
+  news: {
+    source: { x: 6, y: 10, w: 60, size: 2.2, align: "left", hidden: false },
+    headline: { x: 6, y: 22, w: 84, size: 7.4, align: "left", hidden: false },
+    summary: { x: 6, y: 58, w: 72, size: 3.6, align: "left", hidden: false },
+    progress: { x: 6, y: 84, w: 36, size: 2, align: "left", hidden: false },
+  },
+};
+
+/** Merges the saved layout with the preset so new blocks always have a place. */
+export function resolveWidgetLayout(
+  type: WidgetType,
+  layout?: WidgetLayout | null,
+): Required<WidgetLayout> {
+  const preset = LAYOUT_PRESETS[type];
+  const merged: WidgetLayout = {};
+  for (const [id, block] of Object.entries(preset)) {
+    merged[id] = { ...block, ...(layout?.[id] ?? {}) };
+  }
+  return merged;
+}
+
 export const widgetConfigSchema = z.discriminatedUnion("type", [
   z.object({
     type: z.literal("clock"),
@@ -129,11 +216,13 @@ export const widgetConfigSchema = z.discriminatedUnion("type", [
     showDate: z.boolean().default(true),
     showSeconds: z.boolean().default(false),
     theme: widgetThemeSchema.optional(),
+    layout: widgetLayoutSchema.optional(),
   }),
   z.object({
     type: z.literal("weather"),
     cityId: z.enum(WEATHER_CITY_IDS as [string, ...string[]]),
     theme: widgetThemeSchema.optional(),
+    layout: widgetLayoutSchema.optional(),
   }),
   z.object({
     type: z.literal("currency"),
@@ -142,6 +231,7 @@ export const widgetConfigSchema = z.discriminatedUnion("type", [
       .min(1)
       .max(5),
     theme: widgetThemeSchema.optional(),
+    layout: widgetLayoutSchema.optional(),
   }),
   z.object({
     type: z.literal("news"),
@@ -153,6 +243,7 @@ export const widgetConfigSchema = z.discriminatedUnion("type", [
     showSummary: z.boolean().default(true),
     showImage: z.boolean().default(true),
     theme: widgetThemeSchema.optional(),
+    layout: widgetLayoutSchema.optional(),
   }),
 ]);
 
