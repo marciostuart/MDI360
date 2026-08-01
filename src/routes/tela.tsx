@@ -580,9 +580,7 @@ function PlayerScreen() {
             key={`${current.id}-${index}`}
             url={current.url}
             name={current.name}
-            muted={
-              current.isMuted || sync.device?.audioEnabled === false || Boolean(activeCall)
-            }
+            muted={current.isMuted || sync.device?.audioEnabled === false || Boolean(activeCall)}
             loop={items.length === 1 && !hasPending}
           />
         </FadeLayer>

@@ -651,149 +651,151 @@ export function MediaLibrary() {
         <Card>
           <CardContent className="space-y-4 pt-6">
             <div className="max-w-sm space-y-2">
-            <Label>Formato da tela</Label>
-            <Select value={presetId} onValueChange={setPresetId}>
-              <SelectTrigger>
-                <SelectValue />
-              </SelectTrigger>
-              <SelectContent>
-                {CANVAS_PRESETS.map((preset) => (
-                  <SelectItem key={preset.id} value={preset.id}>
-                    {preset.label}
-                  </SelectItem>
-                ))}
-              </SelectContent>
-            </Select>
-            <p className="text-xs text-muted-foreground">{getCanvasPreset(presetId).description}</p>
-          </div>
+              <Label>Formato da tela</Label>
+              <Select value={presetId} onValueChange={setPresetId}>
+                <SelectTrigger>
+                  <SelectValue />
+                </SelectTrigger>
+                <SelectContent>
+                  {CANVAS_PRESETS.map((preset) => (
+                    <SelectItem key={preset.id} value={preset.id}>
+                      {preset.label}
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+              <p className="text-xs text-muted-foreground">
+                {getCanvasPreset(presetId).description}
+              </p>
+            </div>
 
-          {/* Streaming: nada é baixado. A TV abre o endereço na hora da
+            {/* Streaming: nada é baixado. A TV abre o endereço na hora da
               exibição. Serve para lives e rádios, e não consome a cota de
               armazenamento. */}
-          <div className="space-y-2 rounded-xl border border-border/70 bg-secondary/30 p-4">
-            <Label className="flex items-center gap-2">
-              <Radio className="size-4 text-muted-foreground" />
-              Live ou rádio (streaming)
-            </Label>
-            <div className="flex flex-wrap gap-2">
-              <Input
-                value={streamUrl}
-                onChange={(event) => setStreamUrl(event.target.value)}
-                placeholder="Link direto do stream: .m3u8, .mp4 ou .mp3"
-                className="max-w-md"
-              />
-              <div className="flex items-center gap-2">
+            <div className="space-y-2 rounded-xl border border-border/70 bg-secondary/30 p-4">
+              <Label className="flex items-center gap-2">
+                <Radio className="size-4 text-muted-foreground" />
+                Live ou rádio (streaming)
+              </Label>
+              <div className="flex flex-wrap gap-2">
                 <Input
-                  type="number"
-                  min={5}
-                  max={3600}
-                  value={streamSeconds}
-                  onChange={(event) => setStreamSeconds(event.target.value)}
-                  className="w-24"
-                  aria-label="Tempo de exibição em segundos"
+                  value={streamUrl}
+                  onChange={(event) => setStreamUrl(event.target.value)}
+                  placeholder="Link direto do stream: .m3u8, .mp4 ou .mp3"
+                  className="max-w-md"
                 />
-                <span className="text-xs text-muted-foreground">segundos na tela</span>
+                <div className="flex items-center gap-2">
+                  <Input
+                    type="number"
+                    min={5}
+                    max={3600}
+                    value={streamSeconds}
+                    onChange={(event) => setStreamSeconds(event.target.value)}
+                    className="w-24"
+                    aria-label="Tempo de exibição em segundos"
+                  />
+                  <span className="text-xs text-muted-foreground">segundos na tela</span>
+                </div>
+                <Button
+                  variant="secondary"
+                  className="gap-2"
+                  disabled={!streamUrl.trim() || streamMutation.isPending}
+                  onClick={() => streamMutation.mutate(streamUrl.trim())}
+                >
+                  {streamMutation.isPending ? (
+                    <Loader2 className="size-4 animate-spin" />
+                  ) : (
+                    <Plus className="size-4" />
+                  )}
+                  Adicionar transmissão
+                </Button>
               </div>
-              <Button
-                variant="secondary"
-                className="gap-2"
-                disabled={!streamUrl.trim() || streamMutation.isPending}
-                onClick={() => streamMutation.mutate(streamUrl.trim())}
-              >
-                {streamMutation.isPending ? (
-                  <Loader2 className="size-4 animate-spin" />
+              <p className="text-xs text-muted-foreground">
+                O conteúdo toca sempre por streaming, sem download e sem consumir seu armazenamento:
+                sem controles nem qualquer informação sobre a imagem. O áudio segue a configuração
+                do item e da TV. Como uma live não termina, o tempo acima define quanto ela fica na
+                tela antes de passar para o próximo conteúdo. Use sempre o link direto do stream
+                (.m3u8, .mp4 ou .mp3).
+              </p>
+            </div>
+
+            <label className="flex cursor-pointer flex-col items-center gap-3 rounded-xl border border-dashed border-border px-6 py-12 text-center transition-colors hover:border-primary/60">
+              <span className="grid size-12 place-items-center rounded-xl bg-secondary text-muted-foreground">
+                {busy ? (
+                  <Loader2 className="size-6 animate-spin" />
                 ) : (
-                  <Plus className="size-4" />
+                  <UploadCloud className="size-6" />
                 )}
-                Adicionar transmissão
-              </Button>
-            </div>
-            <p className="text-xs text-muted-foreground">
-              O conteúdo toca sempre por streaming, sem download e sem consumir seu armazenamento:
-              sem controles nem qualquer informação sobre a imagem. O áudio segue a configuração do
-              item e da TV. Como uma live não termina, o tempo acima define quanto ela fica na tela
-              antes de passar para o próximo conteúdo. Use sempre o link direto do stream (.m3u8,
-              .mp4 ou .mp3).
-            </p>
-          </div>
+              </span>
+              <span className="font-display text-base font-semibold">
+                {busy ? "Otimizando e enviando..." : "Escolher arquivos"}
+              </span>
+              <span className="max-w-md text-xs text-muted-foreground">
+                JPG, PNG e WebP até 40 MB (reduzidos automaticamente para o formato escolhido). MP4
+                ou WebM até 400 MB e 10 minutos.
+              </span>
+              <input
+                ref={inputRef}
+                type="file"
+                multiple
+                accept="image/jpeg,image/png,image/webp,video/mp4,video/webm"
+                className="hidden"
+                disabled={busy || Boolean(storageMissing)}
+                onChange={(event) => handleFiles(event.target.files)}
+              />
+            </label>
 
-          <label className="flex cursor-pointer flex-col items-center gap-3 rounded-xl border border-dashed border-border px-6 py-12 text-center transition-colors hover:border-primary/60">
-            <span className="grid size-12 place-items-center rounded-xl bg-secondary text-muted-foreground">
-              {busy ? (
-                <Loader2 className="size-6 animate-spin" />
-              ) : (
-                <UploadCloud className="size-6" />
-              )}
-            </span>
-            <span className="font-display text-base font-semibold">
-              {busy ? "Otimizando e enviando..." : "Escolher arquivos"}
-            </span>
-            <span className="max-w-md text-xs text-muted-foreground">
-              JPG, PNG e WebP até 40 MB (reduzidos automaticamente para o formato escolhido). MP4 ou
-              WebM até 400 MB e 10 minutos.
-            </span>
-            <input
-              ref={inputRef}
-              type="file"
-              multiple
-              accept="image/jpeg,image/png,image/webp,video/mp4,video/webm"
-              className="hidden"
-              disabled={busy || Boolean(storageMissing)}
-              onChange={(event) => handleFiles(event.target.files)}
-            />
-          </label>
-
-          {uploads.length > 0 ? (
-            <div className="space-y-3">
-              {uploads.map((item) => {
-                const barColor =
-                  item.phase === "error"
-                    ? "bg-destructive"
-                    : item.phase === "optimizing"
-                      ? "bg-amber-500"
-                      : item.phase === "done"
-                        ? "bg-emerald-500"
-                        : "bg-primary";
-                return (
-                  <div key={item.id} className="space-y-1.5 rounded-lg border border-border p-3">
-                    <div className="flex items-center justify-between gap-3 text-xs">
-                      <span className="truncate font-medium">{item.name}</span>
-                      <span className="flex shrink-0 items-center gap-1.5 text-muted-foreground">
-                        {item.phase === "optimizing" ? (
-                          <Sparkles className="size-3.5 animate-pulse text-amber-500" />
-                        ) : item.phase === "done" ? (
-                          <CheckCircle2 className="size-3.5 text-emerald-500" />
-                        ) : item.phase === "error" ? (
-                          <XCircle className="size-3.5 text-destructive" />
-                        ) : (
-                          <Loader2 className="size-3.5 animate-spin" />
-                        )}
-                        {PHASE_LABEL[item.phase]}
-                        {item.phase === "uploading" || item.phase === "optimizing"
-                          ? ` · ${item.percent}%`
-                          : null}
-                      </span>
-                    </div>
-                    <div
-                      className="h-2 w-full overflow-hidden rounded-full bg-secondary"
-                      role="progressbar"
-                      aria-valuenow={item.percent}
-                      aria-valuemin={0}
-                      aria-valuemax={100}
-                      aria-label={`${PHASE_LABEL[item.phase]} — ${item.name}`}
-                    >
+            {uploads.length > 0 ? (
+              <div className="space-y-3">
+                {uploads.map((item) => {
+                  const barColor =
+                    item.phase === "error"
+                      ? "bg-destructive"
+                      : item.phase === "optimizing"
+                        ? "bg-amber-500"
+                        : item.phase === "done"
+                          ? "bg-emerald-500"
+                          : "bg-primary";
+                  return (
+                    <div key={item.id} className="space-y-1.5 rounded-lg border border-border p-3">
+                      <div className="flex items-center justify-between gap-3 text-xs">
+                        <span className="truncate font-medium">{item.name}</span>
+                        <span className="flex shrink-0 items-center gap-1.5 text-muted-foreground">
+                          {item.phase === "optimizing" ? (
+                            <Sparkles className="size-3.5 animate-pulse text-amber-500" />
+                          ) : item.phase === "done" ? (
+                            <CheckCircle2 className="size-3.5 text-emerald-500" />
+                          ) : item.phase === "error" ? (
+                            <XCircle className="size-3.5 text-destructive" />
+                          ) : (
+                            <Loader2 className="size-3.5 animate-spin" />
+                          )}
+                          {PHASE_LABEL[item.phase]}
+                          {item.phase === "uploading" || item.phase === "optimizing"
+                            ? ` · ${item.percent}%`
+                            : null}
+                        </span>
+                      </div>
                       <div
-                        className={`h-full rounded-full transition-all duration-300 ${barColor}`}
-                        style={{ width: `${item.phase === "preparing" ? 4 : item.percent}%` }}
-                      />
+                        className="h-2 w-full overflow-hidden rounded-full bg-secondary"
+                        role="progressbar"
+                        aria-valuenow={item.percent}
+                        aria-valuemin={0}
+                        aria-valuemax={100}
+                        aria-label={`${PHASE_LABEL[item.phase]} — ${item.name}`}
+                      >
+                        <div
+                          className={`h-full rounded-full transition-all duration-300 ${barColor}`}
+                          style={{ width: `${item.phase === "preparing" ? 4 : item.percent}%` }}
+                        />
+                      </div>
+                      {item.message ? (
+                        <p className="text-xs text-destructive">{item.message}</p>
+                      ) : null}
                     </div>
-                    {item.message ? (
-                      <p className="text-xs text-destructive">{item.message}</p>
-                    ) : null}
-                  </div>
-                );
-              })}
-            </div>
+                  );
+                })}
+              </div>
             ) : null}
           </CardContent>
         </Card>
