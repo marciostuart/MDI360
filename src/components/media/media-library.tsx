@@ -882,23 +882,15 @@ export function MediaLibrary() {
                       {item.width}x{item.height}
                     </Badge>
                   ) : null}
-                  {item.kind === "widget" ? null : (
+                  {item.kind === "widget" || item.kind === "stream" ? null : (
                     <Badge variant="outline">{formatBytes(item.byteSize)}</Badge>
                   )}
                   <Badge variant="outline">
                     {new Date(item.createdAt).toLocaleDateString("pt-BR")}
                   </Badge>
                   {item.status !== "ready" ? (
-                    <Badge
-                      variant={
-                        item.status === "uploading" && item.sourceUrl ? "secondary" : "destructive"
-                      }
-                    >
-                      {item.status === "uploading"
-                        ? item.sourceUrl
-                          ? "Importando do YouTube..."
-                          : "Envio incompleto"
-                        : "Falhou"}
+                    <Badge variant="destructive">
+                      {item.status === "uploading" ? "Envio incompleto" : "Falhou"}
                     </Badge>
                   ) : null}
                 </div>
