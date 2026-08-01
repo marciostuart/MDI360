@@ -6,6 +6,8 @@ version: "3.8"
 services:
   signage:
     # Swarm nao constroi imagem. Construa antes em Portainer -> Images -> Build.
+    # Use uma tag nova em cada build (ex.: signage:20260801-01). Reutilizar
+    # "latest" pode fazer o Swarm iniciar a imagem antiga armazenada em cache.
     image: ${SIGNAGE_IMAGE:-signage:latest}
     environment:
       NODE_ENV: production

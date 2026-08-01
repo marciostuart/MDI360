@@ -5,6 +5,7 @@ set -e
 # lock. lock_timeout exposes the real database error instead of hanging boot.
 export PGOPTIONS="-c lock_timeout=30s -c statement_timeout=180s -c idle_in_transaction_session_timeout=30s"
 
+echo "[signage] image build: ${APP_BUILD_ID:-unknown}"
 echo "[signage] applying database migrations..."
 node ./docker/migrate.mjs
 
