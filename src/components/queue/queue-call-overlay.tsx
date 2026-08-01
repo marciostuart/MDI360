@@ -205,13 +205,22 @@ export function QueueCallOverlay({
     };
   }, [call]);
 
-  // Exactly the Roku channel: fixed accent (0x38BDF8) for the title, the sector
-  // and the history, so a dark brand colour can never hide the sector name.
-  const accent = "#38bdf8";
+  // Cores personalizadas pelo cliente; os padrões repetem o canal Roku.
+  const accent = call.theme?.textColor || "#38bdf8";
+  const ticketColor = call.theme?.ticketColor || "#ffffff";
+  const historyColor = call.theme?.historyColor || "#ffffff";
+  const bgColor = call.theme?.bgColor || "#000000";
+  const bgImageUrl = call.theme?.bgImageUrl || null;
   const history = (call.history ?? []).slice(0, 3);
 
   return (
-    <div className="absolute inset-0 z-50 grid place-items-center bg-black px-10 text-center">
+    <div
+      className="absolute inset-0 z-50 grid place-items-center bg-cover bg-center px-10 text-center"
+      style={{
+        backgroundColor: bgColor,
+        ...(bgImageUrl ? { backgroundImage: `url(${JSON.stringify(bgImageUrl)})` } : {}),
+      }}
+    >
       <div>
         <p
           className="text-[2.7vw] font-semibold uppercase tracking-[0.35em]"
@@ -220,8 +229,12 @@ export function QueueCallOverlay({
           Senha chamada
         </p>
         <p
-          className="mt-[2vh] text-[17.7vw] font-black leading-none text-white"
-          style={{ opacity: flash ? 1 : 0.45, transition: "opacity 300ms linear" }}
+          className="mt-[2vh] text-[17.7vw] font-black leading-none"
+          style={{
+            color: ticketColor,
+            opacity: flash ? 1 : 0.45,
+            transition: "opacity 300ms linear",
+          }}
         >
           {call.label}
         </p>
@@ -235,10 +248,16 @@ export function QueueCallOverlay({
         ) : null}
         {history.length > 0 ? (
           <div className="mt-[6vh]">
-            <p className="text-[1.35vw] font-semibold uppercase tracking-[0.35em] text-white/40">
+            <p
+              className="text-[1.35vw] font-semibold uppercase tracking-[0.35em]"
+              style={{ color: historyColor, opacity: 0.55 }}
+            >
               Últimas chamadas
             </p>
-            <p className="mt-[1.5vh] text-[3.3vw] font-black leading-none tracking-wide text-white/75">
+            <p
+              className="mt-[1.5vh] text-[3.3vw] font-black leading-none tracking-wide"
+              style={{ color: historyColor }}
+            >
               {history
                 .map((item) => (item.sectorName ? `${item.label} - ${item.sectorName}` : item.label))
                 .join("     ")}
