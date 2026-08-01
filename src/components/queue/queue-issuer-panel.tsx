@@ -10,6 +10,7 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Switch } from "@/components/ui/switch";
 import { signIn, signOut } from "@/lib/auth/auth.functions";
+import { printTicketOnDesktop } from "@/lib/queue/desktop-print";
 import { fetchIssuerState, issueTicketAsCustomer } from "@/lib/queue/kiosk.functions";
 
 type Issued = {
@@ -147,6 +148,8 @@ export function QueueIssuerPanel() {
         issuedAt: ticket.issuedAt,
       };
       setIssued(next);
+      // No app MDI 360 Emissor a impressão é direta na impressora térmica.
+      if (printTicketOnDesktop(next)) return;
       if (autoPrintRef.current) printTicket(next);
     },
     onError: (error) => toast.error((error as Error).message || "Não foi possível emitir a senha."),
@@ -250,6 +253,9 @@ export function QueueIssuerPanel() {
           </p>
           <div className="flex flex-wrap justify-center gap-2 pt-2">
             <Button variant="outline" onClick={() => printTicket(issued)}>
+              <Printer className="size-4" />
+              Imprimir novamente
+            </Button>
               <Printer className="size-4" />
               Imprimir novamente
             </Button>
