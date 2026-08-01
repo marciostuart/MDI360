@@ -92,7 +92,8 @@ export function QueueIssuerPanel() {
 
   const [credentials, setCredentials] = useState({ email: "", password: "" });
   const [panelId, setPanelId] = useState<string | null>(null);
-  const [sectorId, setSectorId] = useState<string | null>(null);
+  /** Tipo escolhido no primeiro toque; a fila é escolhida na etapa seguinte. */
+  const [pendingKind, setPendingKind] = useState<"normal" | "priority" | null>(null);
   const [issued, setIssued] = useState<Issued | null>(null);
   const [autoPrint, setAutoPrint] = useState(true);
   const autoPrintRef = useRef(true);
@@ -112,11 +113,8 @@ export function QueueIssuerPanel() {
     [panels, panelId],
   );
 
-  // Se a fila escolhida for bloqueada no painel, a seleção é descartada.
-  useEffect(() => {
-    if (!panel) return;
-    if (sectorId && !panel.sectors.some((sector) => sector.id === sectorId)) setSectorId(null);
-  }, [panel, sectorId]);
+  const needsSector = panel?.mode === "sector";
+  const sectors = panel?.sectors ?? [];
 
   const loginMutation = useMutation({
     mutationFn: () => login({ data: credentials }),
@@ -132,11 +130,14 @@ export function QueueIssuerPanel() {
   });
 
   const issueMutation = useMutation({
-    mutationFn: (kind: "normal" | "priority") => {
+    mutationFn: (vars: { kind: "normal" | "priority"; sectorId: string | null }) => {
       if (!panel) throw new Error("Nenhuma tela liberada para emissão.");
-      return issue({ data: { panelId: panel.panelId, sectorId, kind } });
+      return issue({
+        data: { panelId: panel.panelId, sectorId: vars.sectorId, kind: vars.kind },
+      });
     },
     onSuccess: (ticket) => {
+      setPendingKind(null);
       const next: Issued = {
         label: ticket.label,
         kind: ticket.kind,
@@ -150,6 +151,18 @@ export function QueueIssuerPanel() {
     },
     onError: (error) => toast.error((error as Error).message || "Não foi possível emitir a senha."),
   });
+
+  /**
+   * Toque no tipo de senha: com mais de uma fila configurada, mostra a escolha
+   * da fila; com uma única fila (ou modo sequencial) emite direto.
+   */
+  const chooseKind = (kind: "normal" | "priority") => {
+    if (needsSector && sectors.length > 1) {
+      setPendingKind(kind);
+      return;
+    }
+    issueMutation.mutate({ kind, sectorId: needsSector ? (sectors[0]?.id ?? null) : null });
+  };
 
   // A senha emitida fica alguns segundos na tela e volta ao início.
   useEffect(() => {
