@@ -32,9 +32,11 @@ import { Route as ApiBrandingLogoRouteImport } from './routes/api/branding/logo'
 import { Route as ApiMediaReplaceRouteImport } from './routes/api/media/replace'
 import { Route as ApiMediaUploadRouteImport } from './routes/api/media/upload'
 import { Route as ApiPublicWidgetDataRouteImport } from './routes/api/public/widget-data'
+import { Route as ApiQueueChimeRouteImport } from './routes/api/queue/chime'
 import { Route as TorreClientesIndexRouteImport } from './routes/torre/clientes/index'
 import { Route as TorreClientesOrganizationIdRouteImport } from './routes/torre/clientes/$organizationId'
 import { Route as ApiPublicPlayerAnnounceRouteImport } from './routes/api/public/player/announce'
+import { Route as ApiPublicPlayerChimeRouteImport } from './routes/api/public/player/chime'
 import { Route as ApiPublicPlayerEventsRouteImport } from './routes/api/public/player/events'
 import { Route as ApiPublicPlayerPlaybackRouteImport } from './routes/api/public/player/playback'
 import { Route as ApiPublicPlayerRegisterRouteImport } from './routes/api/public/player/register'
@@ -156,6 +158,11 @@ const ApiPublicWidgetDataRoute = ApiPublicWidgetDataRouteImport.update({
   path: '/api/public/widget-data',
   getParentRoute: () => rootRouteImport,
 } as any)
+const ApiQueueChimeRoute = ApiQueueChimeRouteImport.update({
+  id: '/api/queue/chime',
+  path: '/api/queue/chime',
+  getParentRoute: () => rootRouteImport,
+} as any)
 const TorreClientesIndexRoute = TorreClientesIndexRouteImport.update({
   id: '/clientes/',
   path: '/clientes/',
@@ -170,6 +177,11 @@ const TorreClientesOrganizationIdRoute =
 const ApiPublicPlayerAnnounceRoute = ApiPublicPlayerAnnounceRouteImport.update({
   id: '/api/public/player/announce',
   path: '/api/public/player/announce',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const ApiPublicPlayerChimeRoute = ApiPublicPlayerChimeRouteImport.update({
+  id: '/api/public/player/chime',
+  path: '/api/public/player/chime',
   getParentRoute: () => rootRouteImport,
 } as any)
 const ApiPublicPlayerEventsRoute = ApiPublicPlayerEventsRouteImport.update({
@@ -222,9 +234,11 @@ export interface FileRoutesByFullPath {
   '/api/media/replace': typeof ApiMediaReplaceRoute
   '/api/media/upload': typeof ApiMediaUploadRoute
   '/api/public/widget-data': typeof ApiPublicWidgetDataRoute
+  '/api/queue/chime': typeof ApiQueueChimeRoute
   '/torre/clientes/$organizationId': typeof TorreClientesOrganizationIdRoute
   '/torre/clientes/': typeof TorreClientesIndexRoute
   '/api/public/player/announce': typeof ApiPublicPlayerAnnounceRoute
+  '/api/public/player/chime': typeof ApiPublicPlayerChimeRoute
   '/api/public/player/events': typeof ApiPublicPlayerEventsRoute
   '/api/public/player/playback': typeof ApiPublicPlayerPlaybackRoute
   '/api/public/player/register': typeof ApiPublicPlayerRegisterRoute
@@ -253,9 +267,11 @@ export interface FileRoutesByTo {
   '/api/media/replace': typeof ApiMediaReplaceRoute
   '/api/media/upload': typeof ApiMediaUploadRoute
   '/api/public/widget-data': typeof ApiPublicWidgetDataRoute
+  '/api/queue/chime': typeof ApiQueueChimeRoute
   '/torre/clientes/$organizationId': typeof TorreClientesOrganizationIdRoute
   '/torre/clientes': typeof TorreClientesIndexRoute
   '/api/public/player/announce': typeof ApiPublicPlayerAnnounceRoute
+  '/api/public/player/chime': typeof ApiPublicPlayerChimeRoute
   '/api/public/player/events': typeof ApiPublicPlayerEventsRoute
   '/api/public/player/playback': typeof ApiPublicPlayerPlaybackRoute
   '/api/public/player/register': typeof ApiPublicPlayerRegisterRoute
@@ -287,9 +303,11 @@ export interface FileRoutesById {
   '/api/media/replace': typeof ApiMediaReplaceRoute
   '/api/media/upload': typeof ApiMediaUploadRoute
   '/api/public/widget-data': typeof ApiPublicWidgetDataRoute
+  '/api/queue/chime': typeof ApiQueueChimeRoute
   '/torre/clientes/$organizationId': typeof TorreClientesOrganizationIdRoute
   '/torre/clientes/': typeof TorreClientesIndexRoute
   '/api/public/player/announce': typeof ApiPublicPlayerAnnounceRoute
+  '/api/public/player/chime': typeof ApiPublicPlayerChimeRoute
   '/api/public/player/events': typeof ApiPublicPlayerEventsRoute
   '/api/public/player/playback': typeof ApiPublicPlayerPlaybackRoute
   '/api/public/player/register': typeof ApiPublicPlayerRegisterRoute
@@ -322,9 +340,11 @@ export interface FileRouteTypes {
     | '/api/media/replace'
     | '/api/media/upload'
     | '/api/public/widget-data'
+    | '/api/queue/chime'
     | '/torre/clientes/$organizationId'
     | '/torre/clientes/'
     | '/api/public/player/announce'
+    | '/api/public/player/chime'
     | '/api/public/player/events'
     | '/api/public/player/playback'
     | '/api/public/player/register'
@@ -353,9 +373,11 @@ export interface FileRouteTypes {
     | '/api/media/replace'
     | '/api/media/upload'
     | '/api/public/widget-data'
+    | '/api/queue/chime'
     | '/torre/clientes/$organizationId'
     | '/torre/clientes'
     | '/api/public/player/announce'
+    | '/api/public/player/chime'
     | '/api/public/player/events'
     | '/api/public/player/playback'
     | '/api/public/player/register'
@@ -386,9 +408,11 @@ export interface FileRouteTypes {
     | '/api/media/replace'
     | '/api/media/upload'
     | '/api/public/widget-data'
+    | '/api/queue/chime'
     | '/torre/clientes/$organizationId'
     | '/torre/clientes/'
     | '/api/public/player/announce'
+    | '/api/public/player/chime'
     | '/api/public/player/events'
     | '/api/public/player/playback'
     | '/api/public/player/register'
@@ -408,7 +432,9 @@ export interface RootRouteChildren {
   ApiMediaReplaceRoute: typeof ApiMediaReplaceRoute
   ApiMediaUploadRoute: typeof ApiMediaUploadRoute
   ApiPublicWidgetDataRoute: typeof ApiPublicWidgetDataRoute
+  ApiQueueChimeRoute: typeof ApiQueueChimeRoute
   ApiPublicPlayerAnnounceRoute: typeof ApiPublicPlayerAnnounceRoute
+  ApiPublicPlayerChimeRoute: typeof ApiPublicPlayerChimeRoute
   ApiPublicPlayerEventsRoute: typeof ApiPublicPlayerEventsRoute
   ApiPublicPlayerPlaybackRoute: typeof ApiPublicPlayerPlaybackRoute
   ApiPublicPlayerRegisterRoute: typeof ApiPublicPlayerRegisterRoute
@@ -579,6 +605,13 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof ApiPublicWidgetDataRouteImport
       parentRoute: typeof rootRouteImport
     }
+    '/api/queue/chime': {
+      id: '/api/queue/chime'
+      path: '/api/queue/chime'
+      fullPath: '/api/queue/chime'
+      preLoaderRoute: typeof ApiQueueChimeRouteImport
+      parentRoute: typeof rootRouteImport
+    }
     '/torre/clientes/': {
       id: '/torre/clientes/'
       path: '/clientes'
@@ -598,6 +631,13 @@ declare module '@tanstack/react-router' {
       path: '/api/public/player/announce'
       fullPath: '/api/public/player/announce'
       preLoaderRoute: typeof ApiPublicPlayerAnnounceRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/api/public/player/chime': {
+      id: '/api/public/player/chime'
+      path: '/api/public/player/chime'
+      fullPath: '/api/public/player/chime'
+      preLoaderRoute: typeof ApiPublicPlayerChimeRouteImport
       parentRoute: typeof rootRouteImport
     }
     '/api/public/player/events': {
@@ -698,7 +738,9 @@ const rootRouteChildren: RootRouteChildren = {
   ApiMediaReplaceRoute: ApiMediaReplaceRoute,
   ApiMediaUploadRoute: ApiMediaUploadRoute,
   ApiPublicWidgetDataRoute: ApiPublicWidgetDataRoute,
+  ApiQueueChimeRoute: ApiQueueChimeRoute,
   ApiPublicPlayerAnnounceRoute: ApiPublicPlayerAnnounceRoute,
+  ApiPublicPlayerChimeRoute: ApiPublicPlayerChimeRoute,
   ApiPublicPlayerEventsRoute: ApiPublicPlayerEventsRoute,
   ApiPublicPlayerPlaybackRoute: ApiPublicPlayerPlaybackRoute,
   ApiPublicPlayerRegisterRoute: ApiPublicPlayerRegisterRoute,
