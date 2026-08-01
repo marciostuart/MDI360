@@ -13,6 +13,24 @@ function supported() {
   return typeof window !== "undefined" && "caches" in window;
 }
 
+/**
+ * Stable identity of a media file.
+ *
+ * The playlist arrives with signed links that change on every sync (they carry
+ * an expiry and a signature), so using the raw URL as cache key made the device
+ * throw the whole cache away and download everything again — the TV then showed
+ * "Baixando conteúdo…" and restarted the video. The storage path never changes,
+ * so it is what identifies the file locally.
+ */
+export function keyFor(url: string): string {
+  try {
+    const parsed = new URL(url, window.location.origin);
+    return `https://mdi360.local/media${parsed.pathname}`;
+  } catch {
+    return `https://mdi360.local/media/${encodeURIComponent(url)}`;
+  }
+}
+
 /** False on browsers without the Cache API — playback then streams directly. */
 export function isSupported() {
   return supported();
