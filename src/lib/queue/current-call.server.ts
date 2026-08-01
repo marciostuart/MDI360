@@ -4,6 +4,15 @@ import { getDb, schema } from "@/lib/db/index.server";
 
 export type QueueCallHistoryItem = { label: string; sectorName: string | null };
 
+/** Aparência da chamada, configurada pelo cliente no Studio. */
+export type QueueCallTheme = {
+  bgColor: string;
+  bgImageUrl: string | null;
+  ticketColor: string;
+  textColor: string;
+  historyColor: string;
+};
+
 export type QueueCallPayload = {
   /** Unique per announcement: repeats change it, so the TV calls again. */
   id: string;
@@ -16,6 +25,7 @@ export type QueueCallPayload = {
   calledAt: string;
   /** Chamadas anteriores (mais recente primeiro), exibidas ao lado da atual. */
   history: QueueCallHistoryItem[];
+  theme: QueueCallTheme;
 };
 
 /**
@@ -31,6 +41,11 @@ export async function recentQueueCalls(deviceId: string): Promise<QueueCallPaylo
       id: schema.queuePanels.id,
       isEnabled: schema.queuePanels.isEnabled,
       displaySeconds: schema.queuePanels.displaySeconds,
+      themeBgColor: schema.queuePanels.themeBgColor,
+      themeBgMediaId: schema.queuePanels.themeBgMediaId,
+      themeTicketColor: schema.queuePanels.themeTicketColor,
+      themeTextColor: schema.queuePanels.themeTextColor,
+      themeHistoryColor: schema.queuePanels.themeHistoryColor,
     })
     .from(schema.queuePanels)
     .where(eq(schema.queuePanels.deviceId, deviceId))
@@ -38,6 +53,31 @@ export async function recentQueueCalls(deviceId: string): Promise<QueueCallPaylo
 
   const panel = panels[0];
   if (!panel || !panel.isEnabled) return [];
+
+  // Fundo opcional: imagem escolhida na biblioteca, assinada para o player.
+  let bgImageUrl: string | null = null;
+  if (panel.themeBgMediaId) {
+    try {
+      const { isStorageConfigured, createDownloadUrl } = await import("@/lib/storage.server");
+      const asset = await db
+        .select({ storageKey: schema.mediaAssets.storageKey, status: schema.mediaAssets.status })
+        .from(schema.mediaAssets)
+        .where(eq(schema.mediaAssets.id, panel.themeBgMediaId))
+        .limit(1);
+      const key = asset[0]?.status === "ready" ? asset[0]?.storageKey : null;
+      if (key && isStorageConfigured()) bgImageUrl = await createDownloadUrl(key, 3600);
+    } catch {
+      bgImageUrl = null;
+    }
+  }
+
+  const theme: QueueCallTheme = {
+    bgColor: panel.themeBgColor || "#000000",
+    bgImageUrl,
+    ticketColor: panel.themeTicketColor || "#ffffff",
+    textColor: panel.themeTextColor || "#38bdf8",
+    historyColor: panel.themeHistoryColor || "#ffffff",
+  };
 
   const maxQueued = 8;
 
@@ -86,6 +126,7 @@ export async function recentQueueCalls(deviceId: string): Promise<QueueCallPaylo
       audioUrl: `/api/public/player/announce?call=${call.id}&r=${call.repeatCount}`,
       displaySeconds: seconds,
       calledAt: call.calledAt.toISOString(),
+      theme,
       history: calls
         .slice(index + 1)
         .filter((prev) => prev.label !== call.label)
