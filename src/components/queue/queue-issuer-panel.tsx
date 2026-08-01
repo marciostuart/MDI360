@@ -318,15 +318,18 @@ export function QueueIssuerPanel() {
           <CardContent className="space-y-3 py-5">
             <p className="text-sm font-medium">
               {pendingKind === "priority"
-                ? "Senha preferencial · escolha o atendimento"
-                : "Senha normal · escolha o atendimento"}
+                ? "Senha preferencial · para qual atendimento?"
+                : "Senha normal · para qual atendimento?"}
+            </p>
+            <p className="text-xs text-muted-foreground">
+              Cada atendimento tem sua própria fila e numeração.
             </p>
             <div className="grid gap-3 sm:grid-cols-2">
               {sectors.map((sector) => (
                 <Button
                   key={sector.id}
                   variant="outline"
-                  className="h-20 text-base"
+                  className="h-20 whitespace-normal text-base font-semibold"
                   disabled={issueMutation.isPending}
                   onClick={() => issueMutation.mutate({ kind: pendingKind, sectorId: sector.id })}
                 >
