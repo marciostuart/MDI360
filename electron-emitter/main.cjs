@@ -51,7 +51,20 @@ let configWindow = null;
 let kioskWindow = null;
 
 function openConfigWindow() {
+  // Sai do modo kiosk e esconde o terminal para que a janela de configuracao apareca na frente.
+  if (kioskWindow && !kioskWindow.isDestroyed()) {
+    try {
+      kioskWindow.setKiosk(false);
+      kioskWindow.setFullScreen(false);
+      kioskWindow.setAlwaysOnTop(false);
+      kioskWindow.hide();
+    } catch {
+      /* ignora */
+    }
+  }
   if (configWindow && !configWindow.isDestroyed()) {
+    configWindow.show();
+    configWindow.setAlwaysOnTop(true);
     configWindow.focus();
     return;
   }
@@ -60,6 +73,8 @@ function openConfigWindow() {
     height: 780,
     title: "MDI360 Emissor · Configuração",
     autoHideMenuBar: true,
+    alwaysOnTop: true,
+    show: true,
     webPreferences: {
       preload: path.join(__dirname, "preload.cjs"),
       contextIsolation: true,
@@ -67,13 +82,32 @@ function openConfigWindow() {
     },
   });
   configWindow.loadFile(path.join(__dirname, "config.html"));
+  configWindow.once("ready-to-show", () => {
+    configWindow?.show();
+    configWindow?.focus();
+  });
   configWindow.on("closed", () => {
     configWindow = null;
-    if (!kioskWindow || kioskWindow.isDestroyed()) app.quit();
+    if (!kioskWindow || kioskWindow.isDestroyed()) {
+      app.quit();
+      return;
+    }
+    // Volta o terminal para tela cheia.
+    try {
+      kioskWindow.show();
+      kioskWindow.setKiosk(true);
+      kioskWindow.focus();
+    } catch {
+      /* ignora */
+    }
   });
 }
 
 function openKioskWindow() {
+  if (kioskWindow && !kioskWindow.isDestroyed()) {
+    kioskWindow.destroy();
+    kioskWindow = null;
+  }
   const cfg = loadConfig();
   const base = cfg.serverUrl.replace(/\/+$/, "");
   const url = `${base}/emitir/${encodeURIComponent(cfg.token)}`;
@@ -90,11 +124,18 @@ function openKioskWindow() {
     },
   });
   kioskWindow.loadURL(url);
+  // Atalhos locais: funcionam mesmo quando o atalho global e' bloqueado pelo Windows.
+  kioskWindow.webContents.on("before-input-event", (_event, input) => {
+    if (input.type !== "keyDown") return;
+    const key = String(input.key).toLowerCase();
+    if (key === "f10" || (input.control && input.shift && key === "c")) openConfigWindow();
+    if (input.control && input.shift && key === "q") app.quit();
+  });
   kioskWindow.webContents.on("did-fail-load", (_e, _code, description) => {
     kioskWindow?.webContents.executeJavaScript(
       `document.body.innerHTML = '<div style="font:600 22px system-ui;color:#fff;background:#111;height:100vh;display:grid;place-items:center;text-align:center;padding:32px">Sem conexão com o servidor.<br><small style="font-weight:400">${String(
         description,
-      ).replace(/'/g, "")} · Ctrl+Shift+C para configurar</small></div>'`,
+      ).replace(/'/g, "")} · F10 ou Ctrl+Shift+C para configurar</small></div>'`,
     );
   });
   kioskWindow.on("closed", () => {
@@ -185,6 +226,7 @@ app.whenReady().then(() => {
   else openConfigWindow();
 
   globalShortcut.register("Control+Shift+C", () => openConfigWindow());
+  globalShortcut.register("F10", () => openConfigWindow());
   globalShortcut.register("Control+Shift+Q", () => app.quit());
   globalShortcut.register("F5", () => kioskWindow?.reload());
 });
