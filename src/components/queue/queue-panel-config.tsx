@@ -57,10 +57,12 @@ const emptyOperator: OperatorDraft = {
 export function QueuePanelConfig({
   panelId,
   kioskToken,
+  emitterCode,
   issuingEnabled,
 }: {
   panelId: string;
   kioskToken: string | null;
+  emitterCode: string | null;
   issuingEnabled: boolean;
 }) {
   const queryClient = useQueryClient();
