@@ -15,6 +15,7 @@ import { Route as SenhasRouteImport } from './routes/senhas'
 import { Route as StudioRouteRouteImport } from './routes/studio/route'
 import { Route as TelaRouteImport } from './routes/tela'
 import { Route as TorreRouteRouteImport } from './routes/torre/route'
+import { Route as EmitirIndexRouteImport } from './routes/emitir.index'
 import { Route as EmitirTokenRouteImport } from './routes/emitir.$token'
 import { Route as StudioIndexRouteImport } from './routes/studio/index'
 import { Route as StudioAgendaRouteImport } from './routes/studio/agenda'
@@ -72,6 +73,11 @@ const TelaRoute = TelaRouteImport.update({
 const TorreRouteRoute = TorreRouteRouteImport.update({
   id: '/torre',
   path: '/torre',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const EmitirIndexRoute = EmitirIndexRouteImport.update({
+  id: '/emitir/',
+  path: '/emitir/',
   getParentRoute: () => rootRouteImport,
 } as any)
 const EmitirTokenRoute = EmitirTokenRouteImport.update({
@@ -235,6 +241,7 @@ export interface FileRoutesByFullPath {
   '/studio/telas': typeof StudioTelasRoute
   '/studio/widgets': typeof StudioWidgetsRoute
   '/torre/planos': typeof TorrePlanosRoute
+  '/emitir/': typeof EmitirIndexRoute
   '/studio/': typeof StudioIndexRoute
   '/torre/': typeof TorreIndexRoute
   '/api/branding/logo': typeof ApiBrandingLogoRoute
@@ -269,6 +276,7 @@ export interface FileRoutesByTo {
   '/studio/telas': typeof StudioTelasRoute
   '/studio/widgets': typeof StudioWidgetsRoute
   '/torre/planos': typeof TorrePlanosRoute
+  '/emitir': typeof EmitirIndexRoute
   '/studio': typeof StudioIndexRoute
   '/torre': typeof TorreIndexRoute
   '/api/branding/logo': typeof ApiBrandingLogoRoute
@@ -306,6 +314,7 @@ export interface FileRoutesById {
   '/studio/telas': typeof StudioTelasRoute
   '/studio/widgets': typeof StudioWidgetsRoute
   '/torre/planos': typeof TorrePlanosRoute
+  '/emitir/': typeof EmitirIndexRoute
   '/studio/': typeof StudioIndexRoute
   '/torre/': typeof TorreIndexRoute
   '/api/branding/logo': typeof ApiBrandingLogoRoute
@@ -344,6 +353,7 @@ export interface FileRouteTypes {
     | '/studio/telas'
     | '/studio/widgets'
     | '/torre/planos'
+    | '/emitir/'
     | '/studio/'
     | '/torre/'
     | '/api/branding/logo'
@@ -378,6 +388,7 @@ export interface FileRouteTypes {
     | '/studio/telas'
     | '/studio/widgets'
     | '/torre/planos'
+    | '/emitir'
     | '/studio'
     | '/torre'
     | '/api/branding/logo'
@@ -414,6 +425,7 @@ export interface FileRouteTypes {
     | '/studio/telas'
     | '/studio/widgets'
     | '/torre/planos'
+    | '/emitir/'
     | '/studio/'
     | '/torre/'
     | '/api/branding/logo'
@@ -440,6 +452,7 @@ export interface RootRouteChildren {
   SenhasRoute: typeof SenhasRoute
   TelaRoute: typeof TelaRoute
   EmitirTokenRoute: typeof EmitirTokenRoute
+  EmitirIndexRoute: typeof EmitirIndexRoute
   ApiBrandingLogoRoute: typeof ApiBrandingLogoRoute
   ApiMediaReplaceRoute: typeof ApiMediaReplaceRoute
   ApiMediaUploadRoute: typeof ApiMediaUploadRoute
@@ -496,6 +509,13 @@ declare module '@tanstack/react-router' {
       path: '/torre'
       fullPath: '/torre'
       preLoaderRoute: typeof TorreRouteRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/emitir/': {
+      id: '/emitir/'
+      path: '/emitir'
+      fullPath: '/emitir/'
+      preLoaderRoute: typeof EmitirIndexRouteImport
       parentRoute: typeof rootRouteImport
     }
     '/emitir/$token': {
@@ -755,6 +775,7 @@ const rootRouteChildren: RootRouteChildren = {
   SenhasRoute: SenhasRoute,
   TelaRoute: TelaRoute,
   EmitirTokenRoute: EmitirTokenRoute,
+  EmitirIndexRoute: EmitirIndexRoute,
   ApiBrandingLogoRoute: ApiBrandingLogoRoute,
   ApiMediaReplaceRoute: ApiMediaReplaceRoute,
   ApiMediaUploadRoute: ApiMediaUploadRoute,
