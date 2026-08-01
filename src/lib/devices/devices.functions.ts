@@ -124,6 +124,11 @@ export const linkDevice = createServerFn({ method: "POST" })
     // Same generic message for unknown and already-claimed codes.
     if (!updated[0]) throw new Error("Código inválido ou já utilizado.");
 
+    // Per-screen billing: this screen is charged only for the days left in the
+    // current cycle, never a full month.
+    const { chargeDeviceActivation } = await import("@/lib/billing/billing.server");
+    await chargeDeviceActivation(user.organizationId, updated[0].id, updated[0].name);
+
     // Wakes the TV immediately: it leaves the activation screen in ~1 second.
     const { notifyDevice } = await import("@/lib/player/realtime.server");
     notifyDevice(updated[0].id);
@@ -176,14 +181,21 @@ export const deleteDevice = createServerFn({ method: "POST" })
     const { and, eq } = await import("drizzle-orm");
     const user = await requireUser();
 
-    await getDb()
+    const removed = await getDb()
       .delete(schema.devices)
       .where(
         and(
           eq(schema.devices.id, data.deviceId),
           eq(schema.devices.organizationId, user.organizationId),
         ),
-      );
+      )
+      .returning({ id: schema.devices.id, name: schema.devices.name });
+
+    // Unlinking mid-cycle credits back the days that will not be used.
+    if (removed[0]) {
+      const { creditDeviceRemoval } = await import("@/lib/billing/billing.server");
+      await creditDeviceRemoval(user.organizationId, removed[0].id, removed[0].name);
+    }
 
     // Releases the screen's open connection so it wipes its cache right away.
     const { notifyDevice } = await import("@/lib/player/realtime.server");
@@ -289,6 +301,12 @@ export const replaceDevice = createServerFn({ method: "POST" })
       .update(schema.playbackEvents)
       .set({ deviceId: next.id })
       .where(eq(schema.playbackEvents.deviceId, old.id));
+    // Billing follows the programming too: swapping a screen does not change
+    // the screen count, so the existing prorated charge just moves over.
+    await db
+      .update(schema.billingEntries)
+      .set({ deviceId: next.id })
+      .where(eq(schema.billingEntries.deviceId, old.id));
 
     // Removing the old row unlinks it: the app wipes the local cache and shows
     // a new activation code, and the previous code is free again.

@@ -53,6 +53,11 @@ export const plans = pgTable("plans", {
   /** Storage quota in megabytes. */
   maxStorageMb: integer("max_storage_mb").notNull().default(1024),
   priceCents: integer("price_cents").notNull().default(0),
+  /**
+   * Per-screen monthly price. When greater than zero the account is billed per
+   * active screen (prorated by day), instead of the flat `priceCents`.
+   */
+  pricePerDeviceCents: integer("price_per_device_cents").notNull().default(0),
   /** Whether the queue (senhas) add-on is included in this plan. */
   queueEnabled: boolean("queue_enabled").notNull().default(true),
   isActive: boolean("is_active").notNull().default(true),
@@ -85,6 +90,10 @@ export const organizations = pgTable("organizations", {
   storageLimitMbOverride: integer("storage_limit_mb_override"),
   /** Per-account override for the queue add-on (null = follow the plan). */
   queueEnabledOverride: boolean("queue_enabled_override"),
+  /** Per-account override of the plan's per-screen price (cents). */
+  pricePerDeviceOverride: integer("price_per_device_override"),
+  /** Day the billing cycle started; every cycle runs anchor + N months. */
+  billingAnchorAt: timestamp("billing_anchor_at", { withTimezone: true }),
   adminNotes: text("admin_notes"),
   createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
 });
@@ -454,6 +463,45 @@ export const queueSessions = pgTable(
 /* ------------------------------------------------------------------ */
 /* Relations                                                            */
 /* ------------------------------------------------------------------ */
+
+/**
+ * Ledger of the per-screen billing model: every active screen accrues a
+ * prorated charge for the current cycle, and every screen removed mid-cycle
+ * gets a credit for the days it will not be used.
+ */
+export const billingEntries = pgTable(
+  "billing_entries",
+  {
+    id: uuid("id").primaryKey().defaultRandom(),
+    organizationId: uuid("organization_id")
+      .notNull()
+      .references(() => organizations.id, { onDelete: "cascade" }),
+    /** Kept even after the screen row is deleted, so history stays readable. */
+    deviceId: uuid("device_id"),
+    deviceName: text("device_name").notNull().default("Tela"),
+    /** "charge" = tela ativa no ciclo · "credit" = devolução por desvínculo. */
+    kind: text("kind").notNull(),
+    periodStart: timestamp("period_start", { withTimezone: true }).notNull(),
+    periodEnd: timestamp("period_end", { withTimezone: true }).notNull(),
+    /** First day actually billed (link date, or the cycle start). */
+    chargedFrom: timestamp("charged_from", { withTimezone: true }).notNull(),
+    days: integer("days").notNull().default(0),
+    cycleDays: integer("cycle_days").notNull().default(30),
+    unitPriceCents: integer("unit_price_cents").notNull().default(0),
+    /** Positive for charges, negative for credits. */
+    amountCents: integer("amount_cents").notNull().default(0),
+    createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
+  },
+  (t) => [
+    index("billing_entries_org_period_idx").on(t.organizationId, t.periodStart),
+    uniqueIndex("billing_entries_unique_kind_idx").on(
+      t.organizationId,
+      t.deviceId,
+      t.periodStart,
+      t.kind,
+    ),
+  ],
+);
 
 export const organizationsRelations = relations(organizations, ({ many }) => ({
   users: many(users),

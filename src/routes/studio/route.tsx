@@ -14,6 +14,7 @@ import {
   Images,
   Ticket,
   Download,
+  CreditCard,
 } from "lucide-react";
 import { useEffect } from "react";
 
@@ -43,6 +44,7 @@ const NAV: NavItem[] = [
   { to: "/studio/senhas", label: "Senhas", icon: Ticket },
   { to: "/studio/downloads", label: "Downloads", icon: Download },
   { to: "/studio/relatorios", label: "Relatórios", icon: BarChart3 },
+  { to: "/studio/faturamento", label: "Faturamento", icon: CreditCard },
   { to: "/studio/configuracoes", label: "Configurações", icon: Settings },
 ];
 

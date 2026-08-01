@@ -374,6 +374,8 @@ export type PlatformPlan = {
   maxDevices: number;
   maxStorageMb: number;
   priceCents: number;
+  /** Monthly price of each active screen (per-seat billing). */
+  pricePerDeviceCents: number;
   queueEnabled: boolean;
   isActive: boolean;
   organizations: number;
@@ -395,6 +397,7 @@ export const fetchPlans = createServerFn({ method: "GET" }).handler(
           maxDevices: schema.plans.maxDevices,
           maxStorageMb: schema.plans.maxStorageMb,
           priceCents: schema.plans.priceCents,
+          pricePerDeviceCents: schema.plans.pricePerDeviceCents,
           queueEnabled: schema.plans.queueEnabled,
           isActive: schema.plans.isActive,
           createdAt: schema.plans.createdAt,
@@ -427,6 +430,7 @@ const planSchema = z.object({
   maxDevices: z.number().int().min(1).max(10000),
   maxStorageMb: z.number().int().min(64).max(10_000_000),
   priceCents: z.number().int().min(0).max(100_000_000),
+  pricePerDeviceCents: z.number().int().min(0).max(100_000_000).default(0),
   queueEnabled: z.boolean().default(true),
   isActive: z.boolean().default(true),
 });
@@ -448,6 +452,7 @@ export const savePlan = createServerFn({ method: "POST" })
           maxDevices: data.maxDevices,
           maxStorageMb: data.maxStorageMb,
           priceCents: data.priceCents,
+          pricePerDeviceCents: data.pricePerDeviceCents,
           queueEnabled: data.queueEnabled,
           isActive: data.isActive,
         })
@@ -463,6 +468,7 @@ export const savePlan = createServerFn({ method: "POST" })
         maxDevices: data.maxDevices,
         maxStorageMb: data.maxStorageMb,
         priceCents: data.priceCents,
+        pricePerDeviceCents: data.pricePerDeviceCents,
         queueEnabled: data.queueEnabled,
         isActive: data.isActive,
       })

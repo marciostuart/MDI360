@@ -40,6 +40,7 @@ type Draft = {
   maxDevices: string;
   maxStorageMb: string;
   price: string;
+  pricePerDevice: string;
   queueEnabled: boolean;
   isActive: boolean;
 };
@@ -50,6 +51,7 @@ const EMPTY: Draft = {
   maxDevices: "5",
   maxStorageMb: "2048",
   price: "0",
+  pricePerDevice: "15,00",
   queueEnabled: true,
   isActive: true,
 };
@@ -73,6 +75,9 @@ export default function PlansPage() {
           maxDevices: Number(value.maxDevices),
           maxStorageMb: Number(value.maxStorageMb),
           priceCents: Math.round(Number(value.price.replace(",", ".")) * 100),
+          pricePerDeviceCents: Math.round(
+            Number(value.pricePerDevice.replace(",", ".")) * 100,
+          ),
           queueEnabled: value.queueEnabled,
           isActive: value.isActive,
         },
@@ -102,6 +107,7 @@ export default function PlansPage() {
       maxDevices: String(plan.maxDevices),
       maxStorageMb: String(plan.maxStorageMb),
       price: (plan.priceCents / 100).toFixed(2),
+      pricePerDevice: (plan.pricePerDeviceCents / 100).toFixed(2),
       queueEnabled: plan.queueEnabled,
       isActive: plan.isActive,
     });
@@ -152,7 +158,8 @@ export default function PlansPage() {
         <div>
           <h1 className="font-display text-3xl font-semibold">Planos</h1>
           <p className="text-sm text-muted-foreground">
-            Cada plano define quantas telas e quanto disco o cliente pode usar.
+            Cada plano define o preço por tela (cobrado proporcionalmente aos dias), o limite de
+            telas e o armazenamento global da conta.
           </p>
         </div>
         <Button onClick={() => setDraft({ ...EMPTY })}>
@@ -197,6 +204,19 @@ export default function PlansPage() {
                   setDraft((prev) => prev && { ...prev, price: event.target.value })
                 }
               />
+            </div>
+            <div className="space-y-2">
+              <Label>Preço por tela (R$/mês)</Label>
+              <Input
+                value={draft.pricePerDevice}
+                onChange={(event) =>
+                  setDraft((prev) => prev && { ...prev, pricePerDevice: event.target.value })
+                }
+              />
+              <p className="text-xs text-muted-foreground">
+                Cobrança proporcional aos dias: telas ativadas ou removidas no meio do ciclo pagam
+                (ou recebem crédito de) apenas os dias restantes. Zero = plano gratuito.
+              </p>
             </div>
             <div className="space-y-2">
               <Label>Limite de telas</Label>
@@ -324,7 +344,11 @@ export default function PlansPage() {
                   <Badge variant={plan.isActive ? "default" : "outline"}>
                     {plan.isActive ? "Ativo" : "Oculto"}
                   </Badge>
-                  <Badge variant="secondary">{formatMoney(plan.priceCents)}/mês</Badge>
+                  <Badge variant="secondary">
+                    {plan.pricePerDeviceCents > 0
+                      ? `${formatMoney(plan.pricePerDeviceCents)}/tela/mês`
+                      : `${formatMoney(plan.priceCents)}/mês`}
+                  </Badge>
                   <Badge variant="outline">{plan.maxDevices} telas</Badge>
                   <Badge variant="outline">{(plan.maxStorageMb / 1024).toFixed(1)} GB</Badge>
                   <Badge variant="outline">
