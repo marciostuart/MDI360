@@ -54,7 +54,8 @@ function bucketOf(item: MediaListItem): "files" | "fun" | "tools" {
 }
 
 function kindIcon(kind: MediaListItem["kind"], widgetType: string | null) {
-  if (kind === "video") return <Film className="size-4 shrink-0 text-muted-foreground" />;
+  if (kind === "video" || kind === "stream")
+    return <Film className="size-4 shrink-0 text-muted-foreground" />;
   if (kind === "widget")
     return ENTERTAINMENT_WIDGETS.has(widgetType ?? "") ? (
       <Newspaper className="size-4 shrink-0 text-muted-foreground" />
@@ -171,7 +172,10 @@ export function PlaylistEditorDialog({
       mediaAssetId: asset.id,
       name: asset.name,
       kind: asset.kind,
-      durationMs: asset.kind === "video" ? (asset.durationMs ?? 15000) : 10000,
+      durationMs:
+        asset.kind === "video" || asset.kind === "stream"
+          ? (asset.durationMs ?? 15000)
+          : 10000,
       isMuted: true,
     };
     setDraft((items) => {
