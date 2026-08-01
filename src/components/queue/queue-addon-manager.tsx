@@ -491,8 +491,95 @@ export function QueueAddonManager() {
                   </div>
                   <div className="flex gap-2 sm:col-span-2">
                     <div className="w-full space-y-3 rounded-lg border border-border p-4">
+                      <p className="text-sm font-medium">Som da chamada</p>
+                      <div className="grid gap-4 sm:grid-cols-2">
+                        <div className="space-y-1.5">
+                          <Label htmlFor={`chimevol-${panel.deviceId}`}>
+                            Volume do tom de chamada ({form.chimeVolume}%)
+                          </Label>
+                          <input
+                            id={`chimevol-${panel.deviceId}`}
+                            type="range"
+                            min={0}
+                            max={100}
+                            step={5}
+                            value={form.chimeVolume}
+                            onChange={(event) =>
+                              setForm((prev) => ({
+                                ...prev,
+                                chimeVolume: Number(event.target.value),
+                              }))
+                            }
+                            className="w-full accent-primary"
+                          />
+                        </div>
+                        <div className="space-y-1.5">
+                          <Label htmlFor={`voicevol-${panel.deviceId}`}>
+                            Volume da locução ({form.voiceVolume}%)
+                          </Label>
+                          <input
+                            id={`voicevol-${panel.deviceId}`}
+                            type="range"
+                            min={50}
+                            max={300}
+                            step={10}
+                            value={form.voiceVolume}
+                            onChange={(event) =>
+                              setForm((prev) => ({
+                                ...prev,
+                                voiceVolume: Number(event.target.value),
+                              }))
+                            }
+                            className="w-full accent-primary"
+                          />
+                          <p className="text-xs text-muted-foreground">
+                            Acima de 100% a fala é amplificada, ficando mais alta que o tom.
+                          </p>
+                        </div>
+                        <div className="space-y-1.5 sm:col-span-2">
+                          <Label htmlFor={`chime-${panel.deviceId}`}>
+                            Tom de chamada personalizado (.mp3, até 2 MB)
+                          </Label>
+                          <div className="flex flex-wrap items-center gap-2">
+                            <Input
+                              id={`chime-${panel.deviceId}`}
+                              type="file"
+                              accept="audio/mpeg,audio/mp3,audio/wav,audio/ogg,.mp3,.wav,.ogg"
+                              disabled={uploadingChime === panel.deviceId}
+                              className="max-w-xs"
+                              onChange={(event) => {
+                                const file = event.target.files?.[0];
+                                event.target.value = "";
+                                if (file) void uploadChime(panel.deviceId, file);
+                              }}
+                            />
+                            {uploadingChime === panel.deviceId ? (
+                              <Loader2 className="size-4 animate-spin text-muted-foreground" />
+                            ) : null}
+                            {panel.chimeName ? (
+                              <Button
+                                type="button"
+                                variant="ghost"
+                                size="sm"
+                                onClick={() => clearChimeMutation.mutate(panel.deviceId)}
+                              >
+                                Usar tom padrão
+                              </Button>
+                            ) : null}
+                          </div>
+                          <p className="text-xs text-muted-foreground">
+                            {panel.chimeName
+                              ? `Tom atual: ${panel.chimeName}`
+                              : "Tom atual: bitonal padrão do sistema."}
+                          </p>
+                        </div>
+                      </div>
+                    </div>
+                  </div>
+
+                  <div className="flex gap-2 sm:col-span-2">
+                    <div className="w-full space-y-3 rounded-lg border border-border p-4">
                       <p className="text-sm font-medium">Aparência da chamada na TV</p>
-                      {null}
                       <div className="grid gap-3 sm:grid-cols-2">
                         <ColorField
                           id={`bg-${panel.deviceId}`}
