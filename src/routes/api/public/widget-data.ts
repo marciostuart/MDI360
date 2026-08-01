@@ -19,7 +19,12 @@ const querySchema = z.discriminatedUnion("type", [
   z.object({
     type: z.literal("weather"),
     cityId: z.enum(WEATHER_CITY_IDS as [string, ...string[]]),
+    /** Coordenadas opcionais (cidade encontrada por CEP). */
+    lat: z.coerce.number().min(-90).max(90).optional(),
+    lon: z.coerce.number().min(-180).max(180).optional(),
+    label: z.string().trim().max(80).optional(),
   }),
+  z.object({ type: z.literal("cep"), cep: z.string().trim().regex(/^\d{5}-?\d{3}$/) }),
   z.object({ type: z.literal("currency"), pairs: z.string().trim().max(60) }),
   z.object({ type: z.literal("news"), feedId: z.enum(NEWS_FEED_IDS as [string, ...string[]]) }),
 ]);
@@ -123,11 +128,53 @@ export const Route = createFileRoute("/api/public/widget-data")({
         const cacheHeaders = { "cache-control": "public, max-age=120" };
 
         try {
+          if (parsed.data.type === "cep") {
+            const cep = parsed.data.cep.replace(/\D/g, "");
+            const viaCep = await fetch(`https://viacep.com.br/ws/${cep}/json/`);
+            if (!viaCep.ok) throw new Error("cep");
+            const address = (await viaCep.json()) as {
+              erro?: boolean | string;
+              localidade?: string;
+              uf?: string;
+            };
+            if (address.erro || !address.localidade) {
+              return Response.json({ error: "CEP não encontrado." }, { status: 404 });
+            }
+            const geo = await fetch(
+              "https://geocoding-api.open-meteo.com/v1/search?count=1&language=pt&country=BR" +
+                `&name=${encodeURIComponent(address.localidade)}`,
+            );
+            if (!geo.ok) throw new Error("geo");
+            const place = (
+              (await geo.json()) as {
+                results?: { latitude: number; longitude: number; admin1?: string }[];
+              }
+            ).results?.[0];
+            if (!place) {
+              return Response.json(
+                { error: "Não achamos a cidade deste CEP." },
+                { status: 404 },
+              );
+            }
+            return Response.json(
+              {
+                cep: `${cep.slice(0, 5)}-${cep.slice(5)}`,
+                label: `${address.localidade} / ${address.uf ?? ""}`.trim().replace(/\/$/, ""),
+                latitude: place.latitude,
+                longitude: place.longitude,
+              },
+              { headers: cacheHeaders },
+            );
+          }
+
           if (parsed.data.type === "weather") {
             const city = getWeatherCity(parsed.data.cityId);
+            const latitude = parsed.data.lat ?? city.latitude;
+            const longitude = parsed.data.lon ?? city.longitude;
+            const label = parsed.data.label?.trim() || city.label;
             const endpoint =
-              `https://api.open-meteo.com/v1/forecast?latitude=${city.latitude}` +
-              `&longitude=${city.longitude}&current=temperature_2m,relative_humidity_2m,weather_code` +
+              `https://api.open-meteo.com/v1/forecast?latitude=${latitude}` +
+              `&longitude=${longitude}&current=temperature_2m,relative_humidity_2m,weather_code` +
               `&daily=weather_code,temperature_2m_max,temperature_2m_min&forecast_days=3` +
               `&timezone=America%2FSao_Paulo`;
             const response = await fetch(endpoint);
@@ -147,7 +194,7 @@ export const Route = createFileRoute("/api/public/widget-data")({
             };
             return Response.json(
               {
-                city: city.label,
+                city: label,
                 credit: "Open-Meteo · CC BY 4.0",
                 current: {
                   temperature: payload.current?.temperature_2m ?? null,
