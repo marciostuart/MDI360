@@ -19,6 +19,10 @@ export type QueueCall = {
   calledAt: string;
   repeatCount: number;
   kind: string;
+  /** Guichê que chamou, quando houver. */
+  deskLabel?: string | null;
+  /** True quando a chamada é do guichê logado. */
+  mine?: boolean;
 };
 
 export type QueueOperatorState = {
@@ -31,9 +35,11 @@ export type QueueOperatorState = {
     numberingScope: string;
     priorityPolicy: string;
   };
-  operator: { name: string; username: string };
+  operator: { name: string; username: string; deskLabel: string | null };
   sectors: QueueSector[];
   calls: QueueCall[];
+  /** Senha em atendimento neste guichê (última chamada por ele). */
+  myCall: QueueCall | null;
   waiting: { normal: number; priority: number };
 } | null;
 
