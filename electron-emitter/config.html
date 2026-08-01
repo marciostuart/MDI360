@@ -12,7 +12,7 @@
       fieldset { border: 1px solid #232c39; border-radius: 10px; padding: 16px; margin: 0 0 16px; }
       legend { padding: 0 6px; font-size: 12px; text-transform: uppercase; letter-spacing: .08em; color: #97a3b6; }
       label { display: block; font-size: 12px; color: #b9c4d4; margin: 10px 0 4px; }
-      input, select { width: 100%; padding: 9px 10px; border-radius: 8px; border: 1px solid #2b3746; background: #151b23; color: #e8edf5; font-size: 14px; }
+      input, select, textarea { width: 100%; padding: 9px 10px; border-radius: 8px; border: 1px solid #2b3746; background: #151b23; color: #e8edf5; font-size: 14px; }
       .grid { display: grid; gap: 12px; grid-template-columns: repeat(3, 1fr); }
       .grid2 { display: grid; gap: 12px; grid-template-columns: repeat(2, 1fr); }
       .row { display: flex; gap: 10px; align-items: center; margin-top: 18px; }
@@ -24,6 +24,7 @@
       .hint { font-size: 11px; color: #7d8899; margin-top: 4px; }
       .check { display: flex; gap: 8px; align-items: center; margin-top: 12px; }
       .check input { width: auto; }
+      textarea { resize: vertical; font-family: inherit; }
     </style>
   </head>
   <body>
@@ -74,12 +75,12 @@
           <input id="labelSize" type="number" min="1" max="8" />
         </div>
         <div>
-          <label for="topFeedLines">Margem superior (linhas)</label>
-          <input id="topFeedLines" type="number" min="0" max="20" />
+          <label for="topFeedLines">Margem superior (linhas, aceita negativo)</label>
+          <input id="topFeedLines" type="number" min="-20" max="20" />
         </div>
         <div>
-          <label for="bottomFeedLines">Margem inferior (linhas)</label>
-          <input id="bottomFeedLines" type="number" min="0" max="20" />
+          <label for="bottomFeedLines">Margem inferior (linhas, aceita negativo)</label>
+          <input id="bottomFeedLines" type="number" min="-20" max="20" />
         </div>
         <div>
           <label for="cutFeedDots">Avanço até o corte (pontos)</label>
@@ -97,9 +98,9 @@
           <label for="headerText">Texto do cabeçalho</label>
           <input id="headerText" placeholder="Clínica Exemplo" />
         </div>
-        <div>
-          <label for="footerText">Texto do rodapé</label>
-          <input id="footerText" />
+        <div style="grid-column: span 2">
+          <label for="footerText">Texto do rodapé (use Enter ou | para quebrar linha)</label>
+          <textarea id="footerText" rows="3"></textarea>
         </div>
       </div>
       <p class="hint">A TM-T20 em bobina de 80 mm imprime 512 pontos (72 mm). Para bobina de 58 mm use 384 pontos.</p>
@@ -107,6 +108,11 @@
         <input id="autoPrint" type="checkbox" />
         <label for="autoPrint" style="margin:0">Imprimir automaticamente cada senha emitida</label>
       </div>
+      <div class="check">
+        <input id="showWaitingAhead" type="checkbox" />
+        <label for="showWaitingAhead" style="margin:0">Exibir a posição na fila no cupom impresso</label>
+      </div>
+      <p class="hint">Margens negativas usam avanço reverso do papel para economizar bobina; se a impressora não aceitar, o corte fica mais próximo do texto.</p>
     </fieldset>
 
     <div class="row">
@@ -128,6 +134,7 @@
           out[id] = el.type === "number" ? Number(el.value || 0) : el.value.trim();
         }
         out.autoPrint = document.getElementById("autoPrint").checked;
+        out.showWaitingAhead = document.getElementById("showWaitingAhead").checked;
         return out;
       }
 
@@ -143,6 +150,7 @@
           if (cfg[id] !== undefined && cfg[id] !== null) el.value = cfg[id];
         }
         document.getElementById("autoPrint").checked = cfg.autoPrint !== false;
+        document.getElementById("showWaitingAhead").checked = cfg.showWaitingAhead === true;
       }
 
       document.getElementById("start").addEventListener("click", async () => {
