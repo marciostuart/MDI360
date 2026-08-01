@@ -382,7 +382,7 @@ export const saveQueuePanel = createServerFn({ method: "POST" })
             username: data.username,
             passwordHash,
             kioskToken: randomBytes(16).toString("hex"),
-            emitterCode: newEmitterCode(),
+            emitterCode: (await import("@/lib/queue/emitter-code.server")).newEmitterCode(),
             ...configValues,
             ...themeValues,
           })
@@ -969,6 +969,7 @@ export const rotateQueueKioskToken = createServerFn({ method: "POST" })
     const { eq } = await import("drizzle-orm");
     const { randomBytes } = await import("node:crypto");
     const panel = await requireOwnedPanel(data.panelId);
+    const { newEmitterCode } = await import("@/lib/queue/emitter-code.server");
     const kioskToken = randomBytes(16).toString("hex");
     await getDb()
       .update(schema.queuePanels)
