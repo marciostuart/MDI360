@@ -838,6 +838,11 @@ export const saveQueueOperator = createServerFn({ method: "POST" })
         operatorId: z.string().uuid().optional(),
         name: z.string().trim().min(2).max(60),
         username: usernameSchema,
+        /** Guichê/mesa mostrado e falado na TV ("Guichê 01"). */
+        deskLabel: z.preprocess(
+          (value) => (typeof value === "string" && value.trim() === "" ? null : value),
+          z.string().trim().max(40).nullable().default(null),
+        ),
         password: z.preprocess(
           (value) => (typeof value === "string" && value.trim() === "" ? undefined : value),
           passwordSchema.optional(),
@@ -895,6 +900,7 @@ export const saveQueueOperator = createServerFn({ method: "POST" })
         .set({
           name: data.name,
           username: data.username,
+          deskLabel: data.deskLabel ?? null,
           isEnabled: data.isEnabled,
           ...(data.password ? { passwordHash: await hashQueuePassword(data.password) } : {}),
         })
@@ -909,6 +915,7 @@ export const saveQueueOperator = createServerFn({ method: "POST" })
           panelId: panel.id,
           name: data.name,
           username: data.username,
+          deskLabel: data.deskLabel ?? null,
           passwordHash: await hashQueuePassword(data.password),
           isEnabled: data.isEnabled,
         })
