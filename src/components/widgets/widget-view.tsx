@@ -527,6 +527,7 @@ function CurrencyWidget({
     [config.pairs],
   );
   const { data, failed } = useWidgetData<CurrencyPayload>(query);
+  const layout = resolveWidgetLayout("currency", config.layout as WidgetLayout | undefined);
 
   return (
     <Shell
@@ -535,29 +536,35 @@ function CurrencyWidget({
       credit={data?.credit ?? "AwesomeAPI"}
       scene={<WeatherScene kind="cloudy" theme={theme} accent={accent} />}
     >
-      <p className="text-[3.2cqh] uppercase tracking-[0.32em] opacity-60">Cotações de hoje</p>
+      <Block block={layout.title} className="uppercase tracking-[0.32em] opacity-60">
+        Cotações de hoje
+      </Block>
       {failed && !data ? (
-        <p className="mt-[4cqh] text-[4cqh] opacity-60">Cotações indisponíveis agora.</p>
+        <p className="absolute left-[10%] top-[45%] text-[4cqh] opacity-60">
+          Cotações indisponíveis agora.
+        </p>
       ) : (
-        <div className="mx-auto mt-[4cqh] w-full max-w-[82%] space-y-[2cqh]">
-          {(data?.quotes ?? []).map((quote) => (
-            <div
-              key={quote.code}
-              className="flex items-baseline justify-between rounded-[1.6cqh] bg-black/30 px-[2.4cqw] py-[1.6cqh]"
-            >
-              <span className="text-[4.2cqh] opacity-85">{quote.name || quote.code}</span>
-              <span className="font-display text-[6cqh] font-semibold tabular-nums">
-                R$ {quote.value.toLocaleString("pt-BR", { minimumFractionDigits: 2 })}
-              </span>
-              <span
-                className="text-[3.2cqh] tabular-nums"
-                style={{ color: quote.changePct >= 0 ? "#4ade80" : "#f87171" }}
+        <Block block={layout.quotes}>
+          <div className="space-y-[0.5em]">
+            {(data?.quotes ?? []).map((quote) => (
+              <div
+                key={quote.code}
+                className="flex items-baseline justify-between rounded-[0.4em] bg-black/30 px-[0.7em] py-[0.4em]"
               >
-                {quote.changePct >= 0 ? "▲" : "▼"} {Math.abs(quote.changePct).toFixed(2)}%
-              </span>
-            </div>
-          ))}
-        </div>
+                <span className="opacity-85">{quote.name || quote.code}</span>
+                <span className="font-display text-[1.4em] font-semibold tabular-nums">
+                  R$ {quote.value.toLocaleString("pt-BR", { minimumFractionDigits: 2 })}
+                </span>
+                <span
+                  className="text-[0.76em] tabular-nums"
+                  style={{ color: quote.changePct >= 0 ? "#4ade80" : "#f87171" }}
+                >
+                  {quote.changePct >= 0 ? "▲" : "▼"} {Math.abs(quote.changePct).toFixed(2)}%
+                </span>
+              </div>
+            ))}
+          </div>
+        </Block>
       )}
     </Shell>
   );
