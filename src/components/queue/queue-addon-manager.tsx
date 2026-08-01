@@ -303,6 +303,11 @@ export function QueueAddonManager() {
                       password: password || undefined,
                       mode: form.mode === "sector" ? "sector" : "sequential",
                       displaySeconds: form.displaySeconds,
+                      themeBgColor: form.themeBgColor,
+                      themeBgMediaId: form.themeBgMediaId,
+                      themeTicketColor: form.themeTicketColor,
+                      themeTextColor: form.themeTextColor,
+                      themeHistoryColor: form.themeHistoryColor,
                     });
                   }}
                 >
@@ -367,6 +372,115 @@ export function QueueAddonManager() {
                       }
                     />
                   </div>
+                  <div className="flex gap-2 sm:col-span-2">
+                    <div className="w-full space-y-3 rounded-lg border border-border p-4">
+                      <p className="text-sm font-medium">Aparência da chamada na TV</p>
+                      <div className="grid gap-3 sm:grid-cols-2">
+                        <ColorField
+                          id={`bg-${panel.deviceId}`}
+                          label="Cor de fundo"
+                          value={form.themeBgColor}
+                          onChange={(value) =>
+                            setForm((prev) => ({ ...prev, themeBgColor: value }))
+                          }
+                        />
+                        <ColorField
+                          id={`ticket-${panel.deviceId}`}
+                          label="Cor do número da senha"
+                          value={form.themeTicketColor}
+                          onChange={(value) =>
+                            setForm((prev) => ({ ...prev, themeTicketColor: value }))
+                          }
+                        />
+                        <ColorField
+                          id={`text-${panel.deviceId}`}
+                          label='Cor dos textos ("Senha chamada" e setor)'
+                          value={form.themeTextColor}
+                          onChange={(value) =>
+                            setForm((prev) => ({ ...prev, themeTextColor: value }))
+                          }
+                        />
+                        <ColorField
+                          id={`hist-${panel.deviceId}`}
+                          label="Cor das últimas chamadas"
+                          value={form.themeHistoryColor}
+                          onChange={(value) =>
+                            setForm((prev) => ({ ...prev, themeHistoryColor: value }))
+                          }
+                        />
+                        <div className="space-y-1.5 sm:col-span-2">
+                          <Label>Imagem de fundo (opcional)</Label>
+                          <Select
+                            value={form.themeBgMediaId ?? "none"}
+                            onValueChange={(value) =>
+                              setForm((prev) => ({
+                                ...prev,
+                                themeBgMediaId: value === "none" ? null : value,
+                              }))
+                            }
+                          >
+                            <SelectTrigger>
+                              <SelectValue placeholder="Somente cor de fundo" />
+                            </SelectTrigger>
+                            <SelectContent>
+                              <SelectItem value="none">Somente cor de fundo</SelectItem>
+                              {images.map((image) => (
+                                <SelectItem key={image.id} value={image.id}>
+                                  {image.name}
+                                </SelectItem>
+                              ))}
+                            </SelectContent>
+                          </Select>
+                          <p className="text-xs text-muted-foreground">
+                            Use uma imagem já enviada na sua biblioteca de arquivos. Ela cobre toda
+                            a tela durante a chamada.
+                          </p>
+                        </div>
+                      </div>
+
+                      <div
+                        className="grid place-items-center rounded-md bg-cover bg-center p-6 text-center"
+                        style={{
+                          backgroundColor: form.themeBgColor,
+                          ...(form.themeBgMediaId
+                            ? {
+                                backgroundImage: `url(${JSON.stringify(
+                                  images.find((i) => i.id === form.themeBgMediaId)?.previewUrl ?? "",
+                                )})`,
+                              }
+                            : {}),
+                        }}
+                      >
+                        <div>
+                          <p
+                            className="text-[10px] font-semibold uppercase tracking-[0.35em]"
+                            style={{ color: form.themeTextColor }}
+                          >
+                            Senha chamada
+                          </p>
+                          <p
+                            className="text-4xl font-black leading-none"
+                            style={{ color: form.themeTicketColor }}
+                          >
+                            A012
+                          </p>
+                          <p
+                            className="mt-1 text-sm font-bold uppercase"
+                            style={{ color: form.themeTextColor }}
+                          >
+                            Guichê 2
+                          </p>
+                          <p
+                            className="mt-3 text-xs font-black"
+                            style={{ color: form.themeHistoryColor }}
+                          >
+                            A011 - Caixa 2 A010 - Triagem
+                          </p>
+                        </div>
+                      </div>
+                    </div>
+                  </div>
+
                   <div className="flex gap-2 sm:col-span-2">
                     <Button type="submit" disabled={saveMutation.isPending}>
                       {saveMutation.isPending ? <Loader2 className="size-4 animate-spin" /> : null}
