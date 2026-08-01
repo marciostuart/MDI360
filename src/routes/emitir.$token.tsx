@@ -7,6 +7,7 @@ import { useEffect, useState } from "react";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
 import { getKioskPanel, issueKioskTicket } from "@/lib/queue/kiosk.functions";
+import { printTicketOnDesktop } from "@/lib/queue/desktop-print";
 
 export const Route = createFileRoute("/emitir/$token")({
   head: () => ({
@@ -50,13 +51,23 @@ function KioskPage() {
 
   const issueMutation = useMutation({
     mutationFn: (kind: "normal" | "priority") => issue({ data: { token, sectorId, kind } }),
-    onSuccess: (ticket) =>
+    onSuccess: (ticket) => {
+      // No app MDI 360 Emissor o cupom sai na hora na impressora térmica.
+      printTicketOnDesktop({
+        label: ticket.label,
+        kind: ticket.kind,
+        sectorName: ticket.sectorName,
+        waitingAhead: ticket.waitingAhead,
+        panelName: data?.panelName ?? "",
+        issuedAt: new Date().toISOString(),
+      });
       setIssued({
         label: ticket.label,
         kind: ticket.kind,
         sectorName: ticket.sectorName,
         waitingAhead: ticket.waitingAhead,
-      }),
+      });
+    },
   });
 
   // A senha emitida fica na tela por alguns segundos e volta ao início.

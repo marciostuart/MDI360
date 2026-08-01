@@ -1,0 +1,108 @@
+<!doctype html>
+<html lang="pt-BR">
+  <head>
+    <meta charset="utf-8" />
+    <title>MDI 360 Emissor · Configuração</title>
+    <style>
+      :root { color-scheme: dark; }
+      * { box-sizing: border-box; }
+      body {
+        margin: 0; padding: 28px 32px 32px;
+        font-family: "Segoe UI", Arial, sans-serif;
+        background: #0b1120; color: #e8eef8;
+      }
+      h1 { font-size: 20px; margin: 0 0 4px; }
+      p.sub { margin: 0 0 20px; color: #93a4bd; font-size: 13px; }
+      fieldset {
+        border: 1px solid #1e293b; border-radius: 12px;
+        padding: 16px 18px 18px; margin: 0 0 16px; background: #0f172a;
+      }
+      legend { padding: 0 6px; font-size: 12px; text-transform: uppercase; letter-spacing: .12em; color: #93a4bd; }
+      label { display: block; font-size: 12px; margin-bottom: 4px; color: #b9c7dc; }
+      input, select {
+        width: 100%; padding: 9px 10px; border-radius: 8px;
+        border: 1px solid #24344d; background: #0b1120; color: #e8eef8; font-size: 14px;
+      }
+      .grid { display: grid; gap: 12px; grid-template-columns: repeat(4, 1fr); }
+      .grid.two { grid-template-columns: repeat(2, 1fr); }
+      .row { display: flex; gap: 10px; flex-wrap: wrap; align-items: center; }
+      button {
+        padding: 10px 16px; border-radius: 8px; border: 1px solid #2b3d59;
+        background: #16233c; color: #e8eef8; font-size: 14px; cursor: pointer;
+      }
+      button.primary { background: #2563eb; border-color: #2563eb; font-weight: 600; }
+      button:disabled { opacity: .5; cursor: default; }
+      .check { display: flex; align-items: center; gap: 8px; font-size: 13px; }
+      .check input { width: auto; }
+      #status { min-height: 20px; font-size: 13px; margin-top: 10px; }
+      .ok { color: #4ade80; } .err { color: #f87171; }
+      code { color: #93a4bd; font-size: 11px; }
+    </style>
+  </head>
+  <body>
+    <h1>Terminal emissor de senhas</h1>
+    <p class="sub">
+      Vincule o terminal com o código do painel, ajuste a impressora térmica e confirme para abrir
+      a emissão em tela cheia. Depois, use <strong>F10</strong> para voltar aqui.
+    </p>
+
+    <fieldset>
+      <legend>Vinculação</legend>
+      <div class="grid two">
+        <div>
+          <label for="serverUrl">Endereço do servidor</label>
+          <input id="serverUrl" placeholder="https://painel.seudominio.com.br" />
+        </div>
+        <div>
+          <label for="pairingCode">Código de vinculação (painel do cliente)</label>
+          <input id="pairingCode" placeholder="ABC123" maxlength="8" style="text-transform: uppercase" />
+        </div>
+      </div>
+      <div class="row" style="margin-top: 12px">
+        <button id="pair">Vincular terminal</button>
+        <span id="paired" class="sub" style="margin: 0"></span>
+      </div>
+    </fieldset>
+
+    <fieldset>
+      <legend>Impressora térmica</legend>
+      <div class="grid two">
+        <div>
+          <label for="printerName">Impressora</label>
+          <select id="printerName"></select>
+        </div>
+        <div>
+          <label for="widthMm">Largura do papel (mm)</label>
+          <input id="widthMm" type="number" min="40" max="120" step="1" />
+        </div>
+      </div>
+      <div class="grid" style="margin-top: 12px">
+        <div><label for="marginTopMm">Margem topo (mm)</label><input id="marginTopMm" type="number" min="0" max="30" step="1" /></div>
+        <div><label for="marginBottomMm">Margem base (mm)</label><input id="marginBottomMm" type="number" min="0" max="40" step="1" /></div>
+        <div><label for="marginLeftMm">Margem esquerda (mm)</label><input id="marginLeftMm" type="number" min="0" max="20" step="1" /></div>
+        <div><label for="marginRightMm">Margem direita (mm)</label><input id="marginRightMm" type="number" min="0" max="20" step="1" /></div>
+      </div>
+      <div class="grid" style="margin-top: 12px">
+        <div><label for="labelFontPx">Fonte da senha (px)</label><input id="labelFontPx" type="number" min="20" max="140" step="2" /></div>
+        <div><label for="bodyFontPx">Fonte dos textos (px)</label><input id="bodyFontPx" type="number" min="8" max="28" step="1" /></div>
+        <div><label for="copies">Vias por senha</label><input id="copies" type="number" min="1" max="3" step="1" /></div>
+        <div style="align-self: end">
+          <span class="check"><input id="autoCut" type="checkbox" /> <label for="autoCut" style="margin: 0">Enviar comando de corte</label></span>
+        </div>
+      </div>
+      <div class="row" style="margin-top: 14px">
+        <button id="refresh">Atualizar lista</button>
+        <button id="test">Imprimir teste</button>
+      </div>
+    </fieldset>
+
+    <div class="row">
+      <button id="start" class="primary">Confirmar e abrir emissão em tela cheia</button>
+      <button id="quit">Sair</button>
+    </div>
+    <div id="status"></div>
+    <p><code id="configPath"></code></p>
+
+    <script src="./settings.js"></script>
+  </body>
+</html>
