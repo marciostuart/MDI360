@@ -4,6 +4,7 @@ import { useCallback, useEffect, useRef, useState } from "react";
 import { WidgetView } from "@/components/widgets/widget-view";
 import { QueueCallOverlay, type QueueCallPayload } from "@/components/queue/queue-call-overlay";
 import * as mediaCache from "@/lib/player/media-cache";
+import { buildYoutubeEmbedUrl, parseYoutubeId } from "@/lib/media/stream-url";
 import type { WidgetConfig } from "@/lib/widgets/catalog";
 
 type PlayerItem = {
