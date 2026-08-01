@@ -305,7 +305,8 @@ export function QueuePanelConfig({
                             ? `${sector.issuedToday} emitidas hoje`
                             : `${sector.issuedToday}/${sector.dailyLimit} hoje`}
                         </Badge>
-                        <Badge variant="outline">nº atual {sector.lastNumber}</Badge>
+                        <Badge variant="outline">normal nº {sector.lastNumber}</Badge>
+                        <Badge variant="outline">pref. nº {sector.lastPriorityNumber}</Badge>
                         <span className="flex items-center gap-1.5">
                           <span className="text-xs text-muted-foreground">Emissão</span>
                           <Switch
