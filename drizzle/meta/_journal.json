@@ -99,6 +99,27 @@
       "when": 1785446571965,
       "tag": "0013_billing_per_device",
       "breakpoints": true
+    },
+    {
+      "idx": 14,
+      "version": "7",
+      "when": 1785446571966,
+      "tag": "0014_queue_theme",
+      "breakpoints": true
+    },
+    {
+      "idx": 15,
+      "version": "7",
+      "when": 1785446571967,
+      "tag": "0015_queue_priority",
+      "breakpoints": true
+    },
+    {
+      "idx": 16,
+      "version": "7",
+      "when": 1785446571968,
+      "tag": "0016_queue_chime",
+      "breakpoints": true
     }
   ]
 }
