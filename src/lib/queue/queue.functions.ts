@@ -476,6 +476,8 @@ export type QueueSectorRow = {
   name: string;
   prefix: string | null;
   lastNumber: number;
+  /** Contador paralelo das preferenciais (P001...). */
+  lastPriorityNumber: number;
   position: number;
   waitingNormal: number;
   waitingPriority: number;
@@ -605,6 +607,7 @@ export const getQueuePanelDetails = createServerFn({ method: "POST" })
           name: s.name,
           prefix: s.prefix,
           lastNumber: s.lastNumber,
+          lastPriorityNumber: s.lastPriorityNumber,
           position: s.position,
           waitingNormal: waiting.get(s.id)?.normal ?? 0,
           waitingPriority: waiting.get(s.id)?.priority ?? 0,
