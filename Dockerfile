@@ -12,7 +12,10 @@ RUN bun install --frozen-lockfile
 COPY . .
 
 # Nitro emits a plain Node server because vite.config.ts pins preset "node-server".
-RUN bun run build
+# Nitro 3 writes to dist/, older versions to .output/ — normalize to /app/out.
+RUN bun run build \
+  && if [ -d .output ]; then mv .output out; else mv dist out; fi \
+  && test -f out/server/index.mjs
 
 # ---------- Stage 2: runtime ----------
 FROM node:22-alpine AS runner
@@ -29,7 +32,7 @@ RUN apk add --no-cache libc6-compat ffmpeg && npm install -g bun@1.3.3
 COPY package.json bun.lock drizzle.config.ts ./
 RUN bun install --frozen-lockfile
 
-COPY --from=builder /app/.output ./.output
+COPY --from=builder /app/out ./out
 COPY drizzle ./drizzle
 COPY src/lib/db ./src/lib/db
 COPY docker/entrypoint.sh ./docker/entrypoint.sh
