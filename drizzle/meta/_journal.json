@@ -92,6 +92,13 @@
       "when": 1785446571964,
       "tag": "0012_media_tags",
       "breakpoints": true
+    },
+    {
+      "idx": 13,
+      "version": "7",
+      "when": 1785446571965,
+      "tag": "0013_billing_per_device",
+      "breakpoints": true
     }
   ]
 }
