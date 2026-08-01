@@ -92,7 +92,8 @@ export function QueueIssuerPanel() {
 
   const [credentials, setCredentials] = useState({ email: "", password: "" });
   const [panelId, setPanelId] = useState<string | null>(null);
-  const [sectorId, setSectorId] = useState<string | null>(null);
+  /** Tipo escolhido no primeiro toque; a fila é escolhida na etapa seguinte. */
+  const [pendingKind, setPendingKind] = useState<"normal" | "priority" | null>(null);
   const [issued, setIssued] = useState<Issued | null>(null);
   const [autoPrint, setAutoPrint] = useState(true);
   const autoPrintRef = useRef(true);
@@ -112,11 +113,8 @@ export function QueueIssuerPanel() {
     [panels, panelId],
   );
 
-  // Se a fila escolhida for bloqueada no painel, a seleção é descartada.
-  useEffect(() => {
-    if (!panel) return;
-    if (sectorId && !panel.sectors.some((sector) => sector.id === sectorId)) setSectorId(null);
-  }, [panel, sectorId]);
+  const needsSector = panel?.mode === "sector";
+  const sectors = panel?.sectors ?? [];
 
   const loginMutation = useMutation({
     mutationFn: () => login({ data: credentials }),
@@ -132,11 +130,14 @@ export function QueueIssuerPanel() {
   });
 
   const issueMutation = useMutation({
-    mutationFn: (kind: "normal" | "priority") => {
+    mutationFn: (vars: { kind: "normal" | "priority"; sectorId: string | null }) => {
       if (!panel) throw new Error("Nenhuma tela liberada para emissão.");
-      return issue({ data: { panelId: panel.panelId, sectorId, kind } });
+      return issue({
+        data: { panelId: panel.panelId, sectorId: vars.sectorId, kind: vars.kind },
+      });
     },
     onSuccess: (ticket) => {
+      setPendingKind(null);
       const next: Issued = {
         label: ticket.label,
         kind: ticket.kind,
@@ -150,6 +151,18 @@ export function QueueIssuerPanel() {
     },
     onError: (error) => toast.error((error as Error).message || "Não foi possível emitir a senha."),
   });
+
+  /**
+   * Toque no tipo de senha: com mais de uma fila configurada, mostra a escolha
+   * da fila; com uma única fila (ou modo sequencial) emite direto.
+   */
+  const chooseKind = (kind: "normal" | "priority") => {
+    if (needsSector && sectors.length > 1) {
+      setPendingKind(kind);
+      return;
+    }
+    issueMutation.mutate({ kind, sectorId: needsSector ? (sectors[0]?.id ?? null) : null });
+  };
 
   // A senha emitida fica alguns segundos na tela e volta ao início.
   useEffect(() => {
@@ -247,8 +260,7 @@ export function QueueIssuerPanel() {
     );
   }
 
-  const needsSector = panel?.mode === "sector";
-  const ready = Boolean(panel) && (!needsSector || sectorId !== null);
+  const ready = Boolean(panel) && (!needsSector || sectors.length > 0);
 
   return (
     <main className="mx-auto flex min-h-screen max-w-3xl flex-col justify-center gap-6 p-6">
@@ -278,7 +290,7 @@ export function QueueIssuerPanel() {
                   className="h-12"
                   onClick={() => {
                     setPanelId(item.panelId);
-                    setSectorId(null);
+                    setPendingKind(null);
                   }}
                 >
                   {item.panelName}
@@ -289,60 +301,69 @@ export function QueueIssuerPanel() {
         </Card>
       ) : null}
 
-      {needsSector ? (
+      {needsSector && sectors.length === 0 && panels.length > 0 ? (
+        <Card>
+          <CardContent className="py-6 text-center text-sm text-muted-foreground">
+            Nenhuma fila liberada para emissão nesta tela.
+          </CardContent>
+        </Card>
+      ) : null}
+
+      {pendingKind ? (
+        /* Etapa 2 · a fila só é perguntada quando existe mais de uma. */
         <Card>
           <CardContent className="space-y-3 py-5">
-            <p className="text-sm font-medium">1 · Escolha a fila</p>
-            <div className="grid gap-2 sm:grid-cols-2">
-              {panel!.sectors.length === 0 ? (
-                <p className="text-sm text-muted-foreground sm:col-span-2">
-                  Nenhuma fila liberada para emissão nesta tela.
-                </p>
-              ) : null}
-              {panel!.sectors.map((sector) => (
+            <p className="text-sm font-medium">
+              {pendingKind === "priority"
+                ? "Senha preferencial · escolha o atendimento"
+                : "Senha normal · escolha o atendimento"}
+            </p>
+            <div className="grid gap-3 sm:grid-cols-2">
+              {sectors.map((sector) => (
                 <Button
                   key={sector.id}
-                  variant={sectorId === sector.id ? "default" : "outline"}
-                  className="h-14 text-base"
-                  onClick={() => setSectorId(sector.id)}
+                  variant="outline"
+                  className="h-20 text-base"
+                  disabled={issueMutation.isPending}
+                  onClick={() => issueMutation.mutate({ kind: pendingKind, sectorId: sector.id })}
                 >
                   {sector.name}
                 </Button>
               ))}
             </div>
+            <Button variant="ghost" onClick={() => setPendingKind(null)}>
+              Voltar
+            </Button>
           </CardContent>
         </Card>
-      ) : null}
-
-      <Card>
-        <CardContent className="space-y-3 py-5">
-          <p className="text-sm font-medium">{needsSector ? "2 · " : ""}Toque para emitir</p>
-          <div className="grid gap-3 sm:grid-cols-2">
-            <Button
-              size="lg"
-              className="h-24 text-lg"
-              disabled={!ready || issueMutation.isPending}
-              onClick={() => issueMutation.mutate("normal")}
-            >
-              <Ticket className="size-6" />
-              Senha normal
-            </Button>
-            <Button
-              size="lg"
-              variant="secondary"
-              className="h-24 text-lg"
-              disabled={!ready || issueMutation.isPending}
-              onClick={() => issueMutation.mutate("priority")}
-            >
-              <Ticket className="size-6" />
-              Preferencial
-            </Button>
-          </div>
-          {panels.length > 0 && !ready ? (
-            <p className="text-sm text-muted-foreground">Escolha primeiro a fila desejada.</p>
-          ) : null}
-        </CardContent>
-      </Card>
+      ) : (
+        <Card>
+          <CardContent className="space-y-3 py-5">
+            <p className="text-sm font-medium">Toque no tipo de senha</p>
+            <div className="grid gap-3 sm:grid-cols-2">
+              <Button
+                size="lg"
+                className="h-24 text-lg"
+                disabled={!ready || issueMutation.isPending}
+                onClick={() => chooseKind("normal")}
+              >
+                <Ticket className="size-6" />
+                Senha normal
+              </Button>
+              <Button
+                size="lg"
+                variant="secondary"
+                className="h-24 text-lg"
+                disabled={!ready || issueMutation.isPending}
+                onClick={() => chooseKind("priority")}
+              >
+                <Ticket className="size-6" />
+                Preferencial
+              </Button>
+            </div>
+          </CardContent>
+        </Card>
+      )}
 
       <div className="flex flex-wrap items-center justify-between gap-3 rounded-xl border border-border p-4">
         <div className="flex items-center gap-3">
