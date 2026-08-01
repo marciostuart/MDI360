@@ -1,0 +1,42 @@
+plugins {
+    id 'com.android.application'
+}
+
+android {
+    namespace 'br.com.mdi360.player'
+    compileSdk 34
+
+    defaultConfig {
+        applicationId "br.com.mdi360.player"
+        minSdk 21
+        targetSdk 34
+        versionCode 1
+        versionName "1.0.0"
+        // Endereco do servidor MDI 360 (pode ser trocado dentro do app).
+        buildConfigField "String", "DEFAULT_SERVER_URL", "\"https://mdi.360bh.com.br\""
+    }
+
+    buildFeatures {
+        buildConfig true
+    }
+
+    buildTypes {
+        debug {
+            minifyEnabled false
+        }
+        release {
+            minifyEnabled false
+            // Assinado com a chave de debug para permitir instalacao manual (sideload).
+            signingConfig signingConfigs.debug
+        }
+    }
+
+    compileOptions {
+        sourceCompatibility JavaVersion.VERSION_17
+        targetCompatibility JavaVersion.VERSION_17
+    }
+}
+
+dependencies {
+    implementation 'androidx.appcompat:appcompat:1.7.0'
+}
