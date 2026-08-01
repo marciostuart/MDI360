@@ -19,6 +19,10 @@ export type QueueCall = {
   calledAt: string;
   repeatCount: number;
   kind: string;
+  /** Guichê que chamou, quando houver. */
+  deskLabel?: string | null;
+  /** True quando a chamada é do guichê logado. */
+  mine?: boolean;
 };
 
 export type QueueOperatorState = {
@@ -31,9 +35,11 @@ export type QueueOperatorState = {
     numberingScope: string;
     priorityPolicy: string;
   };
-  operator: { name: string; username: string };
+  operator: { name: string; username: string; deskLabel: string | null };
   sectors: QueueSector[];
   calls: QueueCall[];
+  /** Senha em atendimento neste guichê (última chamada por ele). */
+  myCall: QueueCall | null;
   waiting: { normal: number; priority: number };
 } | null;
 
@@ -116,7 +122,11 @@ export const fetchQueueState = createServerFn({ method: "GET" }).handler(
         numberingScope: session.numberingScope,
         priorityPolicy: session.priorityPolicy,
       },
-      operator: { name: session.operatorName, username: session.username },
+      operator: {
+        name: session.operatorName,
+        username: session.username,
+        deskLabel: session.deskLabel ?? null,
+      },
       sectors: sectors.map((s) => ({
         id: s.id,
         name: s.name,
@@ -129,11 +139,27 @@ export const fetchQueueState = createServerFn({ method: "GET" }).handler(
       calls: calls.map((c) => ({
         id: c.id,
         label: c.label,
-        sectorName: c.sectorName,
+        sectorName: c.deskLabel ?? c.sectorName,
         calledAt: c.calledAt.toISOString(),
         repeatCount: c.repeatCount,
         kind: c.kind,
+        deskLabel: c.deskLabel ?? null,
+        mine: c.operatorId === session.operatorId,
       })),
+      myCall: (() => {
+        const own = calls.find((c) => c.operatorId === session.operatorId);
+        if (!own) return null;
+        return {
+          id: own.id,
+          label: own.label,
+          sectorName: own.deskLabel ?? own.sectorName,
+          calledAt: own.calledAt.toISOString(),
+          repeatCount: own.repeatCount,
+          kind: own.kind,
+          deskLabel: own.deskLabel ?? null,
+          mine: true,
+        };
+      })(),
       waiting,
     };
   },
@@ -225,31 +251,60 @@ export const callNextTicket = createServerFn({ method: "POST" })
           .limit(1)
       )[0];
 
-    const [nextNormal, nextPriority] = await Promise.all([nextOf("normal"), nextOf("priority")]);
-    const kind = pickNextKind(panel.priorityPolicy, panel.lastCalledKind, {
-      normal: Boolean(nextNormal),
-      priority: Boolean(nextPriority),
-    });
+    /**
+     * Fila comum com vários guichês: a senha é reservada de forma atômica
+     * (`status = 'waiting'` na própria condição do UPDATE), então dois guichês
+     * que chamam ao mesmo tempo nunca recebem a mesma senha — o segundo já
+     * pega a seguinte.
+     */
+    let ticket: typeof schema.queueTickets.$inferSelect | undefined;
 
-    let ticket = kind === "priority" ? nextPriority : kind === "normal" ? nextNormal : undefined;
+    for (let attempt = 0; attempt < 6 && !ticket; attempt += 1) {
+      const [nextNormal, nextPriority] = await Promise.all([nextOf("normal"), nextOf("priority")]);
+      const kind = pickNextKind(panel.priorityPolicy, panel.lastCalledKind, {
+        normal: Boolean(nextNormal),
+        priority: Boolean(nextPriority),
+      });
+      const candidate =
+        kind === "priority" ? nextPriority : kind === "normal" ? nextNormal : undefined;
+      if (!candidate) break;
+
+      const claimed = await db
+        .update(schema.queueTickets)
+        .set({
+          status: "called",
+          calledAt: new Date(),
+          calledByOperatorId: session.operatorId,
+        })
+        .where(
+          and(
+            eq(schema.queueTickets.id, candidate.id),
+            eq(schema.queueTickets.status, "waiting"),
+          ),
+        )
+        .returning();
+      ticket = claimed[0];
+    }
 
     if (!ticket) {
       // Fila vazia: gera e chama uma senha normal na hora.
       const issued = await issueTicket(panel, { sectorId, kind: "normal" });
-      ticket = (
-        await db
-          .select()
-          .from(schema.queueTickets)
-          .where(eq(schema.queueTickets.id, issued.id))
-          .limit(1)
-      )[0];
+      const claimed = await db
+        .update(schema.queueTickets)
+        .set({
+          status: "called",
+          calledAt: new Date(),
+          calledByOperatorId: session.operatorId,
+        })
+        .where(eq(schema.queueTickets.id, issued.id))
+        .returning();
+      ticket = claimed[0];
       if (!ticket) throw new Error("Não foi possível gerar a senha.");
     }
 
-    await db
-      .update(schema.queueTickets)
-      .set({ status: "called", calledAt: new Date() })
-      .where(eq(schema.queueTickets.id, ticket.id));
+    // Guichê do operador: quando definido, é o que a TV mostra e fala.
+    const deskLabel = session.deskLabel ?? null;
+    const announced = deskLabel ?? ticket.sectorName;
 
     await db
       .update(schema.queuePanels)
@@ -261,12 +316,14 @@ export const callNextTicket = createServerFn({ method: "POST" })
       .values({
         panelId: panel.id,
         sectorId: ticket.sectorId,
-        sectorName: ticket.sectorName,
+        sectorName: announced,
+        operatorId: session.operatorId,
+        deskLabel,
         number: ticket.number,
         label: ticket.label,
         kind: ticket.kind,
         ticketId: ticket.id,
-        spokenText: buildSpokenText(ticket.sectorName, ticket.label, ticket.kind),
+        spokenText: buildSpokenText(announced, ticket.label, ticket.kind),
       })
       .returning({ id: schema.queueCalls.id });
 
@@ -281,20 +338,38 @@ export const callNextTicket = createServerFn({ method: "POST" })
     };
   });
 
-/** Repeats the last call: same ticket, new announcement on the TV. */
+/**
+ * Repete a chamada: cada guichê repete a SUA última senha (não a do vizinho).
+ * Sem nenhuma chamada própria, repete a última do painel.
+ */
 export const repeatLastTicket = createServerFn({ method: "POST" }).handler(async () => {
   const { getDb, schema } = await import("@/lib/db/index.server");
   const { requireQueueSession } = await import("@/lib/queue/queue-auth.server");
-  const { desc, eq, sql } = await import("drizzle-orm");
+  const { and, desc, eq, sql } = await import("drizzle-orm");
   const session = await requireQueueSession();
   const db = getDb();
 
-  const last = await db
+  const own = await db
     .select({ id: schema.queueCalls.id, label: schema.queueCalls.label })
     .from(schema.queueCalls)
-    .where(eq(schema.queueCalls.panelId, session.panelId))
+    .where(
+      and(
+        eq(schema.queueCalls.panelId, session.panelId),
+        eq(schema.queueCalls.operatorId, session.operatorId),
+      ),
+    )
     .orderBy(desc(schema.queueCalls.calledAt))
     .limit(1);
+
+  const last =
+    own.length > 0
+      ? own
+      : await db
+          .select({ id: schema.queueCalls.id, label: schema.queueCalls.label })
+          .from(schema.queueCalls)
+          .where(eq(schema.queueCalls.panelId, session.panelId))
+          .orderBy(desc(schema.queueCalls.calledAt))
+          .limit(1);
 
   if (!last[0]) throw new Error("Nenhuma senha foi chamada ainda.");
 

@@ -25,6 +25,8 @@ type SectorDraft = {
   sectorId: string;
   name: string;
   prefix: string;
+  /** Vazio = sem limite diário. */
+  dailyLimit: string;
   operatorIds: string[];
 };
 
@@ -32,6 +34,8 @@ type OperatorDraft = {
   operatorId?: string;
   name: string;
   username: string;
+  /** Guichê/mesa deste operador ("Guichê 01"). */
+  deskLabel: string;
   password: string;
   isEnabled: boolean;
   sectorIds: string[];
@@ -40,6 +44,7 @@ type OperatorDraft = {
 const emptyOperator: OperatorDraft = {
   name: "",
   username: "",
+  deskLabel: "",
   password: "",
   isEnabled: true,
   sectorIds: [],
@@ -68,7 +73,9 @@ export function QueuePanelConfig({
   const rotateToken = useServerFn(rotateQueueKioskToken);
   const setIssuing = useServerFn(setQueueIssuing);
 
-  const [open, setOpen] = useState(false);
+  // A gestão de filas e operadores fica sempre visível: é o painel de trabalho
+  // do cliente, não um detalhe escondido.
+  const [open, setOpen] = useState(true);
   const [sectorDraft, setSectorDraft] = useState({ name: "", prefix: "" });
   const [sectorEdit, setSectorEdit] = useState<SectorDraft | null>(null);
   const [operatorDraft, setOperatorDraft] = useState<OperatorDraft | null>(null);
@@ -111,6 +118,7 @@ export function QueuePanelConfig({
           sectorId: draft.sectorId,
           name: draft.name,
           prefix: draft.prefix || null,
+          dailyLimit: draft.dailyLimit.trim() === "" ? null : Number(draft.dailyLimit),
           operatorIds: draft.operatorIds,
         },
       }),
@@ -130,6 +138,7 @@ export function QueuePanelConfig({
           operatorId: draft.operatorId,
           name: draft.name,
           username: draft.username.trim().toLowerCase(),
+          deskLabel: draft.deskLabel.trim() || null,
           password: draft.password || undefined,
           isEnabled: draft.isEnabled,
           sectorIds: draft.sectorIds,
@@ -150,7 +159,8 @@ export function QueuePanelConfig({
   });
 
   const resetMutation = useMutation({
-    mutationFn: () => resetCounters({ data: { panelId } }),
+    mutationFn: (sectorId?: string | null) =>
+      resetCounters({ data: { panelId, sectorId: sectorId ?? null } }),
     onSuccess: async () => {
       toast.success("Contadores zerados e fila limpa.");
       await invalidate();
@@ -193,6 +203,7 @@ export function QueuePanelConfig({
       operatorId: operator.id,
       name: operator.name,
       username: operator.username,
+      deskLabel: operator.deskLabel ?? "",
       password: "",
       isEnabled: operator.isEnabled,
       sectorIds: operator.sectorIds,
@@ -289,6 +300,12 @@ export function QueuePanelConfig({
                           <Badge variant="destructive">{sector.waitingPriority} pref.</Badge>
                         ) : null}
                         <Badge variant="secondary">{sector.waitingNormal} na fila</Badge>
+                        <Badge variant="outline">
+                          {sector.dailyLimit === null
+                            ? `${sector.issuedToday} emitidas hoje`
+                            : `${sector.issuedToday}/${sector.dailyLimit} hoje`}
+                        </Badge>
+                        <Badge variant="outline">nº atual {sector.lastNumber}</Badge>
                         <span className="flex items-center gap-1.5">
                           <span className="text-xs text-muted-foreground">Emissão</span>
                           <Switch
@@ -311,6 +328,8 @@ export function QueuePanelConfig({
                                     sectorId: sector.id,
                                     name: sector.name,
                                     prefix: sector.prefix ?? "",
+                                    dailyLimit:
+                                      sector.dailyLimit === null ? "" : String(sector.dailyLimit),
                                     operatorIds: allowed.map((operator) => operator.id),
                                   },
                             )
@@ -366,6 +385,32 @@ export function QueuePanelConfig({
                             }
                           />
                         </div>
+                        <div className="space-y-1.5 sm:col-span-2">
+                          <Label htmlFor={`sector-limit-${sector.id}`}>
+                            Senhas disponíveis por dia (vazio = sem limite)
+                          </Label>
+                          <Input
+                            id={`sector-limit-${sector.id}`}
+                            value={sectorEdit.dailyLimit}
+                            inputMode="numeric"
+                            placeholder="Ex.: 50"
+                            className="w-32"
+                            onChange={(event) =>
+                              setSectorEdit((draft) =>
+                                draft
+                                  ? {
+                                      ...draft,
+                                      dailyLimit: event.target.value.replace(/\D/g, "").slice(0, 4),
+                                    }
+                                  : draft,
+                              )
+                            }
+                          />
+                          <p className="text-xs text-muted-foreground">
+                            Ao atingir o limite, o terminal deixa de emitir senhas desta fila até o
+                            dia seguinte. Hoje: {sector.issuedToday} emitida(s).
+                          </p>
+                        </div>
                         <div className="space-y-2 sm:col-span-2">
                           <Label>Operadores com acesso a esta chamada</Label>
                           <div className="flex flex-wrap gap-2">
@@ -403,6 +448,15 @@ export function QueuePanelConfig({
                           </Button>
                           <Button type="button" variant="ghost" onClick={() => setSectorEdit(null)}>
                             Cancelar
+                          </Button>
+                          <Button
+                            type="button"
+                            variant="ghost"
+                            className="text-destructive"
+                            disabled={resetMutation.isPending}
+                            onClick={() => resetMutation.mutate(sector.id)}
+                          >
+                            Zerar contador desta fila
                           </Button>
                         </div>
                       </form>
@@ -452,10 +506,10 @@ export function QueuePanelConfig({
               <Button
                 type="button"
                 variant="ghost"
-                onClick={() => resetMutation.mutate()}
+                onClick={() => resetMutation.mutate(null)}
                 disabled={resetMutation.isPending}
               >
-                Zerar contadores
+                Zerar todos os contadores
               </Button>
             </form>
           </section>
@@ -475,6 +529,9 @@ export function QueuePanelConfig({
                     <span className="text-muted-foreground"> · {operator.username}</span>
                   </span>
                   <span className="flex items-center gap-2">
+                    {operator.deskLabel ? (
+                      <Badge>{operator.deskLabel}</Badge>
+                    ) : null}
                     <Badge variant="outline">
                       {operator.sectorIds.length === 0
                         ? "Todas as filas"
@@ -532,6 +589,23 @@ export function QueuePanelConfig({
                     }
                     required
                   />
+                </div>
+                <div className="space-y-1.5">
+                  <Label htmlFor={`op-desk-${panelId}`}>Guichê / mesa (opcional)</Label>
+                  <Input
+                    id={`op-desk-${panelId}`}
+                    value={operatorDraft.deskLabel}
+                    placeholder="Guichê 01"
+                    onChange={(event) =>
+                      setOperatorDraft((draft) =>
+                        draft ? { ...draft, deskLabel: event.target.value } : draft,
+                      )
+                    }
+                  />
+                  <p className="text-xs text-muted-foreground">
+                    Quando preenchido, a TV mostra e fala este guichê na chamada — vários guichês
+                    podem atender a mesma fila sem repetir senha.
+                  </p>
                 </div>
                 <div className="space-y-1.5">
                   <Label htmlFor={`op-pass-${panelId}`}>

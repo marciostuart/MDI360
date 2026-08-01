@@ -479,6 +479,9 @@ export type QueueSectorRow = {
   position: number;
   waitingNormal: number;
   waitingPriority: number;
+  /** Quantidade de senhas por dia (null = ilimitado) e quantas já saíram hoje. */
+  dailyLimit: number | null;
+  issuedToday: number;
   /** Fila liberada para emissão no terminal (/emitir). */
   issuingEnabled: boolean;
 };
@@ -488,6 +491,8 @@ export type QueueOperatorRow = {
   name: string;
   username: string;
   isEnabled: boolean;
+  /** Guichê/mesa deste operador ("Guichê 01"), exibido e falado na TV. */
+  deskLabel: string | null;
   /** Vazio = pode chamar todos os setores. */
   sectorIds: string[];
 };
@@ -552,6 +557,29 @@ export const getQueuePanelDetails = createServerFn({ method: "POST" })
         waiting.set(row.sectorId, entry);
       }
 
+      // Senhas emitidas hoje por fila, para mostrar o consumo do limite diário.
+      const startOfDay = new Date();
+      startOfDay.setHours(0, 0, 0, 0);
+      const { gte, ne } = await import("drizzle-orm");
+      const todayRows = await db
+        .select({
+          sectorId: schema.queueTickets.sectorId,
+          total: sql<number>`count(*)::int`,
+        })
+        .from(schema.queueTickets)
+        .where(
+          and(
+            eq(schema.queueTickets.panelId, panel.id),
+            ne(schema.queueTickets.status, "cancelled"),
+            gte(schema.queueTickets.issuedAt, startOfDay),
+          ),
+        )
+        .groupBy(schema.queueTickets.sectorId);
+      const issuedToday = new Map<string, number>();
+      for (const row of todayRows) {
+        if (row.sectorId) issuedToday.set(row.sectorId, Number(row.total));
+      }
+
       const operators = await db
         .select()
         .from(schema.queueOperators)
@@ -580,6 +608,8 @@ export const getQueuePanelDetails = createServerFn({ method: "POST" })
           position: s.position,
           waitingNormal: waiting.get(s.id)?.normal ?? 0,
           waitingPriority: waiting.get(s.id)?.priority ?? 0,
+          dailyLimit: s.dailyLimit ?? null,
+          issuedToday: issuedToday.get(s.id) ?? 0,
           issuingEnabled: s.issuingEnabled,
         })),
         operators: operators.map((o) => ({
@@ -587,6 +617,7 @@ export const getQueuePanelDetails = createServerFn({ method: "POST" })
           name: o.name,
           username: o.username,
           isEnabled: o.isEnabled,
+          deskLabel: o.deskLabel ?? null,
           sectorIds: links.filter((l) => l.operatorId === o.id).map((l) => l.sectorId),
         })),
       };
@@ -603,6 +634,12 @@ export const saveQueueSector = createServerFn({ method: "POST" })
         prefix: z.preprocess(
           (value) => (typeof value === "string" && value.trim() === "" ? null : value),
           z.string().trim().max(3).nullable().default(null),
+        ),
+        /** Quantidade de senhas por dia. `null` = ilimitado. */
+        dailyLimit: z.preprocess(
+          (value) =>
+            value === "" || value === undefined || value === null ? null : Number(value),
+          z.number().int().min(1).max(9999).nullable().default(null),
         ),
         /** Quando informado, redefine quais operadores podem chamar este setor. */
         operatorIds: z.array(z.string().uuid()).optional(),
@@ -625,6 +662,7 @@ export const saveQueueSector = createServerFn({ method: "POST" })
         .set({
           name: data.name,
           prefix,
+          dailyLimit: data.dailyLimit ?? null,
           ...(data.issuingEnabled === undefined ? {} : { issuingEnabled: data.issuingEnabled }),
         })
         .where(
@@ -644,6 +682,7 @@ export const saveQueueSector = createServerFn({ method: "POST" })
           panelId: panel.id,
           name: data.name,
           prefix,
+          dailyLimit: data.dailyLimit ?? null,
           position: Number(next[0]?.total ?? 0),
           ...(data.issuingEnabled === undefined ? {} : { issuingEnabled: data.issuingEnabled }),
         })
@@ -732,14 +771,47 @@ export const setQueueIssuing = createServerFn({ method: "POST" })
     return { ok: true };
   });
 
-/** Zera contadores e descarta as senhas que ainda estavam aguardando. */
+/**
+ * Zera contadores e descarta as senhas que ainda estavam aguardando. Com
+ * `sectorId`, zera apenas aquela fila (o restante do painel continua igual).
+ */
 export const resetQueueCounters = createServerFn({ method: "POST" })
-  .inputValidator((input: unknown) => z.object({ panelId: z.string().uuid() }).parse(input))
+  .inputValidator((input: unknown) =>
+    z
+      .object({
+        panelId: z.string().uuid(),
+        sectorId: z.string().uuid().nullable().optional(),
+      })
+      .parse(input),
+  )
   .handler(async ({ data }) => {
     const { getDb, schema } = await import("@/lib/db/index.server");
     const { and, eq } = await import("drizzle-orm");
     const panel = await requireOwnedPanel(data.panelId);
     const db = getDb();
+
+    if (data.sectorId) {
+      await db
+        .update(schema.queueSectors)
+        .set({ lastNumber: 0 })
+        .where(
+          and(
+            eq(schema.queueSectors.id, data.sectorId),
+            eq(schema.queueSectors.panelId, panel.id),
+          ),
+        );
+      await db
+        .update(schema.queueTickets)
+        .set({ status: "cancelled" })
+        .where(
+          and(
+            eq(schema.queueTickets.panelId, panel.id),
+            eq(schema.queueTickets.sectorId, data.sectorId),
+            eq(schema.queueTickets.status, "waiting"),
+          ),
+        );
+      return { ok: true };
+    }
 
     await db
       .update(schema.queuePanels)
@@ -766,6 +838,11 @@ export const saveQueueOperator = createServerFn({ method: "POST" })
         operatorId: z.string().uuid().optional(),
         name: z.string().trim().min(2).max(60),
         username: usernameSchema,
+        /** Guichê/mesa mostrado e falado na TV ("Guichê 01"). */
+        deskLabel: z.preprocess(
+          (value) => (typeof value === "string" && value.trim() === "" ? null : value),
+          z.string().trim().max(40).nullable().default(null),
+        ),
         password: z.preprocess(
           (value) => (typeof value === "string" && value.trim() === "" ? undefined : value),
           passwordSchema.optional(),
@@ -823,6 +900,7 @@ export const saveQueueOperator = createServerFn({ method: "POST" })
         .set({
           name: data.name,
           username: data.username,
+          deskLabel: data.deskLabel ?? null,
           isEnabled: data.isEnabled,
           ...(data.password ? { passwordHash: await hashQueuePassword(data.password) } : {}),
         })
@@ -837,6 +915,7 @@ export const saveQueueOperator = createServerFn({ method: "POST" })
           panelId: panel.id,
           name: data.name,
           username: data.username,
+          deskLabel: data.deskLabel ?? null,
           passwordHash: await hashQueuePassword(data.password),
           isEnabled: data.isEnabled,
         })

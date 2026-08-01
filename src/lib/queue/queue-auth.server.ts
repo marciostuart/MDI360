@@ -26,6 +26,8 @@ export type QueuePanelSession = {
   isEnabled: boolean;
   operatorId: string;
   operatorName: string;
+  /** Guichê/mesa deste operador ("Guichê 01") ou null. */
+  deskLabel: string | null;
   numberingScope: string;
   priorityPolicy: string;
   priorityPrefix: string | null;
@@ -111,6 +113,7 @@ export async function getQueueSession(): Promise<QueuePanelSession | null> {
       lastCalledKind: schema.queuePanels.lastCalledKind,
       operatorId: schema.queueOperators.id,
       operatorName: schema.queueOperators.name,
+      deskLabel: schema.queueOperators.deskLabel,
       username: schema.queueOperators.username,
       operatorEnabled: schema.queueOperators.isEnabled,
     })

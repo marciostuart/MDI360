@@ -449,6 +449,12 @@ export const queueSectors = pgTable(
     prefix: text("prefix"),
     lastNumber: integer("last_number").notNull().default(0),
     position: integer("position").notNull().default(0),
+    /**
+     * Quantidade de senhas disponíveis por dia nesta fila. `null` = ilimitado.
+     * Ao esgotar, a emissão recusa novas senhas até o dia seguinte (ou até o
+     * cliente zerar o contador).
+     */
+    dailyLimit: integer("daily_limit"),
     /** Fila disponível para emissão de senhas no terminal (/emitir). */
     issuingEnabled: boolean("issuing_enabled").notNull().default(true),
     createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
@@ -466,6 +472,9 @@ export const queueCalls = pgTable(
     sectorId: uuid("sector_id").references(() => queueSectors.id, { onDelete: "set null" }),
     /** Snapshot of the sector name, so history survives a rename/removal. */
     sectorName: text("sector_name"),
+    /** Guichê que chamou (operador) e o rótulo mostrado/falado na TV. */
+    operatorId: uuid("operator_id"),
+    deskLabel: text("desk_label"),
     number: integer("number").notNull(),
     /** Ready-to-show ticket ("A012", "032"). */
     label: text("label").notNull(),
@@ -507,6 +516,11 @@ export const queueOperators = pgTable(
       .notNull()
       .references(() => queuePanels.id, { onDelete: "cascade" }),
     name: text("name").notNull().default("Operador"),
+    /**
+     * Guichê/mesa deste operador ("Guichê 01"). Quando definido, a TV exibe e
+     * fala este rótulo na chamada, mesmo em fila comum (sem setores).
+     */
+    deskLabel: text("desk_label"),
     username: text("username").notNull(),
     passwordHash: text("password_hash").notNull(),
     isEnabled: boolean("is_enabled").notNull().default(true),
@@ -548,6 +562,8 @@ export const queueTickets = pgTable(
     label: text("label").notNull(),
     /** "waiting" | "called" | "cancelled". */
     status: text("status").notNull().default("waiting"),
+    /** Guichê que assumiu a senha ao chamá-la. */
+    calledByOperatorId: uuid("called_by_operator_id"),
     issuedAt: timestamp("issued_at", { withTimezone: true }).notNull().defaultNow(),
     calledAt: timestamp("called_at", { withTimezone: true }),
   },

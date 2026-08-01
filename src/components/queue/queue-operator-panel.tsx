@@ -147,7 +147,9 @@ function OperatorConsole({
     onSuccess: invalidate,
   });
 
-  const last = state.calls[0] ?? null;
+  // Cada guichê acompanha a SUA senha; a última do painel serve de contexto.
+  const mine = state.myCall;
+  const last = mine ?? state.calls[0] ?? null;
   const isSector = state.panel.mode === "sector";
 
   return (
@@ -156,7 +158,9 @@ function OperatorConsole({
         <div>
           <h1 className="font-display text-2xl font-semibold">Chamada de senhas</h1>
           <p className="text-sm text-muted-foreground">
-            {state.operator.name} · TV: {state.panel.deviceName}
+            {state.operator.name}
+            {state.operator.deskLabel ? ` · ${state.operator.deskLabel}` : ""} · TV:{" "}
+            {state.panel.deviceName}
           </p>
         </div>
         <Button variant="ghost" size="sm" onClick={() => logoutMutation.mutate()}>
@@ -169,11 +173,14 @@ function OperatorConsole({
         <CardContent className="space-y-5 py-6">
           <div className="text-center">
             <p className="text-xs uppercase tracking-widest text-muted-foreground">
-              Última senha chamada
+              {mine ? "Senha em atendimento neste guichê" : "Última senha chamada"}
             </p>
             <p className="font-display text-6xl font-black">{last?.label ?? "—"}</p>
             {last?.sectorName ? (
               <p className="text-sm text-muted-foreground">{last.sectorName}</p>
+            ) : null}
+            {mine ? null : last ? (
+              <p className="text-xs text-muted-foreground">Chamada por outro guichê</p>
             ) : null}
             {last?.kind === "priority" ? (
               <Badge className="mt-2">Preferencial</Badge>
@@ -237,7 +244,7 @@ function OperatorConsole({
             onClick={() => repeatMutation.mutate()}
           >
             <RotateCcw className="size-4" />
-            Repetir última chamada
+            {mine ? "Repetir minha chamada" : "Repetir última chamada"}
           </Button>
         </CardContent>
       </Card>
@@ -257,6 +264,7 @@ function OperatorConsole({
                 <span className="font-semibold">
                   {call.label}
                   {call.kind === "priority" ? " · preferencial" : ""}
+                  {call.mine ? " · meu guichê" : ""}
                 </span>
                 <span className="text-muted-foreground">
                   {call.sectorName ? `${call.sectorName} · ` : ""}

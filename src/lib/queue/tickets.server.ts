@@ -1,4 +1,4 @@
-import { and, eq, sql } from "drizzle-orm";
+import { and, eq, gte, ne, sql } from "drizzle-orm";
 
 import { getDb, schema } from "@/lib/db/index.server";
 import { buildLabel } from "@/lib/queue/queue-auth.server";
@@ -61,6 +61,14 @@ export async function issueTicket(
     sectorId = sector.id;
     sectorName = sector.name;
 
+    // Limite diário opcional definido pelo cliente para esta fila.
+    if (sector.dailyLimit !== null && sector.dailyLimit !== undefined) {
+      const issuedToday = await countIssuedToday(sector.id);
+      if (issuedToday >= sector.dailyLimit) {
+        throw new Error(`As senhas de ${sector.name} já foram esgotadas hoje.`);
+      }
+    }
+
     if (perSector) {
       const updated = await db
         .update(schema.queueSectors)
@@ -111,6 +119,23 @@ async function bumpPanelCounter(panelId: string) {
     .where(eq(schema.queuePanels.id, panelId))
     .returning({ lastNumber: schema.queuePanels.lastNumber });
   return updated[0]?.lastNumber ?? 1;
+}
+
+/** Senhas emitidas hoje nesta fila (canceladas não contam). */
+async function countIssuedToday(sectorId: string) {
+  const start = new Date();
+  start.setHours(0, 0, 0, 0);
+  const rows = await getDb()
+    .select({ total: sql<number>`count(*)::int` })
+    .from(schema.queueTickets)
+    .where(
+      and(
+        eq(schema.queueTickets.sectorId, sectorId),
+        ne(schema.queueTickets.status, "cancelled"),
+        gte(schema.queueTickets.issuedAt, start),
+      ),
+    );
+  return Number(rows[0]?.total ?? 0);
 }
 
 /**
