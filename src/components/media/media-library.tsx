@@ -13,7 +13,7 @@ import {
   Tag as TagIcon,
   Trash2,
   UploadCloud,
-  Youtube,
+  Radio,
   X,
   XCircle,
 } from "lucide-react";
@@ -45,7 +45,6 @@ import {
 import type { MediaListItem } from "@/lib/media/media.functions";
 import { prepareUpload } from "@/lib/media/optimize-client";
 import { addStreamAsset } from "@/lib/media/stream.functions";
-import { isYoutubeUrl } from "@/lib/media/stream-url";
 import {
   CANVAS_PRESETS,
   DEFAULT_CANVAS_PRESET,
@@ -857,7 +856,7 @@ export function MediaLibrary() {
                   {item.kind === "video" ? (
                     <Film className="size-4 shrink-0 text-muted-foreground" />
                   ) : item.kind === "stream" ? (
-                    <Youtube className="size-4 shrink-0 text-muted-foreground" />
+                    <Radio className="size-4 shrink-0 text-muted-foreground" />
                   ) : (
                     <ImageIcon className="size-4 shrink-0 text-muted-foreground" />
                   )}
