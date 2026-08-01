@@ -668,19 +668,19 @@ export function MediaLibrary() {
             <p className="text-xs text-muted-foreground">{getCanvasPreset(presetId).description}</p>
           </div>
 
-          {/* Streaming: nada é baixado. A TV abre o endereço na hora da exibição,
-              com a interface do YouTube desligada. Serve para vídeos, lives e
-              rádios, e não consome a cota de armazenamento. */}
+          {/* Streaming: nada é baixado. A TV abre o endereço na hora da
+              exibição. Serve para lives e rádios, e não consome a cota de
+              armazenamento. */}
           <div className="space-y-2 rounded-xl border border-border/70 bg-secondary/30 p-4">
             <Label className="flex items-center gap-2">
-              <Youtube className="size-4 text-destructive" />
-              YouTube, live ou rádio (streaming)
+              <Radio className="size-4 text-muted-foreground" />
+              Live ou rádio (streaming)
             </Label>
             <div className="flex flex-wrap gap-2">
               <Input
                 value={streamUrl}
                 onChange={(event) => setStreamUrl(event.target.value)}
-                placeholder="https://www.youtube.com/watch?v=... ou link .m3u8 / .mp3"
+                placeholder="Link direto do stream: .m3u8, .mp4 ou .mp3"
                 className="max-w-md"
               />
               <div className="flex items-center gap-2">
@@ -711,15 +711,10 @@ export function MediaLibrary() {
             </div>
             <p className="text-xs text-muted-foreground">
               O conteúdo toca sempre por streaming, sem download e sem consumir seu armazenamento:
-              sem controles, título, sugestões ou links sobre a imagem. O áudio segue a configuração
-              do item e da TV. Como uma live não termina, o tempo acima define quanto ela fica na
-              tela antes de passar para o próximo conteúdo.
-              {streamUrl.trim() && !isYoutubeUrl(streamUrl) ? (
-                <span className="mt-1 block">
-                  Para lives e rádios que não são do YouTube, use o link direto do stream (.m3u8,
-                  .mp4 ou .mp3).
-                </span>
-              ) : null}
+              sem controles nem qualquer informação sobre a imagem. O áudio segue a configuração do
+              item e da TV. Como uma live não termina, o tempo acima define quanto ela fica na tela
+              antes de passar para o próximo conteúdo. Use sempre o link direto do stream (.m3u8,
+              .mp4 ou .mp3).
             </p>
           </div>
 
