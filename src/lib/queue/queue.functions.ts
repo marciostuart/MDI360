@@ -793,7 +793,7 @@ export const resetQueueCounters = createServerFn({ method: "POST" })
     if (data.sectorId) {
       await db
         .update(schema.queueSectors)
-        .set({ lastNumber: 0 })
+        .set({ lastNumber: 0, lastPriorityNumber: 0 })
         .where(
           and(
             eq(schema.queueSectors.id, data.sectorId),
@@ -815,11 +815,11 @@ export const resetQueueCounters = createServerFn({ method: "POST" })
 
     await db
       .update(schema.queuePanels)
-      .set({ lastNumber: 0, lastCalledKind: "normal" })
+      .set({ lastNumber: 0, lastPriorityNumber: 0, lastCalledKind: "normal" })
       .where(eq(schema.queuePanels.id, panel.id));
     await db
       .update(schema.queueSectors)
-      .set({ lastNumber: 0 })
+      .set({ lastNumber: 0, lastPriorityNumber: 0 })
       .where(eq(schema.queueSectors.panelId, panel.id));
     await db
       .update(schema.queueTickets)
