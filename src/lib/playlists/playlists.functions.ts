@@ -20,7 +20,7 @@ export type PlaylistItemDetail = {
   durationMs: number;
   isMuted: boolean;
   name: string;
-  kind: "image" | "video" | "web" | "widget";
+  kind: "image" | "video" | "web" | "widget" | "stream";
   canvasPreset: string;
   previewUrl: string | null;
   widgetType: string | null;

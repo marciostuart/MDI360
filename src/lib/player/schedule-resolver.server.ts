@@ -8,7 +8,7 @@ export type PlayerItem = {
   id: string;
   /** Media library asset behind this item; used by the playback reports. */
   mediaAssetId: string | null;
-  kind: "image" | "video" | "web" | "widget";
+  kind: "image" | "video" | "web" | "widget" | "stream";
   url: string | null;
   durationMs: number;
   isMuted: boolean;
@@ -165,8 +165,10 @@ export async function resolvePlaylistForDevice(
       fingerSource.push(`${row.id}:${JSON.stringify(row.widgetConfig ?? null)}`);
       continue;
     }
-    let url: string | null = row.kind === "web" ? row.sourceUrl : null;
-    if (row.kind !== "web" && storageReady && row.storageKey) {
+    // `web` e `stream` são endereços externos: a TV abre na hora, sem download.
+    const isExternal = row.kind === "web" || row.kind === "stream";
+    let url: string | null = isExternal ? row.sourceUrl : null;
+    if (!isExternal && storageReady && row.storageKey) {
       try {
         // 6h beats the 5min sync loop by a wide margin, so playback never stalls.
         url = await createDownloadUrl(row.storageKey, 6 * 3600);

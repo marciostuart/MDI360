@@ -103,7 +103,9 @@ function SettingsTab({ item }: { item: MediaListItem }) {
                 ? "Vídeo"
                 : item.kind === "image"
                   ? "Imagem"
-                  : "Página web"
+                  : item.kind === "stream"
+                    ? "Transmissão (streaming)"
+                    : "Página web"
           }
         />
         <InfoRow label="Formato da tela" value={getCanvasPreset(item.canvasPreset).label} />
@@ -224,6 +226,11 @@ function ReplaceTab({ item, onDone }: { item: MediaListItem; onDone: () => void 
           <video src={item.previewUrl} controls className="max-h-[52vh] w-full" />
         ) : item.kind === "widget" && item.widgetConfig ? (
           <WidgetView config={item.widgetConfig} />
+        ) : item.kind === "stream" && item.sourceUrl ? (
+          <div className="space-y-2 p-10 text-center text-sm text-muted-foreground">
+            <p>Conteúdo reproduzido por streaming, sem download na TV.</p>
+            <p className="break-all font-mono text-xs">{item.sourceUrl}</p>
+          </div>
         ) : (
           <p className="p-10 text-sm text-muted-foreground">
             Não foi possível pré-visualizar este arquivo.

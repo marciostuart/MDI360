@@ -4,12 +4,13 @@ import { useCallback, useEffect, useRef, useState } from "react";
 import { WidgetView } from "@/components/widgets/widget-view";
 import { QueueCallOverlay, type QueueCallPayload } from "@/components/queue/queue-call-overlay";
 import * as mediaCache from "@/lib/player/media-cache";
+import { buildYoutubeEmbedUrl, parseYoutubeId } from "@/lib/media/stream-url";
 import type { WidgetConfig } from "@/lib/widgets/catalog";
 
 type PlayerItem = {
   id: string;
   mediaAssetId: string | null;
-  kind: "image" | "video" | "web" | "widget";
+  kind: "image" | "video" | "web" | "widget" | "stream";
   url: string | null;
   durationMs: number;
   isMuted: boolean;
@@ -408,9 +409,9 @@ function PlayerScreen() {
     };
   }, [downloadKey]);
 
-  // Widgets and web pages need no download; files wait for the cache.
+  // Widgets, páginas e streams não têm arquivo; só os arquivos esperam o cache.
   const items = allItems.filter((item) => {
-    if (item.kind === "widget" || item.kind === "web") return true;
+    if (item.kind === "widget" || item.kind === "web" || item.kind === "stream") return true;
     return Boolean(item.url) && readyUrls.has(mediaCache.keyFor(item.url as string));
   });
   const current = items[index % Math.max(items.length, 1)];
@@ -564,6 +565,18 @@ function PlayerScreen() {
         <FadeLayer enabled={fade} step={index} leaving={leaving} key={`${current.id}-${index}`}>
           <WidgetView config={current.widgetConfig} accentColor={sync.branding?.color ?? null} />
         </FadeLayer>
+      ) : current?.kind === "stream" && current.url ? (
+        <FadeLayer enabled={fade} step={index} leaving={leaving}>
+          <StreamLayer
+            key={`${current.id}-${index}`}
+            url={current.url}
+            name={current.name}
+            muted={
+              current.isMuted || sync.device?.audioEnabled === false || Boolean(activeCall)
+            }
+            loop={items.length === 1 && !hasPending}
+          />
+        </FadeLayer>
       ) : current?.kind === "web" ? (
         <FadeLayer enabled={fade} step={index} leaving={leaving}>
           <iframe
@@ -586,6 +599,63 @@ function PlayerScreen() {
       )}
       {callOverlay}
     </div>
+  );
+}
+
+/**
+ * Conteúdo ao vivo / por streaming (YouTube, lives, rádios).
+ *
+ * Nada é baixado: o endereço abre na hora. No YouTube usamos o player embutido
+ * com todos os elementos de interface desligados e a camada de cliques
+ * bloqueada, então a TV mostra só o vídeo — sem controles, título, sugestões
+ * nem links. Endereços de mídia direta (HLS, MP4, MP3 de rádio) tocam na
+ * própria tag <video>.
+ */
+function StreamLayer({
+  url,
+  name,
+  muted,
+  loop,
+}: {
+  url: string;
+  name: string;
+  muted: boolean;
+  loop: boolean;
+}) {
+  const youtubeId = parseYoutubeId(url);
+
+  if (youtubeId) {
+    const src = buildYoutubeEmbedUrl(youtubeId, {
+      muted,
+      loop,
+      origin: typeof window === "undefined" ? null : window.location.origin,
+    });
+    return (
+      <div className="relative h-screen w-screen overflow-hidden bg-black">
+        <iframe
+          key={src}
+          src={src}
+          title={name}
+          allow="autoplay; encrypted-media"
+          // Sem interação não há hover, e o leve zoom corta qualquer borda da
+          // interface do YouTube que apareça no início da reprodução.
+          className="pointer-events-none absolute left-1/2 top-1/2 h-[102%] w-[102%] -translate-x-1/2 -translate-y-1/2 border-0"
+        />
+      </div>
+    );
+  }
+
+  return (
+    <video
+      key={url}
+      src={url}
+      className="h-screen w-screen bg-black object-contain"
+      autoPlay
+      playsInline
+      muted={muted}
+      loop={loop}
+      controls={false}
+    />
   );
 }
 

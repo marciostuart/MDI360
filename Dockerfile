@@ -23,8 +23,7 @@ ENV PORT=3000
 
 # ffmpeg: todo vídeo enviado é convertido para um MP4 padrão (H.264 + AAC),
 # o formato que TVs, Roku e navegadores reproduzem sem falhas.
-# yt-dlp: importação de vídeos do YouTube como arquivo local (sem player do YouTube).
-RUN apk add --no-cache libc6-compat ffmpeg yt-dlp && npm install -g bun@1.3.3
+RUN apk add --no-cache libc6-compat ffmpeg && npm install -g bun@1.3.3
 
 # Drizzle needs its CLI plus the schema to apply migrations at boot.
 COPY package.json bun.lock drizzle.config.ts ./

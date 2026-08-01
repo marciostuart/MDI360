@@ -276,6 +276,15 @@ sub applyPayload(payload as object)
             playable.push(item)
         else if (kind = "image" or kind = "video") and item.url <> invalid and item.url <> ""
             playable.push(item)
+        else if kind = "stream" and item.url <> invalid and item.url <> ""
+            ' Streaming: nada e baixado. O Roku nao roda o player do YouTube,
+            ' entao esses itens ficam de fora; lives/radios com link direto
+            ' (HLS, MP4, MP3) tocam normalmente pelo proprio Video node.
+            if Instr(1, LCase(item.url), "youtu") = 0
+                item.kind = "video"
+                item.isLive = true
+                playable.push(item)
+            end if
         end if
     end for
 
@@ -286,7 +295,7 @@ sub applyPayload(payload as object)
     ' already has and the file joins its position once it is ready.
     urls = []
     for each item in playable
-        if item.kind <> "widget" and item.url <> invalid and item.url <> "" then urls.push(item.url)
+        if item.kind <> "widget" and item.isLive <> true and item.url <> invalid and item.url <> "" then urls.push(item.url)
     end for
     ' Drop files that left the playlist (deleted in the Studio) from the map,
     ' so they are never shown again and are re-verified if they come back.
@@ -314,7 +323,8 @@ end sub
 function readyItems() as object
     result = []
     for each item in m.allItems
-        if item.kind = "widget"
+        if item.kind = "widget" or item.isLive = true
+            ' Widgets e transmissoes ao vivo nao dependem de download.
             result.push(item)
         else if item.url <> invalid and m.readyMap[item.url] = true
             result.push(item)
@@ -440,6 +450,14 @@ sub advanceItem()
         m.videoStallTicks = 0
         m.video.control = "play"
         m.stallTimer.control = "start"
+        ' Uma transmissao ao vivo nunca termina: o tempo configurado no item
+        ' e quem decide quando passar para o proximo conteudo.
+        if item.isLive = true
+            liveDuration = 60000
+            if item.durationMs <> invalid and item.durationMs > 1000 then liveDuration = item.durationMs
+            m.slideTimer.duration = slideSeconds(liveDuration)
+            m.slideTimer.control = "start"
+        end if
     else
         m.video.control = "stop"
         m.video.visible = false
