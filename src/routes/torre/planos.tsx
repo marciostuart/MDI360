@@ -1,15 +1,22 @@
 import { useState } from "react";
 import { createFileRoute } from "@tanstack/react-router";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
-import { Check, Loader2, Plus, Tags, Trash2 } from "lucide-react";
+import { Check, Loader2, Plus, Search, Settings2, Tags, Trash2 } from "lucide-react";
 import { toast } from "sonner";
 
+import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "@/components/ui/select";
 import { Switch } from "@/components/ui/switch";
-import { Badge } from "@/components/ui/badge";
 import { deletePlan, fetchPlans, savePlan, type PlatformPlan } from "@/lib/admin/platform.functions";
 import { formatMoney } from "@/lib/admin/format";
 
@@ -47,9 +54,13 @@ const EMPTY: Draft = {
   isActive: true,
 };
 
-function PlansPage() {
+export default function PlansPage() {
   const queryClient = useQueryClient();
   const [draft, setDraft] = useState<Draft | null>(null);
+  const [search, setSearch] = useState("");
+  const [statusFilter, setStatusFilter] = useState<"all" | "active" | "inactive">("all");
+  const [sortBy, setSortBy] = useState<"price-asc" | "price-desc" | "name" | "newest">("price-asc");
+
   const { data, isPending } = useQuery({ queryKey: ["platform-plans"], queryFn: () => fetchPlans() });
 
   const persist = useMutation({
@@ -83,6 +94,18 @@ function PlansPage() {
     onError: () => toast.error("Não foi possível excluir o plano."),
   });
 
+  const startEdit = (plan: PlatformPlan) =>
+    setDraft({
+      id: plan.id,
+      name: plan.name,
+      slug: plan.slug,
+      maxDevices: String(plan.maxDevices),
+      maxStorageMb: String(plan.maxStorageMb),
+      price: (plan.priceCents / 100).toFixed(2),
+      queueEnabled: plan.queueEnabled,
+      isActive: plan.isActive,
+    });
+
   if (isPending) {
     return (
       <div className="grid place-items-center py-20">
@@ -102,16 +125,25 @@ function PlansPage() {
     );
   }
 
-  const startEdit = (plan: PlatformPlan) =>
-    setDraft({
-      id: plan.id,
-      name: plan.name,
-      slug: plan.slug,
-      maxDevices: String(plan.maxDevices),
-      maxStorageMb: String(plan.maxStorageMb),
-      price: (plan.priceCents / 100).toFixed(2),
-      queueEnabled: plan.queueEnabled,
-      isActive: plan.isActive,
+  const term = search.trim().toLowerCase();
+  const filtered = data
+    .filter((plan) => {
+      const matchesTerm =
+        !term ||
+        plan.name.toLowerCase().includes(term) ||
+        plan.slug.toLowerCase().includes(term);
+      const matchesStatus =
+        statusFilter === "all" ||
+        (statusFilter === "active" ? plan.isActive : !plan.isActive);
+      return matchesTerm && matchesStatus;
+    })
+    .sort((a, b) => {
+      if (sortBy === "name") return a.name.localeCompare(b.name, "pt-BR");
+      if (sortBy === "newest") {
+        return new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime();
+      }
+      if (sortBy === "price-desc") return b.priceCents - a.priceCents;
+      return a.priceCents - b.priceCents;
     });
 
   return (
@@ -231,48 +263,106 @@ function PlansPage() {
         </Card>
       ) : null}
 
-      <div className="grid gap-4 md:grid-cols-2 xl:grid-cols-3">
-        {data.map((plan) => (
-          <Card key={plan.id} className="transition-shadow hover:shadow-lg">
-            <CardHeader className="pb-3">
-              <div className="flex items-start justify-between gap-2">
-                <div>
-                  <CardTitle className="flex items-center gap-2 text-lg">
-                    <Tags className="size-4 text-primary" />
+      <div className="flex flex-wrap items-center gap-2">
+        <div className="relative min-w-[220px] flex-1">
+          <Search className="pointer-events-none absolute left-3 top-1/2 size-4 -translate-y-1/2 text-muted-foreground" />
+          <Input
+            value={search}
+            onChange={(event) => setSearch(event.target.value)}
+            placeholder="Pesquisar planos"
+            className="pl-9"
+            aria-label="Pesquisar planos"
+          />
+        </div>
+        <Select value={statusFilter} onValueChange={(value) => setStatusFilter(value as typeof statusFilter)}>
+          <SelectTrigger className="w-[160px]" aria-label="Filtrar por status">
+            <SelectValue />
+          </SelectTrigger>
+          <SelectContent>
+            <SelectItem value="all">Todos</SelectItem>
+            <SelectItem value="active">Ativos</SelectItem>
+            <SelectItem value="inactive">Ocultos</SelectItem>
+          </SelectContent>
+        </Select>
+        <Select value={sortBy} onValueChange={(value) => setSortBy(value as typeof sortBy)}>
+          <SelectTrigger className="w-[210px]" aria-label="Ordenar">
+            <SelectValue />
+          </SelectTrigger>
+          <SelectContent>
+            <SelectItem value="price-asc">Preço: menor → maior</SelectItem>
+            <SelectItem value="price-desc">Preço: maior → menor</SelectItem>
+            <SelectItem value="name">Nome (A-Z)</SelectItem>
+            <SelectItem value="newest">Cadastro mais recente</SelectItem>
+          </SelectContent>
+        </Select>
+      </div>
+
+      {data.length === 0 ? (
+        <Card className="border-dashed">
+          <CardContent className="py-10 text-center text-sm text-muted-foreground">
+            Nenhum plano cadastrado. Crie o primeiro pelo botão acima.
+          </CardContent>
+        </Card>
+      ) : filtered.length === 0 ? (
+        <p className="text-sm text-muted-foreground">Nenhum plano encontrado com essa busca.</p>
+      ) : (
+        <div className="divide-y divide-border overflow-hidden rounded-xl border border-border">
+          {filtered.map((plan) => (
+            <div key={plan.id} className="flex flex-wrap items-center gap-4 p-4">
+              <div className="min-w-[220px] flex-1 space-y-2">
+                <div className="flex items-center gap-2">
+                  <Tags className="size-4 shrink-0 text-muted-foreground" />
+                  <button
+                    type="button"
+                    onClick={() => startEdit(plan)}
+                    className="truncate text-left text-sm font-medium underline-offset-4 hover:text-primary hover:underline"
+                  >
                     {plan.name}
-                  </CardTitle>
-                  <CardDescription>{plan.slug}</CardDescription>
+                  </button>
                 </div>
-                <Badge variant={plan.isActive ? "default" : "outline"}>
-                  {plan.isActive ? "Ativo" : "Oculto"}
-                </Badge>
+                <div className="flex flex-wrap items-center gap-1.5">
+                  <Badge variant={plan.isActive ? "default" : "outline"}>
+                    {plan.isActive ? "Ativo" : "Oculto"}
+                  </Badge>
+                  <Badge variant="secondary">{formatMoney(plan.priceCents)}/mês</Badge>
+                  <Badge variant="outline">{plan.maxDevices} telas</Badge>
+                  <Badge variant="outline">{(plan.maxStorageMb / 1024).toFixed(1)} GB</Badge>
+                  <Badge variant="outline">
+                    {plan.organizations} cliente{plan.organizations === 1 ? "" : "s"}
+                  </Badge>
+                  {plan.queueEnabled ? (
+                    <Badge variant="outline">Senhas</Badge>
+                  ) : (
+                    <Badge variant="destructive">Sem senhas</Badge>
+                  )}
+                </div>
               </div>
-            </CardHeader>
-            <CardContent className="space-y-3 text-sm">
-              <p className="font-display text-2xl font-semibold">{formatMoney(plan.priceCents)}</p>
-              <ul className="space-y-1 text-muted-foreground">
-                <li>Até {plan.maxDevices} telas</li>
-                <li>{(plan.maxStorageMb / 1024).toFixed(1)} GB de armazenamento</li>
-                <li>{plan.organizations} clientes neste plano</li>
-                <li>{plan.queueEnabled ? "Sistema de senhas incluído" : "Sem sistema de senhas"}</li>
-              </ul>
-              <div className="flex gap-2 pt-1">
-                <Button size="sm" variant="outline" className="flex-1" onClick={() => startEdit(plan)}>
+
+              <div className="flex items-center gap-2">
+                <Button
+                  variant="outline"
+                  size="sm"
+                  className="gap-2"
+                  onClick={() => startEdit(plan)}
+                >
+                  <Settings2 className="size-4" />
                   Editar
                 </Button>
                 <Button
-                  size="sm"
                   variant="ghost"
+                  size="icon"
+                  className="size-8 text-muted-foreground"
                   onClick={() => remove.mutate(plan.id)}
                   disabled={remove.isPending}
+                  aria-label={`Remover ${plan.name}`}
                 >
                   <Trash2 className="size-4" />
                 </Button>
               </div>
-            </CardContent>
-          </Card>
-        ))}
-      </div>
+            </div>
+          ))}
+        </div>
+      )}
     </div>
   );
 }
