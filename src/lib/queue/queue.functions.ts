@@ -635,6 +635,12 @@ export const saveQueueSector = createServerFn({ method: "POST" })
           (value) => (typeof value === "string" && value.trim() === "" ? null : value),
           z.string().trim().max(3).nullable().default(null),
         ),
+        /** Quantidade de senhas por dia. `null` = ilimitado. */
+        dailyLimit: z.preprocess(
+          (value) =>
+            value === "" || value === undefined || value === null ? null : Number(value),
+          z.number().int().min(1).max(9999).nullable().default(null),
+        ),
         /** Quando informado, redefine quais operadores podem chamar este setor. */
         operatorIds: z.array(z.string().uuid()).optional(),
         /** Quando informado, libera ou bloqueia a fila no terminal de emissão. */
@@ -656,6 +662,7 @@ export const saveQueueSector = createServerFn({ method: "POST" })
         .set({
           name: data.name,
           prefix,
+          dailyLimit: data.dailyLimit ?? null,
           ...(data.issuingEnabled === undefined ? {} : { issuingEnabled: data.issuingEnabled }),
         })
         .where(
@@ -675,6 +682,7 @@ export const saveQueueSector = createServerFn({ method: "POST" })
           panelId: panel.id,
           name: data.name,
           prefix,
+          dailyLimit: data.dailyLimit ?? null,
           position: Number(next[0]?.total ?? 0),
           ...(data.issuingEnabled === undefined ? {} : { issuingEnabled: data.issuingEnabled }),
         })
