@@ -449,6 +449,12 @@ export const queueSectors = pgTable(
     prefix: text("prefix"),
     lastNumber: integer("last_number").notNull().default(0),
     position: integer("position").notNull().default(0),
+    /**
+     * Quantidade de senhas disponíveis por dia nesta fila. `null` = ilimitado.
+     * Ao esgotar, a emissão recusa novas senhas até o dia seguinte (ou até o
+     * cliente zerar o contador).
+     */
+    dailyLimit: integer("daily_limit"),
     /** Fila disponível para emissão de senhas no terminal (/emitir). */
     issuingEnabled: boolean("issuing_enabled").notNull().default(true),
     createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
@@ -466,6 +472,9 @@ export const queueCalls = pgTable(
     sectorId: uuid("sector_id").references(() => queueSectors.id, { onDelete: "set null" }),
     /** Snapshot of the sector name, so history survives a rename/removal. */
     sectorName: text("sector_name"),
+    /** Guichê que chamou (operador) e o rótulo mostrado/falado na TV. */
+    operatorId: uuid("operator_id"),
+    deskLabel: text("desk_label"),
     number: integer("number").notNull(),
     /** Ready-to-show ticket ("A012", "032"). */
     label: text("label").notNull(),
