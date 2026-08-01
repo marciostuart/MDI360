@@ -45,7 +45,7 @@ export async function isCached(url: string): Promise<boolean> {
   if (!supported()) return false;
   try {
     const cache = await openCache();
-    return (await cache.match(url)) !== undefined;
+    return (await cache.match(keyFor(url))) !== undefined;
   } catch {
     return false;
   }
@@ -59,14 +59,15 @@ export async function download(url: string): Promise<boolean> {
   if (!supported()) return true; // No Cache API: fall back to direct streaming.
   try {
     const cache = await openCache();
-    if (await cache.match(url)) return true;
+    const key = keyFor(url);
+    if (await cache.match(key)) return true;
     const response = await fetch(url, { cache: "no-store" });
     if (!response.ok) return false;
     // Read the body fully before storing: a partial response must not count
     // as "ready to play".
     const blob = await response.blob();
     if (blob.size === 0) return false;
-    await cache.put(url, new Response(blob, { headers: response.headers }));
+    await cache.put(key, new Response(blob, { headers: response.headers }));
     return true;
   } catch {
     return false;
@@ -78,7 +79,7 @@ export async function localUrl(url: string): Promise<string | null> {
   if (!supported()) return null;
   try {
     const cache = await openCache();
-    const hit = await cache.match(url);
+    const hit = await cache.match(keyFor(url));
     if (!hit) return null;
     return URL.createObjectURL(await hit.blob());
   } catch {
@@ -86,13 +87,16 @@ export async function localUrl(url: string): Promise<string | null> {
   }
 }
 
-/** Drops every cached file that is no longer part of the playlist. */
+/**
+ * Drops every cached file that is no longer part of the playlist (removed from
+ * the list or deleted on the server). Returns the removed cache keys.
+ */
 export async function prune(keep: string[]): Promise<string[]> {
   if (!supported()) return [];
   const removed: string[] = [];
   try {
     const cache = await openCache();
-    const keepSet = new Set(keep);
+    const keepSet = new Set(keep.map((url) => keyFor(url)));
     for (const request of await cache.keys()) {
       if (keepSet.has(request.url)) continue;
       await cache.delete(request);
