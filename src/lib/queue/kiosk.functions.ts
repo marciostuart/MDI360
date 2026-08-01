@@ -83,8 +83,28 @@ export const issueKioskTicket = createServerFn({ method: "POST" })
     const panel = panels[0];
     if (!panel) throw new Error("Tela de emissão inválida.");
 
+    const availableSectors = await getDb()
+      .select({ id: schema.queueSectors.id })
+      .from(schema.queueSectors)
+      .where(
+        and(
+          eq(schema.queueSectors.panelId, panel.id),
+          eq(schema.queueSectors.issuingEnabled, true),
+        ),
+      );
+    const sectorId =
+      availableSectors.length === 0
+        ? null
+        : availableSectors.length === 1
+          ? (availableSectors[0]?.id ?? null)
+          : (data.sectorId ?? null);
+    if (availableSectors.length > 1 && !sectorId) throw new Error("Escolha o atendimento.");
+    if (sectorId && !availableSectors.some((sector) => sector.id === sectorId)) {
+      throw new Error("Esta fila não está disponível para emissão.");
+    }
+
     const ticket = await issueTicket(panel, {
-      sectorId: data.sectorId ?? null,
+      sectorId,
       kind: data.kind,
     });
     return ticket;

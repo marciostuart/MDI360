@@ -155,7 +155,7 @@ function OperatorConsole({
   // Cada guichê acompanha a SUA senha; a última do painel serve de contexto.
   const mine = state.myCall;
   const last = mine ?? state.calls[0] ?? null;
-  const isSector = state.panel.mode === "sector";
+  const isSector = state.sectors.length > 0;
 
   return (
     <div className="mx-auto max-w-4xl space-y-6 p-6">

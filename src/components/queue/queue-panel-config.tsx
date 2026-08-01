@@ -57,11 +57,9 @@ const emptyOperator: OperatorDraft = {
 export function QueuePanelConfig({
   panelId,
   kioskToken,
-  issuingEnabled,
 }: {
   panelId: string;
   kioskToken: string | null;
-  issuingEnabled: boolean;
 }) {
   const queryClient = useQueryClient();
   const loadDetails = useServerFn(getQueuePanelDetails);
@@ -177,9 +175,9 @@ export function QueuePanelConfig({
     onError: (error: Error) => toast.error(error.message),
   });
 
-  /** Libera/bloqueia a emissão no terminal (tela inteira ou uma fila). */
+  /** Libera ou bloqueia uma fila no emissor por token. */
   const issuingMutation = useMutation({
-    mutationFn: (input: { sectorId: string | null; enabled: boolean }) =>
+    mutationFn: (input: { sectorId: string; enabled: boolean }) =>
       setIssuing({ data: { panelId, sectorId: input.sectorId, enabled: input.enabled } }),
     onSuccess: invalidate,
     onError: (error: Error) => toast.error(error.message),
@@ -250,24 +248,6 @@ export function QueuePanelConfig({
 
       {data ? (
         <>
-          <section className="flex flex-wrap items-center justify-between gap-3 rounded-md border border-border px-3 py-2">
-            <div>
-              <p className="text-sm font-medium">Emissão no terminal (/emitir)</p>
-              <p className="text-xs text-muted-foreground">
-                Quando ligado, esta tela aparece no terminal de emissão — que usa o seu próprio
-                login do painel. As mudanças chegam ao terminal em poucos segundos.
-              </p>
-            </div>
-            <Switch
-              checked={issuingEnabled}
-              disabled={issuingMutation.isPending}
-              onCheckedChange={(checked) =>
-                issuingMutation.mutate({ sectorId: null, enabled: checked })
-              }
-              aria-label="Liberar emissão de senhas no terminal"
-            />
-          </section>
-
           <section className="space-y-2">
             <p className="text-xs font-semibold uppercase tracking-wider text-muted-foreground">
               Filas / setores
@@ -275,7 +255,8 @@ export function QueuePanelConfig({
             <div className="space-y-1.5">
               {data.sectors.length === 0 ? (
                 <p className="text-sm text-muted-foreground">
-                  Nenhum setor cadastrado. No modo sequencial isso não é necessário.
+                  Nenhum setor cadastrado. O emissor gera a senha diretamente ao tocar em Normal
+                  ou Preferencial.
                 </p>
               ) : null}
               {data.sectors.map((sector) => {

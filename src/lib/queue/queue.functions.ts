@@ -738,16 +738,13 @@ export const deleteQueueSector = createServerFn({ method: "POST" })
     return { ok: true };
   });
 
-/**
- * Libera ou bloqueia a emissão de senhas no terminal (/emitir). Sem `sectorId`
- * o controle é da tela inteira; com `sectorId` é daquela fila.
- */
+/** Libera ou bloqueia uma fila no emissor público por token. */
 export const setQueueIssuing = createServerFn({ method: "POST" })
   .inputValidator((input: unknown) =>
     z
       .object({
         panelId: z.string().uuid(),
-        sectorId: z.string().uuid().nullable().optional(),
+        sectorId: z.string().uuid(),
         enabled: z.boolean(),
       })
       .parse(input),
@@ -758,19 +755,12 @@ export const setQueueIssuing = createServerFn({ method: "POST" })
     const panel = await requireOwnedPanel(data.panelId);
     const db = getDb();
 
-    if (data.sectorId) {
-      await db
-        .update(schema.queueSectors)
-        .set({ issuingEnabled: data.enabled })
-        .where(
-          and(eq(schema.queueSectors.id, data.sectorId), eq(schema.queueSectors.panelId, panel.id)),
-        );
-    } else {
-      await db
-        .update(schema.queuePanels)
-        .set({ issuingEnabled: data.enabled })
-        .where(eq(schema.queuePanels.id, panel.id));
-    }
+    await db
+      .update(schema.queueSectors)
+      .set({ issuingEnabled: data.enabled })
+      .where(
+        and(eq(schema.queueSectors.id, data.sectorId), eq(schema.queueSectors.panelId, panel.id)),
+      );
     return { ok: true };
   });
 
