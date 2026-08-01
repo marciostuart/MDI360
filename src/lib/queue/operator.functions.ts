@@ -122,7 +122,11 @@ export const fetchQueueState = createServerFn({ method: "GET" }).handler(
         numberingScope: session.numberingScope,
         priorityPolicy: session.priorityPolicy,
       },
-      operator: { name: session.operatorName, username: session.username },
+      operator: {
+        name: session.operatorName,
+        username: session.username,
+        deskLabel: session.deskLabel ?? null,
+      },
       sectors: sectors.map((s) => ({
         id: s.id,
         name: s.name,
@@ -135,11 +139,27 @@ export const fetchQueueState = createServerFn({ method: "GET" }).handler(
       calls: calls.map((c) => ({
         id: c.id,
         label: c.label,
-        sectorName: c.sectorName,
+        sectorName: c.deskLabel ?? c.sectorName,
         calledAt: c.calledAt.toISOString(),
         repeatCount: c.repeatCount,
         kind: c.kind,
+        deskLabel: c.deskLabel ?? null,
+        mine: c.operatorId === session.operatorId,
       })),
+      myCall: (() => {
+        const own = calls.find((c) => c.operatorId === session.operatorId);
+        if (!own) return null;
+        return {
+          id: own.id,
+          label: own.label,
+          sectorName: own.deskLabel ?? own.sectorName,
+          calledAt: own.calledAt.toISOString(),
+          repeatCount: own.repeatCount,
+          kind: own.kind,
+          deskLabel: own.deskLabel ?? null,
+          mine: true,
+        };
+      })(),
       waiting,
     };
   },
