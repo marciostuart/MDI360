@@ -20,6 +20,13 @@ import {
   type QueueOperatorRow,
 } from "@/lib/queue/queue.functions";
 
+type SectorDraft = {
+  sectorId: string;
+  name: string;
+  prefix: string;
+  operatorIds: string[];
+};
+
 type OperatorDraft = {
   operatorId?: string;
   name: string;
@@ -59,6 +66,7 @@ export function QueuePanelConfig({
 
   const [open, setOpen] = useState(false);
   const [sectorDraft, setSectorDraft] = useState({ name: "", prefix: "" });
+  const [sectorEdit, setSectorEdit] = useState<SectorDraft | null>(null);
   const [operatorDraft, setOperatorDraft] = useState<OperatorDraft | null>(null);
 
   const queryKey = ["queue-panel-details", panelId];
@@ -88,6 +96,25 @@ export function QueuePanelConfig({
   const sectorDeleteMutation = useMutation({
     mutationFn: (sectorId: string) => removeSector({ data: { panelId, sectorId } }),
     onSuccess: invalidate,
+    onError: (error: Error) => toast.error(error.message),
+  });
+
+  const sectorEditMutation = useMutation({
+    mutationFn: (draft: SectorDraft) =>
+      saveSector({
+        data: {
+          panelId,
+          sectorId: draft.sectorId,
+          name: draft.name,
+          prefix: draft.prefix || null,
+          operatorIds: draft.operatorIds,
+        },
+      }),
+    onSuccess: async () => {
+      toast.success("Setor atualizado.");
+      setSectorEdit(null);
+      await invalidate();
+    },
     onError: (error: Error) => toast.error(error.message),
   });
 
@@ -171,6 +198,18 @@ export function QueuePanelConfig({
         : draft,
     );
 
+  const toggleSectorOperator = (operatorId: string) =>
+    setSectorEdit((draft) =>
+      draft
+        ? {
+            ...draft,
+            operatorIds: draft.operatorIds.includes(operatorId)
+              ? draft.operatorIds.filter((id) => id !== operatorId)
+              : [...draft.operatorIds, operatorId],
+          }
+        : draft,
+    );
+
   return (
     <div className="space-y-5 rounded-lg border border-border p-4">
       <div className="flex items-center justify-between">
@@ -198,32 +237,138 @@ export function QueuePanelConfig({
                   Nenhum setor cadastrado. No modo sequencial isso não é necessário.
                 </p>
               ) : null}
-              {data.sectors.map((sector) => (
-                <div
-                  key={sector.id}
-                  className="flex items-center justify-between rounded-md border border-border px-3 py-2 text-sm"
-                >
-                  <span className="font-medium">
-                    {sector.prefix ? `${sector.prefix} · ` : ""}
-                    {sector.name}
-                  </span>
-                  <span className="flex items-center gap-2">
-                    {sector.waitingPriority > 0 ? (
-                      <Badge variant="destructive">{sector.waitingPriority} pref.</Badge>
+              {data.sectors.map((sector) => {
+                const allowed = data.operators.filter((operator) =>
+                  operator.sectorIds.includes(sector.id),
+                );
+                const isEditing = sectorEdit?.sectorId === sector.id;
+                return (
+                  <div key={sector.id} className="rounded-md border border-border">
+                    <div className="flex flex-wrap items-center justify-between gap-2 px-3 py-2 text-sm">
+                      <span className="font-medium">
+                        {sector.prefix ? `${sector.prefix} · ` : ""}
+                        {sector.name}
+                      </span>
+                      <span className="flex flex-wrap items-center gap-2">
+                        <Badge variant="outline">
+                          {allowed.length === 0
+                            ? "Sem operador designado"
+                            : `${allowed.length} operador(es)`}
+                        </Badge>
+                        {sector.waitingPriority > 0 ? (
+                          <Badge variant="destructive">{sector.waitingPriority} pref.</Badge>
+                        ) : null}
+                        <Badge variant="secondary">{sector.waitingNormal} na fila</Badge>
+                        <Button
+                          variant="outline"
+                          size="sm"
+                          onClick={() =>
+                            setSectorEdit(
+                              isEditing
+                                ? null
+                                : {
+                                    sectorId: sector.id,
+                                    name: sector.name,
+                                    prefix: sector.prefix ?? "",
+                                    operatorIds: allowed.map((operator) => operator.id),
+                                  },
+                            )
+                          }
+                        >
+                          {isEditing ? "Fechar" : "Configurar"}
+                        </Button>
+                        <Button
+                          variant="ghost"
+                          size="icon"
+                          className="text-destructive"
+                          aria-label={`Remover ${sector.name}`}
+                          onClick={() => sectorDeleteMutation.mutate(sector.id)}
+                        >
+                          <Trash2 className="size-4" />
+                        </Button>
+                      </span>
+                    </div>
+
+                    {isEditing && sectorEdit ? (
+                      <form
+                        className="grid gap-3 border-t border-border p-3 sm:grid-cols-2"
+                        onSubmit={(event) => {
+                          event.preventDefault();
+                          sectorEditMutation.mutate(sectorEdit);
+                        }}
+                      >
+                        <div className="space-y-1.5">
+                          <Label htmlFor={`sector-name-${sector.id}`}>Nome do setor</Label>
+                          <Input
+                            id={`sector-name-${sector.id}`}
+                            value={sectorEdit.name}
+                            onChange={(event) =>
+                              setSectorEdit((draft) =>
+                                draft ? { ...draft, name: event.target.value } : draft,
+                              )
+                            }
+                            required
+                          />
+                        </div>
+                        <div className="w-24 space-y-1.5">
+                          <Label htmlFor={`sector-prefix-${sector.id}`}>Prefixo</Label>
+                          <Input
+                            id={`sector-prefix-${sector.id}`}
+                            value={sectorEdit.prefix}
+                            maxLength={3}
+                            onChange={(event) =>
+                              setSectorEdit((draft) =>
+                                draft
+                                  ? { ...draft, prefix: event.target.value.toUpperCase() }
+                                  : draft,
+                              )
+                            }
+                          />
+                        </div>
+                        <div className="space-y-2 sm:col-span-2">
+                          <Label>Operadores com acesso a esta chamada</Label>
+                          <div className="flex flex-wrap gap-2">
+                            {data.operators.length === 0 ? (
+                              <p className="text-sm text-muted-foreground">
+                                Cadastre operadores abaixo para liberar o acesso.
+                              </p>
+                            ) : null}
+                            {data.operators.map((operator) => (
+                              <Button
+                                key={operator.id}
+                                type="button"
+                                size="sm"
+                                variant={
+                                  sectorEdit.operatorIds.includes(operator.id)
+                                    ? "default"
+                                    : "outline"
+                                }
+                                onClick={() => toggleSectorOperator(operator.id)}
+                              >
+                                {operator.name}
+                              </Button>
+                            ))}
+                          </div>
+                          <p className="text-xs text-muted-foreground">
+                            Operadores sem nenhum setor designado continuam vendo todas as filas.
+                          </p>
+                        </div>
+                        <div className="flex gap-2 sm:col-span-2">
+                          <Button type="submit" disabled={sectorEditMutation.isPending}>
+                            {sectorEditMutation.isPending ? (
+                              <Loader2 className="size-4 animate-spin" />
+                            ) : null}
+                            Salvar setor
+                          </Button>
+                          <Button type="button" variant="ghost" onClick={() => setSectorEdit(null)}>
+                            Cancelar
+                          </Button>
+                        </div>
+                      </form>
                     ) : null}
-                    <Badge variant="secondary">{sector.waitingNormal} na fila</Badge>
-                    <Button
-                      variant="ghost"
-                      size="icon"
-                      className="text-destructive"
-                      aria-label={`Remover ${sector.name}`}
-                      onClick={() => sectorDeleteMutation.mutate(sector.id)}
-                    >
-                      <Trash2 className="size-4" />
-                    </Button>
-                  </span>
-                </div>
-              ))}
+                  </div>
+                );
+              })}
             </div>
             <form
               className="flex flex-wrap items-end gap-2"
