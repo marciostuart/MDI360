@@ -44,7 +44,8 @@ import {
 } from "@/lib/media/media.functions";
 import type { MediaListItem } from "@/lib/media/media.functions";
 import { prepareUpload } from "@/lib/media/optimize-client";
-import { importYoutubeVideo } from "@/lib/media/youtube.functions";
+import { addStreamAsset } from "@/lib/media/stream.functions";
+import { isYoutubeUrl } from "@/lib/media/stream-url";
 import {
   CANVAS_PRESETS,
   DEFAULT_CANVAS_PRESET,
@@ -424,31 +425,33 @@ export function MediaLibrary() {
   const [tagFilter, setTagFilter] = useState("all");
   const [sortBy, setSortBy] = useState<"newest" | "oldest" | "name">("newest");
 
-  const [youtubeUrl, setYoutubeUrl] = useState("");
-  const importYoutube = useServerFn(importYoutubeVideo);
+  const [streamUrl, setStreamUrl] = useState("");
+  const [streamSeconds, setStreamSeconds] = useState("60");
+  const addStream = useServerFn(addStreamAsset);
 
   const library = useQuery({
     queryKey: ["media-assets"],
     queryFn: () => listFn({}),
-    // Enquanto houver importação do YouTube em andamento, a lista se atualiza
-    // sozinha até o vídeo ficar pronto.
-    refetchInterval: (query) =>
-      (query.state.data?.items ?? []).some(
-        (item) => item.kind === "video" && item.status === "uploading" && item.sourceUrl,
-      )
-        ? 5000
-        : false,
   });
 
-  const youtubeMutation = useMutation({
-    mutationFn: (url: string) => importYoutube({ data: { url, canvasPreset: presetId } }),
+  const streamMutation = useMutation({
+    mutationFn: (url: string) =>
+      addStream({
+        data: {
+          url,
+          canvasPreset: presetId,
+          durationSeconds: Math.min(3600, Math.max(5, Number(streamSeconds) || 60)),
+        },
+      }),
     onSuccess: async () => {
-      setYoutubeUrl("");
-      toast.success("Importando do YouTube. O vídeo aparece pronto em alguns minutos.");
+      setStreamUrl("");
+      toast.success("Transmissão adicionada. Já pode entrar nas suas listas.");
       await queryClient.invalidateQueries({ queryKey: ["media-assets"] });
     },
     onError: (error) =>
-      toast.error(error instanceof Error ? error.message : "Não foi possível importar o vídeo."),
+      toast.error(
+        error instanceof Error ? error.message : "Não foi possível adicionar esta transmissão.",
+      ),
   });
 
   // Nunca deixa timers de animação/auto-dismiss vivos após sair da página.
