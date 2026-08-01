@@ -1,0 +1,132 @@
+import { and, eq, sql } from "drizzle-orm";
+
+import { getDb, schema } from "@/lib/db/index.server";
+import { buildLabel } from "@/lib/queue/queue-auth.server";
+
+export type TicketKind = "normal" | "priority";
+
+export type IssuedTicket = {
+  id: string;
+  label: string;
+  kind: TicketKind;
+  sectorId: string | null;
+  sectorName: string | null;
+  number: number;
+  waitingAhead: number;
+};
+
+type PanelForIssue = {
+  id: string;
+  mode: string;
+  prefix: string | null;
+  numberingScope: string;
+  priorityPrefix: string | null;
+};
+
+/**
+ * Emite uma senha (recepção/totem) e devolve o rótulo já pronto.
+ *
+ * A numeração respeita a configuração do cliente: com "por setor" cada setor
+ * tem a sua própria sequência; com "global" existe uma única sequência para
+ * todos os setores (número puro, com o nome do setor exibido ao lado).
+ */
+export async function issueTicket(
+  panel: PanelForIssue,
+  input: { sectorId?: string | null; kind: TicketKind },
+): Promise<IssuedTicket> {
+  const db = getDb();
+  const kind = input.kind;
+  const perSector = panel.mode === "sector" && panel.numberingScope !== "global";
+
+  let sectorId: string | null = null;
+  let sectorName: string | null = null;
+  let number: number;
+  let prefix: string | null;
+
+  if (panel.mode === "sector") {
+    if (!input.sectorId) throw new Error("Escolha um setor.");
+    const sector = (
+      await db
+        .select()
+        .from(schema.queueSectors)
+        .where(
+          and(
+            eq(schema.queueSectors.id, input.sectorId),
+            eq(schema.queueSectors.panelId, panel.id),
+          ),
+        )
+        .limit(1)
+    )[0];
+    if (!sector) throw new Error("Setor não encontrado.");
+    sectorId = sector.id;
+    sectorName = sector.name;
+
+    if (perSector) {
+      const updated = await db
+        .update(schema.queueSectors)
+        .set({ lastNumber: sql`${schema.queueSectors.lastNumber} + 1` })
+        .where(eq(schema.queueSectors.id, sector.id))
+        .returning({ lastNumber: schema.queueSectors.lastNumber });
+      number = updated[0]?.lastNumber ?? 1;
+      prefix = kind === "priority" ? (panel.priorityPrefix ?? sector.prefix) : sector.prefix;
+    } else {
+      number = await bumpPanelCounter(panel.id);
+      // Numeração global: número puro (o setor aparece ao lado na TV).
+      prefix = kind === "priority" ? panel.priorityPrefix : null;
+    }
+  } else {
+    number = await bumpPanelCounter(panel.id);
+    prefix = kind === "priority" ? (panel.priorityPrefix ?? panel.prefix) : panel.prefix;
+  }
+
+  const label = buildLabel(prefix, number);
+
+  const inserted = await db
+    .insert(schema.queueTickets)
+    .values({ panelId: panel.id, sectorId, sectorName, kind, number, label })
+    .returning({ id: schema.queueTickets.id });
+
+  const ahead = await db
+    .select({ total: sql<number>`count(*)::int` })
+    .from(schema.queueTickets)
+    .where(
+      and(eq(schema.queueTickets.panelId, panel.id), eq(schema.queueTickets.status, "waiting")),
+    );
+
+  return {
+    id: inserted[0]?.id ?? "",
+    label,
+    kind,
+    sectorId,
+    sectorName,
+    number,
+    waitingAhead: Math.max(0, Number(ahead[0]?.total ?? 1) - 1),
+  };
+}
+
+async function bumpPanelCounter(panelId: string) {
+  const updated = await getDb()
+    .update(schema.queuePanels)
+    .set({ lastNumber: sql`${schema.queuePanels.lastNumber} + 1` })
+    .where(eq(schema.queuePanels.id, panelId))
+    .returning({ lastNumber: schema.queuePanels.lastNumber });
+  return updated[0]?.lastNumber ?? 1;
+}
+
+/**
+ * Próxima senha da fila conforme a política do cliente:
+ * "priority" = preferenciais sempre primeiro · "alternate" = uma preferencial,
+ * uma normal, alternadamente.
+ */
+export function pickNextKind(policy: string, lastCalledKind: string, has: {
+  normal: boolean;
+  priority: boolean;
+}): TicketKind | null {
+  if (!has.normal && !has.priority) return null;
+  if (policy === "alternate") {
+    const first: TicketKind = lastCalledKind === "priority" ? "normal" : "priority";
+    if (has[first]) return first;
+    return first === "priority" ? "normal" : "priority";
+  }
+  return has.priority ? "priority" : "normal";
+}

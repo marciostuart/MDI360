@@ -24,6 +24,14 @@ export type QueuePanelSession = {
   prefix: string | null;
   displaySeconds: number;
   isEnabled: boolean;
+  operatorId: string;
+  operatorName: string;
+  numberingScope: string;
+  priorityPolicy: string;
+  priorityPrefix: string | null;
+  lastCalledKind: string;
+  /** Setores que este operador pode chamar. Vazio = todos. */
+  allowedSectorIds: string[];
 };
 
 export async function hashQueuePassword(plain: string) {
@@ -34,10 +42,12 @@ function hashToken(token: string) {
   return createHash("sha256").update(token).digest("hex");
 }
 
-export async function createQueueSession(panelId: string) {
+export async function createQueueSession(panelId: string, operatorId: string) {
   const token = randomBytes(32).toString("base64url");
   const expiresAt = new Date(Date.now() + SESSION_HOURS * 60 * 60 * 1000);
-  await getDb().insert(schema.queueSessions).values({ id: hashToken(token), panelId, expiresAt });
+  await getDb()
+    .insert(schema.queueSessions)
+    .values({ id: hashToken(token), panelId, operatorId, expiresAt });
 
   setCookie(COOKIE_NAME, token, {
     httpOnly: true,
@@ -56,22 +66,28 @@ export async function destroyQueueSession() {
 }
 
 /** Verifies the operator credentials. Same generic failure for user/password. */
-export async function authenticateOperator(username: string, password: string) {
+export async function authenticateOperator(
+  username: string,
+  password: string,
+): Promise<{ panelId: string; operatorId: string } | null> {
   const rows = await getDb()
     .select({
-      id: schema.queuePanels.id,
-      passwordHash: schema.queuePanels.passwordHash,
-      isEnabled: schema.queuePanels.isEnabled,
+      operatorId: schema.queueOperators.id,
+      panelId: schema.queueOperators.panelId,
+      passwordHash: schema.queueOperators.passwordHash,
+      operatorEnabled: schema.queueOperators.isEnabled,
+      panelEnabled: schema.queuePanels.isEnabled,
     })
-    .from(schema.queuePanels)
-    .where(eq(schema.queuePanels.username, username))
+    .from(schema.queueOperators)
+    .innerJoin(schema.queuePanels, eq(schema.queuePanels.id, schema.queueOperators.panelId))
+    .where(eq(schema.queueOperators.username, username))
     .limit(1);
 
-  const panel = rows[0];
-  if (!panel) return null;
-  const ok = await bcrypt.compare(password, panel.passwordHash);
-  if (!ok || !panel.isEnabled) return null;
-  return panel.id;
+  const operator = rows[0];
+  if (!operator) return null;
+  const ok = await bcrypt.compare(password, operator.passwordHash);
+  if (!ok || !operator.operatorEnabled || !operator.panelEnabled) return null;
+  return { panelId: operator.panelId, operatorId: operator.operatorId };
 }
 
 /** Resolves the operator's panel from the cookie, or null. Never throws. */
@@ -85,15 +101,23 @@ export async function getQueueSession(): Promise<QueuePanelSession | null> {
       organizationId: schema.queuePanels.organizationId,
       deviceId: schema.queuePanels.deviceId,
       deviceName: schema.devices.name,
-      username: schema.queuePanels.username,
       mode: schema.queuePanels.mode,
       prefix: schema.queuePanels.prefix,
       displaySeconds: schema.queuePanels.displaySeconds,
       isEnabled: schema.queuePanels.isEnabled,
+      numberingScope: schema.queuePanels.numberingScope,
+      priorityPolicy: schema.queuePanels.priorityPolicy,
+      priorityPrefix: schema.queuePanels.priorityPrefix,
+      lastCalledKind: schema.queuePanels.lastCalledKind,
+      operatorId: schema.queueOperators.id,
+      operatorName: schema.queueOperators.name,
+      username: schema.queueOperators.username,
+      operatorEnabled: schema.queueOperators.isEnabled,
     })
     .from(schema.queueSessions)
     .innerJoin(schema.queuePanels, eq(schema.queuePanels.id, schema.queueSessions.panelId))
     .innerJoin(schema.devices, eq(schema.devices.id, schema.queuePanels.deviceId))
+    .innerJoin(schema.queueOperators, eq(schema.queueOperators.id, schema.queueSessions.operatorId))
     .where(
       and(
         eq(schema.queueSessions.id, hashToken(token)),
@@ -103,8 +127,14 @@ export async function getQueueSession(): Promise<QueuePanelSession | null> {
     .limit(1);
 
   const row = rows[0];
-  if (!row || !row.isEnabled) return null;
-  return row;
+  if (!row || !row.isEnabled || !row.operatorEnabled) return null;
+
+  const allowed = await getDb()
+    .select({ sectorId: schema.queueOperatorSectors.sectorId })
+    .from(schema.queueOperatorSectors)
+    .where(eq(schema.queueOperatorSectors.operatorId, row.operatorId));
+
+  return { ...row, allowedSectorIds: allowed.map((a) => a.sectorId) };
 }
 
 export async function requireQueueSession(): Promise<QueuePanelSession> {
@@ -138,10 +168,11 @@ export function spokenSectorName(sectorName: string) {
 }
 
 /** "Senha doze. Caixa 2." — ticket first, then the sector, as requested. */
-export function buildSpokenText(sectorName: string | null, label: string) {
+export function buildSpokenText(sectorName: string | null, label: string, kind = "normal") {
   const spoken = spokenLabel(label);
-  if (sectorName) return `Senha ${spoken}. ${spokenSectorName(sectorName)}.`;
-  return `Senha ${spoken}.`;
+  const head = kind === "priority" ? `Senha preferencial ${spoken}` : `Senha ${spoken}`;
+  if (sectorName) return `${head}. ${spokenSectorName(sectorName)}.`;
+  return `${head}.`;
 }
 
 /** "A" + 12 -> "A012" */

@@ -7,6 +7,7 @@ import {
   jsonb,
   pgEnum,
   pgTable,
+  primaryKey,
   smallint,
   text,
   timestamp,
@@ -392,6 +393,19 @@ export const queuePanels = pgTable(
     isEnabled: boolean("is_enabled").notNull().default(true),
     /** "sequential" = só o número · "sector" = setor + número. */
     mode: text("mode").notNull().default("sequential"),
+    /**
+     * Numeração quando setorizado: "sector" = cada setor tem sua própria
+     * sequência · "global" = uma única sequência para todos os setores.
+     */
+    numberingScope: text("numbering_scope").notNull().default("sector"),
+    /** "priority" = preferenciais primeiro · "alternate" = 1 preferencial / 1 normal. */
+    priorityPolicy: text("priority_policy").notNull().default("priority"),
+    /** Última natureza chamada, usada pela política intercalada. */
+    lastCalledKind: text("last_called_kind").notNull().default("normal"),
+    /** Prefixo opcional das senhas preferenciais ("P" -> P001). */
+    priorityPrefix: text("priority_prefix"),
+    /** Token da tela de emissão (totem), sem login. */
+    kioskToken: text("kiosk_token"),
     /** Prefix used in sequential mode ("A" -> A001). Optional. */
     prefix: text("prefix"),
     lastNumber: integer("last_number").notNull().default(0),
@@ -448,6 +462,10 @@ export const queueCalls = pgTable(
     spokenText: text("spoken_text").notNull(),
     /** Bumped when the operator repeats the same call. */
     repeatCount: integer("repeat_count").notNull().default(0),
+    /** "normal" ou "priority" (atendimento preferencial). */
+    kind: text("kind").notNull().default("normal"),
+    /** Senha emitida que originou a chamada, quando houver. */
+    ticketId: uuid("ticket_id"),
     createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
     calledAt: timestamp("called_at", { withTimezone: true }).notNull().defaultNow(),
   },
@@ -462,10 +480,67 @@ export const queueSessions = pgTable(
     panelId: uuid("panel_id")
       .notNull()
       .references(() => queuePanels.id, { onDelete: "cascade" }),
+    operatorId: uuid("operator_id").references(() => queueOperators.id, { onDelete: "cascade" }),
     expiresAt: timestamp("expires_at", { withTimezone: true }).notNull(),
     createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
   },
   (t) => [index("queue_sessions_panel_idx").on(t.panelId)],
+);
+
+/** Logins de operador de um painel. Cada um só chama as filas designadas. */
+export const queueOperators = pgTable(
+  "queue_operators",
+  {
+    id: uuid("id").primaryKey().defaultRandom(),
+    panelId: uuid("panel_id")
+      .notNull()
+      .references(() => queuePanels.id, { onDelete: "cascade" }),
+    name: text("name").notNull().default("Operador"),
+    username: text("username").notNull(),
+    passwordHash: text("password_hash").notNull(),
+    isEnabled: boolean("is_enabled").notNull().default(true),
+    createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
+  },
+  (t) => [
+    uniqueIndex("queue_operators_username_unique").on(t.username),
+    index("queue_operators_panel_idx").on(t.panelId),
+  ],
+);
+
+/** Setores que cada operador pode chamar. Sem linhas = todos os setores. */
+export const queueOperatorSectors = pgTable(
+  "queue_operator_sectors",
+  {
+    operatorId: uuid("operator_id")
+      .notNull()
+      .references(() => queueOperators.id, { onDelete: "cascade" }),
+    sectorId: uuid("sector_id")
+      .notNull()
+      .references(() => queueSectors.id, { onDelete: "cascade" }),
+  },
+  (t) => [primaryKey({ columns: [t.operatorId, t.sectorId] })],
+);
+
+/** Senhas emitidas na recepção/totem, aguardando chamada. */
+export const queueTickets = pgTable(
+  "queue_tickets",
+  {
+    id: uuid("id").primaryKey().defaultRandom(),
+    panelId: uuid("panel_id")
+      .notNull()
+      .references(() => queuePanels.id, { onDelete: "cascade" }),
+    sectorId: uuid("sector_id").references(() => queueSectors.id, { onDelete: "set null" }),
+    sectorName: text("sector_name"),
+    /** "normal" ou "priority". */
+    kind: text("kind").notNull().default("normal"),
+    number: integer("number").notNull(),
+    label: text("label").notNull(),
+    /** "waiting" | "called" | "cancelled". */
+    status: text("status").notNull().default("waiting"),
+    issuedAt: timestamp("issued_at", { withTimezone: true }).notNull().defaultNow(),
+    calledAt: timestamp("called_at", { withTimezone: true }),
+  },
+  (t) => [index("queue_tickets_panel_status_idx").on(t.panelId, t.status, t.issuedAt)],
 );
 
 /* ------------------------------------------------------------------ */
