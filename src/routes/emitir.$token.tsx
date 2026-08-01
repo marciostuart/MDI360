@@ -156,6 +156,11 @@ function KioskPage() {
             <Button variant="ghost" onClick={() => setPendingKind(null)}>
               Voltar
             </Button>
+            {issueMutation.isError ? (
+              <p className="text-sm text-destructive">
+                {(issueMutation.error as Error).message || "Não foi possível emitir a senha."}
+              </p>
+            ) : null}
           </CardContent>
         </Card>
       ) : (
