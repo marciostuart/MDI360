@@ -397,6 +397,14 @@ export const queuePanels = pgTable(
     lastNumber: integer("last_number").notNull().default(0),
     /** Seconds the call stays on the TV before playback resumes. */
     displaySeconds: integer("display_seconds").notNull().default(20),
+    /** Aparência da chamada na TV (personalizável no Studio). */
+    themeBgColor: text("theme_bg_color").notNull().default("#000000"),
+    themeBgMediaId: uuid("theme_bg_media_id").references(() => mediaAssets.id, {
+      onDelete: "set null",
+    }),
+    themeTicketColor: text("theme_ticket_color").notNull().default("#ffffff"),
+    themeTextColor: text("theme_text_color").notNull().default("#38bdf8"),
+    themeHistoryColor: text("theme_history_color").notNull().default("#ffffff"),
     username: text("username").notNull(),
     passwordHash: text("password_hash").notNull(),
     createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),

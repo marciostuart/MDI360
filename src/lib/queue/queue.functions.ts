@@ -14,7 +14,26 @@ export type QueuePanelSummary = {
   sectorCount: number;
   lastCallLabel: string | null;
   lastCallAt: string | null;
+  /** Aparência da chamada na TV. */
+  themeBgColor: string;
+  themeBgMediaId: string | null;
+  themeTicketColor: string;
+  themeTextColor: string;
+  themeHistoryColor: string;
 };
+
+export const QUEUE_THEME_DEFAULTS = {
+  themeBgColor: "#000000",
+  themeBgMediaId: null as string | null,
+  themeTicketColor: "#ffffff",
+  themeTextColor: "#38bdf8",
+  themeHistoryColor: "#ffffff",
+};
+
+const hexColor = z
+  .string()
+  .trim()
+  .regex(/^#[0-9a-fA-F]{6}$/, "Use uma cor no formato #RRGGBB");
 
 const usernameSchema = z
   .string()
@@ -63,6 +82,11 @@ export const listQueuePanels = createServerFn({ method: "GET" }).handler(
           mode: schema.queuePanels.mode,
           username: schema.queuePanels.username,
           displaySeconds: schema.queuePanels.displaySeconds,
+          themeBgColor: schema.queuePanels.themeBgColor,
+          themeBgMediaId: schema.queuePanels.themeBgMediaId,
+          themeTicketColor: schema.queuePanels.themeTicketColor,
+          themeTextColor: schema.queuePanels.themeTextColor,
+          themeHistoryColor: schema.queuePanels.themeHistoryColor,
         })
         .from(schema.devices)
         .leftJoin(schema.queuePanels, eq(schema.queuePanels.deviceId, schema.devices.id))
@@ -120,6 +144,11 @@ export const listQueuePanels = createServerFn({ method: "GET" }).handler(
             sectorCount: row.panelId ? (sectorCounts.get(row.panelId) ?? 0) : 0,
             lastCallLabel: last?.label ?? null,
             lastCallAt: last?.at ?? null,
+            themeBgColor: row.themeBgColor ?? QUEUE_THEME_DEFAULTS.themeBgColor,
+            themeBgMediaId: row.themeBgMediaId ?? null,
+            themeTicketColor: row.themeTicketColor ?? QUEUE_THEME_DEFAULTS.themeTicketColor,
+            themeTextColor: row.themeTextColor ?? QUEUE_THEME_DEFAULTS.themeTextColor,
+            themeHistoryColor: row.themeHistoryColor ?? QUEUE_THEME_DEFAULTS.themeHistoryColor,
           };
         }),
       };
@@ -146,6 +175,14 @@ export const saveQueuePanel = createServerFn({ method: "POST" })
         ),
         mode: z.enum(["sequential", "sector"]).default("sequential"),
         displaySeconds: z.number().int().min(10).max(120).default(20),
+        themeBgColor: hexColor.default(QUEUE_THEME_DEFAULTS.themeBgColor),
+        themeBgMediaId: z.preprocess(
+          (value) => (typeof value === "string" && value.trim() === "" ? null : value),
+          z.string().uuid().nullable().default(null),
+        ),
+        themeTicketColor: hexColor.default(QUEUE_THEME_DEFAULTS.themeTicketColor),
+        themeTextColor: hexColor.default(QUEUE_THEME_DEFAULTS.themeTextColor),
+        themeHistoryColor: hexColor.default(QUEUE_THEME_DEFAULTS.themeHistoryColor),
       })
       .safeParse(input);
     if (!result.success) {
@@ -178,6 +215,31 @@ export const saveQueuePanel = createServerFn({ method: "POST" })
       .limit(1);
     if (!owned[0]) throw new Error("Tela não encontrada.");
 
+    // Imagem de fundo precisa ser uma imagem pronta da própria organização.
+    let bgMediaId: string | null = data.themeBgMediaId ?? null;
+    if (bgMediaId) {
+      const asset = await db
+        .select({ id: schema.mediaAssets.id })
+        .from(schema.mediaAssets)
+        .where(
+          and(
+            eq(schema.mediaAssets.id, bgMediaId),
+            eq(schema.mediaAssets.organizationId, user.organizationId),
+            eq(schema.mediaAssets.kind, "image"),
+          ),
+        )
+        .limit(1);
+      if (!asset[0]) throw new Error("Imagem de fundo não encontrada na sua biblioteca.");
+    }
+
+    const themeValues = {
+      themeBgColor: data.themeBgColor,
+      themeBgMediaId: bgMediaId,
+      themeTicketColor: data.themeTicketColor,
+      themeTextColor: data.themeTextColor,
+      themeHistoryColor: data.themeHistoryColor,
+    };
+
     const { toQueueError } = await import("@/lib/queue/queue-errors.server");
     try {
       const existing = await db
@@ -208,6 +270,7 @@ export const saveQueuePanel = createServerFn({ method: "POST" })
             mode: data.mode,
             displaySeconds: data.displaySeconds,
             isEnabled: true,
+            ...themeValues,
             ...(data.password ? { passwordHash: await hashQueuePassword(data.password) } : {}),
           })
           .where(eq(schema.queuePanels.id, existing[0].id));
@@ -220,6 +283,7 @@ export const saveQueuePanel = createServerFn({ method: "POST" })
           passwordHash: await hashQueuePassword(data.password),
           mode: data.mode,
           displaySeconds: data.displaySeconds,
+          ...themeValues,
         });
       }
     } catch (error) {
