@@ -8,6 +8,24 @@ import { Button } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
 import { getKioskPanel, issueKioskTicket } from "@/lib/queue/kiosk.functions";
 
+// Ponte opcional com o aplicativo desktop (MDI360 Emissor) para impressão térmica automática.
+type DesktopBridge = {
+  isDesktop?: boolean;
+  printTicket?: (payload: {
+    label: string;
+    kind: string;
+    sectorName: string | null;
+    panelName: string;
+    issuedAt: string;
+    waitingAhead: number;
+  }) => Promise<{ ok: boolean; error?: string }>;
+};
+
+function desktopBridge(): DesktopBridge | null {
+  if (typeof window === "undefined") return null;
+  return (window as unknown as { mdiEmitter?: DesktopBridge }).mdiEmitter ?? null;
+}
+
 export const Route = createFileRoute("/emitir/$token")({
   head: () => ({
     meta: [
@@ -42,6 +60,7 @@ function KioskPage() {
   });
 
   const [pendingKind, setPendingKind] = useState<"normal" | "priority" | null>(null);
+  const [printError, setPrintError] = useState<string | null>(null);
   const [issued, setIssued] = useState<{
     label: string;
     kind: string;
@@ -54,12 +73,31 @@ function KioskPage() {
       issue({ data: { token, sectorId: input.sectorId, kind: input.kind } }),
     onSuccess: (ticket) => {
       setPendingKind(null);
+      setPrintError(null);
       setIssued({
         label: ticket.label,
         kind: ticket.kind,
         sectorName: ticket.sectorName,
         waitingAhead: ticket.waitingAhead,
       });
+      const bridge = desktopBridge();
+      if (bridge?.printTicket) {
+        void bridge
+          .printTicket({
+            label: ticket.label,
+            kind: ticket.kind,
+            sectorName: ticket.sectorName,
+            panelName: data?.panelName ?? "",
+            issuedAt: new Date().toLocaleString("pt-BR"),
+            waitingAhead: ticket.waitingAhead,
+          })
+          .then((result) => {
+            if (!result?.ok) setPrintError(result?.error ?? "Não foi possível imprimir a senha.");
+          })
+          .catch((error: unknown) => {
+            setPrintError(error instanceof Error ? error.message : "Falha na impressão.");
+          });
+      }
     },
   });
 
@@ -108,6 +146,7 @@ function KioskPage() {
               ? "Você é o próximo a ser chamado."
               : `${issued.waitingAhead} pessoa(s) na sua frente.`}
           </p>
+          {printError ? <p className="text-sm text-destructive">{printError}</p> : null}
           <Button variant="outline" onClick={() => setIssued(null)}>
             Emitir outra senha
           </Button>
