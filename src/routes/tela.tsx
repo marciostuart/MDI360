@@ -408,9 +408,9 @@ function PlayerScreen() {
     };
   }, [downloadKey]);
 
-  // Widgets and web pages need no download; files wait for the cache.
+  // Widgets, páginas e streams não têm arquivo; só os arquivos esperam o cache.
   const items = allItems.filter((item) => {
-    if (item.kind === "widget" || item.kind === "web") return true;
+    if (item.kind === "widget" || item.kind === "web" || item.kind === "stream") return true;
     return Boolean(item.url) && readyUrls.has(mediaCache.keyFor(item.url as string));
   });
   const current = items[index % Math.max(items.length, 1)];
@@ -563,6 +563,18 @@ function PlayerScreen() {
       ) : current?.kind === "widget" && current.widgetConfig ? (
         <FadeLayer enabled={fade} step={index} leaving={leaving} key={`${current.id}-${index}`}>
           <WidgetView config={current.widgetConfig} accentColor={sync.branding?.color ?? null} />
+        </FadeLayer>
+      ) : current?.kind === "stream" && current.url ? (
+        <FadeLayer enabled={fade} step={index} leaving={leaving}>
+          <StreamLayer
+            key={`${current.id}-${index}`}
+            url={current.url}
+            name={current.name}
+            muted={
+              current.isMuted || sync.device?.audioEnabled === false || Boolean(activeCall)
+            }
+            loop={items.length === 1 && !hasPending}
+          />
         </FadeLayer>
       ) : current?.kind === "web" ? (
         <FadeLayer enabled={fade} step={index} leaving={leaving}>
