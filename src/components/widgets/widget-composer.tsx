@@ -62,6 +62,46 @@ export function WidgetComposer({
   const [type, setType] = useState<WidgetType>("clock");
   const [name, setName] = useState("Relógio e data");
   const [config, setConfig] = useState<WidgetConfig>(getWidgetDefinition("clock").defaultConfig);
+  const [cep, setCep] = useState("");
+  const [cepLoading, setCepLoading] = useState(false);
+
+  /** Consulta o CEP e guarda a cidade mais próxima encontrada no provedor. */
+  async function lookupCep() {
+    if (config.type !== "weather") return;
+    const digits = cep.replace(/\D/g, "");
+    if (digits.length !== 8) {
+      toast.error("Informe um CEP com 8 dígitos.");
+      return;
+    }
+    setCepLoading(true);
+    try {
+      const response = await fetch(`/api/public/widget-data?type=cep&cep=${digits}`);
+      const payload = (await response.json()) as {
+        error?: string;
+        cep?: string;
+        label?: string;
+        latitude?: number;
+        longitude?: number;
+      };
+      if (!response.ok || !payload.label) {
+        toast.error(payload.error ?? "Não foi possível consultar este CEP.");
+        return;
+      }
+      setCep(payload.cep ?? cep);
+      setConfig({
+        ...config,
+        cep: payload.cep,
+        placeLabel: payload.label,
+        latitude: payload.latitude,
+        longitude: payload.longitude,
+      });
+      toast.success(`Clima de ${payload.label}.`);
+    } catch {
+      toast.error("Falha na consulta do CEP.");
+    } finally {
+      setCepLoading(false);
+    }
+  }
 
   // Loading an existing widget from the library turns this into an editor.
   useEffect(() => {
@@ -69,6 +109,7 @@ export function WidgetComposer({
     setType(editing.config.type);
     setName(editing.name);
     setConfig(editing.config);
+    setCep(editing.config.type === "weather" ? (editing.config.cep ?? "") : "");
   }, [editing]);
 
   const theme: WidgetTheme = resolveWidgetTheme(config.theme);
