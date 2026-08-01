@@ -1,0 +1,329 @@
+import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
+import { useServerFn } from "@tanstack/react-start";
+import { Loader2, LogOut, Printer, Ticket } from "lucide-react";
+import { useEffect, useRef, useState } from "react";
+import { toast } from "sonner";
+
+import { Button } from "@/components/ui/button";
+import { Card, CardContent } from "@/components/ui/card";
+import { Input } from "@/components/ui/input";
+import { Label } from "@/components/ui/label";
+import { Switch } from "@/components/ui/switch";
+import { fetchIssuerState, issueTicketAsOperator } from "@/lib/queue/kiosk.functions";
+import { queueLogin, queueLogout } from "@/lib/queue/operator.functions";
+
+type Issued = {
+  label: string;
+  kind: string;
+  sectorName: string | null;
+  waitingAhead: number;
+  panelName: string;
+  issuedAt: string;
+};
+
+const AUTO_PRINT_KEY = "mdi_issuer_autoprint";
+
+/** Monta o cupom de 80mm e manda para a impressora térmica do dispositivo. */
+function printTicket(ticket: Issued) {
+  const frame = document.createElement("iframe");
+  frame.style.position = "fixed";
+  frame.style.width = "0";
+  frame.style.height = "0";
+  frame.style.border = "0";
+  frame.style.visibility = "hidden";
+  document.body.appendChild(frame);
+
+  const when = new Date(ticket.issuedAt).toLocaleString("pt-BR");
+  const doc = frame.contentDocument;
+  if (!doc) return;
+  doc.open();
+  doc.write(`<!doctype html><html><head><meta charset="utf-8"><title>Senha ${ticket.label}</title>
+<style>
+  @page { size: 80mm auto; margin: 0; }
+  html, body { margin: 0; padding: 0; }
+  body { width: 80mm; font-family: "Helvetica Neue", Arial, sans-serif; color: #000;
+         text-align: center; padding: 6mm 4mm 10mm; }
+  .place { font-size: 13px; font-weight: 700; text-transform: uppercase; }
+  .kind { font-size: 12px; margin-top: 2mm; letter-spacing: 1px; text-transform: uppercase; }
+  .label { font-size: 62px; font-weight: 900; line-height: 1; margin: 4mm 0; }
+  .sector { font-size: 20px; font-weight: 700; margin-bottom: 3mm; }
+  .info { font-size: 12px; }
+  hr { border: 0; border-top: 1px dashed #000; margin: 4mm 0; }
+</style></head><body>
+  <div class="place">${ticket.panelName}</div>
+  <div class="kind">${ticket.kind === "priority" ? "Atendimento preferencial" : "Senha de atendimento"}</div>
+  <div class="label">${ticket.label}</div>
+  ${ticket.sectorName ? `<div class="sector">${ticket.sectorName}</div>` : ""}
+  <hr />
+  <div class="info">${when}</div>
+  <div class="info">${
+    ticket.waitingAhead === 0
+      ? "Você é o próximo a ser chamado"
+      : `${ticket.waitingAhead} pessoa(s) na sua frente`
+  }</div>
+  <div class="info">Aguarde a chamada no painel</div>
+</body></html>`);
+  doc.close();
+
+  const run = () => {
+    frame.contentWindow?.focus();
+    frame.contentWindow?.print();
+    window.setTimeout(() => frame.remove(), 2000);
+  };
+  if (frame.contentWindow?.document.readyState === "complete") run();
+  else frame.onload = run;
+}
+
+export function QueueIssuerPanel() {
+  const queryClient = useQueryClient();
+  const loadState = useServerFn(fetchIssuerState);
+  const login = useServerFn(queueLogin);
+  const logout = useServerFn(queueLogout);
+  const issue = useServerFn(issueTicketAsOperator);
+
+  const { data, isPending } = useQuery({
+    queryKey: ["queue-issuer"],
+    queryFn: () => loadState({}),
+  });
+
+  const [credentials, setCredentials] = useState({ username: "", password: "" });
+  const [sectorId, setSectorId] = useState<string | null>(null);
+  const [issued, setIssued] = useState<Issued | null>(null);
+  const [autoPrint, setAutoPrint] = useState(true);
+  const autoPrintRef = useRef(true);
+
+  useEffect(() => {
+    const stored = window.localStorage.getItem(AUTO_PRINT_KEY);
+    if (stored !== null) {
+      const value = stored === "1";
+      setAutoPrint(value);
+      autoPrintRef.current = value;
+    }
+  }, []);
+
+  const loginMutation = useMutation({
+    mutationFn: () => login({ data: credentials }),
+    onSuccess: async (result) => {
+      if (!result.ok) {
+        toast.error(result.message ?? "Não foi possível entrar.");
+        return;
+      }
+      setCredentials({ username: "", password: "" });
+      await queryClient.invalidateQueries({ queryKey: ["queue-issuer"] });
+    },
+    onError: () => toast.error("Não foi possível entrar."),
+  });
+
+  const issueMutation = useMutation({
+    mutationFn: (kind: "normal" | "priority") => issue({ data: { sectorId, kind } }),
+    onSuccess: (ticket) => {
+      const next: Issued = {
+        label: ticket.label,
+        kind: ticket.kind,
+        sectorName: ticket.sectorName,
+        waitingAhead: ticket.waitingAhead,
+        panelName: ticket.panelName,
+        issuedAt: ticket.issuedAt,
+      };
+      setIssued(next);
+      if (autoPrintRef.current) printTicket(next);
+    },
+    onError: (error) => toast.error((error as Error).message || "Não foi possível emitir a senha."),
+  });
+
+  // A senha emitida fica alguns segundos na tela e volta ao início.
+  useEffect(() => {
+    if (!issued) return;
+    const timer = window.setTimeout(() => setIssued(null), 12_000);
+    return () => window.clearTimeout(timer);
+  }, [issued]);
+
+  if (isPending) {
+    return (
+      <main className="grid min-h-screen place-items-center bg-background">
+        <Loader2 className="size-6 animate-spin text-muted-foreground" />
+      </main>
+    );
+  }
+
+  if (!data) {
+    return (
+      <main className="grid min-h-screen place-items-center bg-background px-4">
+        <Card className="w-full max-w-sm">
+          <CardContent className="space-y-4 py-6">
+            <div className="space-y-1 text-center">
+              <h1 className="font-display text-xl font-semibold">Emissão de senhas</h1>
+              <p className="text-sm text-muted-foreground">
+                Entre com o usuário e a senha criados no painel MDI 360.
+              </p>
+            </div>
+            <form
+              className="space-y-3"
+              onSubmit={(event) => {
+                event.preventDefault();
+                loginMutation.mutate();
+              }}
+            >
+              <div className="space-y-1.5">
+                <Label htmlFor="issuer-user">Usuário</Label>
+                <Input
+                  id="issuer-user"
+                  value={credentials.username}
+                  autoComplete="username"
+                  onChange={(event) =>
+                    setCredentials((value) => ({ ...value, username: event.target.value }))
+                  }
+                  required
+                />
+              </div>
+              <div className="space-y-1.5">
+                <Label htmlFor="issuer-password">Senha</Label>
+                <Input
+                  id="issuer-password"
+                  type="password"
+                  value={credentials.password}
+                  autoComplete="current-password"
+                  onChange={(event) =>
+                    setCredentials((value) => ({ ...value, password: event.target.value }))
+                  }
+                  required
+                />
+              </div>
+              <Button type="submit" className="w-full" disabled={loginMutation.isPending}>
+                {loginMutation.isPending ? <Loader2 className="size-4 animate-spin" /> : null}
+                Entrar
+              </Button>
+            </form>
+          </CardContent>
+        </Card>
+      </main>
+    );
+  }
+
+  if (issued) {
+    return (
+      <main className="grid min-h-screen place-items-center bg-background px-6 text-center">
+        <div className="space-y-3">
+          <p className="text-sm uppercase tracking-widest text-muted-foreground">
+            {issued.kind === "priority" ? "Atendimento preferencial" : "Sua senha"}
+          </p>
+          <p className="font-display text-8xl font-black">{issued.label}</p>
+          {issued.sectorName ? <p className="text-xl">{issued.sectorName}</p> : null}
+          <p className="text-muted-foreground">
+            {issued.waitingAhead === 0
+              ? "Você é o próximo a ser chamado."
+              : `${issued.waitingAhead} pessoa(s) na sua frente.`}
+          </p>
+          <div className="flex flex-wrap justify-center gap-2 pt-2">
+            <Button variant="outline" onClick={() => printTicket(issued)}>
+              <Printer className="size-4" />
+              Imprimir novamente
+            </Button>
+            <Button onClick={() => setIssued(null)}>Emitir outra senha</Button>
+          </div>
+        </div>
+      </main>
+    );
+  }
+
+  const needsSector = data.mode === "sector";
+  const ready = !needsSector || sectorId !== null;
+
+  return (
+    <main className="mx-auto flex min-h-screen max-w-3xl flex-col justify-center gap-6 p-6">
+      <header className="text-center">
+        <h1 className="font-display text-3xl font-semibold">Retire sua senha</h1>
+        <p className="text-muted-foreground">{data.panelName}</p>
+      </header>
+
+      {needsSector ? (
+        <Card>
+          <CardContent className="space-y-3 py-5">
+            <p className="text-sm font-medium">1 · Escolha a fila</p>
+            <div className="grid gap-2 sm:grid-cols-2">
+              {data.sectors.length === 0 ? (
+                <p className="text-sm text-muted-foreground sm:col-span-2">
+                  Nenhuma fila liberada para este usuário.
+                </p>
+              ) : null}
+              {data.sectors.map((sector) => (
+                <Button
+                  key={sector.id}
+                  variant={sectorId === sector.id ? "default" : "outline"}
+                  className="h-14 text-base"
+                  onClick={() => setSectorId(sector.id)}
+                >
+                  {sector.name}
+                </Button>
+              ))}
+            </div>
+          </CardContent>
+        </Card>
+      ) : null}
+
+      <Card>
+        <CardContent className="space-y-3 py-5">
+          <p className="text-sm font-medium">{needsSector ? "2 · " : ""}Toque para emitir</p>
+          <div className="grid gap-3 sm:grid-cols-2">
+            <Button
+              size="lg"
+              className="h-24 text-lg"
+              disabled={!ready || issueMutation.isPending}
+              onClick={() => issueMutation.mutate("normal")}
+            >
+              <Ticket className="size-6" />
+              Senha normal
+            </Button>
+            <Button
+              size="lg"
+              variant="secondary"
+              className="h-24 text-lg"
+              disabled={!ready || issueMutation.isPending}
+              onClick={() => issueMutation.mutate("priority")}
+            >
+              <Ticket className="size-6" />
+              Preferencial
+            </Button>
+          </div>
+          {!ready ? (
+            <p className="text-sm text-muted-foreground">Escolha primeiro a fila desejada.</p>
+          ) : null}
+        </CardContent>
+      </Card>
+
+      <div className="flex flex-wrap items-center justify-between gap-3 rounded-xl border border-border p-4">
+        <div className="flex items-center gap-3">
+          <Printer className="size-4 text-muted-foreground" />
+          <div>
+            <p className="text-sm font-medium">Imprimir automaticamente</p>
+            <p className="text-xs text-muted-foreground">
+              Envia o cupom para a impressora térmica deste dispositivo.
+            </p>
+          </div>
+        </div>
+        <div className="flex items-center gap-4">
+          <Switch
+            checked={autoPrint}
+            onCheckedChange={(checked) => {
+              setAutoPrint(checked);
+              autoPrintRef.current = checked;
+              window.localStorage.setItem(AUTO_PRINT_KEY, checked ? "1" : "0");
+            }}
+            aria-label="Imprimir automaticamente"
+          />
+          <Button
+            variant="ghost"
+            size="sm"
+            onClick={async () => {
+              await logout({});
+              await queryClient.invalidateQueries({ queryKey: ["queue-issuer"] });
+            }}
+          >
+            <LogOut className="size-4" />
+            Sair ({data.operatorName})
+          </Button>
+        </div>
+      </div>
+    </main>
+  );
+}
