@@ -377,6 +377,7 @@ export type PlatformPlan = {
   queueEnabled: boolean;
   isActive: boolean;
   organizations: number;
+  createdAt: string;
 };
 
 export const fetchPlans = createServerFn({ method: "GET" }).handler(
