@@ -70,21 +70,33 @@ export async function issueTicket(
     }
 
     if (perSector) {
-      const updated = await db
-        .update(schema.queueSectors)
-        .set({ lastNumber: sql`${schema.queueSectors.lastNumber} + 1` })
-        .where(eq(schema.queueSectors.id, sector.id))
-        .returning({ lastNumber: schema.queueSectors.lastNumber });
-      number = updated[0]?.lastNumber ?? 1;
-      prefix = kind === "priority" ? (panel.priorityPrefix ?? sector.prefix) : sector.prefix;
+      // Duas sequências paralelas: normal (001...) e preferencial (P001...).
+      const updated =
+        kind === "priority"
+          ? await db
+              .update(schema.queueSectors)
+              .set({ lastPriorityNumber: sql`${schema.queueSectors.lastPriorityNumber} + 1` })
+              .where(eq(schema.queueSectors.id, sector.id))
+              .returning({ n: schema.queueSectors.lastPriorityNumber })
+          : await db
+              .update(schema.queueSectors)
+              .set({ lastNumber: sql`${schema.queueSectors.lastNumber} + 1` })
+              .where(eq(schema.queueSectors.id, sector.id))
+              .returning({ n: schema.queueSectors.lastNumber });
+      number = updated[0]?.n ?? 1;
+      prefix =
+        kind === "priority" ? (panel.priorityPrefix ?? "P") + (sector.prefix ?? "") : sector.prefix;
     } else {
-      number = await bumpPanelCounter(panel.id);
+      number = await bumpPanelCounter(panel.id, kind);
       // Numeração global: número puro (o setor aparece ao lado na TV).
-      prefix = kind === "priority" ? panel.priorityPrefix : null;
+      prefix = kind === "priority" ? (panel.priorityPrefix ?? "P") : null;
     }
   } else {
-    number = await bumpPanelCounter(panel.id);
-    prefix = kind === "priority" ? (panel.priorityPrefix ?? panel.prefix) : panel.prefix;
+    number = await bumpPanelCounter(panel.id, kind);
+    prefix =
+      kind === "priority"
+        ? (panel.priorityPrefix ?? "P") + (panel.prefix ?? "")
+        : panel.prefix;
   }
 
   const label = buildLabel(prefix, number);
@@ -112,13 +124,21 @@ export async function issueTicket(
   };
 }
 
-async function bumpPanelCounter(panelId: string) {
-  const updated = await getDb()
-    .update(schema.queuePanels)
-    .set({ lastNumber: sql`${schema.queuePanels.lastNumber} + 1` })
-    .where(eq(schema.queuePanels.id, panelId))
-    .returning({ lastNumber: schema.queuePanels.lastNumber });
-  return updated[0]?.lastNumber ?? 1;
+async function bumpPanelCounter(panelId: string, kind: TicketKind) {
+  const db = getDb();
+  const updated =
+    kind === "priority"
+      ? await db
+          .update(schema.queuePanels)
+          .set({ lastPriorityNumber: sql`${schema.queuePanels.lastPriorityNumber} + 1` })
+          .where(eq(schema.queuePanels.id, panelId))
+          .returning({ n: schema.queuePanels.lastPriorityNumber })
+      : await db
+          .update(schema.queuePanels)
+          .set({ lastNumber: sql`${schema.queuePanels.lastNumber} + 1` })
+          .where(eq(schema.queuePanels.id, panelId))
+          .returning({ n: schema.queuePanels.lastNumber });
+  return updated[0]?.n ?? 1;
 }
 
 /** Senhas emitidas hoje nesta fila (canceladas não contam). */
