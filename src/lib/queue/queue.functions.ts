@@ -20,6 +20,8 @@ export type QueuePanelSummary = {
   priorityPrefix: string | null;
   /** Token da tela de emissão de senhas (totem). */
   kioskToken: string | null;
+  /** Emissão liberada no terminal de emissão (/emitir). */
+  issuingEnabled: boolean;
   lastCallLabel: string | null;
   lastCallAt: string | null;
   /** Aparência da chamada na TV. */
@@ -103,6 +105,7 @@ export const listQueuePanels = createServerFn({ method: "GET" }).handler(
           priorityPolicy: schema.queuePanels.priorityPolicy,
           priorityPrefix: schema.queuePanels.priorityPrefix,
           kioskToken: schema.queuePanels.kioskToken,
+          issuingEnabled: schema.queuePanels.issuingEnabled,
           themeBgColor: schema.queuePanels.themeBgColor,
           themeBgMediaId: schema.queuePanels.themeBgMediaId,
           themeTicketColor: schema.queuePanels.themeTicketColor,
@@ -179,6 +182,7 @@ export const listQueuePanels = createServerFn({ method: "GET" }).handler(
             priorityPolicy: row.priorityPolicy ?? "priority",
             priorityPrefix: row.priorityPrefix ?? null,
             kioskToken: row.kioskToken ?? null,
+            issuingEnabled: row.issuingEnabled ?? true,
             lastCallLabel: last?.label ?? null,
             lastCallAt: last?.at ?? null,
             themeBgColor: row.themeBgColor ?? QUEUE_THEME_DEFAULTS.themeBgColor,
@@ -475,6 +479,8 @@ export type QueueSectorRow = {
   position: number;
   waitingNormal: number;
   waitingPriority: number;
+  /** Fila liberada para emissão no terminal (/emitir). */
+  issuingEnabled: boolean;
 };
 
 export type QueueOperatorRow = {
@@ -574,6 +580,7 @@ export const getQueuePanelDetails = createServerFn({ method: "POST" })
           position: s.position,
           waitingNormal: waiting.get(s.id)?.normal ?? 0,
           waitingPriority: waiting.get(s.id)?.priority ?? 0,
+          issuingEnabled: s.issuingEnabled,
         })),
         operators: operators.map((o) => ({
           id: o.id,
@@ -599,6 +606,8 @@ export const saveQueueSector = createServerFn({ method: "POST" })
         ),
         /** Quando informado, redefine quais operadores podem chamar este setor. */
         operatorIds: z.array(z.string().uuid()).optional(),
+        /** Quando informado, libera ou bloqueia a fila no terminal de emissão. */
+        issuingEnabled: z.boolean().optional(),
       })
       .parse(input),
   )
@@ -613,7 +622,11 @@ export const saveQueueSector = createServerFn({ method: "POST" })
     if (data.sectorId) {
       await db
         .update(schema.queueSectors)
-        .set({ name: data.name, prefix })
+        .set({
+          name: data.name,
+          prefix,
+          ...(data.issuingEnabled === undefined ? {} : { issuingEnabled: data.issuingEnabled }),
+        })
         .where(
           and(
             eq(schema.queueSectors.id, data.sectorId),
@@ -632,6 +645,7 @@ export const saveQueueSector = createServerFn({ method: "POST" })
           name: data.name,
           prefix,
           position: Number(next[0]?.total ?? 0),
+          ...(data.issuingEnabled === undefined ? {} : { issuingEnabled: data.issuingEnabled }),
         })
         .returning({ id: schema.queueSectors.id });
       sectorId = created[0]?.id ?? null;
@@ -667,6 +681,58 @@ export const saveQueueSector = createServerFn({ method: "POST" })
   });
 
 export const deleteQueueSector = createServerFn({ method: "POST" })
+  .inputValidator((input: unknown) =>
+    z.object({ panelId: z.string().uuid(), sectorId: z.string().uuid() }).parse(input),
+  )
+  .handler(async ({ data }) => {
+    const { getDb, schema } = await import("@/lib/db/index.server");
+    const { and, eq } = await import("drizzle-orm");
+    const panel = await requireOwnedPanel(data.panelId);
+    await getDb()
+      .delete(schema.queueSectors)
+      .where(
+        and(eq(schema.queueSectors.id, data.sectorId), eq(schema.queueSectors.panelId, panel.id)),
+      );
+    return { ok: true };
+  });
+
+/**
+ * Libera ou bloqueia a emissão de senhas no terminal (/emitir). Sem `sectorId`
+ * o controle é da tela inteira; com `sectorId` é daquela fila.
+ */
+export const setQueueIssuing = createServerFn({ method: "POST" })
+  .inputValidator((input: unknown) =>
+    z
+      .object({
+        panelId: z.string().uuid(),
+        sectorId: z.string().uuid().nullable().optional(),
+        enabled: z.boolean(),
+      })
+      .parse(input),
+  )
+  .handler(async ({ data }) => {
+    const { getDb, schema } = await import("@/lib/db/index.server");
+    const { and, eq } = await import("drizzle-orm");
+    const panel = await requireOwnedPanel(data.panelId);
+    const db = getDb();
+
+    if (data.sectorId) {
+      await db
+        .update(schema.queueSectors)
+        .set({ issuingEnabled: data.enabled })
+        .where(
+          and(eq(schema.queueSectors.id, data.sectorId), eq(schema.queueSectors.panelId, panel.id)),
+        );
+    } else {
+      await db
+        .update(schema.queuePanels)
+        .set({ issuingEnabled: data.enabled })
+        .where(eq(schema.queuePanels.id, panel.id));
+    }
+    return { ok: true };
+  });
+
+const deleteQueueSectorLegacy = createServerFn({ method: "POST" })
   .inputValidator((input: unknown) =>
     z.object({ panelId: z.string().uuid(), sectorId: z.string().uuid() }).parse(input),
   )
