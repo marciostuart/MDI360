@@ -545,6 +545,16 @@ function PlayerScreen() {
             autoPlay
             muted={current.isMuted || sync.device?.audioEnabled === false || Boolean(activeCall)}
             playsInline
+            controls={false}
+            disablePictureInPicture
+            // A TV nunca é tocada: forçamos a reprodução assim que há quadro,
+            // senão o WebView do Android mostra o botão de play sobre o vídeo.
+            onLoadedData={(event) => {
+              void event.currentTarget.play().catch(() => {});
+            }}
+            onCanPlay={(event) => {
+              void event.currentTarget.play().catch(() => {});
+            }}
             loop={items.length === 1 && !hasPending}
             onTimeUpdate={(event) => {
               if (!fade || leaving) return;
@@ -602,13 +612,10 @@ function PlayerScreen() {
 }
 
 /**
- * Conteúdo ao vivo / por streaming (YouTube, lives, rádios).
+ * Conteúdo ao vivo / por streaming (lives HLS, rádios e URLs de mídia direta).
  *
- * Nada é baixado: o endereço abre na hora. No YouTube usamos o player embutido
- * com todos os elementos de interface desligados e a camada de cliques
- * bloqueada, então a TV mostra só o vídeo — sem controles, título, sugestões
- * nem links. Endereços de mídia direta (HLS, MP4, MP3 de rádio) tocam na
- * própria tag <video>.
+ * Nada é baixado: o endereço abre na hora, direto na tag <video>, sem controles
+ * nativos e sem qualquer sobreposição na tela.
  */
 function StreamLayer({
   url,
@@ -621,39 +628,21 @@ function StreamLayer({
   muted: boolean;
   loop: boolean;
 }) {
-  const youtubeId = parseYoutubeId(url);
-
-  if (youtubeId) {
-    const src = buildYoutubeEmbedUrl(youtubeId, {
-      muted,
-      loop,
-      origin: typeof window === "undefined" ? null : window.location.origin,
-    });
-    return (
-      <div className="relative h-screen w-screen overflow-hidden bg-black">
-        <iframe
-          key={src}
-          src={src}
-          title={name}
-          allow="autoplay; encrypted-media"
-          // Sem interação não há hover, e o leve zoom corta qualquer borda da
-          // interface do YouTube que apareça no início da reprodução.
-          className="pointer-events-none absolute left-1/2 top-1/2 h-[102%] w-[102%] -translate-x-1/2 -translate-y-1/2 border-0"
-        />
-      </div>
-    );
-  }
-
   return (
     <video
       key={url}
       src={url}
+      title={name}
       className="h-screen w-screen bg-black object-contain"
       autoPlay
       playsInline
       muted={muted}
       loop={loop}
       controls={false}
+      disablePictureInPicture
+      onLoadedData={(event) => {
+        void event.currentTarget.play().catch(() => {});
+      }}
     />
   );
 }
