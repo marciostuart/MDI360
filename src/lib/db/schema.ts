@@ -411,6 +411,8 @@ export const queuePanels = pgTable(
     /** Prefix used in sequential mode ("A" -> A001). Optional. */
     prefix: text("prefix"),
     lastNumber: integer("last_number").notNull().default(0),
+    /** Sequência paralela das senhas preferenciais (P001, P002...). */
+    lastPriorityNumber: integer("last_priority_number").notNull().default(0),
     /** Seconds the call stays on the TV before playback resumes. */
     displaySeconds: integer("display_seconds").notNull().default(20),
     /** Aparência da chamada na TV (personalizável no Studio). */
@@ -448,6 +450,8 @@ export const queueSectors = pgTable(
     name: text("name").notNull(),
     prefix: text("prefix"),
     lastNumber: integer("last_number").notNull().default(0),
+    /** Sequência paralela das preferenciais desta fila. */
+    lastPriorityNumber: integer("last_priority_number").notNull().default(0),
     position: integer("position").notNull().default(0),
     /**
      * Quantidade de senhas disponíveis por dia nesta fila. `null` = ilimitado.

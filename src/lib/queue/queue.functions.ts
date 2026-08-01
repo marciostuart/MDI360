@@ -476,6 +476,8 @@ export type QueueSectorRow = {
   name: string;
   prefix: string | null;
   lastNumber: number;
+  /** Contador paralelo das preferenciais (P001...). */
+  lastPriorityNumber: number;
   position: number;
   waitingNormal: number;
   waitingPriority: number;
@@ -605,6 +607,7 @@ export const getQueuePanelDetails = createServerFn({ method: "POST" })
           name: s.name,
           prefix: s.prefix,
           lastNumber: s.lastNumber,
+          lastPriorityNumber: s.lastPriorityNumber,
           position: s.position,
           waitingNormal: waiting.get(s.id)?.normal ?? 0,
           waitingPriority: waiting.get(s.id)?.priority ?? 0,
@@ -793,7 +796,7 @@ export const resetQueueCounters = createServerFn({ method: "POST" })
     if (data.sectorId) {
       await db
         .update(schema.queueSectors)
-        .set({ lastNumber: 0 })
+        .set({ lastNumber: 0, lastPriorityNumber: 0 })
         .where(
           and(
             eq(schema.queueSectors.id, data.sectorId),
@@ -815,11 +818,11 @@ export const resetQueueCounters = createServerFn({ method: "POST" })
 
     await db
       .update(schema.queuePanels)
-      .set({ lastNumber: 0, lastCalledKind: "normal" })
+      .set({ lastNumber: 0, lastPriorityNumber: 0, lastCalledKind: "normal" })
       .where(eq(schema.queuePanels.id, panel.id));
     await db
       .update(schema.queueSectors)
-      .set({ lastNumber: 0 })
+      .set({ lastNumber: 0, lastPriorityNumber: 0 })
       .where(eq(schema.queueSectors.panelId, panel.id));
     await db
       .update(schema.queueTickets)
