@@ -668,39 +668,58 @@ export function MediaLibrary() {
             <p className="text-xs text-muted-foreground">{getCanvasPreset(presetId).description}</p>
           </div>
 
-          {/* Vídeo do YouTube: o servidor baixa e converte para MP4, então a TV
-              reproduz um arquivo comum — sem controles, título, tela final ou
-              vídeos sugeridos, e com o áudio seguindo a configuração do item. */}
+          {/* Streaming: nada é baixado. A TV abre o endereço na hora da exibição,
+              com a interface do YouTube desligada. Serve para vídeos, lives e
+              rádios, e não consome a cota de armazenamento. */}
           <div className="space-y-2 rounded-xl border border-border/70 bg-secondary/30 p-4">
             <Label className="flex items-center gap-2">
               <Youtube className="size-4 text-destructive" />
-              Vídeo do YouTube
+              YouTube, live ou rádio (streaming)
             </Label>
             <div className="flex flex-wrap gap-2">
               <Input
-                value={youtubeUrl}
-                onChange={(event) => setYoutubeUrl(event.target.value)}
-                placeholder="https://www.youtube.com/watch?v=..."
+                value={streamUrl}
+                onChange={(event) => setStreamUrl(event.target.value)}
+                placeholder="https://www.youtube.com/watch?v=... ou link .m3u8 / .mp3"
                 className="max-w-md"
               />
+              <div className="flex items-center gap-2">
+                <Input
+                  type="number"
+                  min={5}
+                  max={3600}
+                  value={streamSeconds}
+                  onChange={(event) => setStreamSeconds(event.target.value)}
+                  className="w-24"
+                  aria-label="Tempo de exibição em segundos"
+                />
+                <span className="text-xs text-muted-foreground">segundos na tela</span>
+              </div>
               <Button
                 variant="secondary"
                 className="gap-2"
-                disabled={!youtubeUrl.trim() || youtubeMutation.isPending}
-                onClick={() => youtubeMutation.mutate(youtubeUrl.trim())}
+                disabled={!streamUrl.trim() || streamMutation.isPending}
+                onClick={() => streamMutation.mutate(streamUrl.trim())}
               >
-                {youtubeMutation.isPending ? (
+                {streamMutation.isPending ? (
                   <Loader2 className="size-4 animate-spin" />
                 ) : (
                   <Plus className="size-4" />
                 )}
-                Importar vídeo
+                Adicionar transmissão
               </Button>
             </div>
             <p className="text-xs text-muted-foreground">
-              O vídeo é baixado e convertido no servidor (até 10 minutos de duração). Na TV ele toca
-              como um arquivo seu: sem controles, sem título, sem tela final e sem sugestões — e fica
-              em cache no aparelho até ser removido daqui.
+              O conteúdo toca sempre por streaming, sem download e sem consumir seu armazenamento:
+              sem controles, título, sugestões ou links sobre a imagem. O áudio segue a configuração
+              do item e da TV. Como uma live não termina, o tempo acima define quanto ela fica na
+              tela antes de passar para o próximo conteúdo.
+              {streamUrl.trim() && !isYoutubeUrl(streamUrl) ? (
+                <span className="mt-1 block">
+                  Para lives e rádios que não são do YouTube, use o link direto do stream (.m3u8,
+                  .mp4 ou .mp3).
+                </span>
+              ) : null}
             </p>
           </div>
 
