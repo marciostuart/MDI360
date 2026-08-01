@@ -188,6 +188,7 @@ function ClockWidget({
   accent: string;
 }) {
   const [now, setNow] = useState(() => new Date());
+  const layout = resolveWidgetLayout("clock", config.layout as WidgetLayout | undefined);
   useEffect(() => {
     const interval = window.setInterval(() => setNow(new Date()), 1000);
     return () => window.clearInterval(interval);
@@ -211,14 +212,17 @@ function ClockWidget({
 
   return (
     <Shell accent={accent} theme={theme} scene={<ClearScene accent={accent} theme={theme} />}>
-      <p
-        className="font-display text-[22cqh] font-semibold leading-none tabular-nums"
+      <Block
+        block={layout.time}
+        className="font-display font-semibold leading-none tabular-nums"
         style={{ textShadow: "0 0.6cqh 3cqh rgba(0,0,0,0.45)" }}
       >
         {time}
-      </p>
+      </Block>
       {config.showDate ? (
-        <p className="mt-[3cqh] text-[4cqh] capitalize opacity-75">{date}</p>
+        <Block block={layout.date} className="capitalize opacity-75">
+          {date}
+        </Block>
       ) : null}
     </Shell>
   );
