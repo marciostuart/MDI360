@@ -34,8 +34,8 @@ RUN bun install --frozen-lockfile
 
 COPY --from=builder /app/out ./out
 COPY drizzle ./drizzle
-COPY src/lib/db ./src/lib/db
 COPY docker/entrypoint.sh ./docker/entrypoint.sh
+COPY docker/migrate.mjs ./docker/migrate.mjs
 RUN chmod +x ./docker/entrypoint.sh
 
 RUN addgroup -g 1001 -S nodejs && adduser -S signage -u 1001 \

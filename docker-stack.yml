@@ -27,8 +27,18 @@ services:
     deploy:
       mode: replicated
       replicas: 1
+      update_config:
+        parallelism: 1
+        order: stop-first
+        failure_action: rollback
+      rollback_config:
+        parallelism: 1
+        order: stop-first
       restart_policy:
         condition: on-failure
+        delay: 15s
+        max_attempts: 3
+        window: 180s
       resources:
         limits:
           # Deixa folga para evolution, n8n, mautic, typebot etc.
