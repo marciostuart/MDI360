@@ -438,6 +438,7 @@ function WeatherWidget({
   const { data, failed } = useWidgetData<WeatherPayload>(
     `type=weather&cityId=${encodeURIComponent(config.cityId)}`,
   );
+  const layout = resolveWidgetLayout("weather", config.layout as WidgetLayout | undefined);
 
   const look = weatherLook(data?.current.code ?? null);
 
@@ -447,41 +448,42 @@ function WeatherWidget({
       theme={theme}
       credit={data?.credit ?? "Open-Meteo · CC BY 4.0"}
       scene={<WeatherScene kind={look.scene} theme={theme} accent={accent} />}
-      align="left"
     >
       {failed && !data ? (
-        <p className="text-[4cqh] opacity-60">Clima indisponível agora.</p>
+        <p className="absolute left-[6%] top-[46%] text-[4cqh] opacity-60">
+          Clima indisponível agora.
+        </p>
       ) : (
-        <div className="flex items-end justify-between gap-[4cqw]">
-          <div>
-            <p className="text-[3.4cqh] uppercase tracking-[0.28em] opacity-70">
-              {data?.city ?? city.label}
-            </p>
-            <p
-              className="mt-[1cqh] font-display text-[26cqh] font-semibold leading-[0.9] tabular-nums"
-              style={{ textShadow: "0 0.8cqh 3cqh rgba(0,0,0,0.45)" }}
-            >
-              {data?.current.temperature != null
-                ? `${Math.round(data.current.temperature)}°`
-                : "--"}
-            </p>
-            <p className="mt-[1cqh] text-[4.6cqh] font-medium">{look.label}</p>
-            {data?.current.humidity != null ? (
-              <p className="mt-[0.6cqh] text-[2.8cqh] opacity-65">
-                Umidade {Math.round(data.current.humidity)}%
-              </p>
-            ) : null}
-          </div>
-
-          <div className="shrink-0 text-right">
-            <p className="text-[13cqh] leading-none">{look.icon}</p>
-            <div className="mt-[3cqh] space-y-[1.4cqh]">
+        <>
+          <Block block={layout.city} className="uppercase tracking-[0.28em] opacity-70">
+            {data?.city ?? city.label}
+          </Block>
+          <Block
+            block={layout.temp}
+            className="font-display font-semibold leading-[0.9] tabular-nums"
+            style={{ textShadow: "0 0.8cqh 3cqh rgba(0,0,0,0.45)" }}
+          >
+            {data?.current.temperature != null ? `${Math.round(data.current.temperature)}°` : "--"}
+          </Block>
+          <Block block={layout.condition} className="font-medium">
+            {look.label}
+          </Block>
+          {data?.current.humidity != null ? (
+            <Block block={layout.humidity} className="opacity-65">
+              Umidade {Math.round(data.current.humidity)}%
+            </Block>
+          ) : null}
+          <Block block={layout.icon} className="leading-none">
+            {look.icon}
+          </Block>
+          <Block block={layout.forecast}>
+            <div className="space-y-[0.5em]">
               {(data?.daily ?? []).slice(1, 4).map((day) => {
                 const dayLook = weatherLook(day.code);
                 return (
                   <div
                     key={day.date}
-                    className="flex items-center justify-end gap-[1.6cqw] rounded-[1.4cqh] bg-black/25 px-[1.6cqw] py-[1cqh] text-[2.6cqh]"
+                    className="flex items-center justify-end gap-[0.5em] rounded-[0.5em] bg-black/25 px-[0.6em] py-[0.35em]"
                   >
                     <span className="capitalize opacity-70">
                       {new Intl.DateTimeFormat("pt-BR", { weekday: "short" }).format(
@@ -497,8 +499,8 @@ function WeatherWidget({
                 );
               })}
             </div>
-          </div>
-        </div>
+          </Block>
+        </>
       )}
     </Shell>
   );
