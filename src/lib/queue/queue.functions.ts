@@ -806,3 +806,45 @@ export const rotateQueueKioskToken = createServerFn({ method: "POST" })
       .where(eq(schema.queuePanels.id, panel.id));
     return { ok: true, kioskToken };
   });
+
+/** Remove o tom de chamada personalizado, voltando ao tom padrão do sistema. */
+export const clearQueueChime = createServerFn({ method: "POST" })
+  .inputValidator((input: unknown) => z.object({ deviceId: z.string().uuid() }).parse(input))
+  .handler(async ({ data }) => {
+    const { getDb, schema } = await import("@/lib/db/index.server");
+    const { requireUser } = await import("@/lib/auth/session.server");
+    const { and, eq } = await import("drizzle-orm");
+    const user = await requireUser();
+    const db = getDb();
+
+    const panels = await db
+      .select({ id: schema.queuePanels.id, key: schema.queuePanels.chimeStorageKey })
+      .from(schema.queuePanels)
+      .where(
+        and(
+          eq(schema.queuePanels.deviceId, data.deviceId),
+          eq(schema.queuePanels.organizationId, user.organizationId),
+        ),
+      )
+      .limit(1);
+    const panel = panels[0];
+    if (!panel) throw new Error("Painel de senhas não encontrado.");
+
+    await db
+      .update(schema.queuePanels)
+      .set({ chimeStorageKey: null, chimeName: null })
+      .where(eq(schema.queuePanels.id, panel.id));
+
+    if (panel.key) {
+      try {
+        const { deleteObject, isStorageConfigured } = await import("@/lib/storage.server");
+        if (isStorageConfigured()) await deleteObject(panel.key);
+      } catch {
+        // objeto pode já não existir — ignorado
+      }
+    }
+
+    const { notifyDevice } = await import("@/lib/player/realtime.server");
+    notifyDevice(data.deviceId);
+    return { ok: true };
+  });
