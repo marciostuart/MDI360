@@ -27,6 +27,7 @@ import {
   type QueuePanelSummary,
 } from "@/lib/queue/queue.functions";
 import { listMediaAssets } from "@/lib/media/media.functions";
+import { QueuePanelConfig } from "@/components/queue/queue-panel-config";
 
 /** Campo de cor com amostra + valor hexadecimal editável. */
 function ColorField({
@@ -85,6 +86,9 @@ export function QueueAddonManager() {
     username: "",
     password: "",
     mode: "sequential",
+    numberingScope: "sector",
+    priorityPolicy: "priority",
+    priorityPrefix: "",
     displaySeconds: 20,
     ...QUEUE_THEME_DEFAULTS,
   });
@@ -107,6 +111,9 @@ export function QueueAddonManager() {
       username: string;
       password?: string;
       mode: "sequential" | "sector";
+      numberingScope: "sector" | "global";
+      priorityPolicy: "priority" | "alternate";
+      priorityPrefix: string | null;
       displaySeconds: number;
       themeBgColor: string;
       themeBgMediaId: string | null;
@@ -143,6 +150,9 @@ export function QueueAddonManager() {
       username: panel.username ?? "",
       password: "",
       mode: panel.mode === "sector" ? "sector" : "sequential",
+      numberingScope: panel.numberingScope === "global" ? "global" : "sector",
+      priorityPolicy: panel.priorityPolicy === "alternate" ? "alternate" : "priority",
+      priorityPrefix: panel.priorityPrefix ?? "",
       displaySeconds: panel.displaySeconds,
       themeBgColor: panel.themeBgColor || QUEUE_THEME_DEFAULTS.themeBgColor,
       themeBgMediaId: panel.themeBgMediaId ?? null,
@@ -276,6 +286,10 @@ export function QueueAddonManager() {
                 </div>
               </div>
 
+              {panel.panelId ? (
+                <QueuePanelConfig panelId={panel.panelId} kioskToken={panel.kioskToken} />
+              ) : null}
+
               {editing === panel.deviceId ? (
                 <form
                   className="grid gap-3 rounded-lg border border-border p-4 sm:grid-cols-2"
@@ -302,6 +316,10 @@ export function QueueAddonManager() {
                       username,
                       password: password || undefined,
                       mode: form.mode === "sector" ? "sector" : "sequential",
+                      numberingScope: form.numberingScope === "global" ? "global" : "sector",
+                      priorityPolicy:
+                        form.priorityPolicy === "alternate" ? "alternate" : "priority",
+                      priorityPrefix: form.priorityPrefix.trim() || null,
                       displaySeconds: form.displaySeconds,
                       themeBgColor: form.themeBgColor,
                       themeBgMediaId: form.themeBgMediaId,
@@ -355,6 +373,65 @@ export function QueueAddonManager() {
                         <SelectItem value="sector">Por setor</SelectItem>
                       </SelectContent>
                     </Select>
+                  </div>
+                  {form.mode === "sector" ? (
+                    <div className="space-y-1.5">
+                      <Label>Numeração das senhas</Label>
+                      <Select
+                        value={form.numberingScope}
+                        onValueChange={(value) =>
+                          setForm((prev) => ({ ...prev, numberingScope: value }))
+                        }
+                      >
+                        <SelectTrigger>
+                          <SelectValue />
+                        </SelectTrigger>
+                        <SelectContent>
+                          <SelectItem value="sector">Sequência por setor</SelectItem>
+                          <SelectItem value="global">Sequência global (única)</SelectItem>
+                        </SelectContent>
+                      </Select>
+                      <p className="text-xs text-muted-foreground">
+                        Global: se um setor chama a 001, o próximo setor chama a 002. O nome do
+                        setor aparece junto do número na TV.
+                      </p>
+                    </div>
+                  ) : null}
+                  <div className="space-y-1.5">
+                    <Label>Atendimento preferencial</Label>
+                    <Select
+                      value={form.priorityPolicy}
+                      onValueChange={(value) =>
+                        setForm((prev) => ({ ...prev, priorityPolicy: value }))
+                      }
+                    >
+                      <SelectTrigger>
+                        <SelectValue />
+                      </SelectTrigger>
+                      <SelectContent>
+                        <SelectItem value="priority">Prioritário (fura a fila)</SelectItem>
+                        <SelectItem value="alternate">
+                          Intercalado (1 preferencial, 1 normal)
+                        </SelectItem>
+                      </SelectContent>
+                    </Select>
+                  </div>
+                  <div className="space-y-1.5">
+                    <Label htmlFor={`pprefix-${panel.deviceId}`}>
+                      Prefixo das preferenciais (opcional)
+                    </Label>
+                    <Input
+                      id={`pprefix-${panel.deviceId}`}
+                      value={form.priorityPrefix}
+                      maxLength={3}
+                      placeholder="P"
+                      onChange={(event) =>
+                        setForm((prev) => ({
+                          ...prev,
+                          priorityPrefix: event.target.value.toUpperCase(),
+                        }))
+                      }
+                    />
                   </div>
                   <div className="space-y-1.5">
                     <Label htmlFor={`secs-${panel.deviceId}`}>Tempo na tela (segundos)</Label>
