@@ -11,6 +11,14 @@ export type QueueCallPayload = {
   calledAt: string;
   /** Últimas senhas chamadas antes desta (mais recente primeiro). */
   history?: { label: string; sectorName: string | null }[] | null;
+  /** Aparência configurada pelo cliente (cores e fundo). */
+  theme?: {
+    bgColor?: string | null;
+    bgImageUrl?: string | null;
+    ticketColor?: string | null;
+    textColor?: string | null;
+    historyColor?: string | null;
+  } | null;
 };
 
 /**
