@@ -352,32 +352,37 @@ function PlayerScreen() {
   const downloadUrls = allItems
     .filter((item) => (item.kind === "image" || item.kind === "video") && item.url)
     .map((item) => item.url as string);
-  const downloadKey = downloadUrls.join("|");
+  // Depend on the stable storage paths, never on the signed links: those change
+  // on every sync and would restart the downloads (and the video) each minute.
+  const downloadKey = downloadUrls.map((url) => mediaCache.keyFor(url)).join("|");
+  const downloadUrlsRef = useRef<string[]>(downloadUrls);
+  downloadUrlsRef.current = downloadUrls;
 
   // Downloads missing files in the background and removes from the local cache
   // anything that is no longer in the playlist (e.g. deleted in the Studio).
   useEffect(() => {
     let cancelled = false;
-    const urls = downloadKey ? downloadKey.split("|") : [];
+    const urls = downloadUrlsRef.current.slice();
 
     const run = async () => {
       const removed = await mediaCache.prune(urls);
       if (removed.length && !cancelled) {
         setReadyUrls((previous) => {
           const next = new Set(previous);
-          for (const url of removed) next.delete(url);
+          for (const key of removed) next.delete(key);
           return next;
         });
       }
       for (const url of urls) {
         if (cancelled) return;
+        const key = mediaCache.keyFor(url);
         const ok = (await mediaCache.isCached(url)) || (await mediaCache.download(url));
         if (cancelled) return;
         if (ok) {
           setReadyUrls((previous) => {
-            if (previous.has(url)) return previous;
+            if (previous.has(key)) return previous;
             const next = new Set(previous);
-            next.add(url);
+            next.add(key);
             return next;
           });
         } else {
@@ -387,9 +392,9 @@ function PlayerScreen() {
           const retry = await mediaCache.download(url);
           if (cancelled) return;
           setReadyUrls((previous) => {
-            if (previous.has(url)) return previous;
+            if (previous.has(key)) return previous;
             const next = new Set(previous);
-            next.add(url);
+            next.add(key);
             return next;
           });
           if (!retry) console.warn("[player] sem cache local, tocando direto:", url);
@@ -406,9 +411,12 @@ function PlayerScreen() {
   // Widgets and web pages need no download; files wait for the cache.
   const items = allItems.filter((item) => {
     if (item.kind === "widget" || item.kind === "web") return true;
-    return Boolean(item.url) && readyUrls.has(item.url as string);
+    return Boolean(item.url) && readyUrls.has(mediaCache.keyFor(item.url as string));
   });
   const current = items[index % Math.max(items.length, 1)];
+  // Identity that survives a re-sign of the media link, used for React keys and
+  // effect dependencies so the file on screen is never remounted mid-playback.
+  const currentKey = current?.url ? mediaCache.keyFor(current.url) : null;
 
   // Playback always reads from the local copy when there is one.
   useEffect(() => {
@@ -430,7 +438,8 @@ function PlayerScreen() {
       cancelled = true;
       if (revoked) URL.revokeObjectURL(revoked);
     };
-  }, [current?.url, current?.kind, index]);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [currentKey, current?.kind, index]);
 
   // Playback reporting: one row per item that actually went on screen, which
   // feeds the customer's exhibition reports and the live "no ar agora" view.
@@ -448,7 +457,8 @@ function PlayerScreen() {
       signal: controller.signal,
     }).catch(() => undefined);
     return () => controller.abort();
-  }, [token, current, index, sync?.playlist?.id]);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [token, current?.id, index, sync?.playlist?.id]);
 
   // Every new item starts fully visible again.
   useEffect(() => {
@@ -472,7 +482,9 @@ function PlayerScreen() {
       if (timerRef.current) window.clearTimeout(timerRef.current);
       if (leaveRef.current) window.clearTimeout(leaveRef.current);
     };
-  }, [current, items.length, advance, fade]);
+    // Stable identity only: a re-signed link must not restart the exhibition.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [current?.id, current?.kind, current?.durationMs, index, items.length, advance, fade]);
 
   // Watchdog: qualquer sinal de vida (item trocou, chamada exibida, servidor
   // respondeu) renova o relogio. Se nada acontecer por 2 minutos, a tela se
