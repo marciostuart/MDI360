@@ -3,7 +3,7 @@ const { app, BrowserWindow, ipcMain, globalShortcut, dialog } = require("electro
 const fs = require("node:fs");
 const path = require("node:path");
 
-const { buildTicket } = require("./escpos.cjs");
+const { buildTicket, splitLines } = require("./escpos.cjs");
 const { rawPrint } = require("./raw-print.cjs");
 
 const DEFAULTS = {
@@ -21,6 +21,7 @@ const DEFAULTS = {
   headerText: "",
   footerText: "Obrigado pela preferencia",
   autoPrint: true,
+  showWaitingAhead: false,
 };
 
 // Modo portatil: se existir portable.txt ao lado do executavel, a configuracao fica na propria pasta (pendrive).
@@ -124,6 +125,55 @@ function openKioskWindow() {
     },
   });
   kioskWindow.loadURL(url);
+  // Gatilho de impressao independente da versao do site: observa as respostas de
+  // emissao de senha na propria pagina e chama a ponte de impressao.
+  kioskWindow.webContents.on("did-finish-load", () => {
+    kioskWindow?.webContents
+      .executeJavaScript(
+        `(() => {
+          if (window.__mdiPrintHook) return;
+          window.__mdiPrintHook = true;
+          const seen = new Set();
+          const maybePrint = (data) => {
+            try {
+              const t = data && (data.result ?? data.json ?? data);
+              if (!t || typeof t !== "object") return;
+              const label = t.label;
+              if (typeof label !== "string" || !label) return;
+              const key = label + "|" + (t.ticketId ?? t.id ?? "") + "|" + Date.now().toString().slice(0, 10);
+              if (seen.has(key)) return;
+              seen.add(key);
+              window.mdiEmitter?.printTicket?.({
+                label,
+                kind: t.kind ?? "normal",
+                sectorName: t.sectorName ?? null,
+                issuedAt: new Date().toLocaleString("pt-BR"),
+                waitingAhead: typeof t.waitingAhead === "number" ? t.waitingAhead : null,
+              });
+            } catch (_) {}
+          };
+          const scan = (text) => {
+            if (!text || text.indexOf('"label"') === -1) return;
+            try { maybePrint(JSON.parse(text)); } catch (_) {}
+          };
+          const originalFetch = window.fetch;
+          window.fetch = async function (...args) {
+            const response = await originalFetch.apply(this, args);
+            try {
+              const url = String(response.url || "");
+              if (/issue|ticket|senha|emit/i.test(url)) response.clone().text().then(scan).catch(() => {});
+            } catch (_) {}
+            return response;
+          };
+          const open = XMLHttpRequest.prototype.open;
+          XMLHttpRequest.prototype.open = function (...args) {
+            this.addEventListener("load", () => { try { scan(this.responseText); } catch (_) {} });
+            return open.apply(this, args);
+          };
+        })();`,
+      )
+      .catch(() => {});
+  });
   // Atalhos locais: funcionam mesmo quando o atalho global e' bloqueado pelo Windows.
   kioskWindow.webContents.on("before-input-event", (_event, input) => {
     if (input.type !== "keyDown") return;
@@ -159,15 +209,23 @@ async function printTicket(payload) {
   if (cfg.printMode === "driver") {
     // Alternativa: usa o driver do Windows (util quando a impressora nao aceita ESC/POS cru).
     const win = new BrowserWindow({ show: false, webPreferences: { contextIsolation: true } });
-    const html = `<html><body style="margin:0;padding:${cfg.topFeedLines * 4}px 0 ${
-      cfg.bottomFeedLines * 4
-    }px;text-align:center;font-family:Arial"><div style="font-size:14px">${
+    const html = `<html><head><meta charset="utf-8" /></head><body style="margin:0;padding:${
+      Math.max(cfg.topFeedLines, 0) * 4
+    }px 0 ${Math.max(cfg.bottomFeedLines, 0) * 4}px;text-align:center;font-family:Arial"><div style="font-size:14px">${
       payload.sectorName ?? ""
     }</div><div style="font-size:12px">${
       payload.kind === "priority" ? "PREFERENCIAL" : "ATENDIMENTO NORMAL"
     }</div><div style="font-size:${cfg.labelSize * 14}px;font-weight:900">${
       payload.label
-    }</div><div style="font-size:12px">${payload.issuedAt ?? ""}</div></body></html>`;
+    }</div><div style="font-size:12px">${payload.issuedAt ?? ""}</div>${
+      cfg.showWaitingAhead && typeof payload.waitingAhead === "number"
+        ? `<div style="font-size:12px">${
+            payload.waitingAhead === 0 ? "Você é o próximo" : `${payload.waitingAhead} pessoa(s) na frente`
+          }</div>`
+        : ""
+    }${splitLines(cfg.footerText)
+      .map((l) => `<div style="font-size:12px">${l}</div>`)
+      .join("")}</body></html>`;
     await win.loadURL(`data:text/html;charset=utf-8,${encodeURIComponent(html)}`);
     await new Promise((resolve, reject) => {
       win.webContents.print(
