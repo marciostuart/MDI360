@@ -1,13 +1,27 @@
 import { useState } from "react";
 import { createFileRoute, Link, useNavigate } from "@tanstack/react-router";
 import { useMutation, useQuery } from "@tanstack/react-query";
-import { ArrowRight, Loader2, LogIn, Search } from "lucide-react";
+import {
+  ArrowRight,
+  Building2,
+  Loader2,
+  LogIn,
+  Search,
+  Settings2,
+} from "lucide-react";
 import { toast } from "sonner";
 
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
 import { Badge } from "@/components/ui/badge";
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "@/components/ui/select";
 import {
   fetchPlatformOrganizations,
   impersonateOrganization,
@@ -35,8 +49,13 @@ const STATUS_TONE: Record<string, string> = {
   canceled: "bg-muted text-muted-foreground border-border",
 };
 
+type SortBy = "newest" | "oldest" | "name";
+type StatusFilter = "all" | "active" | "trial" | "past_due" | "suspended" | "canceled";
+
 function ClientsPage() {
   const [term, setTerm] = useState("");
+  const [statusFilter, setStatusFilter] = useState<StatusFilter>("all");
+  const [sortBy, setSortBy] = useState<SortBy>("newest");
   const navigate = useNavigate();
   const { data, isPending } = useQuery({
     queryKey: ["platform-organizations"],
@@ -76,122 +95,174 @@ function ClientsPage() {
     );
   }
 
-  const filtered = data.filter((org) =>
-    `${org.name} ${org.slug} ${org.ownerEmail ?? ""}`.toLowerCase().includes(term.toLowerCase()),
-  );
+  const searchTerm = term.trim().toLowerCase();
+  const filtered = data
+    .filter((org) => {
+      const matchesTerm =
+        !searchTerm ||
+        org.name.toLowerCase().includes(searchTerm) ||
+        org.slug.toLowerCase().includes(searchTerm) ||
+        (org.ownerEmail ?? "").toLowerCase().includes(searchTerm);
+      const matchesStatus = statusFilter === "all" || org.subscriptionStatus === statusFilter;
+      return matchesTerm && matchesStatus;
+    })
+    .sort((a, b) => {
+      if (sortBy === "name") return a.name.localeCompare(b.name, "pt-BR");
+      const diff = new Date(a.updatedAt ?? a.createdAt).getTime() - new Date(b.updatedAt ?? b.createdAt).getTime();
+      return sortBy === "oldest" ? diff : -diff;
+    });
 
   return (
     <div className="space-y-6">
-      <div className="flex flex-wrap items-end justify-between gap-4">
+      <div className="flex flex-wrap items-start justify-between gap-4">
         <div>
-          <h1 className="font-display text-3xl font-semibold">Estabelecimentos</h1>
-          <p className="text-sm text-muted-foreground">
-            {data.length} contas cadastradas na plataforma.
+          <h1 className="text-3xl font-semibold">Estabelecimentos</h1>
+          <p className="mt-2 max-w-2xl text-sm text-muted-foreground">
+            {data.length} contas cadastradas na plataforma. Clique no nome de um estabelecimento
+            para ver detalhes, ou use "Entrar" para acessar o painel do cliente.
           </p>
         </div>
-        <div className="relative w-full max-w-xs">
-          <Search className="absolute left-3 top-1/2 size-4 -translate-y-1/2 text-muted-foreground" />
+        <Button asChild className="gap-2">
+          <Link to="/torre/clientes/novo">
+            <Settings2 className="size-4" />
+            Novo estabelecimento
+          </Link>
+        </Button>
+      </div>
+
+      <div className="flex flex-wrap items-center gap-2">
+        <div className="relative min-w-[220px] flex-1">
+          <Search className="pointer-events-none absolute left-3 top-1/2 size-4 -translate-y-1/2 text-muted-foreground" />
           <Input
             value={term}
             onChange={(event) => setTerm(event.target.value)}
-            placeholder="Buscar por nome ou e-mail"
+            placeholder="Buscar por nome, slug ou e-mail"
             className="pl-9"
+            aria-label="Buscar estabelecimentos"
           />
         </div>
-      </div>
-
-      <div className="grid gap-4 md:grid-cols-2 xl:grid-cols-3">
-        {filtered.map((org) => {
-          const storageLimit = org.maxStorageMb * 1024 * 1024;
-          const storagePct = storageLimit ? Math.min(100, (org.storageBytes / storageLimit) * 100) : 0;
-          const devicePct = org.maxDevices
-            ? Math.min(100, (org.linkedDevices / org.maxDevices) * 100)
-            : 0;
-          return (
-            <Card key={org.id} className="flex flex-col transition-shadow hover:shadow-lg">
-              <CardHeader className="pb-3">
-                <div className="flex items-start justify-between gap-2">
-                  <div>
-                    <CardTitle className="text-lg">{org.name}</CardTitle>
-                    <CardDescription>{org.ownerEmail ?? "sem usuário"}</CardDescription>
-                  </div>
-                  <Badge variant="outline" className={STATUS_TONE[org.subscriptionStatus] ?? ""}>
-                    {STATUS_LABEL[org.subscriptionStatus] ?? org.subscriptionStatus}
-                  </Badge>
-                </div>
-              </CardHeader>
-              <CardContent className="flex flex-1 flex-col gap-4 text-sm">
-                <div className="flex items-center justify-between text-xs text-muted-foreground">
-                  <span>{org.planName ?? "Sem plano"}</span>
-                  <span>Vence {formatDate(org.subscriptionExpiresAt)}</span>
-                </div>
-
-                <div className="space-y-2">
-                  <Meter
-                    label="Telas vinculadas"
-                    value={`${org.linkedDevices}/${org.maxDevices}`}
-                    pct={devicePct}
-                    hint={`${org.onlineDevices} online`}
-                  />
-                  <Meter
-                    label="Armazenamento"
-                    value={`${formatBytes(org.storageBytes)} / ${org.maxStorageMb} MB`}
-                    pct={storagePct}
-                    hint={`${org.mediaCount} arquivos`}
-                  />
-                </div>
-
-                <div className="mt-auto flex gap-2 pt-2">
-                  <Button asChild size="sm" variant="outline" className="flex-1">
-                    <Link
-                      to="/torre/clientes/$organizationId"
-                      params={{ organizationId: org.id }}
-                    >
-                      Detalhes <ArrowRight className="ml-1 size-3.5" />
-                    </Link>
-                  </Button>
-                  <Button
-                    size="sm"
-                    className="flex-1"
-                    disabled={impersonate.isPending}
-                    onClick={() => impersonate.mutate(org.id)}
-                  >
-                    <LogIn className="mr-1 size-3.5" /> Entrar
-                  </Button>
-                </div>
-              </CardContent>
-            </Card>
-          );
-        })}
+        <Select value={statusFilter} onValueChange={(value) => setStatusFilter(value as StatusFilter)}>
+          <SelectTrigger className="w-[180px]" aria-label="Filtrar por status">
+            <SelectValue />
+          </SelectTrigger>
+          <SelectContent>
+            <SelectItem value="all">Todos os status</SelectItem>
+            <SelectItem value="active">Ativo</SelectItem>
+            <SelectItem value="trial">Teste</SelectItem>
+            <SelectItem value="past_due">Em atraso</SelectItem>
+            <SelectItem value="suspended">Suspenso</SelectItem>
+            <SelectItem value="canceled">Cancelado</SelectItem>
+          </SelectContent>
+        </Select>
+        <Select value={sortBy} onValueChange={(value) => setSortBy(value as SortBy)}>
+          <SelectTrigger className="w-[210px]" aria-label="Ordenar">
+            <SelectValue />
+          </SelectTrigger>
+          <SelectContent>
+            <SelectItem value="newest">Alteração mais recente</SelectItem>
+            <SelectItem value="oldest">Alteração mais antiga</SelectItem>
+            <SelectItem value="name">Nome (A-Z)</SelectItem>
+          </SelectContent>
+        </Select>
       </div>
 
       {filtered.length === 0 ? (
         <p className="py-10 text-center text-sm text-muted-foreground">
-          Nenhum estabelecimento encontrado.
+          Nenhum estabelecimento encontrado com esses filtros.
         </p>
-      ) : null}
+      ) : (
+        <div className="divide-y divide-border overflow-hidden rounded-xl border border-border">
+          {filtered.map((org) => {
+            const storageLimit = org.maxStorageMb * 1024 * 1024;
+            const storagePct = storageLimit ? Math.min(100, (org.storageBytes / storageLimit) * 100) : 0;
+            const devicePct = org.maxDevices
+              ? Math.min(100, (org.linkedDevices / org.maxDevices) * 100)
+              : 0;
+            return (
+              <div key={org.id} className="flex flex-wrap items-start gap-4 p-4">
+                <div className="min-w-[220px] flex-1 space-y-2">
+                  <div className="flex items-center gap-2">
+                    <Building2 className="size-4 shrink-0 text-muted-foreground" />
+                    <Link
+                      to="/torre/clientes/$organizationId"
+                      params={{ organizationId: org.id }}
+                      className="truncate text-left text-sm font-medium underline-offset-4 transition-colors hover:text-primary hover:underline"
+                      title={`Abrir detalhes de ${org.name}`}
+                    >
+                      {org.name}
+                    </Link>
+                  </div>
+                  <div className="flex flex-wrap gap-1.5">
+                    <Badge variant="outline" className={STATUS_TONE[org.subscriptionStatus] ?? ""}>
+                      {STATUS_LABEL[org.subscriptionStatus] ?? org.subscriptionStatus}
+                    </Badge>
+                    <Badge variant="secondary">{org.planName ?? "Sem plano"}</Badge>
+                    <Badge variant="outline">Vence {formatDate(org.subscriptionExpiresAt)}</Badge>
+                    <Badge variant="outline">
+                      {org.linkedDevices}/{org.maxDevices} telas
+                    </Badge>
+                    <Badge variant="outline">
+                      {formatBytes(org.storageBytes)} / {org.maxStorageMb} MB
+                    </Badge>
+                    {org.onlineDevices > 0 ? (
+                      <Badge variant="outline" className="text-emerald-600">
+                        {org.onlineDevices} online
+                      </Badge>
+                    ) : null}
+                  </div>
+                  <MeterBars devicePct={devicePct} storagePct={storagePct} />
+                </div>
+
+                <div className="flex items-center gap-2">
+                  <Button asChild size="sm" variant="outline" className="gap-2">
+                    <Link
+                      to="/torre/clientes/$organizationId"
+                      params={{ organizationId: org.id }}
+                    >
+                      <Settings2 className="size-4" />
+                      Detalhes
+                    </Link>
+                  </Button>
+                  <Button
+                    size="sm"
+                    className="gap-2"
+                    disabled={impersonate.isPending}
+                    onClick={() => impersonate.mutate(org.id)}
+                  >
+                    <LogIn className="size-4" />
+                    Entrar
+                  </Button>
+                </div>
+              </div>
+            );
+          })}
+        </div>
+      )}
     </div>
   );
 }
 
-function Meter({
-  label,
-  value,
-  pct,
-  hint,
-}: {
-  label: string;
-  value: string;
-  pct: number;
-  hint: string;
-}) {
+function MeterBars({ devicePct, storagePct }: { devicePct: number; storagePct: number }) {
+  return (
+    <div className="grid gap-2 sm:grid-cols-2">
+      <Meter label="Telas vinculadas" pct={devicePct} />
+      <Meter label="Armazenamento" pct={storagePct} />
+    </div>
+  );
+}
+
+function Meter({ label, pct }: { label: string; pct: number }) {
   const tone =
-    pct >= 100 ? "from-rose-500 to-rose-600" : pct >= 80 ? "from-amber-500 to-orange-500" : "from-sky-500 to-violet-500";
+    pct >= 100
+      ? "from-rose-500 to-rose-600"
+      : pct >= 80
+        ? "from-amber-500 to-orange-500"
+        : "from-sky-500 to-violet-500";
   return (
     <div>
       <div className="flex items-center justify-between text-xs">
         <span className="text-muted-foreground">{label}</span>
-        <span className="tabular-nums">{value}</span>
+        <span className="tabular-nums">{pct.toFixed(0)}%</span>
       </div>
       <div className="mt-1 h-1.5 overflow-hidden rounded-full bg-muted">
         <div
@@ -199,7 +270,6 @@ function Meter({
           style={{ width: `${pct}%` }}
         />
       </div>
-      <p className="mt-1 text-[11px] text-muted-foreground">{hint}</p>
     </div>
   );
 }
