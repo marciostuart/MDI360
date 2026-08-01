@@ -25,6 +25,8 @@ type SectorDraft = {
   sectorId: string;
   name: string;
   prefix: string;
+  /** Vazio = sem limite diário. */
+  dailyLimit: string;
   operatorIds: string[];
 };
 
@@ -32,6 +34,8 @@ type OperatorDraft = {
   operatorId?: string;
   name: string;
   username: string;
+  /** Guichê/mesa deste operador ("Guichê 01"). */
+  deskLabel: string;
   password: string;
   isEnabled: boolean;
   sectorIds: string[];
@@ -40,6 +44,7 @@ type OperatorDraft = {
 const emptyOperator: OperatorDraft = {
   name: "",
   username: "",
+  deskLabel: "",
   password: "",
   isEnabled: true,
   sectorIds: [],
@@ -68,7 +73,9 @@ export function QueuePanelConfig({
   const rotateToken = useServerFn(rotateQueueKioskToken);
   const setIssuing = useServerFn(setQueueIssuing);
 
-  const [open, setOpen] = useState(false);
+  // A gestão de filas e operadores fica sempre visível: é o painel de trabalho
+  // do cliente, não um detalhe escondido.
+  const [open, setOpen] = useState(true);
   const [sectorDraft, setSectorDraft] = useState({ name: "", prefix: "" });
   const [sectorEdit, setSectorEdit] = useState<SectorDraft | null>(null);
   const [operatorDraft, setOperatorDraft] = useState<OperatorDraft | null>(null);
@@ -111,6 +118,7 @@ export function QueuePanelConfig({
           sectorId: draft.sectorId,
           name: draft.name,
           prefix: draft.prefix || null,
+          dailyLimit: draft.dailyLimit.trim() === "" ? null : Number(draft.dailyLimit),
           operatorIds: draft.operatorIds,
         },
       }),
@@ -130,6 +138,7 @@ export function QueuePanelConfig({
           operatorId: draft.operatorId,
           name: draft.name,
           username: draft.username.trim().toLowerCase(),
+          deskLabel: draft.deskLabel.trim() || null,
           password: draft.password || undefined,
           isEnabled: draft.isEnabled,
           sectorIds: draft.sectorIds,
@@ -150,7 +159,8 @@ export function QueuePanelConfig({
   });
 
   const resetMutation = useMutation({
-    mutationFn: () => resetCounters({ data: { panelId } }),
+    mutationFn: (sectorId?: string | null) =>
+      resetCounters({ data: { panelId, sectorId: sectorId ?? null } }),
     onSuccess: async () => {
       toast.success("Contadores zerados e fila limpa.");
       await invalidate();
@@ -193,6 +203,7 @@ export function QueuePanelConfig({
       operatorId: operator.id,
       name: operator.name,
       username: operator.username,
+      deskLabel: operator.deskLabel ?? "",
       password: "",
       isEnabled: operator.isEnabled,
       sectorIds: operator.sectorIds,
