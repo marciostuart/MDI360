@@ -1,7 +1,7 @@
 import { useEffect, useMemo, useState } from "react";
 
-import type { WidgetConfig, WidgetTheme } from "@/lib/widgets/catalog";
-import { getWeatherCity, resolveWidgetTheme } from "@/lib/widgets/catalog";
+import type { WidgetBlock, WidgetConfig, WidgetLayout, WidgetTheme } from "@/lib/widgets/catalog";
+import { getWeatherCity, resolveWidgetLayout, resolveWidgetTheme } from "@/lib/widgets/catalog";
 
 /**
  * Renders an information widget full screen. All data comes from the public
@@ -84,24 +84,20 @@ function Shell({
   accent,
   theme,
   scene,
-  align = "center",
 }: {
   children: React.ReactNode;
   credit?: string | null;
   accent: string;
   theme: WidgetTheme;
   scene?: React.ReactNode;
-  align?: "center" | "left";
 }) {
   return (
     <div
-      className="relative grid size-full min-h-full place-items-center overflow-hidden px-[6%] py-[6%]"
+      className="relative size-full min-h-full overflow-hidden"
       style={{ containerType: "size", color: theme.textColor }}
     >
       <Backdrop theme={theme} scene={scene} />
-      <div className={`relative w-full ${align === "center" ? "text-center" : "text-left"}`}>
-        {children}
-      </div>
+      <div className="absolute inset-0">{children}</div>
       <div className="absolute inset-x-0 bottom-0 h-[0.7cqh]" style={{ backgroundColor: accent }} />
       {credit ? (
         <p
@@ -111,6 +107,40 @@ function Shell({
           {credit}
         </p>
       ) : null}
+    </div>
+  );
+}
+
+/**
+ * One freely positioned piece of a widget. Position and width are % of the
+ * screen and the font size is in cqh, so the same numbers chosen in the Studio
+ * look identical on a 1080p TV, on a vertical totem and in the small preview.
+ */
+function Block({
+  block,
+  children,
+  className,
+  style,
+}: {
+  block: WidgetBlock | undefined;
+  children: React.ReactNode;
+  className?: string;
+  style?: React.CSSProperties;
+}) {
+  if (!block || block.hidden) return null;
+  return (
+    <div
+      className={`absolute ${className ?? ""}`}
+      style={{
+        left: `${block.x}%`,
+        top: `${block.y}%`,
+        width: `${block.w}%`,
+        fontSize: `${block.size}cqh`,
+        textAlign: block.align,
+        ...style,
+      }}
+    >
+      {children}
     </div>
   );
 }
