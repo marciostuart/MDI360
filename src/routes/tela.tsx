@@ -482,7 +482,9 @@ function PlayerScreen() {
       if (timerRef.current) window.clearTimeout(timerRef.current);
       if (leaveRef.current) window.clearTimeout(leaveRef.current);
     };
-  }, [current, items.length, advance, fade]);
+    // Stable identity only: a re-signed link must not restart the exhibition.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [current?.id, current?.kind, current?.durationMs, index, items.length, advance, fade]);
 
   // Watchdog: qualquer sinal de vida (item trocou, chamada exibida, servidor
   // respondeu) renova o relogio. Se nada acontecer por 2 minutos, a tela se

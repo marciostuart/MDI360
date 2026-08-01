@@ -163,7 +163,6 @@ async function announce(call: QueueCallPayload): Promise<void> {
  */
 export function QueueCallOverlay({
   call,
-  accentColor,
   onDone,
 }: {
   call: QueueCallPayload;
@@ -198,7 +197,9 @@ export function QueueCallOverlay({
     };
   }, [call]);
 
-  const accent = accentColor ?? "#38bdf8";
+  // Exactly the Roku channel: fixed accent (0x38BDF8) for the title, the sector
+  // and the history, so a dark brand colour can never hide the sector name.
+  const accent = "#38bdf8";
   const history = (call.history ?? []).slice(0, 3);
 
   return (
@@ -229,20 +230,11 @@ export function QueueCallOverlay({
             <p className="text-[1.35vw] font-semibold uppercase tracking-[0.35em] text-white/40">
               Últimas chamadas
             </p>
-            <div className="mt-[1.5vh] flex items-start justify-center gap-[4vw]">
-              {history.map((item, index) => (
-                <div key={`${item.label}-${index}`} className="text-center">
-                  <p className="text-[3.3vw] font-black leading-none tracking-wide text-white/75">
-                    {item.label}
-                  </p>
-                  {item.sectorName ? (
-                    <p className="mt-[0.8vh] text-[1.4vw] font-semibold uppercase tracking-[0.2em] text-white/45">
-                      {item.sectorName}
-                    </p>
-                  ) : null}
-                </div>
-              ))}
-            </div>
+            <p className="mt-[1.5vh] text-[3.3vw] font-black leading-none tracking-wide text-white/75">
+              {history
+                .map((item) => (item.sectorName ? `${item.label} - ${item.sectorName}` : item.label))
+                .join("     ")}
+            </p>
           </div>
         ) : null}
       </div>
