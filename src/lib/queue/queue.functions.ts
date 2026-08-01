@@ -215,6 +215,31 @@ export const saveQueuePanel = createServerFn({ method: "POST" })
       .limit(1);
     if (!owned[0]) throw new Error("Tela não encontrada.");
 
+    // Imagem de fundo precisa ser uma imagem pronta da própria organização.
+    let bgMediaId: string | null = data.themeBgMediaId ?? null;
+    if (bgMediaId) {
+      const asset = await db
+        .select({ id: schema.mediaAssets.id })
+        .from(schema.mediaAssets)
+        .where(
+          and(
+            eq(schema.mediaAssets.id, bgMediaId),
+            eq(schema.mediaAssets.organizationId, user.organizationId),
+            eq(schema.mediaAssets.kind, "image"),
+          ),
+        )
+        .limit(1);
+      if (!asset[0]) throw new Error("Imagem de fundo não encontrada na sua biblioteca.");
+    }
+
+    const themeValues = {
+      themeBgColor: data.themeBgColor,
+      themeBgMediaId: bgMediaId,
+      themeTicketColor: data.themeTicketColor,
+      themeTextColor: data.themeTextColor,
+      themeHistoryColor: data.themeHistoryColor,
+    };
+
     const { toQueueError } = await import("@/lib/queue/queue-errors.server");
     try {
       const existing = await db
@@ -245,6 +270,7 @@ export const saveQueuePanel = createServerFn({ method: "POST" })
             mode: data.mode,
             displaySeconds: data.displaySeconds,
             isEnabled: true,
+            ...themeValues,
             ...(data.password ? { passwordHash: await hashQueuePassword(data.password) } : {}),
           })
           .where(eq(schema.queuePanels.id, existing[0].id));
@@ -257,6 +283,7 @@ export const saveQueuePanel = createServerFn({ method: "POST" })
           passwordHash: await hashQueuePassword(data.password),
           mode: data.mode,
           displaySeconds: data.displaySeconds,
+          ...themeValues,
         });
       }
     } catch (error) {
