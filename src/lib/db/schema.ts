@@ -392,6 +392,19 @@ export const queuePanels = pgTable(
     isEnabled: boolean("is_enabled").notNull().default(true),
     /** "sequential" = só o número · "sector" = setor + número. */
     mode: text("mode").notNull().default("sequential"),
+    /**
+     * Numeração quando setorizado: "sector" = cada setor tem sua própria
+     * sequência · "global" = uma única sequência para todos os setores.
+     */
+    numberingScope: text("numbering_scope").notNull().default("sector"),
+    /** "priority" = preferenciais primeiro · "alternate" = 1 preferencial / 1 normal. */
+    priorityPolicy: text("priority_policy").notNull().default("priority"),
+    /** Última natureza chamada, usada pela política intercalada. */
+    lastCalledKind: text("last_called_kind").notNull().default("normal"),
+    /** Prefixo opcional das senhas preferenciais ("P" -> P001). */
+    priorityPrefix: text("priority_prefix"),
+    /** Token da tela de emissão (totem), sem login. */
+    kioskToken: text("kiosk_token"),
     /** Prefix used in sequential mode ("A" -> A001). Optional. */
     prefix: text("prefix"),
     lastNumber: integer("last_number").notNull().default(0),
