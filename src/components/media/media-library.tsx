@@ -5,10 +5,8 @@ import {
   CalendarClock,
   Eye,
   Film,
-  Gauge,
   Image as ImageIcon,
   Loader2,
-  Pencil,
   Plus,
   Search,
   Sparkles,
@@ -35,7 +33,6 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select";
-import { WidgetComposer, type WidgetDraft } from "@/components/widgets/widget-composer";
 import { WidgetView } from "@/components/widgets/widget-view";
 import {
   createMediaUploadTicket,
@@ -418,11 +415,8 @@ export function MediaLibrary() {
   const [busy, setBusy] = useState(false);
   const [uploads, setUploads] = useState<UploadProgressItem[]>([]);
   const inputRef = useRef<HTMLInputElement>(null);
-  const composerRef = useRef<HTMLDivElement>(null);
   /** Timers da animação de otimização + auto-dismiss das barras concluídas. */
   const timersRef = useRef<ReturnType<typeof setInterval>[]>([]);
-  /** Widget picked from the grid for customization (null = creating a new one). */
-  const [editingWidget, setEditingWidget] = useState<WidgetDraft | null>(null);
   const [showUpload, setShowUpload] = useState(false);
   const [search, setSearch] = useState("");
   const [tagFilter, setTagFilter] = useState("all");
@@ -576,7 +570,8 @@ export function MediaLibrary() {
     await queryClient.invalidateQueries({ queryKey: ["media-assets"] });
   }
 
-  const items = library.data?.items ?? [];
+  // Widgets têm página exclusiva (/studio/widgets) e não aparecem nesta biblioteca.
+  const items = (library.data?.items ?? []).filter((item) => item.kind !== "widget");
   const storageMissing = library.data && !library.data.storageReady;
 
   const allTags = Array.from(new Set(items.flatMap((item) => item.tags))).sort();
@@ -725,10 +720,6 @@ export function MediaLibrary() {
         </Card>
       ) : null}
 
-      <div ref={composerRef}>
-        <WidgetComposer editing={editingWidget} onCancelEditing={() => setEditingWidget(null)} />
-      </div>
-
       <div className="flex flex-wrap items-center gap-2">
         <div className="relative min-w-[220px] flex-1">
           <Search className="pointer-events-none absolute left-3 top-1/2 size-4 -translate-y-1/2 text-muted-foreground" />
@@ -785,8 +776,6 @@ export function MediaLibrary() {
                 <div className="flex items-center gap-2">
                   {item.kind === "video" ? (
                     <Film className="size-4 shrink-0 text-muted-foreground" />
-                  ) : item.kind === "widget" ? (
-                    <Gauge className="size-4 shrink-0 text-muted-foreground" />
                   ) : (
                     <ImageIcon className="size-4 shrink-0 text-muted-foreground" />
                   )}
@@ -823,24 +812,6 @@ export function MediaLibrary() {
 
               <div className="flex items-center gap-2">
                 <MediaPreview item={item} />
-                {item.kind === "widget" && item.widgetConfig ? (
-                  <Button
-                    variant="ghost"
-                    size="icon"
-                    className="size-8 text-muted-foreground"
-                    onClick={() => {
-                      setEditingWidget({
-                        assetId: item.id,
-                        name: item.name,
-                        config: item.widgetConfig!,
-                      });
-                      composerRef.current?.scrollIntoView({ behavior: "smooth", block: "start" });
-                    }}
-                    aria-label={`Personalizar ${item.name}`}
-                  >
-                    <Pencil className="size-4" />
-                  </Button>
-                ) : null}
                 <Button
                   variant="ghost"
                   size="icon"
