@@ -1,7 +1,7 @@
 import { useMutation, useQuery } from "@tanstack/react-query";
 import { createFileRoute } from "@tanstack/react-router";
-import { useServerFn } from "@tanstack/react-start";
-import { Loader2, Ticket } from "lucide-react";
+import { useServerFn } from "@tanstack/react-server";
+import { Loader2, Ticket, ChevronLeft } from "lucide-react";
 import { useEffect, useState } from "react";
 
 import { Button } from "@/components/ui/button";
@@ -38,10 +38,9 @@ function KioskPage() {
   const { data, isPending } = useQuery({
     queryKey: ["queue-kiosk", token],
     queryFn: () => loadPanel({ data: { token } }),
-    refetchInterval: 5_000,
   });
 
-  const [pendingKind, setPendingKind] = useState<"normal" | "priority" | null>(null);
+  const [selectedKind, setSelectedKind] = useState<"normal" | "priority" | null>(null);
   const [issued, setIssued] = useState<{
     label: string;
     kind: string;
@@ -50,25 +49,23 @@ function KioskPage() {
   } | null>(null);
 
   const issueMutation = useMutation({
-    mutationFn: (input: { kind: "normal" | "priority"; sectorId: string | null }) =>
-      issue({ data: { token, sectorId: input.sectorId, kind: input.kind } }),
+    mutationFn: (args: { kind: "normal" | "priority"; sectorId: string | null }) =>
+      issue({ data: { token, sectorId: args.sectorId, kind: args.kind } }),
     onSuccess: (ticket) => {
-      setPendingKind(null);
       setIssued({
         label: ticket.label,
         kind: ticket.kind,
         sectorName: ticket.sectorName,
         waitingAhead: ticket.waitingAhead,
       });
+      setSelectedKind(null);
     },
   });
 
-  // A senha emitida fica na tela por alguns segundos e volta ao início.
   useEffect(() => {
     if (!issued) return;
     const timer = window.setTimeout(() => {
       setIssued(null);
-      setPendingKind(null);
     }, 12_000);
     return () => window.clearTimeout(timer);
   }, [issued]);
@@ -116,13 +113,13 @@ function KioskPage() {
     );
   }
 
-  const needsSectorChoice = data.sectors.length > 1;
-  const issueKind = (kind: "normal" | "priority") => {
-    if (needsSectorChoice) {
-      setPendingKind(kind);
-      return;
+  const handleKindSelect = (kind: "normal" | "priority") => {
+    if (data.sectors.length > 1) {
+      setSelectedKind(kind);
+    } else {
+      const sectorId = data.sectors.length === 1 ? data.sectors[0].id : null;
+      issueMutation.mutate({ kind, sectorId });
     }
-    issueMutation.mutate({ kind, sectorId: data.sectors[0]?.id ?? null });
   };
 
   return (
@@ -132,65 +129,66 @@ function KioskPage() {
         <p className="text-muted-foreground">{data.panelName}</p>
       </header>
 
-      {pendingKind && needsSectorChoice ? (
+      {!selectedKind ? (
         <Card>
           <CardContent className="space-y-3 py-5">
-            <p className="text-sm font-medium">
-              {pendingKind === "priority"
-                ? "Senha preferencial · escolha o atendimento"
-                : "Senha normal · escolha o atendimento"}
-            </p>
-            <div className="grid gap-2 sm:grid-cols-2">
-              {data.sectors.map((sector) => (
-                <Button
-                  key={sector.id}
-                  variant="outline"
-                  className="h-20 whitespace-normal text-base font-semibold"
-                  disabled={issueMutation.isPending}
-                  onClick={() => issueMutation.mutate({ kind: pendingKind, sectorId: sector.id })}
-                >
-                  {sector.name}
-                </Button>
-              ))}
-            </div>
-            <Button variant="ghost" onClick={() => setPendingKind(null)}>
-              Voltar
-            </Button>
-          </CardContent>
-        </Card>
-      ) : (
-        <Card>
-          <CardContent className="space-y-3 py-5">
-            <p className="text-sm font-medium">Toque no tipo de senha</p>
+            <p className="text-sm font-medium text-center">Toque para iniciar</p>
             <div className="grid gap-3 sm:grid-cols-2">
               <Button
                 size="lg"
-                className="h-24 text-lg"
+                className="h-32 text-xl"
                 disabled={issueMutation.isPending}
-                onClick={() => issueKind("normal")}
+                onClick={() => handleKindSelect("normal")}
               >
-                <Ticket className="size-6" />
+                <Ticket className="size-8" />
                 Senha normal
               </Button>
               <Button
                 size="lg"
                 variant="secondary"
-                className="h-24 text-lg"
+                className="h-32 text-xl"
                 disabled={issueMutation.isPending}
-                onClick={() => issueKind("priority")}
+                onClick={() => handleKindSelect("priority")}
               >
-                <Ticket className="size-6" />
+                <Ticket className="size-8" />
                 Preferencial
               </Button>
             </div>
-            {issueMutation.isError ? (
-              <p className="text-sm text-destructive">
-                {(issueMutation.error as Error).message || "Não foi possível emitir a senha."}
+          </CardContent>
+        </Card>
+      ) : (
+        <Card>
+          <CardContent className="space-y-4 py-5">
+            <div className="flex items-center gap-2">
+              <Button variant="ghost" size="icon" onClick={() => setSelectedKind(null)}>
+                <ChevronLeft className="size-5" />
+              </Button>
+              <p className="text-sm font-medium">
+                Escolha o atendimento ({selectedKind === "priority" ? "Preferencial" : "Normal"})
               </p>
-            ) : null}
+            </div>
+            <div className="grid gap-2 sm:grid-cols-2">
+              {data.sectors.map((sector) => (
+                <Button
+                  key={sector.id}
+                  variant="outline"
+                  className="h-16 text-lg"
+                  disabled={issueMutation.isPending}
+                  onClick={() => issueMutation.mutate({ kind: selectedKind, sectorId: sector.id })}
+                >
+                  {sector.name}
+                </Button>
+              ))}
+            </div>
           </CardContent>
         </Card>
       )}
+
+      {issueMutation.isError ? (
+        <p className="text-center text-sm text-destructive font-medium">
+          {(issueMutation.error as Error).message || "Não foi possível emitir a senha."}
+        </p>
+      ) : null}
     </main>
   );
 }
