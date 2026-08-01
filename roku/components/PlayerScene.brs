@@ -69,6 +69,8 @@ sub init()
     m.queueHistory = m.top.findNode("queueHistory")
     m.queueHistoryTitle = m.top.findNode("queueHistoryTitle")
     m.queueTitle = m.top.findNode("queueTitle")
+    m.queueBg = m.top.findNode("queueBg")
+    m.queueBgImage = m.top.findNode("queueBgImage")
     m.chime = m.top.findNode("chime")
     ' O Roku reproduz apenas UM Audio node por vez: sinal sonoro e locucao
     ' compartilham o mesmo no, em sequencia (dois nos travavam o canal).
@@ -567,6 +569,7 @@ sub startNextCall()
     end if
     if m.queue <> invalid then m.queue.visible = true
     m.queueActive = true
+    applyQueueTheme(call)
 
     ' Stop whatever is on screen right now.
     if m.slideTimer <> invalid then m.slideTimer.control = "stop"
@@ -601,12 +604,21 @@ sub startNextCall()
         m.pendingAnnounceUrl = fallbackAnnounceUrl(m.pendingSpokenText)
     end if
 
-    ' Sinal sonoro: MP3 embarcado no canal (o som de sistema do Roku depende de
-    ' uma preferencia da TV e por isso nao era confiavel). A locucao entra
-    ' quando ele terminar (onAnnounceState) ou pelo timer de seguranca.
-    beep()
+    ' Sinal sonoro: tom personalizado do cliente quando houver, senao o MP3
+    ' embarcado no canal (o som de sistema do Roku depende de uma preferencia
+    ' da TV e por isso nao era confiavel). A locucao entra quando ele terminar
+    ' (onAnnounceState) ou pelo timer de seguranca.
+    chimeUrl = customChimeUrl(call, base)
+    beep(chimeUrl)
 
     if m.pendingAnnounceUrl <> "" and m.announceTimer <> invalid
+        ' Tom personalizado pode ser mais longo que o embarcado: a rede de
+        ' seguranca espera mais para nao cortar o audio do cliente.
+        if chimeUrl <> ""
+            m.announceTimer.duration = 8
+        else
+            m.announceTimer.duration = 2.6
+        end if
         m.announceTimer.control = "start"
     end if
 end sub
@@ -674,10 +686,82 @@ end sub
 ' Dois toques curtos antes da locucao. Usa um Audio node com MP3 do pacote:
 ' funciona mesmo quando os efeitos sonoros do Roku estao desligados e nao
 ' bloqueia a thread de render (o sleep antigo travava a animacao da tela).
-sub beep()
+' URL do tom de chamada enviado pelo cliente no Studio (mesma origem do
+' servidor). Vazio quando o painel usa o tom padrao.
+function customChimeUrl(call as object, base as string) as string
+    if call = invalid or base = "" then return ""
+    sound = call.sound
+    if sound = invalid or Type(sound) <> "roAssociativeArray" then return ""
+    path = safeText(sound.chimeUrl)
+    if path = "" then return ""
+    if Left(path, 4) = "http" then return path
+    return base + path
+end function
+
+' Aparencia da chamada configurada pelo cliente: cor de fundo (ou imagem),
+' cor da senha, dos textos e do historico. Valores invalidos caem no padrao.
+sub applyQueueTheme(call as object)
+    theme = invalid
+    if call <> invalid and Type(call.theme) = "roAssociativeArray" then theme = call.theme
+
+    bg = "0x000000FF"
+    ticket = "0xFFFFFFFF"
+    text = "0x38BDF8FF"
+    history = "0xB8B8B8FF"
+    image = ""
+    if theme <> invalid
+        bg = hexColor(safeText(theme.bgColor), bg)
+        ticket = hexColor(safeText(theme.ticketColor), ticket)
+        text = hexColor(safeText(theme.textColor), text)
+        history = hexColor(safeText(theme.historyColor), history)
+        image = safeText(theme.bgImageUrl)
+    end if
+
+    if m.queueBg <> invalid then m.queueBg.color = bg
+    if m.queueBgImage <> invalid
+        if image <> ""
+            m.queueBgImage.uri = image
+            m.queueBgImage.visible = true
+        else
+            m.queueBgImage.uri = ""
+            m.queueBgImage.visible = false
+        end if
+    end if
+    if m.queueLabel <> invalid then m.queueLabel.color = ticket
+    if m.queueSector <> invalid then m.queueSector.color = text
+    if m.queueTitle <> invalid then m.queueTitle.color = text
+    if m.queueHistory <> invalid then m.queueHistory.color = history
+    if m.queueHistoryTitle <> invalid then m.queueHistoryTitle.color = history
+end sub
+
+' "#38bdf8" -> "0x38BDF8FF". Qualquer valor fora do formato usa o padrao.
+function hexColor(value as string, fallbackColor as string) as string
+    hex = value
+    if hex = "" then return fallbackColor
+    if Left(hex, 1) = "#" then hex = Mid(hex, 2)
+    if Len(hex) = 3
+        hex = Mid(hex, 1, 1) + Mid(hex, 1, 1) + Mid(hex, 2, 1) + Mid(hex, 2, 1) + Mid(hex, 3, 1) + Mid(hex, 3, 1)
+    end if
+    if Len(hex) = 8 then return "0x" + UCase(hex)
+    if Len(hex) <> 6 then return fallbackColor
+    valid = true
+    allowed = "0123456789ABCDEF"
+    upper = UCase(hex)
+    for i = 1 to 6
+        if Instr(1, allowed, Mid(upper, i, 1)) = 0 then valid = false
+    end for
+    if not valid then return fallbackColor
+    return "0x" + upper + "FF"
+end function
+
+sub beep(url = "" as string)
     if m.chime = invalid then return
     content = CreateObject("roSGNode", "ContentNode")
-    content.url = "pkg:/audio/chime.mp3"
+    if url <> ""
+        content.url = url
+    else
+        content.url = "pkg:/audio/chime.mp3"
+    end if
     content.streamformat = "mp3"
     m.chime.control = "stop"
     m.chime.content = content

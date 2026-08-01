@@ -16,6 +16,9 @@
     <!-- Add-on de senhas: chamada em tela cheia, acima de qualquer conteudo. -->
     <Group id="queue" visible="false">
       <Rectangle id="queueBg" width="1920" height="1080" color="0x000000FF" />
+      <!-- Fundo opcional escolhido pelo cliente (imagem da biblioteca). -->
+      <Poster id="queueBgImage" width="1920" height="1080" loadDisplayMode="scaleToFill"
+              visible="false" />
       <Label id="queueTitle" text="SENHA CHAMADA" translation="[0,220]" width="1920"
              horizAlign="center" color="0x38BDF8FF">
         <Font role="font" uri="font:BoldSystemFontFile" size="52" />
