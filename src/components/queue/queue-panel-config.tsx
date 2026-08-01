@@ -300,6 +300,12 @@ export function QueuePanelConfig({
                           <Badge variant="destructive">{sector.waitingPriority} pref.</Badge>
                         ) : null}
                         <Badge variant="secondary">{sector.waitingNormal} na fila</Badge>
+                        <Badge variant="outline">
+                          {sector.dailyLimit === null
+                            ? `${sector.issuedToday} emitidas hoje`
+                            : `${sector.issuedToday}/${sector.dailyLimit} hoje`}
+                        </Badge>
+                        <Badge variant="outline">nº atual {sector.lastNumber}</Badge>
                         <span className="flex items-center gap-1.5">
                           <span className="text-xs text-muted-foreground">Emissão</span>
                           <Switch
@@ -322,6 +328,8 @@ export function QueuePanelConfig({
                                     sectorId: sector.id,
                                     name: sector.name,
                                     prefix: sector.prefix ?? "",
+                                    dailyLimit:
+                                      sector.dailyLimit === null ? "" : String(sector.dailyLimit),
                                     operatorIds: allowed.map((operator) => operator.id),
                                   },
                             )
@@ -377,6 +385,32 @@ export function QueuePanelConfig({
                             }
                           />
                         </div>
+                        <div className="space-y-1.5 sm:col-span-2">
+                          <Label htmlFor={`sector-limit-${sector.id}`}>
+                            Senhas disponíveis por dia (vazio = sem limite)
+                          </Label>
+                          <Input
+                            id={`sector-limit-${sector.id}`}
+                            value={sectorEdit.dailyLimit}
+                            inputMode="numeric"
+                            placeholder="Ex.: 50"
+                            className="w-32"
+                            onChange={(event) =>
+                              setSectorEdit((draft) =>
+                                draft
+                                  ? {
+                                      ...draft,
+                                      dailyLimit: event.target.value.replace(/\D/g, "").slice(0, 4),
+                                    }
+                                  : draft,
+                              )
+                            }
+                          />
+                          <p className="text-xs text-muted-foreground">
+                            Ao atingir o limite, o terminal deixa de emitir senhas desta fila até o
+                            dia seguinte. Hoje: {sector.issuedToday} emitida(s).
+                          </p>
+                        </div>
                         <div className="space-y-2 sm:col-span-2">
                           <Label>Operadores com acesso a esta chamada</Label>
                           <div className="flex flex-wrap gap-2">
@@ -414,6 +448,15 @@ export function QueuePanelConfig({
                           </Button>
                           <Button type="button" variant="ghost" onClick={() => setSectorEdit(null)}>
                             Cancelar
+                          </Button>
+                          <Button
+                            type="button"
+                            variant="ghost"
+                            className="text-destructive"
+                            disabled={resetMutation.isPending}
+                            onClick={() => resetMutation.mutate(sector.id)}
+                          >
+                            Zerar contador desta fila
                           </Button>
                         </div>
                       </form>
@@ -463,10 +506,10 @@ export function QueuePanelConfig({
               <Button
                 type="button"
                 variant="ghost"
-                onClick={() => resetMutation.mutate()}
+                onClick={() => resetMutation.mutate(null)}
                 disabled={resetMutation.isPending}
               >
-                Zerar contadores
+                Zerar todos os contadores
               </Button>
             </form>
           </section>
