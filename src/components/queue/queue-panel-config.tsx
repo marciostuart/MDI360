@@ -20,6 +20,13 @@ import {
   type QueueOperatorRow,
 } from "@/lib/queue/queue.functions";
 
+type SectorDraft = {
+  sectorId: string;
+  name: string;
+  prefix: string;
+  operatorIds: string[];
+};
+
 type OperatorDraft = {
   operatorId?: string;
   name: string;
@@ -59,6 +66,7 @@ export function QueuePanelConfig({
 
   const [open, setOpen] = useState(false);
   const [sectorDraft, setSectorDraft] = useState({ name: "", prefix: "" });
+  const [sectorEdit, setSectorEdit] = useState<SectorDraft | null>(null);
   const [operatorDraft, setOperatorDraft] = useState<OperatorDraft | null>(null);
 
   const queryKey = ["queue-panel-details", panelId];
@@ -88,6 +96,25 @@ export function QueuePanelConfig({
   const sectorDeleteMutation = useMutation({
     mutationFn: (sectorId: string) => removeSector({ data: { panelId, sectorId } }),
     onSuccess: invalidate,
+    onError: (error: Error) => toast.error(error.message),
+  });
+
+  const sectorEditMutation = useMutation({
+    mutationFn: (draft: SectorDraft) =>
+      saveSector({
+        data: {
+          panelId,
+          sectorId: draft.sectorId,
+          name: draft.name,
+          prefix: draft.prefix || null,
+          operatorIds: draft.operatorIds,
+        },
+      }),
+    onSuccess: async () => {
+      toast.success("Setor atualizado.");
+      setSectorEdit(null);
+      await invalidate();
+    },
     onError: (error: Error) => toast.error(error.message),
   });
 
@@ -167,6 +194,18 @@ export function QueuePanelConfig({
             sectorIds: draft.sectorIds.includes(sectorId)
               ? draft.sectorIds.filter((id) => id !== sectorId)
               : [...draft.sectorIds, sectorId],
+          }
+        : draft,
+    );
+
+  const toggleSectorOperator = (operatorId: string) =>
+    setSectorEdit((draft) =>
+      draft
+        ? {
+            ...draft,
+            operatorIds: draft.operatorIds.includes(operatorId)
+              ? draft.operatorIds.filter((id) => id !== operatorId)
+              : [...draft.operatorIds, operatorId],
           }
         : draft,
     );
