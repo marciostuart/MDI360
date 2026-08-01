@@ -20,10 +20,22 @@ const client = new Client({
 });
 
 const advisoryLockKey = 360360;
+const lockDeadline = Date.now() + 60_000;
+
+async function acquireMigrationLock() {
+  while (Date.now() < lockDeadline) {
+    const result = await client.query("select pg_try_advisory_lock($1) as acquired", [advisoryLockKey]);
+    if (result.rows[0]?.acquired === true) return;
+    await new Promise((resolve) => setTimeout(resolve, 2_000));
+  }
+  throw new Error(
+    "Timed out waiting for the migration lock. Confirm that no old signage task is still running.",
+  );
+}
 
 try {
   await client.connect();
-  await client.query("select pg_advisory_lock($1)", [advisoryLockKey]);
+  await acquireMigrationLock();
   console.log("[signage] migration lock acquired.");
 
   const db = drizzle(client);

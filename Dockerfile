@@ -23,6 +23,8 @@ FROM node:22-alpine AS runner
 WORKDIR /app
 ENV NODE_ENV=production
 ENV PORT=3000
+ARG APP_BUILD_ID=local
+ENV APP_BUILD_ID=${APP_BUILD_ID}
 
 # ffmpeg: todo vídeo enviado é convertido para um MP4 padrão (H.264 + AAC),
 # o formato que TVs, Roku e navegadores reproduzem sem falhas.
