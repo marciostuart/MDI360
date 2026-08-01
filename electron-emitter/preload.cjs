@@ -4,7 +4,7 @@ const { contextBridge, ipcRenderer } = require("electron");
 // Ponte usada pela tela de configuracao e pelo emissor web (/emitir/:token).
 contextBridge.exposeInMainWorld("mdiEmitter", {
   isDesktop: true,
-  version: "1.0.0",
+  version: "1.1.0",
   getConfig: () => ipcRenderer.invoke("config:get"),
   listPrinters: () => ipcRenderer.invoke("config:printers"),
   saveConfig: (cfg) => ipcRenderer.invoke("config:save", cfg),
