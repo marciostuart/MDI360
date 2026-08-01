@@ -51,9 +51,11 @@ const emptyOperator: OperatorDraft = {
 export function QueuePanelConfig({
   panelId,
   kioskToken,
+  issuingEnabled,
 }: {
   panelId: string;
   kioskToken: string | null;
+  issuingEnabled: boolean;
 }) {
   const queryClient = useQueryClient();
   const loadDetails = useServerFn(getQueuePanelDetails);
@@ -63,6 +65,7 @@ export function QueuePanelConfig({
   const removeOperator = useServerFn(deleteQueueOperator);
   const resetCounters = useServerFn(resetQueueCounters);
   const rotateToken = useServerFn(rotateQueueKioskToken);
+  const setIssuing = useServerFn(setQueueIssuing);
 
   const [open, setOpen] = useState(false);
   const [sectorDraft, setSectorDraft] = useState({ name: "", prefix: "" });
@@ -160,6 +163,14 @@ export function QueuePanelConfig({
       toast.success("Novo endereço de emissão gerado.");
       await invalidate();
     },
+    onError: (error: Error) => toast.error(error.message),
+  });
+
+  /** Libera/bloqueia a emissão no terminal (tela inteira ou uma fila). */
+  const issuingMutation = useMutation({
+    mutationFn: (input: { sectorId: string | null; enabled: boolean }) =>
+      setIssuing({ data: { panelId, sectorId: input.sectorId, enabled: input.enabled } }),
+    onSuccess: invalidate,
     onError: (error: Error) => toast.error(error.message),
   });
 
