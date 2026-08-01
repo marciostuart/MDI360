@@ -301,6 +301,12 @@ export const replaceDevice = createServerFn({ method: "POST" })
       .update(schema.playbackEvents)
       .set({ deviceId: next.id })
       .where(eq(schema.playbackEvents.deviceId, old.id));
+    // Billing follows the programming too: swapping a screen does not change
+    // the screen count, so the existing prorated charge just moves over.
+    await db
+      .update(schema.billingEntries)
+      .set({ deviceId: next.id })
+      .where(eq(schema.billingEntries.deviceId, old.id));
 
     // Removing the old row unlinks it: the app wipes the local cache and shows
     // a new activation code, and the previous code is free again.
