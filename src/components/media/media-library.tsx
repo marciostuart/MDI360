@@ -44,8 +44,6 @@ import {
 } from "@/lib/media/media.functions";
 import type { MediaListItem } from "@/lib/media/media.functions";
 import { prepareUpload } from "@/lib/media/optimize-client";
-import { addStreamAsset } from "@/lib/media/stream.functions";
-import { isYoutubeUrl } from "@/lib/media/stream-url";
 import {
   CANVAS_PRESETS,
   DEFAULT_CANVAS_PRESET,
@@ -425,33 +423,9 @@ export function MediaLibrary() {
   const [tagFilter, setTagFilter] = useState("all");
   const [sortBy, setSortBy] = useState<"newest" | "oldest" | "name">("newest");
 
-  const [streamUrl, setStreamUrl] = useState("");
-  const [streamSeconds, setStreamSeconds] = useState("60");
-  const addStream = useServerFn(addStreamAsset);
-
   const library = useQuery({
     queryKey: ["media-assets"],
     queryFn: () => listFn({}),
-  });
-
-  const streamMutation = useMutation({
-    mutationFn: (url: string) =>
-      addStream({
-        data: {
-          url,
-          canvasPreset: presetId,
-          durationSeconds: Math.min(3600, Math.max(5, Number(streamSeconds) || 60)),
-        },
-      }),
-    onSuccess: async () => {
-      setStreamUrl("");
-      toast.success("Transmissão adicionada. Já pode entrar nas suas listas.");
-      await queryClient.invalidateQueries({ queryKey: ["media-assets"] });
-    },
-    onError: (error) =>
-      toast.error(
-        error instanceof Error ? error.message : "Não foi possível adicionar esta transmissão.",
-      ),
   });
 
   // Nunca deixa timers de animação/auto-dismiss vivos após sair da página.
@@ -666,61 +640,6 @@ export function MediaLibrary() {
               </SelectContent>
             </Select>
             <p className="text-xs text-muted-foreground">{getCanvasPreset(presetId).description}</p>
-          </div>
-
-          {/* Streaming: nada é baixado. A TV abre o endereço na hora da exibição,
-              com a interface do YouTube desligada. Serve para vídeos, lives e
-              rádios, e não consome a cota de armazenamento. */}
-          <div className="space-y-2 rounded-xl border border-border/70 bg-secondary/30 p-4">
-            <Label className="flex items-center gap-2">
-              <Youtube className="size-4 text-destructive" />
-              YouTube, live ou rádio (streaming)
-            </Label>
-            <div className="flex flex-wrap gap-2">
-              <Input
-                value={streamUrl}
-                onChange={(event) => setStreamUrl(event.target.value)}
-                placeholder="https://www.youtube.com/watch?v=... ou link .m3u8 / .mp3"
-                className="max-w-md"
-              />
-              <div className="flex items-center gap-2">
-                <Input
-                  type="number"
-                  min={5}
-                  max={3600}
-                  value={streamSeconds}
-                  onChange={(event) => setStreamSeconds(event.target.value)}
-                  className="w-24"
-                  aria-label="Tempo de exibição em segundos"
-                />
-                <span className="text-xs text-muted-foreground">segundos na tela</span>
-              </div>
-              <Button
-                variant="secondary"
-                className="gap-2"
-                disabled={!streamUrl.trim() || streamMutation.isPending}
-                onClick={() => streamMutation.mutate(streamUrl.trim())}
-              >
-                {streamMutation.isPending ? (
-                  <Loader2 className="size-4 animate-spin" />
-                ) : (
-                  <Plus className="size-4" />
-                )}
-                Adicionar transmissão
-              </Button>
-            </div>
-            <p className="text-xs text-muted-foreground">
-              O conteúdo toca sempre por streaming, sem download e sem consumir seu armazenamento:
-              sem controles, título, sugestões ou links sobre a imagem. O áudio segue a configuração
-              do item e da TV. Como uma live não termina, o tempo acima define quanto ela fica na
-              tela antes de passar para o próximo conteúdo.
-              {streamUrl.trim() && !isYoutubeUrl(streamUrl) ? (
-                <span className="mt-1 block">
-                  Para lives e rádios que não são do YouTube, use o link direto do stream (.m3u8,
-                  .mp4 ou .mp3).
-                </span>
-              ) : null}
-            </p>
           </div>
 
           <label className="flex cursor-pointer flex-col items-center gap-3 rounded-xl border border-dashed border-border px-6 py-12 text-center transition-colors hover:border-primary/60">
