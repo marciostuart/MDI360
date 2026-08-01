@@ -36,15 +36,14 @@ export async function issueTicket(
 ): Promise<IssuedTicket> {
   const db = getDb();
   const kind = input.kind;
-  const perSector = panel.mode === "sector" && panel.numberingScope !== "global";
+  const perSector = Boolean(input.sectorId) && panel.numberingScope !== "global";
 
   let sectorId: string | null = null;
   let sectorName: string | null = null;
   let number: number;
   let prefix: string | null;
 
-  if (panel.mode === "sector") {
-    if (!input.sectorId) throw new Error("Escolha um setor.");
+  if (input.sectorId) {
     const sector = (
       await db
         .select()

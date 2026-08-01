@@ -92,7 +92,7 @@ export const fetchQueueState = createServerFn({ method: "GET" }).handler(
       .groupBy(schema.queueTickets.sectorId, schema.queueTickets.kind);
 
     const inScope = (sectorId: string | null) =>
-      session.mode !== "sector" ||
+      allSectors.length === 0 ||
       session.allowedSectorIds.length === 0 ||
       (sectorId !== null && visibleIds.includes(sectorId));
 
@@ -214,7 +214,15 @@ export const callNextTicket = createServerFn({ method: "POST" })
     const db = getDb();
 
     const sectorId = data.sectorId ?? null;
-    if (session.mode === "sector" && !sectorId) throw new Error("Escolha um setor para chamar.");
+    const hasSectors =
+      (
+        await db
+          .select({ id: schema.queueSectors.id })
+          .from(schema.queueSectors)
+          .where(eq(schema.queueSectors.panelId, session.panelId))
+          .limit(1)
+      ).length > 0;
+    if (hasSectors && !sectorId) throw new Error("Escolha um setor para chamar.");
     if (
       sectorId &&
       session.allowedSectorIds.length > 0 &&
@@ -237,8 +245,7 @@ export const callNextTicket = createServerFn({ method: "POST" })
         eq(schema.queueTickets.status, "waiting"),
         eq(schema.queueTickets.kind, kind),
         sectorId ? eq(schema.queueTickets.sectorId, sectorId) : undefined,
-        // No modo sequencial as senhas não têm setor.
-        session.mode === "sector" ? undefined : isNull(schema.queueTickets.sectorId),
+        hasSectors ? undefined : isNull(schema.queueTickets.sectorId),
       );
 
     const nextOf = async (kind: "normal" | "priority") =>

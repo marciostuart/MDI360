@@ -328,7 +328,6 @@ export function QueueAddonManager() {
                 <QueuePanelConfig
                   panelId={panel.panelId}
                   kioskToken={panel.kioskToken}
-                  issuingEnabled={panel.issuingEnabled}
                 />
               ) : null}
 
