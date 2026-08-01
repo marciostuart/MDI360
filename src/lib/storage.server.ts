@@ -192,6 +192,18 @@ export async function deleteObject(key: string) {
   await getClient().send(new DeleteObjectCommand({ Bucket: getBucket(), Key: key }));
 }
 
+/** Reads a private object as bytes so our own routes can stream it same-origin. */
+export async function getObjectBytes(
+  key: string,
+): Promise<{ bytes: Uint8Array; contentType?: string } | null> {
+  const result = await getClient().send(
+    new GetObjectCommand({ Bucket: getBucket(), Key: key }),
+  );
+  const body = result.Body as { transformToByteArray?: () => Promise<Uint8Array> } | undefined;
+  if (!body?.transformToByteArray) return null;
+  return { bytes: await body.transformToByteArray(), contentType: result.ContentType };
+}
+
 /**
  * Removes every object under a prefix (e.g. `org/<id>/`). Used when a customer
  * account is deleted so no media survives the database cascade.
