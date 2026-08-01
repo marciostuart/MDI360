@@ -479,6 +479,9 @@ export type QueueSectorRow = {
   position: number;
   waitingNormal: number;
   waitingPriority: number;
+  /** Quantidade de senhas por dia (null = ilimitado) e quantas já saíram hoje. */
+  dailyLimit: number | null;
+  issuedToday: number;
   /** Fila liberada para emissão no terminal (/emitir). */
   issuingEnabled: boolean;
 };
@@ -488,6 +491,8 @@ export type QueueOperatorRow = {
   name: string;
   username: string;
   isEnabled: boolean;
+  /** Guichê/mesa deste operador ("Guichê 01"), exibido e falado na TV. */
+  deskLabel: string | null;
   /** Vazio = pode chamar todos os setores. */
   sectorIds: string[];
 };
@@ -552,6 +557,29 @@ export const getQueuePanelDetails = createServerFn({ method: "POST" })
         waiting.set(row.sectorId, entry);
       }
 
+      // Senhas emitidas hoje por fila, para mostrar o consumo do limite diário.
+      const startOfDay = new Date();
+      startOfDay.setHours(0, 0, 0, 0);
+      const { gte, ne } = await import("drizzle-orm");
+      const todayRows = await db
+        .select({
+          sectorId: schema.queueTickets.sectorId,
+          total: sql<number>`count(*)::int`,
+        })
+        .from(schema.queueTickets)
+        .where(
+          and(
+            eq(schema.queueTickets.panelId, panel.id),
+            ne(schema.queueTickets.status, "cancelled"),
+            gte(schema.queueTickets.issuedAt, startOfDay),
+          ),
+        )
+        .groupBy(schema.queueTickets.sectorId);
+      const issuedToday = new Map<string, number>();
+      for (const row of todayRows) {
+        if (row.sectorId) issuedToday.set(row.sectorId, Number(row.total));
+      }
+
       const operators = await db
         .select()
         .from(schema.queueOperators)
@@ -580,6 +608,8 @@ export const getQueuePanelDetails = createServerFn({ method: "POST" })
           position: s.position,
           waitingNormal: waiting.get(s.id)?.normal ?? 0,
           waitingPriority: waiting.get(s.id)?.priority ?? 0,
+          dailyLimit: s.dailyLimit ?? null,
+          issuedToday: issuedToday.get(s.id) ?? 0,
           issuingEnabled: s.issuingEnabled,
         })),
         operators: operators.map((o) => ({
@@ -587,6 +617,7 @@ export const getQueuePanelDetails = createServerFn({ method: "POST" })
           name: o.name,
           username: o.username,
           isEnabled: o.isEnabled,
+          deskLabel: o.deskLabel ?? null,
           sectorIds: links.filter((l) => l.operatorId === o.id).map((l) => l.sectorId),
         })),
       };
