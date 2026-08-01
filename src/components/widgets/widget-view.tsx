@@ -711,7 +711,10 @@ function NewsWidget({
           ) : null}
         </>
       ) : (
-        <Block block={layout.summary} style={{ fontSize: `${layout.headline?.size ?? 4}cqh` }}>
+        <Block
+          block={layout.headline}
+          style={{ fontSize: `${(layout.summary?.size ?? 3.6) * 1.05}cqh` }}
+        >
           <ul className="space-y-[0.5em]">
             {items.map((item, position) => (
               <li key={`${position}-${item.title.slice(0, 12)}`} className="flex gap-[0.5em]">
