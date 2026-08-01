@@ -26,6 +26,15 @@ export type QueueCallPayload = {
   /** Chamadas anteriores (mais recente primeiro), exibidas ao lado da atual. */
   history: QueueCallHistoryItem[];
   theme: QueueCallTheme;
+  /** Volumes e tom de chamada configurados pelo cliente. */
+  sound: {
+    /** MP3 personalizado (same-origin) ou null para usar o tom padrão. */
+    chimeUrl: string | null;
+    /** 0-100 */
+    chimeVolume: number;
+    /** 0-300 (acima de 100 amplifica a fala) */
+    voiceVolume: number;
+  };
 };
 
 /**
@@ -46,6 +55,9 @@ export async function recentQueueCalls(deviceId: string): Promise<QueueCallPaylo
       themeTicketColor: schema.queuePanels.themeTicketColor,
       themeTextColor: schema.queuePanels.themeTextColor,
       themeHistoryColor: schema.queuePanels.themeHistoryColor,
+      chimeStorageKey: schema.queuePanels.chimeStorageKey,
+      chimeVolume: schema.queuePanels.chimeVolume,
+      voiceVolume: schema.queuePanels.voiceVolume,
     })
     .from(schema.queuePanels)
     .where(eq(schema.queuePanels.deviceId, deviceId))
@@ -77,6 +89,12 @@ export async function recentQueueCalls(deviceId: string): Promise<QueueCallPaylo
     ticketColor: panel.themeTicketColor || "#ffffff",
     textColor: panel.themeTextColor || "#38bdf8",
     historyColor: panel.themeHistoryColor || "#ffffff",
+  };
+
+  const sound = {
+    chimeUrl: panel.chimeStorageKey ? `/api/public/player/chime?panel=${panel.id}` : null,
+    chimeVolume: Math.min(100, Math.max(0, panel.chimeVolume ?? 55)),
+    voiceVolume: Math.min(300, Math.max(0, panel.voiceVolume ?? 200)),
   };
 
   const maxQueued = 8;
@@ -127,6 +145,7 @@ export async function recentQueueCalls(deviceId: string): Promise<QueueCallPaylo
       displaySeconds: seconds,
       calledAt: call.calledAt.toISOString(),
       theme,
+      sound,
       history: calls
         .slice(index + 1)
         .filter((prev) => prev.label !== call.label)

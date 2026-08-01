@@ -28,6 +28,10 @@ export type QueuePanelSummary = {
   themeTicketColor: string;
   themeTextColor: string;
   themeHistoryColor: string;
+  /** Tom de chamada personalizado e volumes. */
+  chimeName: string | null;
+  chimeVolume: number;
+  voiceVolume: number;
 };
 
 export const QUEUE_THEME_DEFAULTS = {
@@ -36,6 +40,11 @@ export const QUEUE_THEME_DEFAULTS = {
   themeTicketColor: "#ffffff",
   themeTextColor: "#38bdf8",
   themeHistoryColor: "#ffffff",
+};
+
+export const QUEUE_SOUND_DEFAULTS = {
+  chimeVolume: 55,
+  voiceVolume: 200,
 };
 
 const hexColor = z
@@ -99,6 +108,9 @@ export const listQueuePanels = createServerFn({ method: "GET" }).handler(
           themeTicketColor: schema.queuePanels.themeTicketColor,
           themeTextColor: schema.queuePanels.themeTextColor,
           themeHistoryColor: schema.queuePanels.themeHistoryColor,
+          chimeName: schema.queuePanels.chimeName,
+          chimeVolume: schema.queuePanels.chimeVolume,
+          voiceVolume: schema.queuePanels.voiceVolume,
         })
         .from(schema.devices)
         .leftJoin(schema.queuePanels, eq(schema.queuePanels.deviceId, schema.devices.id))
@@ -174,6 +186,9 @@ export const listQueuePanels = createServerFn({ method: "GET" }).handler(
             themeTicketColor: row.themeTicketColor ?? QUEUE_THEME_DEFAULTS.themeTicketColor,
             themeTextColor: row.themeTextColor ?? QUEUE_THEME_DEFAULTS.themeTextColor,
             themeHistoryColor: row.themeHistoryColor ?? QUEUE_THEME_DEFAULTS.themeHistoryColor,
+            chimeName: row.chimeName ?? null,
+            chimeVolume: row.chimeVolume ?? QUEUE_SOUND_DEFAULTS.chimeVolume,
+            voiceVolume: row.voiceVolume ?? QUEUE_SOUND_DEFAULTS.voiceVolume,
           };
         }),
       };
@@ -220,6 +235,8 @@ export const saveQueuePanel = createServerFn({ method: "POST" })
         themeTicketColor: hexColor.default(QUEUE_THEME_DEFAULTS.themeTicketColor),
         themeTextColor: hexColor.default(QUEUE_THEME_DEFAULTS.themeTextColor),
         themeHistoryColor: hexColor.default(QUEUE_THEME_DEFAULTS.themeHistoryColor),
+        chimeVolume: z.number().int().min(0).max(100).default(QUEUE_SOUND_DEFAULTS.chimeVolume),
+        voiceVolume: z.number().int().min(0).max(300).default(QUEUE_SOUND_DEFAULTS.voiceVolume),
       })
       .safeParse(input);
     if (!result.success) {
@@ -275,6 +292,8 @@ export const saveQueuePanel = createServerFn({ method: "POST" })
       priorityPolicy: data.priorityPolicy,
       priorityPrefix: data.priorityPrefix ? data.priorityPrefix.toUpperCase() : null,
       displaySeconds: data.displaySeconds,
+      chimeVolume: data.chimeVolume,
+      voiceVolume: data.voiceVolume,
     };
 
     const themeValues = {
@@ -786,4 +805,46 @@ export const rotateQueueKioskToken = createServerFn({ method: "POST" })
       .set({ kioskToken })
       .where(eq(schema.queuePanels.id, panel.id));
     return { ok: true, kioskToken };
+  });
+
+/** Remove o tom de chamada personalizado, voltando ao tom padrão do sistema. */
+export const clearQueueChime = createServerFn({ method: "POST" })
+  .inputValidator((input: unknown) => z.object({ deviceId: z.string().uuid() }).parse(input))
+  .handler(async ({ data }) => {
+    const { getDb, schema } = await import("@/lib/db/index.server");
+    const { requireUser } = await import("@/lib/auth/session.server");
+    const { and, eq } = await import("drizzle-orm");
+    const user = await requireUser();
+    const db = getDb();
+
+    const panels = await db
+      .select({ id: schema.queuePanels.id, key: schema.queuePanels.chimeStorageKey })
+      .from(schema.queuePanels)
+      .where(
+        and(
+          eq(schema.queuePanels.deviceId, data.deviceId),
+          eq(schema.queuePanels.organizationId, user.organizationId),
+        ),
+      )
+      .limit(1);
+    const panel = panels[0];
+    if (!panel) throw new Error("Painel de senhas não encontrado.");
+
+    await db
+      .update(schema.queuePanels)
+      .set({ chimeStorageKey: null, chimeName: null })
+      .where(eq(schema.queuePanels.id, panel.id));
+
+    if (panel.key) {
+      try {
+        const { deleteObject, isStorageConfigured } = await import("@/lib/storage.server");
+        if (isStorageConfigured()) await deleteObject(panel.key);
+      } catch {
+        // objeto pode já não existir — ignorado
+      }
+    }
+
+    const { notifyDevice } = await import("@/lib/player/realtime.server");
+    notifyDevice(data.deviceId);
+    return { ok: true };
   });

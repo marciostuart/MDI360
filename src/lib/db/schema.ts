@@ -419,6 +419,13 @@ export const queuePanels = pgTable(
     themeTicketColor: text("theme_ticket_color").notNull().default("#ffffff"),
     themeTextColor: text("theme_text_color").notNull().default("#38bdf8"),
     themeHistoryColor: text("theme_history_color").notNull().default("#ffffff"),
+    /** Tom de chamada personalizado (MP3 enviado pelo cliente), no MinIO. */
+    chimeStorageKey: text("chime_storage_key"),
+    chimeName: text("chime_name"),
+    /** Volume do tom de chamada, 0-100. */
+    chimeVolume: integer("chime_volume").notNull().default(55),
+    /** Volume da locução, 0-300 (acima de 100 amplifica a fala). */
+    voiceVolume: integer("voice_volume").notNull().default(200),
     username: text("username").notNull(),
     passwordHash: text("password_hash").notNull(),
     createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
