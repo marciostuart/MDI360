@@ -8,7 +8,7 @@ import { join } from "node:path";
  *
  * The video is never embedded on the TV: the server downloads it once, converts
  * it to the same standard MP4 as any upload and stores it in MinIO. That is the
- * only way to satisfy the product rules — no YouTube controls/титles/end
+ * only way to satisfy the product rules — no YouTube  controls/titles/end
  * screens, audio governed by the item/TV setting, local cache on the device and
  * cache cleanup when the content is removed.
  */
