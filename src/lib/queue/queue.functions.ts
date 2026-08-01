@@ -597,16 +597,19 @@ export const saveQueueSector = createServerFn({ method: "POST" })
           (value) => (typeof value === "string" && value.trim() === "" ? null : value),
           z.string().trim().max(3).nullable().default(null),
         ),
+        /** Quando informado, redefine quais operadores podem chamar este setor. */
+        operatorIds: z.array(z.string().uuid()).optional(),
       })
       .parse(input),
   )
   .handler(async ({ data }) => {
     const { getDb, schema } = await import("@/lib/db/index.server");
-    const { and, eq, sql } = await import("drizzle-orm");
+    const { and, eq, inArray, sql } = await import("drizzle-orm");
     const panel = await requireOwnedPanel(data.panelId);
     const db = getDb();
     const prefix = data.prefix ? data.prefix.toUpperCase() : null;
 
+    let sectorId = data.sectorId ?? null;
     if (data.sectorId) {
       await db
         .update(schema.queueSectors)
@@ -622,12 +625,43 @@ export const saveQueueSector = createServerFn({ method: "POST" })
         .select({ total: sql<number>`count(*)::int` })
         .from(schema.queueSectors)
         .where(eq(schema.queueSectors.panelId, panel.id));
-      await db.insert(schema.queueSectors).values({
-        panelId: panel.id,
-        name: data.name,
-        prefix,
-        position: Number(next[0]?.total ?? 0),
-      });
+      const created = await db
+        .insert(schema.queueSectors)
+        .values({
+          panelId: panel.id,
+          name: data.name,
+          prefix,
+          position: Number(next[0]?.total ?? 0),
+        })
+        .returning({ id: schema.queueSectors.id });
+      sectorId = created[0]?.id ?? null;
+    }
+
+    // Acessos por setor: só operadores do próprio painel entram no vínculo.
+    if (data.operatorIds && sectorId) {
+      const validOperators =
+        data.operatorIds.length > 0
+          ? (
+              await db
+                .select({ id: schema.queueOperators.id })
+                .from(schema.queueOperators)
+                .where(
+                  and(
+                    eq(schema.queueOperators.panelId, panel.id),
+                    inArray(schema.queueOperators.id, data.operatorIds),
+                  ),
+                )
+            ).map((o) => o.id)
+          : [];
+
+      await db
+        .delete(schema.queueOperatorSectors)
+        .where(eq(schema.queueOperatorSectors.sectorId, sectorId));
+      if (validOperators.length > 0) {
+        await db
+          .insert(schema.queueOperatorSectors)
+          .values(validOperators.map((operatorId) => ({ operatorId, sectorId: sectorId! })));
+      }
     }
     return { ok: true };
   });
