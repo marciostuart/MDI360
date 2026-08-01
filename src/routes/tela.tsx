@@ -664,6 +664,11 @@ function StreamLayer({
       muted={muted}
       loop={loop}
       controls={false}
+      disablePictureInPicture
+      style={{ opacity: 0, transition: "opacity 120ms linear" }}
+      onPlaying={(event) => {
+        event.currentTarget.style.opacity = "1";
+      }}
     />
   );
 }
