@@ -23,7 +23,6 @@ ENV PORT=3000
 
 # ffmpeg: todo vídeo enviado é convertido para um MP4 padrão (H.264 + AAC),
 # o formato que TVs, Roku e navegadores reproduzem sem falhas.
-# ffmpeg: otimização/transcodificação dos arquivos enviados pelo cliente.
 RUN apk add --no-cache libc6-compat ffmpeg && npm install -g bun@1.3.3
 
 # Drizzle needs its CLI plus the schema to apply migrations at boot.
