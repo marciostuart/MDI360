@@ -1,6 +1,6 @@
 import { useMutation, useQueryClient } from "@tanstack/react-query";
 import { useServerFn } from "@tanstack/react-start";
-import { Loader2, Plus, RotateCcw, Save, X } from "lucide-react";
+import { Loader2, MapPin, Plus, RotateCcw, Save, X } from "lucide-react";
 import { useEffect, useState } from "react";
 import { toast } from "sonner";
 
@@ -62,6 +62,46 @@ export function WidgetComposer({
   const [type, setType] = useState<WidgetType>("clock");
   const [name, setName] = useState("Relógio e data");
   const [config, setConfig] = useState<WidgetConfig>(getWidgetDefinition("clock").defaultConfig);
+  const [cep, setCep] = useState("");
+  const [cepLoading, setCepLoading] = useState(false);
+
+  /** Consulta o CEP e guarda a cidade mais próxima encontrada no provedor. */
+  async function lookupCep() {
+    if (config.type !== "weather") return;
+    const digits = cep.replace(/\D/g, "");
+    if (digits.length !== 8) {
+      toast.error("Informe um CEP com 8 dígitos.");
+      return;
+    }
+    setCepLoading(true);
+    try {
+      const response = await fetch(`/api/public/widget-data?type=cep&cep=${digits}`);
+      const payload = (await response.json()) as {
+        error?: string;
+        cep?: string;
+        label?: string;
+        latitude?: number;
+        longitude?: number;
+      };
+      if (!response.ok || !payload.label) {
+        toast.error(payload.error ?? "Não foi possível consultar este CEP.");
+        return;
+      }
+      setCep(payload.cep ?? cep);
+      setConfig({
+        ...config,
+        cep: payload.cep,
+        placeLabel: payload.label,
+        latitude: payload.latitude,
+        longitude: payload.longitude,
+      });
+      toast.success(`Clima de ${payload.label}.`);
+    } catch {
+      toast.error("Falha na consulta do CEP.");
+    } finally {
+      setCepLoading(false);
+    }
+  }
 
   // Loading an existing widget from the library turns this into an editor.
   useEffect(() => {
@@ -69,6 +109,7 @@ export function WidgetComposer({
     setType(editing.config.type);
     setName(editing.name);
     setConfig(editing.config);
+    setCep(editing.config.type === "weather" ? (editing.config.cep ?? "") : "");
   }, [editing]);
 
   const theme: WidgetTheme = resolveWidgetTheme(config.theme);
@@ -165,23 +206,84 @@ export function WidgetComposer({
           ) : null}
 
           {config.type === "weather" ? (
-            <div className="max-w-sm space-y-2">
-              <Label>Cidade</Label>
-              <Select
-                value={config.cityId}
-                onValueChange={(value) => setConfig({ ...config, cityId: value })}
-              >
-                <SelectTrigger>
-                  <SelectValue />
-                </SelectTrigger>
-                <SelectContent>
-                  {WEATHER_CITIES.map((city) => (
-                    <SelectItem key={city.id} value={city.id}>
-                      {city.label}
-                    </SelectItem>
-                  ))}
-                </SelectContent>
-              </Select>
+            <div className="grid max-w-2xl gap-4 sm:grid-cols-2">
+              <div className="space-y-2">
+                <Label>Buscar por CEP</Label>
+                <div className="flex gap-2">
+                  <Input
+                    value={cep}
+                    inputMode="numeric"
+                    placeholder="00000-000"
+                    maxLength={9}
+                    onChange={(event) => setCep(event.target.value)}
+                  />
+                  <Button
+                    type="button"
+                    variant="outline"
+                    disabled={cepLoading}
+                    onClick={() => void lookupCep()}
+                  >
+                    {cepLoading ? (
+                      <Loader2 className="size-4 animate-spin" />
+                    ) : (
+                      <MapPin className="size-4" />
+                    )}
+                    Buscar
+                  </Button>
+                </div>
+                {config.placeLabel ? (
+                  <p className="text-xs text-muted-foreground">
+                    Exibindo o clima de <strong>{config.placeLabel}</strong>{" "}
+                    <button
+                      type="button"
+                      className="underline"
+                      onClick={() => {
+                        setCep("");
+                        setConfig({
+                          ...config,
+                          cep: undefined,
+                          placeLabel: undefined,
+                          latitude: undefined,
+                          longitude: undefined,
+                        });
+                      }}
+                    >
+                      usar a lista
+                    </button>
+                  </p>
+                ) : (
+                  <p className="text-xs text-muted-foreground">
+                    Informe o CEP e buscamos a cidade mais próxima no provedor de clima.
+                  </p>
+                )}
+              </div>
+              <div className="space-y-2">
+                <Label>Ou escolha a cidade</Label>
+                <Select
+                  value={config.cityId}
+                  onValueChange={(value) =>
+                    setConfig({
+                      ...config,
+                      cityId: value,
+                      cep: undefined,
+                      placeLabel: undefined,
+                      latitude: undefined,
+                      longitude: undefined,
+                    })
+                  }
+                >
+                  <SelectTrigger>
+                    <SelectValue />
+                  </SelectTrigger>
+                  <SelectContent>
+                    {WEATHER_CITIES.map((city) => (
+                      <SelectItem key={city.id} value={city.id}>
+                        {city.label}
+                      </SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+              </div>
             </div>
           ) : null}
 
