@@ -165,23 +165,84 @@ export function WidgetComposer({
           ) : null}
 
           {config.type === "weather" ? (
-            <div className="max-w-sm space-y-2">
-              <Label>Cidade</Label>
-              <Select
-                value={config.cityId}
-                onValueChange={(value) => setConfig({ ...config, cityId: value })}
-              >
-                <SelectTrigger>
-                  <SelectValue />
-                </SelectTrigger>
-                <SelectContent>
-                  {WEATHER_CITIES.map((city) => (
-                    <SelectItem key={city.id} value={city.id}>
-                      {city.label}
-                    </SelectItem>
-                  ))}
-                </SelectContent>
-              </Select>
+            <div className="grid max-w-2xl gap-4 sm:grid-cols-2">
+              <div className="space-y-2">
+                <Label>Buscar por CEP</Label>
+                <div className="flex gap-2">
+                  <Input
+                    value={cep}
+                    inputMode="numeric"
+                    placeholder="00000-000"
+                    maxLength={9}
+                    onChange={(event) => setCep(event.target.value)}
+                  />
+                  <Button
+                    type="button"
+                    variant="outline"
+                    disabled={cepLoading}
+                    onClick={() => void lookupCep()}
+                  >
+                    {cepLoading ? (
+                      <Loader2 className="size-4 animate-spin" />
+                    ) : (
+                      <MapPin className="size-4" />
+                    )}
+                    Buscar
+                  </Button>
+                </div>
+                {config.placeLabel ? (
+                  <p className="text-xs text-muted-foreground">
+                    Exibindo o clima de <strong>{config.placeLabel}</strong>{" "}
+                    <button
+                      type="button"
+                      className="underline"
+                      onClick={() => {
+                        setCep("");
+                        setConfig({
+                          ...config,
+                          cep: undefined,
+                          placeLabel: undefined,
+                          latitude: undefined,
+                          longitude: undefined,
+                        });
+                      }}
+                    >
+                      usar a lista
+                    </button>
+                  </p>
+                ) : (
+                  <p className="text-xs text-muted-foreground">
+                    Informe o CEP e buscamos a cidade mais próxima no provedor de clima.
+                  </p>
+                )}
+              </div>
+              <div className="space-y-2">
+                <Label>Ou escolha a cidade</Label>
+                <Select
+                  value={config.cityId}
+                  onValueChange={(value) =>
+                    setConfig({
+                      ...config,
+                      cityId: value,
+                      cep: undefined,
+                      placeLabel: undefined,
+                      latitude: undefined,
+                      longitude: undefined,
+                    })
+                  }
+                >
+                  <SelectTrigger>
+                    <SelectValue />
+                  </SelectTrigger>
+                  <SelectContent>
+                    {WEATHER_CITIES.map((city) => (
+                      <SelectItem key={city.id} value={city.id}>
+                        {city.label}
+                      </SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+              </div>
             </div>
           ) : null}
 
