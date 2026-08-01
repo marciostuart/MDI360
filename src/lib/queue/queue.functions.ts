@@ -771,14 +771,47 @@ export const setQueueIssuing = createServerFn({ method: "POST" })
     return { ok: true };
   });
 
-/** Zera contadores e descarta as senhas que ainda estavam aguardando. */
+/**
+ * Zera contadores e descarta as senhas que ainda estavam aguardando. Com
+ * `sectorId`, zera apenas aquela fila (o restante do painel continua igual).
+ */
 export const resetQueueCounters = createServerFn({ method: "POST" })
-  .inputValidator((input: unknown) => z.object({ panelId: z.string().uuid() }).parse(input))
+  .inputValidator((input: unknown) =>
+    z
+      .object({
+        panelId: z.string().uuid(),
+        sectorId: z.string().uuid().nullable().optional(),
+      })
+      .parse(input),
+  )
   .handler(async ({ data }) => {
     const { getDb, schema } = await import("@/lib/db/index.server");
     const { and, eq } = await import("drizzle-orm");
     const panel = await requireOwnedPanel(data.panelId);
     const db = getDb();
+
+    if (data.sectorId) {
+      await db
+        .update(schema.queueSectors)
+        .set({ lastNumber: 0 })
+        .where(
+          and(
+            eq(schema.queueSectors.id, data.sectorId),
+            eq(schema.queueSectors.panelId, panel.id),
+          ),
+        );
+      await db
+        .update(schema.queueTickets)
+        .set({ status: "cancelled" })
+        .where(
+          and(
+            eq(schema.queueTickets.panelId, panel.id),
+            eq(schema.queueTickets.sectorId, data.sectorId),
+            eq(schema.queueTickets.status, "waiting"),
+          ),
+        );
+      return { ok: true };
+    }
 
     await db
       .update(schema.queuePanels)
