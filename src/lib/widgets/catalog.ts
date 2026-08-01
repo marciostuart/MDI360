@@ -221,6 +221,12 @@ export const widgetConfigSchema = z.discriminatedUnion("type", [
   z.object({
     type: z.literal("weather"),
     cityId: z.enum(WEATHER_CITY_IDS as [string, ...string[]]),
+    /** CEP consultado pelo lojista (apenas informativo/rastreio). */
+    cep: z.string().trim().max(9).optional(),
+    /** Cidade encontrada pelo CEP; quando presente, tem prioridade. */
+    placeLabel: z.string().trim().max(80).optional(),
+    latitude: z.number().min(-90).max(90).optional(),
+    longitude: z.number().min(-180).max(180).optional(),
     theme: widgetThemeSchema.optional(),
     layout: widgetLayoutSchema.optional(),
   }),
