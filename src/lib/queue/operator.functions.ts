@@ -198,8 +198,8 @@ export const queueLogout = createServerFn({ method: "POST" }).handler(async () =
  *
  * A escolha respeita a política configurada pelo cliente: "Prioritário" chama
  * todas as preferenciais antes das normais; "Intercalado" alterna uma
- * preferencial e uma normal. Quando não existe nenhuma senha emitida
- * aguardando, uma nova é gerada na hora (uso sem totem de emissão).
+ * preferencial e uma normal. Se não houver nenhuma senha emitida aguardando,
+ * NADA é chamado (o painel nunca inventa senhas).
  */
 export const callNextTicket = createServerFn({ method: "POST" })
   .inputValidator((input: unknown) =>
@@ -208,7 +208,7 @@ export const callNextTicket = createServerFn({ method: "POST" })
   .handler(async ({ data }) => {
     const { getDb, schema } = await import("@/lib/db/index.server");
     const { requireQueueSession, buildSpokenText } = await import("@/lib/queue/queue-auth.server");
-    const { issueTicket, pickNextKind } = await import("@/lib/queue/tickets.server");
+    const { pickNextKind } = await import("@/lib/queue/tickets.server");
     const { and, asc, eq, isNull } = await import("drizzle-orm");
     const session = await requireQueueSession();
     const db = getDb();
@@ -287,19 +287,15 @@ export const callNextTicket = createServerFn({ method: "POST" })
     }
 
     if (!ticket) {
-      // Fila vazia: gera e chama uma senha normal na hora.
-      const issued = await issueTicket(panel, { sectorId, kind: "normal" });
-      const claimed = await db
-        .update(schema.queueTickets)
-        .set({
-          status: "called",
-          calledAt: new Date(),
-          calledByOperatorId: session.operatorId,
-        })
-        .where(eq(schema.queueTickets.id, issued.id))
-        .returning();
-      ticket = claimed[0];
-      if (!ticket) throw new Error("Não foi possível gerar a senha.");
+      // Fila vazia: não chama nem gera senha nova.
+      return {
+        ok: false as const,
+        empty: true as const,
+        id: null,
+        label: null,
+        kind: null,
+        message: "Nenhuma senha aguardando na fila.",
+      };
     }
 
     // Guichê do operador: quando definido, é o que a TV mostra e fala.
@@ -331,7 +327,8 @@ export const callNextTicket = createServerFn({ method: "POST" })
     notifyDevice(session.deviceId);
 
     return {
-      ok: true,
+      ok: true as const,
+      empty: false as const,
       id: inserted[0]?.id ?? null,
       label: ticket.label,
       kind: ticket.kind,
