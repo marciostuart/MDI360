@@ -251,31 +251,64 @@ export const callNextTicket = createServerFn({ method: "POST" })
           .limit(1)
       )[0];
 
-    const [nextNormal, nextPriority] = await Promise.all([nextOf("normal"), nextOf("priority")]);
-    const kind = pickNextKind(panel.priorityPolicy, panel.lastCalledKind, {
-      normal: Boolean(nextNormal),
-      priority: Boolean(nextPriority),
-    });
+    /**
+     * Fila comum com vários guichês: a senha é reservada de forma atômica
+     * (`status = 'waiting'` na própria condição do UPDATE), então dois guichês
+     * que chamam ao mesmo tempo nunca recebem a mesma senha — o segundo já
+     * pega a seguinte.
+     */
+    let ticket:
+      | Awaited<ReturnType<typeof db.select>> extends never
+        ? never
+        : (typeof schema.queueTickets.$inferSelect)
+      | undefined;
 
-    let ticket = kind === "priority" ? nextPriority : kind === "normal" ? nextNormal : undefined;
+    for (let attempt = 0; attempt < 6 && !ticket; attempt += 1) {
+      const [nextNormal, nextPriority] = await Promise.all([nextOf("normal"), nextOf("priority")]);
+      const kind = pickNextKind(panel.priorityPolicy, panel.lastCalledKind, {
+        normal: Boolean(nextNormal),
+        priority: Boolean(nextPriority),
+      });
+      const candidate =
+        kind === "priority" ? nextPriority : kind === "normal" ? nextNormal : undefined;
+      if (!candidate) break;
+
+      const claimed = await db
+        .update(schema.queueTickets)
+        .set({
+          status: "called",
+          calledAt: new Date(),
+          calledByOperatorId: session.operatorId,
+        })
+        .where(
+          and(
+            eq(schema.queueTickets.id, candidate.id),
+            eq(schema.queueTickets.status, "waiting"),
+          ),
+        )
+        .returning();
+      ticket = claimed[0];
+    }
 
     if (!ticket) {
       // Fila vazia: gera e chama uma senha normal na hora.
       const issued = await issueTicket(panel, { sectorId, kind: "normal" });
-      ticket = (
-        await db
-          .select()
-          .from(schema.queueTickets)
-          .where(eq(schema.queueTickets.id, issued.id))
-          .limit(1)
-      )[0];
+      const claimed = await db
+        .update(schema.queueTickets)
+        .set({
+          status: "called",
+          calledAt: new Date(),
+          calledByOperatorId: session.operatorId,
+        })
+        .where(eq(schema.queueTickets.id, issued.id))
+        .returning();
+      ticket = claimed[0];
       if (!ticket) throw new Error("Não foi possível gerar a senha.");
     }
 
-    await db
-      .update(schema.queueTickets)
-      .set({ status: "called", calledAt: new Date() })
-      .where(eq(schema.queueTickets.id, ticket.id));
+    // Guichê do operador: quando definido, é o que a TV mostra e fala.
+    const deskLabel = session.deskLabel ?? null;
+    const announced = deskLabel ?? ticket.sectorName;
 
     await db
       .update(schema.queuePanels)
@@ -287,12 +320,14 @@ export const callNextTicket = createServerFn({ method: "POST" })
       .values({
         panelId: panel.id,
         sectorId: ticket.sectorId,
-        sectorName: ticket.sectorName,
+        sectorName: announced,
+        operatorId: session.operatorId,
+        deskLabel,
         number: ticket.number,
         label: ticket.label,
         kind: ticket.kind,
         ticketId: ticket.id,
-        spokenText: buildSpokenText(ticket.sectorName, ticket.label, ticket.kind),
+        spokenText: buildSpokenText(announced, ticket.label, ticket.kind),
       })
       .returning({ id: schema.queueCalls.id });
 
