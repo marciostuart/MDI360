@@ -41,24 +41,6 @@ export function parseYoutubeId(input: string): string | null {
   return id && /^[\w-]{11}$/.test(id) ? id : null;
 }
 
-/** Canal ao vivo pelo handle (@canal/live) ou id do canal: também é streaming. */
-export function parseYoutubeChannelLive(input: string): string | null {
-  let url: URL;
-  try {
-    url = new URL(input.trim().startsWith("http") ? input.trim() : `https://${input.trim()}`);
-  } catch {
-    return null;
-  }
-  const host = url.hostname.replace(/^www\./, "").toLowerCase();
-  if (!host.endsWith("youtube.com")) return null;
-  const parts = url.pathname.split("/").filter(Boolean);
-  if (parts[1] !== "live") return null;
-  const first = parts[0] ?? "";
-  if (first.startsWith("@")) return first.slice(1);
-  if (first === "channel" && parts[0]) return null;
-  return null;
-}
-
 export function isYoutubeUrl(url: string) {
   return parseYoutubeId(url) !== null;
 }
