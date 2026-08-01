@@ -153,15 +153,16 @@ export function QueueIssuerPanel() {
   });
 
   /**
-   * Toque no tipo de senha: com mais de uma fila configurada, mostra a escolha
-   * da fila; com uma única fila (ou modo sequencial) emite direto.
+   * Toque no tipo de senha: em modo setorizado a fila é SEMPRE escolhida
+   * (mesmo com uma só), para a pessoa ver para qual atendimento a senha é
+   * emitida. No modo sequencial emite direto.
    */
   const chooseKind = (kind: "normal" | "priority") => {
-    if (needsSector && sectors.length > 1) {
+    if (needsSector && sectors.length > 0) {
       setPendingKind(kind);
       return;
     }
-    issueMutation.mutate({ kind, sectorId: needsSector ? (sectors[0]?.id ?? null) : null });
+    issueMutation.mutate({ kind, sectorId: null });
   };
 
   // A senha emitida fica alguns segundos na tela e volta ao início.
@@ -241,8 +242,10 @@ export function QueueIssuerPanel() {
           <p className="text-sm uppercase tracking-widest text-muted-foreground">
             {issued.kind === "priority" ? "Atendimento preferencial" : "Sua senha"}
           </p>
+          {issued.sectorName ? (
+            <p className="font-display text-2xl font-semibold text-primary">{issued.sectorName}</p>
+          ) : null}
           <p className="font-display text-8xl font-black">{issued.label}</p>
-          {issued.sectorName ? <p className="text-xl">{issued.sectorName}</p> : null}
           <p className="text-muted-foreground">
             {issued.waitingAhead === 0
               ? "Você é o próximo a ser chamado."
@@ -315,15 +318,18 @@ export function QueueIssuerPanel() {
           <CardContent className="space-y-3 py-5">
             <p className="text-sm font-medium">
               {pendingKind === "priority"
-                ? "Senha preferencial · escolha o atendimento"
-                : "Senha normal · escolha o atendimento"}
+                ? "Senha preferencial · para qual atendimento?"
+                : "Senha normal · para qual atendimento?"}
+            </p>
+            <p className="text-xs text-muted-foreground">
+              Cada atendimento tem sua própria fila e numeração.
             </p>
             <div className="grid gap-3 sm:grid-cols-2">
               {sectors.map((sector) => (
                 <Button
                   key={sector.id}
                   variant="outline"
-                  className="h-20 text-base"
+                  className="h-20 whitespace-normal text-base font-semibold"
                   disabled={issueMutation.isPending}
                   onClick={() => issueMutation.mutate({ kind: pendingKind, sectorId: sector.id })}
                 >
