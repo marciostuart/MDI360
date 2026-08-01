@@ -861,6 +861,8 @@ export function MediaLibrary() {
                 <div className="flex items-center gap-2">
                   {item.kind === "video" ? (
                     <Film className="size-4 shrink-0 text-muted-foreground" />
+                  ) : item.kind === "stream" ? (
+                    <Youtube className="size-4 shrink-0 text-muted-foreground" />
                   ) : (
                     <ImageIcon className="size-4 shrink-0 text-muted-foreground" />
                   )}
@@ -874,6 +876,7 @@ export function MediaLibrary() {
                   ) : (
                     <Badge variant="secondary">{getCanvasPreset(item.canvasPreset).label}</Badge>
                   )}
+                  {item.kind === "stream" ? <Badge variant="outline">Streaming</Badge> : null}
                   {item.width && item.height ? (
                     <Badge variant="outline">
                       {item.width}x{item.height}
