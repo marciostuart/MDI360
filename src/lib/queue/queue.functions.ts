@@ -732,22 +732,6 @@ export const setQueueIssuing = createServerFn({ method: "POST" })
     return { ok: true };
   });
 
-const deleteQueueSectorLegacy = createServerFn({ method: "POST" })
-  .inputValidator((input: unknown) =>
-    z.object({ panelId: z.string().uuid(), sectorId: z.string().uuid() }).parse(input),
-  )
-  .handler(async ({ data }) => {
-    const { getDb, schema } = await import("@/lib/db/index.server");
-    const { and, eq } = await import("drizzle-orm");
-    const panel = await requireOwnedPanel(data.panelId);
-    await getDb()
-      .delete(schema.queueSectors)
-      .where(
-        and(eq(schema.queueSectors.id, data.sectorId), eq(schema.queueSectors.panelId, panel.id)),
-      );
-    return { ok: true };
-  });
-
 /** Zera contadores e descarta as senhas que ainda estavam aguardando. */
 export const resetQueueCounters = createServerFn({ method: "POST" })
   .inputValidator((input: unknown) => z.object({ panelId: z.string().uuid() }).parse(input))
