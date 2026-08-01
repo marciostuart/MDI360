@@ -1,7 +1,7 @@
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { useServerFn } from "@tanstack/react-start";
 import { Loader2, LogOut, Printer, Ticket } from "lucide-react";
-import { useEffect, useRef, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import { toast } from "sonner";
 
 import { Button } from "@/components/ui/button";
@@ -9,8 +9,8 @@ import { Card, CardContent } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Switch } from "@/components/ui/switch";
-import { fetchIssuerState, issueTicketAsOperator } from "@/lib/queue/kiosk.functions";
-import { queueLogin, queueLogout } from "@/lib/queue/operator.functions";
+import { signIn, signOut } from "@/lib/auth/auth.functions";
+import { fetchIssuerState, issueTicketAsCustomer } from "@/lib/queue/kiosk.functions";
 
 type Issued = {
   label: string;
@@ -77,16 +77,21 @@ function printTicket(ticket: Issued) {
 export function QueueIssuerPanel() {
   const queryClient = useQueryClient();
   const loadState = useServerFn(fetchIssuerState);
-  const login = useServerFn(queueLogin);
-  const logout = useServerFn(queueLogout);
-  const issue = useServerFn(issueTicketAsOperator);
+  const login = useServerFn(signIn);
+  const logout = useServerFn(signOut);
+  const issue = useServerFn(issueTicketAsCustomer);
 
+  // Reconsulta contínua: o que o cliente libera no painel aparece aqui em
+  // poucos segundos, sem precisar recarregar o terminal.
   const { data, isPending } = useQuery({
     queryKey: ["queue-issuer"],
     queryFn: () => loadState({}),
+    refetchInterval: 5_000,
+    refetchOnWindowFocus: true,
   });
 
-  const [credentials, setCredentials] = useState({ username: "", password: "" });
+  const [credentials, setCredentials] = useState({ email: "", password: "" });
+  const [panelId, setPanelId] = useState<string | null>(null);
   const [sectorId, setSectorId] = useState<string | null>(null);
   const [issued, setIssued] = useState<Issued | null>(null);
   const [autoPrint, setAutoPrint] = useState(true);
@@ -101,6 +106,18 @@ export function QueueIssuerPanel() {
     }
   }, []);
 
+  const panels = data?.panels ?? [];
+  const panel = useMemo(
+    () => panels.find((item) => item.panelId === panelId) ?? panels[0] ?? null,
+    [panels, panelId],
+  );
+
+  // Se a fila escolhida for bloqueada no painel, a seleção é descartada.
+  useEffect(() => {
+    if (!panel) return;
+    if (sectorId && !panel.sectors.some((sector) => sector.id === sectorId)) setSectorId(null);
+  }, [panel, sectorId]);
+
   const loginMutation = useMutation({
     mutationFn: () => login({ data: credentials }),
     onSuccess: async (result) => {
@@ -108,14 +125,17 @@ export function QueueIssuerPanel() {
         toast.error(result.message ?? "Não foi possível entrar.");
         return;
       }
-      setCredentials({ username: "", password: "" });
+      setCredentials({ email: "", password: "" });
       await queryClient.invalidateQueries({ queryKey: ["queue-issuer"] });
     },
     onError: () => toast.error("Não foi possível entrar."),
   });
 
   const issueMutation = useMutation({
-    mutationFn: (kind: "normal" | "priority") => issue({ data: { sectorId, kind } }),
+    mutationFn: (kind: "normal" | "priority") => {
+      if (!panel) throw new Error("Nenhuma tela liberada para emissão.");
+      return issue({ data: { panelId: panel.panelId, sectorId, kind } });
+    },
     onSuccess: (ticket) => {
       const next: Issued = {
         label: ticket.label,
@@ -152,9 +172,9 @@ export function QueueIssuerPanel() {
         <Card className="w-full max-w-sm">
           <CardContent className="space-y-4 py-6">
             <div className="space-y-1 text-center">
-              <h1 className="font-display text-xl font-semibold">Emissão de senhas</h1>
+              <h1 className="font-display text-xl font-semibold">Terminal de emissão</h1>
               <p className="text-sm text-muted-foreground">
-                Entre com o usuário e a senha criados no painel MDI 360.
+                Entre com o mesmo e-mail e senha do seu painel MDI 360.
               </p>
             </div>
             <form
@@ -165,13 +185,14 @@ export function QueueIssuerPanel() {
               }}
             >
               <div className="space-y-1.5">
-                <Label htmlFor="issuer-user">Usuário</Label>
+                <Label htmlFor="issuer-email">E-mail</Label>
                 <Input
-                  id="issuer-user"
-                  value={credentials.username}
-                  autoComplete="username"
+                  id="issuer-email"
+                  type="email"
+                  value={credentials.email}
+                  autoComplete="email"
                   onChange={(event) =>
-                    setCredentials((value) => ({ ...value, username: event.target.value }))
+                    setCredentials((value) => ({ ...value, email: event.target.value }))
                   }
                   required
                 />
@@ -226,27 +247,59 @@ export function QueueIssuerPanel() {
     );
   }
 
-  const needsSector = data.mode === "sector";
-  const ready = !needsSector || sectorId !== null;
+  const needsSector = panel?.mode === "sector";
+  const ready = Boolean(panel) && (!needsSector || sectorId !== null);
 
   return (
     <main className="mx-auto flex min-h-screen max-w-3xl flex-col justify-center gap-6 p-6">
       <header className="text-center">
         <h1 className="font-display text-3xl font-semibold">Retire sua senha</h1>
-        <p className="text-muted-foreground">{data.panelName}</p>
+        <p className="text-muted-foreground">{panel?.panelName ?? "Nenhuma tela liberada"}</p>
       </header>
+
+      {panels.length === 0 ? (
+        <Card>
+          <CardContent className="py-6 text-center text-sm text-muted-foreground">
+            Nenhuma tela está liberada para emissão. Ative a emissão em{" "}
+            <strong>Sistema de senhas</strong>, no seu painel.
+          </CardContent>
+        </Card>
+      ) : null}
+
+      {panels.length > 1 ? (
+        <Card>
+          <CardContent className="space-y-3 py-5">
+            <p className="text-sm font-medium">Tela de atendimento</p>
+            <div className="grid gap-2 sm:grid-cols-2">
+              {panels.map((item) => (
+                <Button
+                  key={item.panelId}
+                  variant={panel?.panelId === item.panelId ? "default" : "outline"}
+                  className="h-12"
+                  onClick={() => {
+                    setPanelId(item.panelId);
+                    setSectorId(null);
+                  }}
+                >
+                  {item.panelName}
+                </Button>
+              ))}
+            </div>
+          </CardContent>
+        </Card>
+      ) : null}
 
       {needsSector ? (
         <Card>
           <CardContent className="space-y-3 py-5">
             <p className="text-sm font-medium">1 · Escolha a fila</p>
             <div className="grid gap-2 sm:grid-cols-2">
-              {data.sectors.length === 0 ? (
+              {panel!.sectors.length === 0 ? (
                 <p className="text-sm text-muted-foreground sm:col-span-2">
-                  Nenhuma fila liberada para este usuário.
+                  Nenhuma fila liberada para emissão nesta tela.
                 </p>
               ) : null}
-              {data.sectors.map((sector) => (
+              {panel!.sectors.map((sector) => (
                 <Button
                   key={sector.id}
                   variant={sectorId === sector.id ? "default" : "outline"}
@@ -285,7 +338,7 @@ export function QueueIssuerPanel() {
               Preferencial
             </Button>
           </div>
-          {!ready ? (
+          {panels.length > 0 && !ready ? (
             <p className="text-sm text-muted-foreground">Escolha primeiro a fila desejada.</p>
           ) : null}
         </CardContent>
@@ -320,7 +373,7 @@ export function QueueIssuerPanel() {
             }}
           >
             <LogOut className="size-4" />
-            Sair ({data.operatorName})
+            Sair ({data.userName})
           </Button>
         </div>
       </div>
