@@ -26,6 +26,7 @@ import { Route as StudioPlaylistsRouteImport } from './routes/studio/playlists'
 import { Route as StudioRelatoriosRouteImport } from './routes/studio/relatorios'
 import { Route as StudioSenhasRouteImport } from './routes/studio/senhas'
 import { Route as StudioTelasRouteImport } from './routes/studio/telas'
+import { Route as StudioWidgetsRouteImport } from './routes/studio/widgets'
 import { Route as TorreIndexRouteImport } from './routes/torre/index'
 import { Route as TorrePlanosRouteImport } from './routes/torre/planos'
 import { Route as ApiBrandingLogoRouteImport } from './routes/api/branding/logo'
@@ -128,6 +129,11 @@ const StudioTelasRoute = StudioTelasRouteImport.update({
   path: '/telas',
   getParentRoute: () => StudioRouteRoute,
 } as any)
+const StudioWidgetsRoute = StudioWidgetsRouteImport.update({
+  id: '/widgets',
+  path: '/widgets',
+  getParentRoute: () => StudioRouteRoute,
+} as any)
 const TorreIndexRoute = TorreIndexRouteImport.update({
   id: '/',
   path: '/',
@@ -227,6 +233,7 @@ export interface FileRoutesByFullPath {
   '/studio/relatorios': typeof StudioRelatoriosRoute
   '/studio/senhas': typeof StudioSenhasRoute
   '/studio/telas': typeof StudioTelasRoute
+  '/studio/widgets': typeof StudioWidgetsRoute
   '/torre/planos': typeof TorrePlanosRoute
   '/studio/': typeof StudioIndexRoute
   '/torre/': typeof TorreIndexRoute
@@ -260,6 +267,7 @@ export interface FileRoutesByTo {
   '/studio/relatorios': typeof StudioRelatoriosRoute
   '/studio/senhas': typeof StudioSenhasRoute
   '/studio/telas': typeof StudioTelasRoute
+  '/studio/widgets': typeof StudioWidgetsRoute
   '/torre/planos': typeof TorrePlanosRoute
   '/studio': typeof StudioIndexRoute
   '/torre': typeof TorreIndexRoute
@@ -296,6 +304,7 @@ export interface FileRoutesById {
   '/studio/relatorios': typeof StudioRelatoriosRoute
   '/studio/senhas': typeof StudioSenhasRoute
   '/studio/telas': typeof StudioTelasRoute
+  '/studio/widgets': typeof StudioWidgetsRoute
   '/torre/planos': typeof TorrePlanosRoute
   '/studio/': typeof StudioIndexRoute
   '/torre/': typeof TorreIndexRoute
@@ -333,6 +342,7 @@ export interface FileRouteTypes {
     | '/studio/relatorios'
     | '/studio/senhas'
     | '/studio/telas'
+    | '/studio/widgets'
     | '/torre/planos'
     | '/studio/'
     | '/torre/'
@@ -366,6 +376,7 @@ export interface FileRouteTypes {
     | '/studio/relatorios'
     | '/studio/senhas'
     | '/studio/telas'
+    | '/studio/widgets'
     | '/torre/planos'
     | '/studio'
     | '/torre'
@@ -401,6 +412,7 @@ export interface FileRouteTypes {
     | '/studio/relatorios'
     | '/studio/senhas'
     | '/studio/telas'
+    | '/studio/widgets'
     | '/torre/planos'
     | '/studio/'
     | '/torre/'
@@ -563,6 +575,13 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof StudioTelasRouteImport
       parentRoute: typeof StudioRouteRoute
     }
+    '/studio/widgets': {
+      id: '/studio/widgets'
+      path: '/widgets'
+      fullPath: '/studio/widgets'
+      preLoaderRoute: typeof StudioWidgetsRouteImport
+      parentRoute: typeof StudioRouteRoute
+    }
     '/torre/': {
       id: '/torre/'
       path: '/'
@@ -688,6 +707,7 @@ interface StudioRouteRouteChildren {
   StudioRelatoriosRoute: typeof StudioRelatoriosRoute
   StudioSenhasRoute: typeof StudioSenhasRoute
   StudioTelasRoute: typeof StudioTelasRoute
+  StudioWidgetsRoute: typeof StudioWidgetsRoute
   StudioIndexRoute: typeof StudioIndexRoute
 }
 
@@ -701,6 +721,7 @@ const StudioRouteRouteChildren: StudioRouteRouteChildren = {
   StudioRelatoriosRoute: StudioRelatoriosRoute,
   StudioSenhasRoute: StudioSenhasRoute,
   StudioTelasRoute: StudioTelasRoute,
+  StudioWidgetsRoute: StudioWidgetsRoute,
   StudioIndexRoute: StudioIndexRoute,
 }
 
@@ -750,3 +771,13 @@ const rootRouteChildren: RootRouteChildren = {
 export const routeTree = rootRouteImport
   ._addFileChildren(rootRouteChildren)
   ._addFileTypes<FileRouteTypes>()
+
+import type { getRouter } from './router.tsx'
+import type { startInstance } from './start.ts'
+declare module '@tanstack/react-start' {
+  interface Register {
+    ssr: true
+    router: Awaited<ReturnType<typeof getRouter>>
+    config: Awaited<ReturnType<typeof startInstance.getOptions>>
+  }
+}
