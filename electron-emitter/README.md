@@ -18,6 +18,9 @@ Crie um arquivo vazio `portable.txt` na mesma pasta do `.exe`. A configuração 
 - Margem esquerda em pontos (`8 pontos ≈ 1 mm`).
 - Margens superior/inferior em linhas de avanço do papel.
 - Guilhotina: corte parcial (padrão), total ou desligado; "Avanço até o corte" empurra o papel antes de cortar para não cortar o texto.
+- "Exibir a posição na fila" vem desligado por padrão; ligue no cadastro se quiser imprimir "X pessoa(s) na frente".
+- Rodapé aceita quebra de linha manual (Enter ou `|`) para evitar palavras cortadas.
+- Margens superior/inferior aceitam valores negativos (avanço reverso) para economizar papel.
 - Se a impressora estiver instalada com driver gráfico (Advanced Printer Driver) e não aceitar ESC/POS cru, troque o modo de impressão para **Driver do Windows**.
 
 ## Gerar o .exe
