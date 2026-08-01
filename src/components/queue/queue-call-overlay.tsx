@@ -19,6 +19,14 @@ export type QueueCallPayload = {
     textColor?: string | null;
     historyColor?: string | null;
   } | null;
+  /** Volumes e tom de chamada configurados pelo cliente. */
+  sound?: {
+    chimeUrl?: string | null;
+    /** 0-100 */
+    chimeVolume?: number | null;
+    /** 0-300 — acima de 100 amplifica a fala via Web Audio. */
+    voiceVolume?: number | null;
+  } | null;
 };
 
 /**
@@ -44,29 +52,65 @@ function audioContext(): AudioContext | null {
 }
 
 /**
- * Exactly the Roku signal: the same chime.mp3 shipped with the channel, served
- * from /chime.mp3. If the file cannot play (autoplay block, missing asset) we
- * fall back to synthesizing the same two-tone square wave (550 Hz / 700 ms then
- * 440 Hz / 1400 ms) with Web Audio.
+ * Plays an audio URL at the requested volume. Values above 100% go through Web
+ * Audio, the only way to amplify past the element's 1.0 ceiling — that is how
+ * the voice can be louder than the chime. Same-origin URLs only, otherwise the
+ * graph is tainted and silent.
  */
-async function playChime(): Promise<void> {
-  const played = await new Promise<boolean>((resolve) => {
+async function playUrl(url: string, percent: number, timeoutMs: number): Promise<boolean> {
+  const volume = Math.max(0, percent) / 100;
+  if (volume === 0) return true;
+  let audio: HTMLAudioElement;
+  try {
+    audio = new Audio(url);
+  } catch {
+    return false;
+  }
+  audio.volume = Math.min(1, volume);
+
+  if (volume > 1) {
     try {
-      const audio = new Audio("/chime.mp3");
-      audio.volume = 1;
-      audio.onended = () => resolve(true);
-      audio.onerror = () => resolve(false);
-      window.setTimeout(() => resolve(true), 6000);
-      void audio.play().catch(() => resolve(false));
+      const ctx = audioContext();
+      if (ctx) {
+        if (ctx.state === "suspended") await ctx.resume();
+        const source = ctx.createMediaElementSource(audio);
+        const gain = ctx.createGain();
+        gain.gain.value = Math.min(volume, 4);
+        source.connect(gain).connect(ctx.destination);
+      }
     } catch {
-      resolve(false);
+      // Web Audio unavailable: plays at the element's maximum volume.
     }
+  }
+
+  return await new Promise<boolean>((resolve) => {
+    let settled = false;
+    const finish = (value: boolean) => {
+      if (settled) return;
+      settled = true;
+      resolve(value);
+    };
+    audio.onended = () => finish(true);
+    audio.onerror = () => finish(false);
+    window.setTimeout(() => finish(true), timeoutMs);
+    void audio.play().catch(() => finish(false));
   });
-  if (played) return;
-  await playSynthChime();
 }
 
-async function playSynthChime(): Promise<void> {
+/**
+ * Call signal: the tone the customer uploaded when there is one, otherwise the
+ * same chime.mp3 shipped with the Roku channel. If neither can play we fall
+ * back to synthesizing the two-tone square wave.
+ */
+async function playChime(call: QueueCallPayload): Promise<void> {
+  const percent = call.sound?.chimeVolume ?? 55;
+  const custom = call.sound?.chimeUrl ?? null;
+  if (custom && (await playUrl(custom, percent, 8000))) return;
+  if (await playUrl("/chime.mp3", percent, 6000)) return;
+  await playSynthChime(Math.max(0, percent) / 100);
+}
+
+async function playSynthChime(volume = 0.55): Promise<void> {
   const ctx = audioContext();
   if (!ctx) return;
   try {
@@ -82,14 +126,15 @@ async function playSynthChime(): Promise<void> {
       [440, 1.4],
     ];
     let start = now;
+    const peak = Math.max(0.0002, Math.min(1, volume));
     for (const [frequency, duration] of notes) {
       const osc = ctx.createOscillator();
       const gain = ctx.createGain();
       osc.type = "square";
       osc.frequency.value = frequency;
       gain.gain.setValueAtTime(0.0001, start);
-      gain.gain.exponentialRampToValueAtTime(0.55, start + 0.02);
-      gain.gain.setValueAtTime(0.55, start + duration - 0.03);
+      gain.gain.exponentialRampToValueAtTime(peak, start + 0.02);
+      gain.gain.setValueAtTime(peak, start + duration - 0.03);
       gain.gain.exponentialRampToValueAtTime(0.0001, start + duration);
       osc.connect(gain).connect(master);
       osc.start(start);
@@ -137,21 +182,9 @@ function speakLocally(text: string): Promise<boolean> {
 }
 
 /** Server-rendered MP3 (pt-BR) — the same voice the Roku channel plays. */
-async function speakFromServer(audioUrl?: string): Promise<boolean> {
+async function speakFromServer(audioUrl: string | undefined, percent: number): Promise<boolean> {
   if (!audioUrl) return false;
-  try {
-    const audio = new Audio(audioUrl);
-    audio.volume = 1;
-    await audio.play();
-    return await new Promise<boolean>((resolve) => {
-      audio.onended = () => resolve(true);
-      audio.onerror = () => resolve(false);
-      window.setTimeout(() => resolve(true), 15000);
-    });
-  } catch {
-    // Nothing else to try; the ticket is still shown large on screen.
-    return false;
-  }
+  return await playUrl(audioUrl, percent, 15000);
 }
 
 /**
@@ -160,8 +193,8 @@ async function speakFromServer(audioUrl?: string): Promise<boolean> {
  * fallback for when that MP3 cannot be fetched or played.
  */
 async function announce(call: QueueCallPayload): Promise<void> {
-  await playChime();
-  const spoken = await speakFromServer(call.audioUrl);
+  await playChime(call);
+  const spoken = await speakFromServer(call.audioUrl, call.sound?.voiceVolume ?? 200);
   if (!spoken) await speakLocally(call.spokenText);
 }
 
