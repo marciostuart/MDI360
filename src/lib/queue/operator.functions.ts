@@ -338,20 +338,38 @@ export const callNextTicket = createServerFn({ method: "POST" })
     };
   });
 
-/** Repeats the last call: same ticket, new announcement on the TV. */
+/**
+ * Repete a chamada: cada guichê repete a SUA última senha (não a do vizinho).
+ * Sem nenhuma chamada própria, repete a última do painel.
+ */
 export const repeatLastTicket = createServerFn({ method: "POST" }).handler(async () => {
   const { getDb, schema } = await import("@/lib/db/index.server");
   const { requireQueueSession } = await import("@/lib/queue/queue-auth.server");
-  const { desc, eq, sql } = await import("drizzle-orm");
+  const { and, desc, eq, sql } = await import("drizzle-orm");
   const session = await requireQueueSession();
   const db = getDb();
 
-  const last = await db
+  const own = await db
     .select({ id: schema.queueCalls.id, label: schema.queueCalls.label })
     .from(schema.queueCalls)
-    .where(eq(schema.queueCalls.panelId, session.panelId))
+    .where(
+      and(
+        eq(schema.queueCalls.panelId, session.panelId),
+        eq(schema.queueCalls.operatorId, session.operatorId),
+      ),
+    )
     .orderBy(desc(schema.queueCalls.calledAt))
     .limit(1);
+
+  const last =
+    own.length > 0
+      ? own
+      : await db
+          .select({ id: schema.queueCalls.id, label: schema.queueCalls.label })
+          .from(schema.queueCalls)
+          .where(eq(schema.queueCalls.panelId, session.panelId))
+          .orderBy(desc(schema.queueCalls.calledAt))
+          .limit(1);
 
   if (!last[0]) throw new Error("Nenhuma senha foi chamada ainda.");
 
