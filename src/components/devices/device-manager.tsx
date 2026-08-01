@@ -482,6 +482,69 @@ export function DeviceManager() {
           </DialogFooter>
         </DialogContent>
       </Dialog>
+
+      <Dialog
+        open={renameTarget !== null}
+        onOpenChange={(open) => {
+          if (!open && !renameMutation.isPending) {
+            setRenameTarget(null);
+            setRenameValue("");
+          }
+        }}
+      >
+        <DialogContent>
+          <DialogHeader>
+            <DialogTitle>Renomear tela</DialogTitle>
+            <DialogDescription>
+              Altere o nome de exibição desta tela. Isso não afeta a programação nem o vínculo do
+              aparelho.
+            </DialogDescription>
+          </DialogHeader>
+          <div className="space-y-2">
+            <Label htmlFor="rename-device">Nome da tela</Label>
+            <Input
+              id="rename-device"
+              value={renameValue}
+              onChange={(event) => setRenameValue(event.target.value)}
+              placeholder="Ex.: Recepção — TV da entrada"
+              maxLength={120}
+              onKeyDown={(event) => {
+                if (
+                  event.key === "Enter" &&
+                  renameTarget &&
+                  renameValue.trim() &&
+                  !renameMutation.isPending
+                ) {
+                  renameMutation.mutate({ deviceId: renameTarget.id, name: renameValue.trim() });
+                }
+              }}
+            />
+          </div>
+          <DialogFooter>
+            <Button
+              variant="ghost"
+              onClick={() => setRenameTarget(null)}
+              disabled={renameMutation.isPending}
+            >
+              Cancelar
+            </Button>
+            <Button
+              onClick={() =>
+                renameTarget &&
+                renameMutation.mutate({ deviceId: renameTarget.id, name: renameValue.trim() })
+              }
+              disabled={!renameValue.trim() || renameMutation.isPending}
+            >
+              {renameMutation.isPending ? (
+                <Loader2 className="size-4 animate-spin" />
+              ) : (
+                <Pencil className="size-4" />
+              )}
+              Salvar nome
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
     </div>
   );
 }
