@@ -252,7 +252,12 @@ export function QueueIssuerPanel() {
               : `${issued.waitingAhead} pessoa(s) na sua frente.`}
           </p>
           <div className="flex flex-wrap justify-center gap-2 pt-2">
-            <Button variant="outline" onClick={() => printTicket(issued)}>
+            <Button
+              variant="outline"
+              onClick={() => {
+                if (!printTicketOnDesktop(issued)) printTicket(issued);
+              }}
+            >
               <Printer className="size-4" />
               Imprimir novamente
             </Button>
