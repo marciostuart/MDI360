@@ -12,6 +12,14 @@ export type QueuePanelSummary = {
   username: string | null;
   displaySeconds: number;
   sectorCount: number;
+  operatorCount: number;
+  /** "sector" = sequência por setor · "global" = sequência única. */
+  numberingScope: string;
+  /** "priority" = preferenciais primeiro · "alternate" = intercalado. */
+  priorityPolicy: string;
+  priorityPrefix: string | null;
+  /** Token da tela de emissão de senhas (totem). */
+  kioskToken: string | null;
   lastCallLabel: string | null;
   lastCallAt: string | null;
   /** Aparência da chamada na TV. */
@@ -82,6 +90,10 @@ export const listQueuePanels = createServerFn({ method: "GET" }).handler(
           mode: schema.queuePanels.mode,
           username: schema.queuePanels.username,
           displaySeconds: schema.queuePanels.displaySeconds,
+          numberingScope: schema.queuePanels.numberingScope,
+          priorityPolicy: schema.queuePanels.priorityPolicy,
+          priorityPrefix: schema.queuePanels.priorityPrefix,
+          kioskToken: schema.queuePanels.kioskToken,
           themeBgColor: schema.queuePanels.themeBgColor,
           themeBgMediaId: schema.queuePanels.themeBgMediaId,
           themeTicketColor: schema.queuePanels.themeTicketColor,
@@ -97,6 +109,7 @@ export const listQueuePanels = createServerFn({ method: "GET" }).handler(
       const panelIds = rows.map((r) => r.panelId).filter((id): id is string => Boolean(id));
 
       const sectorCounts = new Map<string, number>();
+      const operatorCounts = new Map<string, number>();
       const lastCalls = new Map<string, { label: string; at: string }>();
       if (panelIds.length > 0) {
         const { inArray } = await import("drizzle-orm");
@@ -106,6 +119,13 @@ export const listQueuePanels = createServerFn({ method: "GET" }).handler(
           .where(inArray(schema.queueSectors.panelId, panelIds))
           .groupBy(schema.queueSectors.panelId);
         for (const row of sectors) sectorCounts.set(row.panelId, Number(row.total));
+
+        const operators = await db
+          .select({ panelId: schema.queueOperators.panelId, total: sql<number>`count(*)::int` })
+          .from(schema.queueOperators)
+          .where(inArray(schema.queueOperators.panelId, panelIds))
+          .groupBy(schema.queueOperators.panelId);
+        for (const row of operators) operatorCounts.set(row.panelId, Number(row.total));
 
         const calls = await db
           .select({
@@ -142,6 +162,11 @@ export const listQueuePanels = createServerFn({ method: "GET" }).handler(
             username: row.username ?? null,
             displaySeconds: row.displaySeconds ?? 20,
             sectorCount: row.panelId ? (sectorCounts.get(row.panelId) ?? 0) : 0,
+            operatorCount: row.panelId ? (operatorCounts.get(row.panelId) ?? 0) : 0,
+            numberingScope: row.numberingScope ?? "sector",
+            priorityPolicy: row.priorityPolicy ?? "priority",
+            priorityPrefix: row.priorityPrefix ?? null,
+            kioskToken: row.kioskToken ?? null,
             lastCallLabel: last?.label ?? null,
             lastCallAt: last?.at ?? null,
             themeBgColor: row.themeBgColor ?? QUEUE_THEME_DEFAULTS.themeBgColor,
@@ -174,6 +199,18 @@ export const saveQueuePanel = createServerFn({ method: "POST" })
           passwordSchema.optional(),
         ),
         mode: z.enum(["sequential", "sector"]).default("sequential"),
+        numberingScope: z.enum(["sector", "global"]).default("sector"),
+        priorityPolicy: z.enum(["priority", "alternate"]).default("priority"),
+        priorityPrefix: z.preprocess(
+          (value) => (typeof value === "string" && value.trim() === "" ? null : value),
+          z
+            .string()
+            .trim()
+            .max(3)
+            .regex(/^[A-Za-z0-9]*$/, "Use até 3 letras ou números no prefixo preferencial")
+            .nullable()
+            .default(null),
+        ),
         displaySeconds: z.number().int().min(10).max(120).default(20),
         themeBgColor: hexColor.default(QUEUE_THEME_DEFAULTS.themeBgColor),
         themeBgMediaId: z.preprocess(
@@ -232,6 +269,14 @@ export const saveQueuePanel = createServerFn({ method: "POST" })
       if (!asset[0]) throw new Error("Imagem de fundo não encontrada na sua biblioteca.");
     }
 
+    const configValues = {
+      mode: data.mode,
+      numberingScope: data.numberingScope,
+      priorityPolicy: data.priorityPolicy,
+      priorityPrefix: data.priorityPrefix ? data.priorityPrefix.toUpperCase() : null,
+      displaySeconds: data.displaySeconds,
+    };
+
     const themeValues = {
       themeBgColor: data.themeBgColor,
       themeBgMediaId: bgMediaId,
@@ -267,24 +312,62 @@ export const saveQueuePanel = createServerFn({ method: "POST" })
           .update(schema.queuePanels)
           .set({
             username: data.username,
-            mode: data.mode,
-            displaySeconds: data.displaySeconds,
             isEnabled: true,
+            ...configValues,
             ...themeValues,
             ...(data.password ? { passwordHash: await hashQueuePassword(data.password) } : {}),
           })
           .where(eq(schema.queuePanels.id, existing[0].id));
+
+        // Mantém o operador principal em sincronia com o acesso do painel.
+        const { asc } = await import("drizzle-orm");
+        const primary = await db
+          .select({ id: schema.queueOperators.id })
+          .from(schema.queueOperators)
+          .where(eq(schema.queueOperators.panelId, existing[0].id))
+          .orderBy(asc(schema.queueOperators.createdAt))
+          .limit(1);
+        if (primary[0]) {
+          await db
+            .update(schema.queueOperators)
+            .set({
+              username: data.username,
+              isEnabled: true,
+              ...(data.password ? { passwordHash: await hashQueuePassword(data.password) } : {}),
+            })
+            .where(eq(schema.queueOperators.id, primary[0].id));
+        } else if (data.password) {
+          await db.insert(schema.queueOperators).values({
+            panelId: existing[0].id,
+            name: "Operador principal",
+            username: data.username,
+            passwordHash: await hashQueuePassword(data.password),
+          });
+        }
       } else {
         if (!data.password) throw new Error("Defina uma senha para o operador.");
-        await db.insert(schema.queuePanels).values({
-          organizationId: user.organizationId,
-          deviceId: data.deviceId,
-          username: data.username,
-          passwordHash: await hashQueuePassword(data.password),
-          mode: data.mode,
-          displaySeconds: data.displaySeconds,
-          ...themeValues,
-        });
+        const passwordHash = await hashQueuePassword(data.password);
+        const { randomBytes } = await import("node:crypto");
+        const created = await db
+          .insert(schema.queuePanels)
+          .values({
+            organizationId: user.organizationId,
+            deviceId: data.deviceId,
+            username: data.username,
+            passwordHash,
+            kioskToken: randomBytes(16).toString("hex"),
+            ...configValues,
+            ...themeValues,
+          })
+          .returning({ id: schema.queuePanels.id });
+        if (created[0]) {
+          await db.insert(schema.queueOperators).values({
+            panelId: created[0].id,
+            name: "Operador principal",
+            username: data.username,
+            passwordHash,
+          });
+        }
       }
     } catch (error) {
       throw toQueueError(error);
