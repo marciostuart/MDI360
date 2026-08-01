@@ -12,7 +12,7 @@ const DEFAULTS = {
   printMode: "escpos",
   printerName: "",
   leftMarginDots: 0,
-  printWidthDots: 512,
+  printWidthDots: 576,
   topFeedLines: 1,
   bottomFeedLines: 4,
   cutMode: "partial",
@@ -133,35 +133,74 @@ function openKioskWindow() {
         `(() => {
           if (window.__mdiPrintHook) return;
           window.__mdiPrintHook = true;
-          const seen = new Set();
+           const seen = new Map();
+           const remember = (key) => {
+             const now = Date.now();
+             for (const [oldKey, at] of seen) if (now - at > 30000) seen.delete(oldKey);
+             if (seen.has(key)) return false;
+             seen.set(key, now);
+             return true;
+           };
           const maybePrint = (data) => {
             try {
-              const t = data && (data.result ?? data.json ?? data);
-              if (!t || typeof t !== "object") return;
-              const label = t.label;
-              if (typeof label !== "string" || !label) return;
-              const key = label + "|" + (t.ticketId ?? t.id ?? "") + "|" + Date.now().toString().slice(0, 10);
-              if (seen.has(key)) return;
-              seen.add(key);
-              window.mdiEmitter?.printTicket?.({
-                label,
-                kind: t.kind ?? "normal",
-                sectorName: t.sectorName ?? null,
-                issuedAt: new Date().toLocaleString("pt-BR"),
-                waitingAhead: typeof t.waitingAhead === "number" ? t.waitingAhead : null,
-              });
+               if (!data || typeof data !== "object") return false;
+               const pending = [data];
+               const visited = new Set();
+               while (pending.length) {
+                 const t = pending.shift();
+                 if (!t || typeof t !== "object" || visited.has(t)) continue;
+                 visited.add(t);
+                 const label = t.label;
+                 const isTicket = typeof label === "string" && label.length > 0 &&
+                   (typeof t.waitingAhead === "number" || typeof t.number === "number" || typeof t.kind === "string");
+                 if (isTicket) {
+                   const key = label + "|" + (t.ticketId ?? t.id ?? "") + "|" + (t.sectorName ?? "");
+                   if (!remember(key)) return true;
+                   window.mdiEmitter?.printTicket?.({
+                     label,
+                     kind: t.kind ?? "normal",
+                     sectorName: t.sectorName ?? null,
+                     issuedAt: new Date().toLocaleString("pt-BR"),
+                     waitingAhead: typeof t.waitingAhead === "number" ? t.waitingAhead : null,
+                   });
+                   return true;
+                 }
+                 for (const value of Object.values(t)) {
+                   if (value && typeof value === "object") pending.push(value);
+                 }
+               }
+               return false;
             } catch (_) {}
+             return false;
           };
           const scan = (text) => {
-            if (!text || text.indexOf('"label"') === -1) return;
-            try { maybePrint(JSON.parse(text)); } catch (_) {}
+             if (!text || (text.indexOf('label') === -1 && text.indexOf('waitingAhead') === -1)) return;
+             try { if (maybePrint(JSON.parse(text))) return; } catch (_) {}
+             // TanStack pode transportar o resultado serializado, com aspas escapadas.
+             try {
+               const unescaped = text.replace(/\\"/g, '"').replace(/\\\\/g, '\\');
+               const label = unescaped.match(/"label"\s*:\s*"([^"\\]+)"/)?.[1];
+               if (!label) return;
+               const kind = unescaped.match(/"kind"\s*:\s*"([^"\\]+)"/)?.[1] ?? "normal";
+               const sectorName = unescaped.match(/"sectorName"\s*:\s*(?:"([^"\\]*)"|null)/)?.[1] ?? null;
+               const waiting = unescaped.match(/"waitingAhead"\s*:\s*(\d+)/)?.[1];
+               const id = unescaped.match(/"id"\s*:\s*"([^"\\]+)"/)?.[1] ?? "";
+               const key = label + "|" + id + "|" + (sectorName ?? "");
+               if (!remember(key)) return;
+               window.mdiEmitter?.printTicket?.({
+                 label, kind, sectorName,
+                 issuedAt: new Date().toLocaleString("pt-BR"),
+                 waitingAhead: waiting == null ? null : Number(waiting),
+               });
+             } catch (_) {}
           };
           const originalFetch = window.fetch;
           window.fetch = async function (...args) {
             const response = await originalFetch.apply(this, args);
             try {
-              const url = String(response.url || "");
-              if (/issue|ticket|senha|emit/i.test(url)) response.clone().text().then(scan).catch(() => {});
+               // Server Functions usam URLs internas por hash; por isso o corpo, e não a URL,
+               // identifica com segurança a resposta de emissão.
+               response.clone().text().then(scan).catch(() => {});
             } catch (_) {}
             return response;
           };

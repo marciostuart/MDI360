@@ -35,9 +35,15 @@ function buildTicket(payload, cfg) {
 
   push(ESC, 0x40); // reset
   push(ESC, 0x74, 0x10); // code page CP1252 (acentos)
-  push(GS, 0x4c, (cfg.leftMarginDots ?? 0) & 0xff, ((cfg.leftMarginDots ?? 0) >> 8) & 0xff);
-  if (cfg.printWidthDots) {
-    push(GS, 0x57, cfg.printWidthDots & 0xff, (cfg.printWidthDots >> 8) & 0xff);
+  const printWidth = Math.trunc(Number(cfg.printWidthDots) || 576);
+  // A TM-T20 imprime 576 pontos em papel de 80 mm. Uma área antiga de 512 pontos
+  // começando em x=0 ficava 32 pontos à esquerda; centralizamos a área configurada.
+  const paperWidth = printWidth <= 384 ? 384 : 576;
+  const configuredLeft = Math.max(0, Math.trunc(Number(cfg.leftMarginDots) || 0));
+  const left = configuredLeft + Math.max(0, Math.floor((paperWidth - printWidth) / 2));
+  push(GS, 0x4c, left & 0xff, (left >> 8) & 0xff);
+  if (printWidth) {
+    push(GS, 0x57, printWidth & 0xff, (printWidth >> 8) & 0xff);
   }
   push(ESC, 0x61, 0x01); // centralizado
 
