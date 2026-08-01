@@ -14,7 +14,26 @@ export type QueuePanelSummary = {
   sectorCount: number;
   lastCallLabel: string | null;
   lastCallAt: string | null;
+  /** Aparência da chamada na TV. */
+  themeBgColor: string;
+  themeBgMediaId: string | null;
+  themeTicketColor: string;
+  themeTextColor: string;
+  themeHistoryColor: string;
 };
+
+export const QUEUE_THEME_DEFAULTS = {
+  themeBgColor: "#000000",
+  themeBgMediaId: null as string | null,
+  themeTicketColor: "#ffffff",
+  themeTextColor: "#38bdf8",
+  themeHistoryColor: "#ffffff",
+};
+
+const hexColor = z
+  .string()
+  .trim()
+  .regex(/^#[0-9a-fA-F]{6}$/, "Use uma cor no formato #RRGGBB");
 
 const usernameSchema = z
   .string()
@@ -63,6 +82,11 @@ export const listQueuePanels = createServerFn({ method: "GET" }).handler(
           mode: schema.queuePanels.mode,
           username: schema.queuePanels.username,
           displaySeconds: schema.queuePanels.displaySeconds,
+          themeBgColor: schema.queuePanels.themeBgColor,
+          themeBgMediaId: schema.queuePanels.themeBgMediaId,
+          themeTicketColor: schema.queuePanels.themeTicketColor,
+          themeTextColor: schema.queuePanels.themeTextColor,
+          themeHistoryColor: schema.queuePanels.themeHistoryColor,
         })
         .from(schema.devices)
         .leftJoin(schema.queuePanels, eq(schema.queuePanels.deviceId, schema.devices.id))
@@ -120,6 +144,11 @@ export const listQueuePanels = createServerFn({ method: "GET" }).handler(
             sectorCount: row.panelId ? (sectorCounts.get(row.panelId) ?? 0) : 0,
             lastCallLabel: last?.label ?? null,
             lastCallAt: last?.at ?? null,
+            themeBgColor: row.themeBgColor ?? QUEUE_THEME_DEFAULTS.themeBgColor,
+            themeBgMediaId: row.themeBgMediaId ?? null,
+            themeTicketColor: row.themeTicketColor ?? QUEUE_THEME_DEFAULTS.themeTicketColor,
+            themeTextColor: row.themeTextColor ?? QUEUE_THEME_DEFAULTS.themeTextColor,
+            themeHistoryColor: row.themeHistoryColor ?? QUEUE_THEME_DEFAULTS.themeHistoryColor,
           };
         }),
       };
@@ -146,6 +175,14 @@ export const saveQueuePanel = createServerFn({ method: "POST" })
         ),
         mode: z.enum(["sequential", "sector"]).default("sequential"),
         displaySeconds: z.number().int().min(10).max(120).default(20),
+        themeBgColor: hexColor.default(QUEUE_THEME_DEFAULTS.themeBgColor),
+        themeBgMediaId: z.preprocess(
+          (value) => (typeof value === "string" && value.trim() === "" ? null : value),
+          z.string().uuid().nullable().default(null),
+        ),
+        themeTicketColor: hexColor.default(QUEUE_THEME_DEFAULTS.themeTicketColor),
+        themeTextColor: hexColor.default(QUEUE_THEME_DEFAULTS.themeTextColor),
+        themeHistoryColor: hexColor.default(QUEUE_THEME_DEFAULTS.themeHistoryColor),
       })
       .safeParse(input);
     if (!result.success) {
