@@ -17,6 +17,12 @@ export function toQueueError(error: unknown): Error {
       "O usuário do banco não tem permissão nas tabelas de senhas. Rode os GRANTs do add-on e tente novamente.",
     );
   }
+  // Colunas novas do add-on (tema, prioridade, som) ainda não migradas.
+  if (code === "42703" || /column .* does not exist/i.test(message)) {
+    return new Error(
+      "O banco deste servidor está numa versão antiga do add-on de senhas. Atualize a stack (re-pull da imagem) para aplicar as migrações 0014, 0015 e 0016.",
+    );
+  }
   if (code === "23505") {
     return new Error("Este usuário de operador já está em uso por outro painel.");
   }
