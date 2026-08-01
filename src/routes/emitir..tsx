@@ -8,7 +8,7 @@ import { Button } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
 import { getKioskPanel, issueKioskTicket } from "@/lib/queue/kiosk.functions";
 
-export const Route = createFileRoute("/emitir/$token")({
+export const Route = createFileRoute("/emitir/")({
   head: () => ({
     meta: [
       { title: "Retire sua senha · MDI 360" },
