@@ -1,14 +1,7 @@
 import { useState } from "react";
 import { createFileRoute, Link, useNavigate } from "@tanstack/react-router";
 import { useMutation, useQuery } from "@tanstack/react-query";
-import {
-  ArrowRight,
-  Building2,
-  Loader2,
-  LogIn,
-  Search,
-  Settings2,
-} from "lucide-react";
+import { Building2, Loader2, LogIn, Search, Settings2 } from "lucide-react";
 import { toast } from "sonner";
 
 import { Button } from "@/components/ui/button";
@@ -108,26 +101,18 @@ function ClientsPage() {
     })
     .sort((a, b) => {
       if (sortBy === "name") return a.name.localeCompare(b.name, "pt-BR");
-      const diff = new Date(a.updatedAt ?? a.createdAt).getTime() - new Date(b.updatedAt ?? b.createdAt).getTime();
+      const diff = new Date(a.createdAt).getTime() - new Date(b.createdAt).getTime();
       return sortBy === "oldest" ? diff : -diff;
     });
 
   return (
     <div className="space-y-6">
-      <div className="flex flex-wrap items-start justify-between gap-4">
-        <div>
-          <h1 className="text-3xl font-semibold">Estabelecimentos</h1>
-          <p className="mt-2 max-w-2xl text-sm text-muted-foreground">
-            {data.length} contas cadastradas na plataforma. Clique no nome de um estabelecimento
-            para ver detalhes, ou use "Entrar" para acessar o painel do cliente.
-          </p>
-        </div>
-        <Button asChild className="gap-2">
-          <Link to="/torre/clientes/novo">
-            <Settings2 className="size-4" />
-            Novo estabelecimento
-          </Link>
-        </Button>
+      <div>
+        <h1 className="text-3xl font-semibold">Estabelecimentos</h1>
+        <p className="mt-2 max-w-2xl text-sm text-muted-foreground">
+          {data.length} contas cadastradas na plataforma. Clique no nome de um estabelecimento para
+          ver detalhes, ou use "Entrar" para acessar o painel do cliente.
+        </p>
       </div>
 
       <div className="flex flex-wrap items-center gap-2">
@@ -159,8 +144,8 @@ function ClientsPage() {
             <SelectValue />
           </SelectTrigger>
           <SelectContent>
-            <SelectItem value="newest">Alteração mais recente</SelectItem>
-            <SelectItem value="oldest">Alteração mais antiga</SelectItem>
+            <SelectItem value="newest">Cadastro mais recente</SelectItem>
+            <SelectItem value="oldest">Cadastro mais antigo</SelectItem>
             <SelectItem value="name">Nome (A-Z)</SelectItem>
           </SelectContent>
         </Select>
