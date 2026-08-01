@@ -435,8 +435,13 @@ function WeatherWidget({
   accent: string;
 }) {
   const city = getWeatherCity(config.cityId);
+  const place = config.placeLabel?.trim() ? config.placeLabel.trim() : city.label;
+  const coords =
+    typeof config.latitude === "number" && typeof config.longitude === "number"
+      ? `&lat=${config.latitude}&lon=${config.longitude}&label=${encodeURIComponent(place)}`
+      : "";
   const { data, failed } = useWidgetData<WeatherPayload>(
-    `type=weather&cityId=${encodeURIComponent(config.cityId)}`,
+    `type=weather&cityId=${encodeURIComponent(config.cityId)}${coords}`,
   );
   const layout = resolveWidgetLayout("weather", config.layout as WidgetLayout | undefined);
 
