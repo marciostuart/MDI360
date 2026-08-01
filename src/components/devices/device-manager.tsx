@@ -4,6 +4,7 @@ import {
   Link2,
   Loader2,
   MonitorSmartphone,
+  Pencil,
   Replace,
   RefreshCw,
   Sparkles,
@@ -45,6 +46,7 @@ import {
   setDeviceAudio,
   setDeviceTransition,
   setDevicePlaylist,
+  updateDevice,
 } from "@/lib/devices/devices.functions";
 import { listPlaylists } from "@/lib/playlists/playlists.functions";
 import { CANVAS_PRESETS, DEFAULT_CANVAS_PRESET, getCanvasPreset } from "@/lib/media/presets";
@@ -71,12 +73,15 @@ export function DeviceManager() {
   const setAudioFn = useServerFn(setDeviceAudio);
   const setTransitionFn = useServerFn(setDeviceTransition);
   const replaceFn = useServerFn(replaceDevice);
+  const updateFn = useServerFn(updateDevice);
 
   const [name, setName] = useState("");
   const [code, setCode] = useState("");
   const [presetId, setPresetId] = useState(DEFAULT_CANVAS_PRESET.id);
   const [replaceTarget, setReplaceTarget] = useState<{ id: string; name: string } | null>(null);
   const [replaceCode, setReplaceCode] = useState("");
+  const [renameTarget, setRenameTarget] = useState<{ id: string; name: string } | null>(null);
+  const [renameValue, setRenameValue] = useState("");
 
   const devices = useQuery({
     queryKey: ["devices"],
@@ -118,6 +123,17 @@ export function DeviceManager() {
       commandFn({ data: vars }),
     onSuccess: () => toast.success("Comando enviado. A tela executa no próximo contato."),
     onError: () => toast.error("Não foi possível enviar o comando."),
+  });
+
+  const renameMutation = useMutation({
+    mutationFn: (vars: { deviceId: string; name: string }) => updateFn({ data: vars }),
+    onSuccess: async () => {
+      toast.success("Nome da tela atualizado.");
+      setRenameTarget(null);
+      setRenameValue("");
+      await refresh();
+    },
+    onError: () => toast.error("Não foi possível renomear esta tela."),
   });
 
   const replaceMutation = useMutation({
@@ -367,6 +383,17 @@ export function DeviceManager() {
                     >
                       <RefreshCw className="size-3.5" />
                       Atualizar
+                    </Button>
+                    <Button
+                      size="sm"
+                      variant="outline"
+                      onClick={() => {
+                        setRenameTarget({ id: device.id, name: device.name });
+                        setRenameValue(device.name);
+                      }}
+                    >
+                      <Pencil className="size-3.5" />
+                      Renomear
                     </Button>
                     <Button
                       size="sm"
