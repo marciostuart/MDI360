@@ -57,12 +57,10 @@ const emptyOperator: OperatorDraft = {
 export function QueuePanelConfig({
   panelId,
   kioskToken,
-  emitterCode,
   issuingEnabled,
 }: {
   panelId: string;
   kioskToken: string | null;
-  emitterCode: string | null;
   issuingEnabled: boolean;
 }) {
   const queryClient = useQueryClient();
@@ -731,34 +729,6 @@ export function QueuePanelConfig({
               Abra este endereço em um tablet ou totem na recepção: o cliente escolhe o atendimento
               e retira senha normal ou preferencial.
             </p>
-            {emitterCode ? (
-              <div className="rounded-lg border border-border bg-muted/40 p-3">
-                <p className="text-xs font-semibold uppercase tracking-wider text-muted-foreground">
-                  Terminal emissor (app Windows)
-                </p>
-                <div className="mt-2 flex flex-wrap items-center gap-2">
-                  <span className="font-mono text-2xl font-black tracking-[0.3em]">
-                    {emitterCode}
-                  </span>
-                  <Button
-                    variant="outline"
-                    size="sm"
-                    onClick={async () => {
-                      await navigator.clipboard.writeText(emitterCode);
-                      toast.success("Código copiado.");
-                    }}
-                  >
-                    <Copy className="size-4" />
-                    Copiar código
-                  </Button>
-                </div>
-                <p className="mt-2 text-xs text-muted-foreground">
-                  Informe este código no aplicativo MDI 360 Emissor instalado no computador com a
-                  impressora térmica. Use &quot;Gerar novo&quot; para trocar o código e desvincular
-                  os terminais atuais.
-                </p>
-              </div>
-            ) : null}
           </section>
         </>
       ) : null}

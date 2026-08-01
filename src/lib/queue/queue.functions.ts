@@ -20,7 +20,6 @@ export type QueuePanelSummary = {
   priorityPrefix: string | null;
   /** Token da tela de emissão de senhas (totem). */
   kioskToken: string | null;
-  emitterCode: string | null;
   /** Emissão liberada no terminal de emissão (/emitir). */
   issuingEnabled: boolean;
   lastCallLabel: string | null;
@@ -106,7 +105,6 @@ export const listQueuePanels = createServerFn({ method: "GET" }).handler(
           priorityPolicy: schema.queuePanels.priorityPolicy,
           priorityPrefix: schema.queuePanels.priorityPrefix,
           kioskToken: schema.queuePanels.kioskToken,
-          emitterCode: schema.queuePanels.emitterCode,
           issuingEnabled: schema.queuePanels.issuingEnabled,
           themeBgColor: schema.queuePanels.themeBgColor,
           themeBgMediaId: schema.queuePanels.themeBgMediaId,
@@ -184,7 +182,6 @@ export const listQueuePanels = createServerFn({ method: "GET" }).handler(
             priorityPolicy: row.priorityPolicy ?? "priority",
             priorityPrefix: row.priorityPrefix ?? null,
             kioskToken: row.kioskToken ?? null,
-            emitterCode: row.emitterCode ?? null,
             issuingEnabled: row.issuingEnabled ?? true,
             lastCallLabel: last?.label ?? null,
             lastCallAt: last?.at ?? null,
@@ -382,7 +379,6 @@ export const saveQueuePanel = createServerFn({ method: "POST" })
             username: data.username,
             passwordHash,
             kioskToken: randomBytes(16).toString("hex"),
-            emitterCode: (await import("@/lib/queue/emitter-code.server")).newEmitterCode(),
             ...configValues,
             ...themeValues,
           })
@@ -969,13 +965,12 @@ export const rotateQueueKioskToken = createServerFn({ method: "POST" })
     const { eq } = await import("drizzle-orm");
     const { randomBytes } = await import("node:crypto");
     const panel = await requireOwnedPanel(data.panelId);
-    const { newEmitterCode } = await import("@/lib/queue/emitter-code.server");
     const kioskToken = randomBytes(16).toString("hex");
     await getDb()
       .update(schema.queuePanels)
-      .set({ kioskToken, emitterCode: newEmitterCode() })
+      .set({ kioskToken })
       .where(eq(schema.queuePanels.id, panel.id));
-    return { ok: true, kioskToken } as const;
+    return { ok: true, kioskToken };
   });
 
 /** Remove o tom de chamada personalizado, voltando ao tom padrão do sistema. */

@@ -406,8 +406,6 @@ export const queuePanels = pgTable(
     priorityPrefix: text("priority_prefix"),
     /** Token da tela de emissão (totem), sem login. */
     kioskToken: text("kiosk_token"),
-    /** Código curto de vinculação do terminal emissor (app Windows). */
-    emitterCode: text("emitter_code"),
     /** Emissão de senhas liberada no terminal (/emitir) para esta tela. */
     issuingEnabled: boolean("issuing_enabled").notNull().default(true),
     /** Prefix used in sequential mode ("A" -> A001). Optional. */
