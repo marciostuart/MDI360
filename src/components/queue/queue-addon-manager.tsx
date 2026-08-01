@@ -492,6 +492,7 @@ export function QueueAddonManager() {
                   <div className="flex gap-2 sm:col-span-2">
                     <div className="w-full space-y-3 rounded-lg border border-border p-4">
                       <p className="text-sm font-medium">Aparência da chamada na TV</p>
+                      {null}
                       <div className="grid gap-3 sm:grid-cols-2">
                         <ColorField
                           id={`bg-${panel.deviceId}`}
