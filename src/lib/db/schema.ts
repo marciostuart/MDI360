@@ -406,6 +406,8 @@ export const queuePanels = pgTable(
     priorityPrefix: text("priority_prefix"),
     /** Token da tela de emissão (totem), sem login. */
     kioskToken: text("kiosk_token"),
+    /** Emissão de senhas liberada no terminal (/emitir) para esta tela. */
+    issuingEnabled: boolean("issuing_enabled").notNull().default(true),
     /** Prefix used in sequential mode ("A" -> A001). Optional. */
     prefix: text("prefix"),
     lastNumber: integer("last_number").notNull().default(0),
@@ -447,6 +449,8 @@ export const queueSectors = pgTable(
     prefix: text("prefix"),
     lastNumber: integer("last_number").notNull().default(0),
     position: integer("position").notNull().default(0),
+    /** Fila disponível para emissão de senhas no terminal (/emitir). */
+    issuingEnabled: boolean("issuing_enabled").notNull().default(true),
     createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
   },
   (t) => [index("queue_sectors_panel_idx").on(t.panelId, t.position)],
