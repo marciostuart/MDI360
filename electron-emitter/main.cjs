@@ -203,9 +203,17 @@ async function listPrinters() {
   }
 }
 
+let lastPrint = { key: "", at: 0 };
+
 async function printTicket(payload) {
   const cfg = loadConfig();
   if (!cfg.autoPrint) return { ok: true, skipped: true };
+  // Evita imprimir duas vezes a mesma senha (site + gatilho local).
+  const key = `${payload.label ?? ""}|${payload.sectorName ?? ""}`;
+  if (key !== "|" && lastPrint.key === key && Date.now() - lastPrint.at < 8000) {
+    return { ok: true, skipped: true };
+  }
+  lastPrint = { key, at: Date.now() };
   if (cfg.printMode === "driver") {
     // Alternativa: usa o driver do Windows (util quando a impressora nao aceita ESC/POS cru).
     const win = new BrowserWindow({ show: false, webPreferences: { contextIsolation: true } });
