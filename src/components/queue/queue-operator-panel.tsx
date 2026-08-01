@@ -123,6 +123,11 @@ function OperatorConsole({
   const callMutation = useMutation({
     mutationFn: (sectorId: string | null) => callNext({ data: { sectorId } }),
     onSuccess: async (result) => {
+      if (!result.ok) {
+        toast.warning(result.message ?? "Nenhuma senha aguardando na fila.");
+        await invalidate();
+        return;
+      }
       toast.success(
         result.kind === "priority"
           ? `Senha preferencial ${result.label} chamada na TV.`
