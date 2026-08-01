@@ -377,6 +377,7 @@ export type PlatformPlan = {
   queueEnabled: boolean;
   isActive: boolean;
   organizations: number;
+  createdAt: string;
 };
 
 export const fetchPlans = createServerFn({ method: "GET" }).handler(
@@ -396,13 +397,18 @@ export const fetchPlans = createServerFn({ method: "GET" }).handler(
           priceCents: schema.plans.priceCents,
           queueEnabled: schema.plans.queueEnabled,
           isActive: schema.plans.isActive,
+          createdAt: schema.plans.createdAt,
           organizations: sql<number>`(
             select count(*)::int from organizations o where o.plan_id = plans.id
           )`,
         })
         .from(schema.plans)
         .orderBy(schema.plans.priceCents);
-      return rows.map((row) => ({ ...row, organizations: Number(row.organizations ?? 0) }));
+      return rows.map((row) => ({
+        ...row,
+        createdAt: row.createdAt.toISOString(),
+        organizations: Number(row.organizations ?? 0),
+      }));
     } catch (error) {
       console.error("fetchPlans failed", error);
       return null;
