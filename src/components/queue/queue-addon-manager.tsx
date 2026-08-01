@@ -23,8 +23,45 @@ import {
   listQueuePanels,
   saveQueuePanel,
   setQueuePanelEnabled,
+  QUEUE_THEME_DEFAULTS,
   type QueuePanelSummary,
 } from "@/lib/queue/queue.functions";
+import { listMediaAssets } from "@/lib/media/media.functions";
+
+/** Campo de cor com amostra + valor hexadecimal editável. */
+function ColorField({
+  id,
+  label,
+  value,
+  onChange,
+}: {
+  id: string;
+  label: string;
+  value: string;
+  onChange: (value: string) => void;
+}) {
+  return (
+    <div className="space-y-1.5">
+      <Label htmlFor={id}>{label}</Label>
+      <div className="flex items-center gap-2">
+        <input
+          id={id}
+          type="color"
+          value={value}
+          onChange={(event) => onChange(event.target.value)}
+          className="size-9 shrink-0 cursor-pointer rounded-md border border-border bg-transparent p-0.5"
+          aria-label={label}
+        />
+        <Input
+          value={value}
+          onChange={(event) => onChange(event.target.value)}
+          className="font-mono uppercase"
+          maxLength={7}
+        />
+      </div>
+    </div>
+  );
+}
 
 /**
  * Studio screen for the queue add-on. Enabling it on a TV creates a dedicated
@@ -49,7 +86,18 @@ export function QueueAddonManager() {
     password: "",
     mode: "sequential",
     displaySeconds: 20,
+    ...QUEUE_THEME_DEFAULTS,
   });
+
+  const fetchMedia = useServerFn(listMediaAssets);
+  const { data: media } = useQuery({
+    queryKey: ["queue-theme-images"],
+    queryFn: () => fetchMedia({}),
+    enabled: editing !== null,
+  });
+  const images = (media?.items ?? []).filter(
+    (item) => item.kind === "image" && item.status === "ready",
+  );
 
   const invalidate = () => queryClient.invalidateQueries({ queryKey: ["queue-panels"] });
 
@@ -60,6 +108,11 @@ export function QueueAddonManager() {
       password?: string;
       mode: "sequential" | "sector";
       displaySeconds: number;
+      themeBgColor: string;
+      themeBgMediaId: string | null;
+      themeTicketColor: string;
+      themeTextColor: string;
+      themeHistoryColor: string;
     }) => savePanel({ data: input }),
     onSuccess: async () => {
       toast.success("Painel de senhas salvo.");
@@ -91,6 +144,11 @@ export function QueueAddonManager() {
       password: "",
       mode: panel.mode === "sector" ? "sector" : "sequential",
       displaySeconds: panel.displaySeconds,
+      themeBgColor: panel.themeBgColor || QUEUE_THEME_DEFAULTS.themeBgColor,
+      themeBgMediaId: panel.themeBgMediaId ?? null,
+      themeTicketColor: panel.themeTicketColor || QUEUE_THEME_DEFAULTS.themeTicketColor,
+      themeTextColor: panel.themeTextColor || QUEUE_THEME_DEFAULTS.themeTextColor,
+      themeHistoryColor: panel.themeHistoryColor || QUEUE_THEME_DEFAULTS.themeHistoryColor,
     });
   };
 
