@@ -92,7 +92,13 @@ export async function recentQueueCalls(deviceId: string): Promise<QueueCallPaylo
   };
 
   const sound = {
-    chimeUrl: panel.chimeStorageKey ? `/api/public/player/chime?panel=${panel.id}` : null,
+    // A versão vem da própria chave do arquivo: ao substituir o tom, a URL muda
+    // e nenhum cache (navegador, player Android ou Roku) devolve o som antigo.
+    chimeUrl: panel.chimeStorageKey
+      ? `/api/public/player/chime?panel=${panel.id}&v=${encodeURIComponent(
+          panel.chimeStorageKey.slice(-24),
+        )}`
+      : null,
     chimeVolume: Math.min(100, Math.max(0, panel.chimeVolume ?? 55)),
     voiceVolume: Math.min(300, Math.max(0, panel.voiceVolume ?? 200)),
   };
