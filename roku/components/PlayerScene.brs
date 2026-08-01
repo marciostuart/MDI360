@@ -69,6 +69,8 @@ sub init()
     m.queueHistory = m.top.findNode("queueHistory")
     m.queueHistoryTitle = m.top.findNode("queueHistoryTitle")
     m.queueTitle = m.top.findNode("queueTitle")
+    m.queueBg = m.top.findNode("queueBg")
+    m.queueBgImage = m.top.findNode("queueBgImage")
     m.chime = m.top.findNode("chime")
     ' O Roku reproduz apenas UM Audio node por vez: sinal sonoro e locucao
     ' compartilham o mesmo no, em sequencia (dois nos travavam o canal).
