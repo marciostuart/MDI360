@@ -516,6 +516,11 @@ export const queueOperators = pgTable(
       .notNull()
       .references(() => queuePanels.id, { onDelete: "cascade" }),
     name: text("name").notNull().default("Operador"),
+    /**
+     * Guichê/mesa deste operador ("Guichê 01"). Quando definido, a TV exibe e
+     * fala este rótulo na chamada, mesmo em fila comum (sem setores).
+     */
+    deskLabel: text("desk_label"),
     username: text("username").notNull(),
     passwordHash: text("password_hash").notNull(),
     isEnabled: boolean("is_enabled").notNull().default(true),
@@ -557,6 +562,8 @@ export const queueTickets = pgTable(
     label: text("label").notNull(),
     /** "waiting" | "called" | "cancelled". */
     status: text("status").notNull().default("waiting"),
+    /** Guichê que assumiu a senha ao chamá-la. */
+    calledByOperatorId: uuid("called_by_operator_id"),
     issuedAt: timestamp("issued_at", { withTimezone: true }).notNull().defaultNow(),
     calledAt: timestamp("called_at", { withTimezone: true }),
   },
