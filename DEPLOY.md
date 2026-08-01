@@ -46,7 +46,7 @@ string aleatória) e copie um valor longo (32+ caracteres). Ele será o `SESSION
 O Swarm não constrói imagem sozinho, mas o Portainer constrói:
 
 1. Portainer → **Images** → **Build a new image**.
-2. **Names**: use uma versão nova em cada build, por exemplo `signage:20260801-01`.
+2. **Names**: `signage:latest`
 3. **Build method**: **URL** e cole a URL do repositório Git do projeto
    (ex.: `https://github.com/SEU_USUARIO/signage`), deixando
    **Dockerfile path** = `Dockerfile`.
@@ -54,8 +54,8 @@ O Swarm não constrói imagem sozinho, mas o Portainer constrói:
      (o `Dockerfile` deve estar na raiz).
 4. Clique em **Build the image** e aguarde terminar (alguns minutos).
 
-> Para atualizar depois, use outra versão (`signage:20260801-02`, depois `-03` etc.).
-> Não reutilize `latest`: o Swarm pode manter a imagem anterior em cache.
+> Para atualizar depois: repita este passo (mesmo nome `signage:latest`) e então
+> **Services → signage_signage → Update → Force update**.
 
 ---
 
@@ -78,10 +78,9 @@ O Swarm não constrói imagem sozinho, mas o Portainer constrói:
 | `APP_URL` | `https://mdi.360bh.com.br` |
 | `PLATFORM_ADMIN_EMAILS` | seu e-mail, ex.: `voce@360bh.com.br` |
 | `STACK_NETWORK` | `360Network` |
-| `SIGNAGE_IMAGE` | a tag criada no Passo 4, ex.: `signage:20260801-01` |
+| `SIGNAGE_IMAGE` | `signage:latest` |
 
-4. **Deploy the stack**. Nas próximas atualizações, altere `SIGNAGE_IMAGE` para
-   a nova tag e clique em **Update the stack**; não atualize o serviço separado.
+4. **Deploy the stack**.
 
 > Se o seu Traefik usar outro nome de entrypoint ou de certresolver (ex.: `https`
 > em vez de `websecure`, `le` em vez de `letsencrypt`), ajuste essas duas linhas
@@ -132,7 +131,7 @@ As tabelas do banco são criadas automaticamente no primeiro start — nenhum SQ
 Portainer → **Services → signage_signage → Logs** (ou Containers → Logs).
 As mensagens começam com `[signage]`. Erros mais comuns:
 
-- `No such image` → a tag em `SIGNAGE_IMAGE` não é a mesma criada no Passo 4.
+- `No such image: signage:latest` → faltou o Passo 4 (build da imagem).
 - `ENOTFOUND` / `ECONNREFUSED` no banco → nome do serviço errado no
   `DATABASE_URL`, ou o postgres não está na rede `360Network`.
 - `password authentication failed` → a senha do `DATABASE_URL` difere do Passo 1.

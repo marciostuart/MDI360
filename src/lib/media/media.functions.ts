@@ -52,7 +52,7 @@ export type MediaListItem = {
   previewUrl: string | null;
   widgetType: string | null;
   widgetConfig: WidgetConfig | null;
-  /** Origem externa (link da live ou rádio), quando houver. */
+  /** Origem externa (link do YouTube importado), quando houver. */
   sourceUrl: string | null;
   /** Free-form labels used by the library filter. */
   tags: string[];

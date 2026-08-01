@@ -277,11 +277,14 @@ sub applyPayload(payload as object)
         else if (kind = "image" or kind = "video") and item.url <> invalid and item.url <> ""
             playable.push(item)
         else if kind = "stream" and item.url <> invalid and item.url <> ""
-            ' Streaming: nada e baixado. Lives/radios com link direto
-            ' (HLS, MP4, MP3) tocam pelo proprio Video node.
-            item.kind = "video"
-            item.isLive = true
-            playable.push(item)
+            ' Streaming: nada e baixado. O Roku nao roda o player do YouTube,
+            ' entao esses itens ficam de fora; lives/radios com link direto
+            ' (HLS, MP4, MP3) tocam normalmente pelo proprio Video node.
+            if Instr(1, LCase(item.url), "youtu") = 0
+                item.kind = "video"
+                item.isLive = true
+                playable.push(item)
+            end if
         end if
     end for
 

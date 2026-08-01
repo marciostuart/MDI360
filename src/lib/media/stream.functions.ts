@@ -12,8 +12,8 @@ const streamSchema = z.object({
 });
 
 /**
- * Adiciona um conteúdo por streaming à biblioteca: uma live (HLS) ou uma rádio
- * online.
+ * Adiciona um conteúdo por streaming à biblioteca: vídeo do YouTube, uma live
+ * (YouTube ao vivo, HLS) ou uma rádio online.
  *
  * Nada é baixado: o endereço é guardado e a TV abre o stream no momento da
  * exibição. Por isso não consome a cota de armazenamento nem fica em cache no
@@ -37,12 +37,10 @@ export const addStreamAsset = createServerFn({ method: "POST" })
     const { normalizeStreamUrl } = await import("./stream-url");
     const parsed = normalizeStreamUrl(data.url);
     if (!parsed) {
-      throw new Error(
-        "Endereço inválido. Use o link direto da live ou da rádio (.m3u8, .mp4 ou .mp3).",
-      );
+      throw new Error("Endereço inválido. Cole o link do vídeo, da live ou da rádio.");
     }
 
-    const fallbackName = hostOf(parsed.url);
+    const fallbackName = parsed.youtubeId ? "Vídeo do YouTube" : hostOf(parsed.url);
     const name = (data.name?.trim() || fallbackName).slice(0, 160);
 
     const inserted = await getDb()
