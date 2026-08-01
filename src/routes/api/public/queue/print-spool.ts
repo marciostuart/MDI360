@@ -7,7 +7,7 @@ import { z } from "zod";
  * Somente dados do cupom são retornados (rótulo, tipo, setor, horário) — sem PII.
  */
 const querySchema = z.object({
-  token: z.string().trim().length(32),
+  token: z.string().trim().min(8).max(128),
   /** ISO do último cupom já impresso; só retorna senhas emitidas depois disso. */
   since: z.string().trim().datetime().optional(),
 });
@@ -16,6 +16,7 @@ export const Route = createFileRoute("/api/public/queue/print-spool")({
   server: {
     handlers: {
       GET: async ({ request }) => {
+        try {
         const url = new URL(request.url);
         const parsed = querySchema.safeParse({
           token: url.searchParams.get("token") ?? "",
@@ -26,7 +27,7 @@ export const Route = createFileRoute("/api/public/queue/print-spool")({
         const { isDatabaseConfigured, getDb, schema } = await import("@/lib/db/index.server");
         if (!isDatabaseConfigured()) return new Response("Indisponível", { status: 503 });
 
-        const { and, asc, eq, gt, lt } = await import("drizzle-orm");
+        const { and, asc, eq, gt } = await import("drizzle-orm");
         const db = getDb();
 
         const panels = await db
@@ -67,33 +68,41 @@ export const Route = createFileRoute("/api/public/queue/print-spool")({
           .orderBy(asc(schema.queueTickets.issuedAt))
           .limit(20);
 
-        const tickets = [];
-        for (const row of rows) {
-          const ahead = await db.$count(
-            schema.queueTickets,
+        // Senhas aguardando no painel — usadas para calcular a posição na fila em memória.
+        const waiting = await db
+          .select({
+            sectorId: schema.queueTickets.sectorId,
+            issuedAt: schema.queueTickets.issuedAt,
+          })
+          .from(schema.queueTickets)
+          .where(
             and(
               eq(schema.queueTickets.panelId, panel.panelId),
               eq(schema.queueTickets.status, "waiting"),
-              row.sectorId
-                ? eq(schema.queueTickets.sectorId, row.sectorId)
-                : eq(schema.queueTickets.panelId, panel.panelId),
-              lt(schema.queueTickets.issuedAt, row.issuedAt),
             ),
           );
-          tickets.push({
-            id: row.id,
-            label: row.label,
-            kind: row.kind,
-            sectorName: row.sectorName,
-            issuedAt: row.issuedAt.toISOString(),
-            waitingAhead: ahead,
-          });
-        }
+
+        const tickets = rows.map((row) => ({
+          id: row.id,
+          label: row.label,
+          kind: row.kind,
+          sectorName: row.sectorName,
+          issuedAt: row.issuedAt.toISOString(),
+          waitingAhead: waiting.filter(
+            (w) =>
+              w.issuedAt < row.issuedAt &&
+              (row.sectorId ? w.sectorId === row.sectorId : true),
+          ).length,
+        }));
 
         return Response.json(
           { panelName: panel.deviceName, serverTime: now.toISOString(), tickets },
           { headers: { "cache-control": "no-store" } },
         );
+        } catch (error) {
+          console.error("[print-spool] falha ao consultar fila", error);
+          return new Response("Erro interno", { status: 500 });
+        }
       },
     },
   },
