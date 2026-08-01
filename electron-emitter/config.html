@@ -1,0 +1,163 @@
+<!doctype html>
+<html lang="pt-BR">
+  <head>
+    <meta charset="utf-8" />
+    <title>MDI360 Emissor · Configuração</title>
+    <style>
+      :root { color-scheme: dark; }
+      * { box-sizing: border-box; }
+      body { margin: 0; padding: 28px; font-family: Segoe UI, system-ui, sans-serif; background: #0e1116; color: #e8edf5; }
+      h1 { font-size: 20px; margin: 0 0 4px; }
+      p.sub { margin: 0 0 20px; color: #97a3b6; font-size: 13px; }
+      fieldset { border: 1px solid #232c39; border-radius: 10px; padding: 16px; margin: 0 0 16px; }
+      legend { padding: 0 6px; font-size: 12px; text-transform: uppercase; letter-spacing: .08em; color: #97a3b6; }
+      label { display: block; font-size: 12px; color: #b9c4d4; margin: 10px 0 4px; }
+      input, select { width: 100%; padding: 9px 10px; border-radius: 8px; border: 1px solid #2b3746; background: #151b23; color: #e8edf5; font-size: 14px; }
+      .grid { display: grid; gap: 12px; grid-template-columns: repeat(3, 1fr); }
+      .grid2 { display: grid; gap: 12px; grid-template-columns: repeat(2, 1fr); }
+      .row { display: flex; gap: 10px; align-items: center; margin-top: 18px; }
+      button { padding: 11px 18px; border-radius: 8px; border: 0; font-size: 14px; font-weight: 600; cursor: pointer; }
+      .primary { background: #2f6df6; color: #fff; }
+      .ghost { background: #1b2330; color: #cfd8e6; }
+      .msg { margin-top: 12px; font-size: 13px; min-height: 18px; }
+      .ok { color: #58d68d; } .err { color: #ff7b72; }
+      .hint { font-size: 11px; color: #7d8899; margin-top: 4px; }
+      .check { display: flex; gap: 8px; align-items: center; margin-top: 12px; }
+      .check input { width: auto; }
+    </style>
+  </head>
+  <body>
+    <h1>Configuração do terminal de emissão</h1>
+    <p class="sub">Informe o token do emissor (o código que aparece depois de /emitir/ no endereço gerado no painel) e ajuste a impressora térmica.</p>
+
+    <fieldset>
+      <legend>Vínculo com o sistema</legend>
+      <div class="grid2">
+        <div>
+          <label for="serverUrl">Endereço do servidor</label>
+          <input id="serverUrl" placeholder="https://mdi.360bh.com.br" />
+        </div>
+        <div>
+          <label for="token">Token do emissor</label>
+          <input id="token" placeholder="eb2f979144a955a8813b82bfaa2dc5de" spellcheck="false" />
+        </div>
+      </div>
+      <p class="hint">O terminal abrirá em tela cheia em /emitir/&lt;token&gt;. Ctrl+Shift+C reabre esta configuração, Ctrl+Shift+Q encerra.</p>
+    </fieldset>
+
+    <fieldset>
+      <legend>Impressora térmica</legend>
+      <div class="grid2">
+        <div>
+          <label for="printerName">Impressora (EPSON TM-T20)</label>
+          <select id="printerName"></select>
+        </div>
+        <div>
+          <label for="printMode">Modo de impressão</label>
+          <select id="printMode">
+            <option value="escpos">ESC/POS direto (recomendado)</option>
+            <option value="driver">Driver do Windows</option>
+          </select>
+        </div>
+      </div>
+      <div class="grid">
+        <div>
+          <label for="leftMarginDots">Margem esquerda (pontos)</label>
+          <input id="leftMarginDots" type="number" min="0" max="512" />
+        </div>
+        <div>
+          <label for="printWidthDots">Largura de impressão (pontos)</label>
+          <input id="printWidthDots" type="number" min="100" max="576" />
+        </div>
+        <div>
+          <label for="labelSize">Tamanho da senha (1–8)</label>
+          <input id="labelSize" type="number" min="1" max="8" />
+        </div>
+        <div>
+          <label for="topFeedLines">Margem superior (linhas)</label>
+          <input id="topFeedLines" type="number" min="0" max="20" />
+        </div>
+        <div>
+          <label for="bottomFeedLines">Margem inferior (linhas)</label>
+          <input id="bottomFeedLines" type="number" min="0" max="20" />
+        </div>
+        <div>
+          <label for="cutFeedDots">Avanço até o corte (pontos)</label>
+          <input id="cutFeedDots" type="number" min="0" max="255" />
+        </div>
+        <div>
+          <label for="cutMode">Guilhotina</label>
+          <select id="cutMode">
+            <option value="partial">Corte parcial</option>
+            <option value="full">Corte total</option>
+            <option value="none">Sem corte</option>
+          </select>
+        </div>
+        <div>
+          <label for="headerText">Texto do cabeçalho</label>
+          <input id="headerText" placeholder="Clínica Exemplo" />
+        </div>
+        <div>
+          <label for="footerText">Texto do rodapé</label>
+          <input id="footerText" />
+        </div>
+      </div>
+      <p class="hint">A TM-T20 em bobina de 80 mm imprime 512 pontos (72 mm). Para bobina de 58 mm use 384 pontos.</p>
+      <div class="check">
+        <input id="autoPrint" type="checkbox" />
+        <label for="autoPrint" style="margin:0">Imprimir automaticamente cada senha emitida</label>
+      </div>
+    </fieldset>
+
+    <div class="row">
+      <button class="primary" id="start">Salvar e abrir o emissor</button>
+      <button class="ghost" id="test">Imprimir teste</button>
+      <button class="ghost" id="quit">Sair</button>
+    </div>
+    <div class="msg" id="msg"></div>
+
+    <script>
+      const fields = ["serverUrl","token","printMode","printerName","leftMarginDots","printWidthDots","labelSize","topFeedLines","bottomFeedLines","cutFeedDots","cutMode","headerText","footerText"];
+      const msg = document.getElementById("msg");
+      const show = (text, ok) => { msg.textContent = text; msg.className = "msg " + (ok ? "ok" : "err"); };
+
+      function readForm() {
+        const out = {};
+        for (const id of fields) {
+          const el = document.getElementById(id);
+          out[id] = el.type === "number" ? Number(el.value || 0) : el.value.trim();
+        }
+        out.autoPrint = document.getElementById("autoPrint").checked;
+        return out;
+      }
+
+      async function init() {
+        const cfg = await window.mdiEmitter.getConfig();
+        const printers = await window.mdiEmitter.listPrinters();
+        const select = document.getElementById("printerName");
+        select.innerHTML = "";
+        if (!printers.length) select.appendChild(new Option("Nenhuma impressora encontrada", ""));
+        for (const p of printers) select.appendChild(new Option(p.name + (p.isDefault ? " (padrão)" : ""), p.name));
+        for (const id of fields) {
+          const el = document.getElementById(id);
+          if (cfg[id] !== undefined && cfg[id] !== null) el.value = cfg[id];
+        }
+        document.getElementById("autoPrint").checked = cfg.autoPrint !== false;
+      }
+
+      document.getElementById("start").addEventListener("click", async () => {
+        const cfg = readForm();
+        if (!cfg.token) return show("Informe o token do emissor.", false);
+        if (!cfg.serverUrl) return show("Informe o endereço do servidor.", false);
+        await window.mdiEmitter.startKiosk(cfg);
+      });
+      document.getElementById("test").addEventListener("click", async () => {
+        show("Enviando teste...", true);
+        const result = await window.mdiEmitter.testPrint(readForm());
+        show(result.ok ? "Cupom de teste enviado." : result.error, result.ok);
+      });
+      document.getElementById("quit").addEventListener("click", () => window.mdiEmitter.quit());
+      init();
+    </script>
+  </body>
+</html>
