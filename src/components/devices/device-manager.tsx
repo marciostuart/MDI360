@@ -425,6 +425,7 @@ export function DeviceManager() {
 
       <Dialog
         open={replaceTarget !== null}
+        // eslint-disable-next-line react/jsx-no-comment-textnodes
         onOpenChange={(open) => {
           if (!open && !replaceMutation.isPending) {
             setReplaceTarget(null);
