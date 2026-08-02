@@ -25,6 +25,7 @@ import {
   setQueuePanelEnabled,
   QUEUE_THEME_DEFAULTS,
   QUEUE_SOUND_DEFAULTS,
+  KIOSK_THEME_DEFAULTS,
   clearQueueChime,
   type QueuePanelSummary,
 } from "@/lib/queue/queue.functions";
@@ -95,6 +96,7 @@ export function QueueAddonManager() {
     displaySeconds: 20,
     ...QUEUE_THEME_DEFAULTS,
     ...QUEUE_SOUND_DEFAULTS,
+    ...KIOSK_THEME_DEFAULTS,
   });
 
   const [uploadingChime, setUploadingChime] = useState<string | null>(null);
@@ -154,6 +156,17 @@ export function QueueAddonManager() {
       themeTicketColor: string;
       themeTextColor: string;
       themeHistoryColor: string;
+      kioskBgColor: string;
+      kioskBgMediaId: string | null;
+      kioskCardColor: string;
+      kioskTitleColor: string;
+      kioskTextColor: string;
+      kioskNormalButtonColor: string;
+      kioskNormalButtonTextColor: string;
+      kioskPriorityButtonColor: string;
+      kioskPriorityButtonTextColor: string;
+      kioskTitle: string | null;
+      kioskShowLogo: boolean;
       chimeVolume: number;
       voiceVolume: number;
     }) => savePanel({ data: input }),
@@ -195,6 +208,21 @@ export function QueueAddonManager() {
       themeTicketColor: panel.themeTicketColor || QUEUE_THEME_DEFAULTS.themeTicketColor,
       themeTextColor: panel.themeTextColor || QUEUE_THEME_DEFAULTS.themeTextColor,
       themeHistoryColor: panel.themeHistoryColor || QUEUE_THEME_DEFAULTS.themeHistoryColor,
+      kioskBgColor: panel.kioskBgColor || KIOSK_THEME_DEFAULTS.kioskBgColor,
+      kioskBgMediaId: panel.kioskBgMediaId ?? null,
+      kioskCardColor: panel.kioskCardColor || KIOSK_THEME_DEFAULTS.kioskCardColor,
+      kioskTitleColor: panel.kioskTitleColor || KIOSK_THEME_DEFAULTS.kioskTitleColor,
+      kioskTextColor: panel.kioskTextColor || KIOSK_THEME_DEFAULTS.kioskTextColor,
+      kioskNormalButtonColor:
+        panel.kioskNormalButtonColor || KIOSK_THEME_DEFAULTS.kioskNormalButtonColor,
+      kioskNormalButtonTextColor:
+        panel.kioskNormalButtonTextColor || KIOSK_THEME_DEFAULTS.kioskNormalButtonTextColor,
+      kioskPriorityButtonColor:
+        panel.kioskPriorityButtonColor || KIOSK_THEME_DEFAULTS.kioskPriorityButtonColor,
+      kioskPriorityButtonTextColor:
+        panel.kioskPriorityButtonTextColor || KIOSK_THEME_DEFAULTS.kioskPriorityButtonTextColor,
+      kioskTitle: panel.kioskTitle ?? "",
+      kioskShowLogo: panel.kioskShowLogo ?? true,
       chimeVolume: panel.chimeVolume ?? QUEUE_SOUND_DEFAULTS.chimeVolume,
       voiceVolume: panel.voiceVolume ?? QUEUE_SOUND_DEFAULTS.voiceVolume,
     });
@@ -367,6 +395,17 @@ export function QueueAddonManager() {
                       themeTicketColor: form.themeTicketColor,
                       themeTextColor: form.themeTextColor,
                       themeHistoryColor: form.themeHistoryColor,
+                      kioskBgColor: form.kioskBgColor,
+                      kioskBgMediaId: form.kioskBgMediaId,
+                      kioskCardColor: form.kioskCardColor,
+                      kioskTitleColor: form.kioskTitleColor,
+                      kioskTextColor: form.kioskTextColor,
+                      kioskNormalButtonColor: form.kioskNormalButtonColor,
+                      kioskNormalButtonTextColor: form.kioskNormalButtonTextColor,
+                      kioskPriorityButtonColor: form.kioskPriorityButtonColor,
+                      kioskPriorityButtonTextColor: form.kioskPriorityButtonTextColor,
+                      kioskTitle: form.kioskTitle.trim() || null,
+                      kioskShowLogo: form.kioskShowLogo,
                       chimeVolume: form.chimeVolume,
                       voiceVolume: form.voiceVolume,
                     });
