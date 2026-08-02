@@ -42,6 +42,7 @@ import { Route as ApiPublicPlayerChimeRouteImport } from './routes/api/public/pl
 import { Route as ApiPublicPlayerEventsRouteImport } from './routes/api/public/player/events'
 import { Route as ApiPublicPlayerPlaybackRouteImport } from './routes/api/public/player/playback'
 import { Route as ApiPublicPlayerRegisterRouteImport } from './routes/api/public/player/register'
+import { Route as ApiPublicPlayerScreenshotRouteImport } from './routes/api/public/player/screenshot'
 import { Route as ApiPublicPlayerStatusRouteImport } from './routes/api/public/player/status'
 import { Route as ApiPublicPlayerSyncRouteImport } from './routes/api/public/player/sync'
 import { Route as ApiPublicQueuePrintSpoolRouteImport } from './routes/api/public/queue/print-spool'
@@ -213,6 +214,12 @@ const ApiPublicPlayerRegisterRoute = ApiPublicPlayerRegisterRouteImport.update({
   path: '/api/public/player/register',
   getParentRoute: () => rootRouteImport,
 } as any)
+const ApiPublicPlayerScreenshotRoute =
+  ApiPublicPlayerScreenshotRouteImport.update({
+    id: '/api/public/player/screenshot',
+    path: '/api/public/player/screenshot',
+    getParentRoute: () => rootRouteImport,
+  } as any)
 const ApiPublicPlayerStatusRoute = ApiPublicPlayerStatusRouteImport.update({
   id: '/api/public/player/status',
   path: '/api/public/player/status',
@@ -264,6 +271,7 @@ export interface FileRoutesByFullPath {
   '/api/public/player/events': typeof ApiPublicPlayerEventsRoute
   '/api/public/player/playback': typeof ApiPublicPlayerPlaybackRoute
   '/api/public/player/register': typeof ApiPublicPlayerRegisterRoute
+  '/api/public/player/screenshot': typeof ApiPublicPlayerScreenshotRoute
   '/api/public/player/status': typeof ApiPublicPlayerStatusRoute
   '/api/public/player/sync': typeof ApiPublicPlayerSyncRoute
   '/api/public/queue/print-spool': typeof ApiPublicQueuePrintSpoolRoute
@@ -300,6 +308,7 @@ export interface FileRoutesByTo {
   '/api/public/player/events': typeof ApiPublicPlayerEventsRoute
   '/api/public/player/playback': typeof ApiPublicPlayerPlaybackRoute
   '/api/public/player/register': typeof ApiPublicPlayerRegisterRoute
+  '/api/public/player/screenshot': typeof ApiPublicPlayerScreenshotRoute
   '/api/public/player/status': typeof ApiPublicPlayerStatusRoute
   '/api/public/player/sync': typeof ApiPublicPlayerSyncRoute
   '/api/public/queue/print-spool': typeof ApiPublicQueuePrintSpoolRoute
@@ -339,6 +348,7 @@ export interface FileRoutesById {
   '/api/public/player/events': typeof ApiPublicPlayerEventsRoute
   '/api/public/player/playback': typeof ApiPublicPlayerPlaybackRoute
   '/api/public/player/register': typeof ApiPublicPlayerRegisterRoute
+  '/api/public/player/screenshot': typeof ApiPublicPlayerScreenshotRoute
   '/api/public/player/status': typeof ApiPublicPlayerStatusRoute
   '/api/public/player/sync': typeof ApiPublicPlayerSyncRoute
   '/api/public/queue/print-spool': typeof ApiPublicQueuePrintSpoolRoute
@@ -379,6 +389,7 @@ export interface FileRouteTypes {
     | '/api/public/player/events'
     | '/api/public/player/playback'
     | '/api/public/player/register'
+    | '/api/public/player/screenshot'
     | '/api/public/player/status'
     | '/api/public/player/sync'
     | '/api/public/queue/print-spool'
@@ -415,6 +426,7 @@ export interface FileRouteTypes {
     | '/api/public/player/events'
     | '/api/public/player/playback'
     | '/api/public/player/register'
+    | '/api/public/player/screenshot'
     | '/api/public/player/status'
     | '/api/public/player/sync'
     | '/api/public/queue/print-spool'
@@ -453,6 +465,7 @@ export interface FileRouteTypes {
     | '/api/public/player/events'
     | '/api/public/player/playback'
     | '/api/public/player/register'
+    | '/api/public/player/screenshot'
     | '/api/public/player/status'
     | '/api/public/player/sync'
     | '/api/public/queue/print-spool'
@@ -477,6 +490,7 @@ export interface RootRouteChildren {
   ApiPublicPlayerEventsRoute: typeof ApiPublicPlayerEventsRoute
   ApiPublicPlayerPlaybackRoute: typeof ApiPublicPlayerPlaybackRoute
   ApiPublicPlayerRegisterRoute: typeof ApiPublicPlayerRegisterRoute
+  ApiPublicPlayerScreenshotRoute: typeof ApiPublicPlayerScreenshotRoute
   ApiPublicPlayerStatusRoute: typeof ApiPublicPlayerStatusRoute
   ApiPublicPlayerSyncRoute: typeof ApiPublicPlayerSyncRoute
   ApiPublicQueuePrintSpoolRoute: typeof ApiPublicQueuePrintSpoolRoute
@@ -715,6 +729,13 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof ApiPublicPlayerRegisterRouteImport
       parentRoute: typeof rootRouteImport
     }
+    '/api/public/player/screenshot': {
+      id: '/api/public/player/screenshot'
+      path: '/api/public/player/screenshot'
+      fullPath: '/api/public/player/screenshot'
+      preLoaderRoute: typeof ApiPublicPlayerScreenshotRouteImport
+      parentRoute: typeof rootRouteImport
+    }
     '/api/public/player/status': {
       id: '/api/public/player/status'
       path: '/api/public/player/status'
@@ -808,6 +829,7 @@ const rootRouteChildren: RootRouteChildren = {
   ApiPublicPlayerEventsRoute: ApiPublicPlayerEventsRoute,
   ApiPublicPlayerPlaybackRoute: ApiPublicPlayerPlaybackRoute,
   ApiPublicPlayerRegisterRoute: ApiPublicPlayerRegisterRoute,
+  ApiPublicPlayerScreenshotRoute: ApiPublicPlayerScreenshotRoute,
   ApiPublicPlayerStatusRoute: ApiPublicPlayerStatusRoute,
   ApiPublicPlayerSyncRoute: ApiPublicPlayerSyncRoute,
   ApiPublicQueuePrintSpoolRoute: ApiPublicQueuePrintSpoolRoute,
