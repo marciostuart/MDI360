@@ -442,6 +442,8 @@ export const queuePanels = pgTable(
     /** Título exibido no topo da emissão. `null` usa "Retire sua senha". */
     kioskTitle: text("kiosk_title"),
     kioskShowLogo: boolean("kiosk_show_logo").notNull().default(true),
+    /** Altura da logo na tela de emissão, em pixels. */
+    kioskLogoHeight: integer("kiosk_logo_height").notNull().default(96),
     /** Tom de chamada personalizado (MP3 enviado pelo cliente), no MinIO. */
     chimeStorageKey: text("chime_storage_key"),
     chimeName: text("chime_name"),
