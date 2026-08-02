@@ -184,22 +184,48 @@ function KioskPage() {
     );
   }
 
+  const theme = data.theme;
+  const surface = {
+    backgroundColor: theme.bgColor,
+    ...(theme.bgImageUrl
+      ? {
+          backgroundImage: `url("${theme.bgImageUrl}")`,
+          backgroundSize: "cover",
+          backgroundPosition: "center",
+        }
+      : {}),
+  } as const;
+
   if (issued) {
     return (
-      <main className="grid h-dvh place-items-center overflow-hidden bg-background px-6 text-center">
+      <main className="grid h-dvh place-items-center overflow-hidden px-6 text-center" style={surface}>
         <div className="space-y-3">
-          <p className="text-sm uppercase tracking-widest text-muted-foreground">
+          <p className="text-sm uppercase tracking-widest" style={{ color: theme.textColor }}>
             {issued.kind === "priority" ? "Atendimento preferencial" : "Sua senha"}
           </p>
-          <p className="font-display text-8xl font-black">{issued.label}</p>
-          {issued.sectorName ? <p className="text-xl">{issued.sectorName}</p> : null}
-          <p className="text-muted-foreground">
+          <p className="font-display text-8xl font-black" style={{ color: theme.titleColor }}>
+            {issued.label}
+          </p>
+          {issued.sectorName ? (
+            <p className="text-xl" style={{ color: theme.titleColor }}>
+              {issued.sectorName}
+            </p>
+          ) : null}
+          <p style={{ color: theme.textColor }}>
             {issued.waitingAhead === 0
               ? "Você é o próximo a ser chamado."
               : `${issued.waitingAhead} pessoa(s) na sua frente.`}
           </p>
           {printError ? <p className="text-sm text-destructive">{printError}</p> : null}
-          <Button variant="outline" onClick={() => setIssued(null)}>
+          <Button
+            variant="outline"
+            style={{
+              backgroundColor: theme.cardColor,
+              color: theme.titleColor,
+              borderColor: theme.textColor,
+            }}
+            onClick={() => setIssued(null)}
+          >
             Emitir outra senha
           </Button>
         </div>
@@ -217,12 +243,26 @@ function KioskPage() {
   };
 
   return (
-    <main className="mx-auto flex h-dvh max-w-3xl flex-col justify-center gap-6 overflow-hidden p-6">
-      <header className="text-center">
-        <h1 className="font-display text-3xl font-semibold">Retire sua senha</h1>
-        <p className="text-muted-foreground">{data.panelName}</p>
+    <main className="h-dvh overflow-hidden" style={surface}>
+      <div className="mx-auto flex h-full max-w-3xl flex-col justify-center gap-6 p-6">
+      <header className="space-y-2 text-center">
+        {theme.logoUrl ? (
+          <img
+            src={theme.logoUrl}
+            alt="Logotipo da empresa"
+            className="mx-auto max-h-24 w-auto object-contain"
+          />
+        ) : null}
+        <h1 className="font-display text-3xl font-semibold" style={{ color: theme.titleColor }}>
+          {theme.title}
+        </h1>
         {!isFullscreen ? (
-          <Button variant="ghost" size="sm" className="mt-2" onClick={requestFullscreen}>
+          <Button
+            variant="ghost"
+            size="sm"
+            style={{ color: theme.textColor }}
+            onClick={requestFullscreen}
+          >
             <Maximize className="size-4" />
             Tela cheia
           </Button>
@@ -230,9 +270,9 @@ function KioskPage() {
       </header>
 
       {pendingKind && needsSectorChoice ? (
-        <Card>
+        <Card style={{ backgroundColor: theme.cardColor, borderColor: theme.cardColor }}>
           <CardContent className="space-y-3 py-5">
-            <p className="text-sm font-medium">
+            <p className="text-sm font-medium" style={{ color: theme.textColor }}>
               {pendingKind === "priority"
                 ? "Senha preferencial · escolha o atendimento"
                 : "Senha normal · escolha o atendimento"}
@@ -243,6 +283,17 @@ function KioskPage() {
                   key={sector.id}
                   variant="outline"
                   className="h-20 whitespace-normal text-base font-semibold"
+                  style={{
+                    backgroundColor:
+                      pendingKind === "priority"
+                        ? theme.priorityButtonColor
+                        : theme.normalButtonColor,
+                    color:
+                      pendingKind === "priority"
+                        ? theme.priorityButtonTextColor
+                        : theme.normalButtonTextColor,
+                    borderColor: "transparent",
+                  }}
                   disabled={issueMutation.isPending}
                   onClick={() => issueMutation.mutate({ kind: pendingKind, sectorId: sector.id })}
                 >
@@ -250,7 +301,11 @@ function KioskPage() {
                 </Button>
               ))}
             </div>
-            <Button variant="ghost" onClick={() => setPendingKind(null)}>
+            <Button
+              variant="ghost"
+              style={{ color: theme.textColor }}
+              onClick={() => setPendingKind(null)}
+            >
               Voltar
             </Button>
             {issueMutation.isError ? (
@@ -261,13 +316,19 @@ function KioskPage() {
           </CardContent>
         </Card>
       ) : (
-        <Card>
+        <Card style={{ backgroundColor: theme.cardColor, borderColor: theme.cardColor }}>
           <CardContent className="space-y-3 py-5">
-            <p className="text-sm font-medium">Toque no tipo de senha</p>
+            <p className="text-sm font-medium" style={{ color: theme.textColor }}>
+              Toque no tipo de senha
+            </p>
             <div className="grid gap-3 sm:grid-cols-2">
               <Button
                 size="lg"
                 className="h-24 text-lg"
+                style={{
+                  backgroundColor: theme.normalButtonColor,
+                  color: theme.normalButtonTextColor,
+                }}
                 disabled={issueMutation.isPending}
                 onClick={() => issueKind("normal")}
               >
@@ -278,6 +339,10 @@ function KioskPage() {
                 size="lg"
                 variant="secondary"
                 className="h-24 text-lg"
+                style={{
+                  backgroundColor: theme.priorityButtonColor,
+                  color: theme.priorityButtonTextColor,
+                }}
                 disabled={issueMutation.isPending}
                 onClick={() => issueKind("priority")}
               >
@@ -293,6 +358,7 @@ function KioskPage() {
           </CardContent>
         </Card>
       )}
+      </div>
     </main>
   );
 }
