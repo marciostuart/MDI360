@@ -167,6 +167,7 @@ export function QueueAddonManager() {
       kioskPriorityButtonTextColor: string;
       kioskTitle: string | null;
       kioskShowLogo: boolean;
+      kioskLogoHeight: number;
       chimeVolume: number;
       voiceVolume: number;
     }) => savePanel({ data: input }),
@@ -223,6 +224,7 @@ export function QueueAddonManager() {
         panel.kioskPriorityButtonTextColor || KIOSK_THEME_DEFAULTS.kioskPriorityButtonTextColor,
       kioskTitle: panel.kioskTitle ?? "",
       kioskShowLogo: panel.kioskShowLogo ?? true,
+      kioskLogoHeight: panel.kioskLogoHeight ?? KIOSK_THEME_DEFAULTS.kioskLogoHeight,
       chimeVolume: panel.chimeVolume ?? QUEUE_SOUND_DEFAULTS.chimeVolume,
       voiceVolume: panel.voiceVolume ?? QUEUE_SOUND_DEFAULTS.voiceVolume,
     });
@@ -406,6 +408,7 @@ export function QueueAddonManager() {
                       kioskPriorityButtonTextColor: form.kioskPriorityButtonTextColor,
                       kioskTitle: form.kioskTitle.trim() || null,
                       kioskShowLogo: form.kioskShowLogo,
+                      kioskLogoHeight: form.kioskLogoHeight,
                       chimeVolume: form.chimeVolume,
                       voiceVolume: form.voiceVolume,
                     });
@@ -844,6 +847,28 @@ export function QueueAddonManager() {
                             Exibir a logo da empresa na tela de emissão
                           </Label>
                         </div>
+                        {form.kioskShowLogo ? (
+                          <div className="space-y-1.5 sm:col-span-2">
+                            <Label htmlFor={`klogoh-${panel.deviceId}`}>
+                              Tamanho da logo na tela · {form.kioskLogoHeight}px
+                            </Label>
+                            <input
+                              id={`klogoh-${panel.deviceId}`}
+                              type="range"
+                              min={40}
+                              max={400}
+                              step={4}
+                              value={form.kioskLogoHeight}
+                              onChange={(event) =>
+                                setForm((prev) => ({
+                                  ...prev,
+                                  kioskLogoHeight: Number(event.target.value),
+                                }))
+                              }
+                              className="w-full accent-primary"
+                            />
+                          </div>
+                        ) : null}
                       </div>
 
                       <div
@@ -860,6 +885,15 @@ export function QueueAddonManager() {
                             : {}),
                         }}
                       >
+                        {form.kioskShowLogo ? (
+                          <div
+                            className="mx-auto rounded bg-foreground/10"
+                            style={{
+                              height: Math.round(form.kioskLogoHeight / 3),
+                              width: Math.round((form.kioskLogoHeight / 3) * 2.5),
+                            }}
+                          />
+                        ) : null}
                         <p
                           className="text-lg font-semibold"
                           style={{ color: form.kioskTitleColor }}

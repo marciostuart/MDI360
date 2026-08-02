@@ -159,7 +159,7 @@ function KioskPage() {
     const timer = window.setTimeout(() => {
       setIssued(null);
       setPendingKind(null);
-    }, 12_000);
+    }, 3_000);
     return () => window.clearTimeout(timer);
   }, [issued]);
 
@@ -211,11 +211,6 @@ function KioskPage() {
               {issued.sectorName}
             </p>
           ) : null}
-          <p style={{ color: theme.textColor }}>
-            {issued.waitingAhead === 0
-              ? "Você é o próximo a ser chamado."
-              : `${issued.waitingAhead} pessoa(s) na sua frente.`}
-          </p>
           {printError ? <p className="text-sm text-destructive">{printError}</p> : null}
           <Button
             variant="outline"
@@ -250,7 +245,8 @@ function KioskPage() {
           <img
             src={theme.logoUrl}
             alt="Logotipo da empresa"
-            className="mx-auto max-h-24 w-auto object-contain"
+            className="mx-auto w-auto object-contain"
+            style={{ maxHeight: `${theme.logoHeight}px` }}
           />
         ) : null}
         <h1 className="font-display text-3xl font-semibold" style={{ color: theme.titleColor }}>

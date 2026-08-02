@@ -155,6 +155,13 @@
       "when": 1785700000000,
       "tag": "0021_kiosk_theme",
       "breakpoints": true
+    },
+    {
+      "idx": 22,
+      "version": "7",
+      "when": 1785800000000,
+      "tag": "0022_kiosk_logo_size",
+      "breakpoints": true
     }
   ]
 }

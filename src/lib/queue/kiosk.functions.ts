@@ -13,6 +13,7 @@ export type KioskTheme = {
   priorityButtonTextColor: string;
   title: string;
   logoUrl: string | null;
+  logoHeight: number;
 };
 
 export type KioskPanel = {
@@ -52,6 +53,7 @@ export const getKioskPanel = createServerFn({ method: "POST" })
         kioskPriorityButtonTextColor: schema.queuePanels.kioskPriorityButtonTextColor,
         kioskTitle: schema.queuePanels.kioskTitle,
         kioskShowLogo: schema.queuePanels.kioskShowLogo,
+        kioskLogoHeight: schema.queuePanels.kioskLogoHeight,
         brandLogoKey: schema.organizations.brandLogoKey,
       })
       .from(schema.queuePanels)
@@ -123,6 +125,7 @@ export const getKioskPanel = createServerFn({ method: "POST" })
         priorityButtonTextColor: panel.kioskPriorityButtonTextColor || "#0b1220",
         title: panel.kioskTitle?.trim() || "Retire sua senha",
         logoUrl,
+        logoHeight: panel.kioskLogoHeight ?? 96,
       },
     };
   });

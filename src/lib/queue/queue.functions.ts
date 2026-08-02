@@ -42,6 +42,7 @@ export type QueuePanelSummary = {
   kioskPriorityButtonTextColor: string;
   kioskTitle: string | null;
   kioskShowLogo: boolean;
+  kioskLogoHeight: number;
   /** Tom de chamada personalizado e volumes. */
   chimeName: string | null;
   chimeVolume: number;
@@ -73,6 +74,7 @@ export const KIOSK_THEME_DEFAULTS = {
   kioskPriorityButtonTextColor: "#0b1220",
   kioskTitle: "",
   kioskShowLogo: true,
+  kioskLogoHeight: 96,
 };
 
 const hexColor = z
@@ -148,6 +150,7 @@ export const listQueuePanels = createServerFn({ method: "GET" }).handler(
           kioskPriorityButtonTextColor: schema.queuePanels.kioskPriorityButtonTextColor,
           kioskTitle: schema.queuePanels.kioskTitle,
           kioskShowLogo: schema.queuePanels.kioskShowLogo,
+          kioskLogoHeight: schema.queuePanels.kioskLogoHeight,
           chimeName: schema.queuePanels.chimeName,
           chimeVolume: schema.queuePanels.chimeVolume,
           voiceVolume: schema.queuePanels.voiceVolume,
@@ -243,6 +246,7 @@ export const listQueuePanels = createServerFn({ method: "GET" }).handler(
               KIOSK_THEME_DEFAULTS.kioskPriorityButtonTextColor,
             kioskTitle: row.kioskTitle ?? null,
             kioskShowLogo: row.kioskShowLogo ?? true,
+            kioskLogoHeight: row.kioskLogoHeight ?? KIOSK_THEME_DEFAULTS.kioskLogoHeight,
             chimeName: row.chimeName ?? null,
             chimeVolume: row.chimeVolume ?? QUEUE_SOUND_DEFAULTS.chimeVolume,
             voiceVolume: row.voiceVolume ?? QUEUE_SOUND_DEFAULTS.voiceVolume,
@@ -313,6 +317,12 @@ export const saveQueuePanel = createServerFn({ method: "POST" })
           z.string().trim().max(60).nullable().default(null),
         ),
         kioskShowLogo: z.boolean().default(true),
+        kioskLogoHeight: z
+          .number()
+          .int()
+          .min(40)
+          .max(400)
+          .default(KIOSK_THEME_DEFAULTS.kioskLogoHeight),
         chimeVolume: z.number().int().min(0).max(100).default(QUEUE_SOUND_DEFAULTS.chimeVolume),
         voiceVolume: z.number().int().min(0).max(300).default(QUEUE_SOUND_DEFAULTS.voiceVolume),
       })
@@ -394,6 +404,7 @@ export const saveQueuePanel = createServerFn({ method: "POST" })
       kioskPriorityButtonTextColor: data.kioskPriorityButtonTextColor,
       kioskTitle: data.kioskTitle,
       kioskShowLogo: data.kioskShowLogo,
+      kioskLogoHeight: data.kioskLogoHeight,
     };
 
     const { toQueueError } = await import("@/lib/queue/queue-errors.server");
