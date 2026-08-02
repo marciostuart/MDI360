@@ -319,6 +319,26 @@ function PlayerScreen() {
           pendingSyncRef.current = data;
           setHasPending(true);
         }
+        // Comandos remotos enviados pelo Studio.
+        const native = nativeBridge();
+        if (data.commands.includes("screenshot")) {
+          // Captura feita pelo aplicativo Android; o envio acontece no callback.
+          native?.requestScreenshot?.();
+        }
+        if (data.commands.includes("reboot")) {
+          if (native?.reboot) {
+            native.reboot();
+          } else {
+            window.location.reload();
+          }
+          return;
+        }
+        if (data.commands.includes("clear_cache")) {
+          await clearMediaCache();
+          native?.clearCache?.();
+          window.location.reload();
+          return;
+        }
         if (data.commands.includes("reload") || data.commands.includes("restart")) {
           window.location.reload();
         }
