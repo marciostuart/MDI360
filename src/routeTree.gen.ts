@@ -32,6 +32,7 @@ import { Route as TorrePlanosRouteImport } from './routes/torre/planos'
 import { Route as ApiBrandingLogoRouteImport } from './routes/api/branding/logo'
 import { Route as ApiMediaReplaceRouteImport } from './routes/api/media/replace'
 import { Route as ApiMediaUploadRouteImport } from './routes/api/media/upload'
+import { Route as ApiPublicEmissorManifestRouteImport } from './routes/api/public/emissor-manifest'
 import { Route as ApiPublicWidgetDataRouteImport } from './routes/api/public/widget-data'
 import { Route as ApiQueueChimeRouteImport } from './routes/api/queue/chime'
 import { Route as TorreClientesIndexRouteImport } from './routes/torre/clientes/index'
@@ -160,6 +161,12 @@ const ApiMediaUploadRoute = ApiMediaUploadRouteImport.update({
   path: '/api/media/upload',
   getParentRoute: () => rootRouteImport,
 } as any)
+const ApiPublicEmissorManifestRoute =
+  ApiPublicEmissorManifestRouteImport.update({
+    id: '/api/public/emissor-manifest',
+    path: '/api/public/emissor-manifest',
+    getParentRoute: () => rootRouteImport,
+  } as any)
 const ApiPublicWidgetDataRoute = ApiPublicWidgetDataRouteImport.update({
   id: '/api/public/widget-data',
   path: '/api/public/widget-data',
@@ -247,6 +254,7 @@ export interface FileRoutesByFullPath {
   '/api/branding/logo': typeof ApiBrandingLogoRoute
   '/api/media/replace': typeof ApiMediaReplaceRoute
   '/api/media/upload': typeof ApiMediaUploadRoute
+  '/api/public/emissor-manifest': typeof ApiPublicEmissorManifestRoute
   '/api/public/widget-data': typeof ApiPublicWidgetDataRoute
   '/api/queue/chime': typeof ApiQueueChimeRoute
   '/torre/clientes/$organizationId': typeof TorreClientesOrganizationIdRoute
@@ -282,6 +290,7 @@ export interface FileRoutesByTo {
   '/api/branding/logo': typeof ApiBrandingLogoRoute
   '/api/media/replace': typeof ApiMediaReplaceRoute
   '/api/media/upload': typeof ApiMediaUploadRoute
+  '/api/public/emissor-manifest': typeof ApiPublicEmissorManifestRoute
   '/api/public/widget-data': typeof ApiPublicWidgetDataRoute
   '/api/queue/chime': typeof ApiQueueChimeRoute
   '/torre/clientes/$organizationId': typeof TorreClientesOrganizationIdRoute
@@ -320,6 +329,7 @@ export interface FileRoutesById {
   '/api/branding/logo': typeof ApiBrandingLogoRoute
   '/api/media/replace': typeof ApiMediaReplaceRoute
   '/api/media/upload': typeof ApiMediaUploadRoute
+  '/api/public/emissor-manifest': typeof ApiPublicEmissorManifestRoute
   '/api/public/widget-data': typeof ApiPublicWidgetDataRoute
   '/api/queue/chime': typeof ApiQueueChimeRoute
   '/torre/clientes/$organizationId': typeof TorreClientesOrganizationIdRoute
@@ -359,6 +369,7 @@ export interface FileRouteTypes {
     | '/api/branding/logo'
     | '/api/media/replace'
     | '/api/media/upload'
+    | '/api/public/emissor-manifest'
     | '/api/public/widget-data'
     | '/api/queue/chime'
     | '/torre/clientes/$organizationId'
@@ -394,6 +405,7 @@ export interface FileRouteTypes {
     | '/api/branding/logo'
     | '/api/media/replace'
     | '/api/media/upload'
+    | '/api/public/emissor-manifest'
     | '/api/public/widget-data'
     | '/api/queue/chime'
     | '/torre/clientes/$organizationId'
@@ -431,6 +443,7 @@ export interface FileRouteTypes {
     | '/api/branding/logo'
     | '/api/media/replace'
     | '/api/media/upload'
+    | '/api/public/emissor-manifest'
     | '/api/public/widget-data'
     | '/api/queue/chime'
     | '/torre/clientes/$organizationId'
@@ -456,6 +469,7 @@ export interface RootRouteChildren {
   ApiBrandingLogoRoute: typeof ApiBrandingLogoRoute
   ApiMediaReplaceRoute: typeof ApiMediaReplaceRoute
   ApiMediaUploadRoute: typeof ApiMediaUploadRoute
+  ApiPublicEmissorManifestRoute: typeof ApiPublicEmissorManifestRoute
   ApiPublicWidgetDataRoute: typeof ApiPublicWidgetDataRoute
   ApiQueueChimeRoute: typeof ApiQueueChimeRoute
   ApiPublicPlayerAnnounceRoute: typeof ApiPublicPlayerAnnounceRoute
@@ -631,6 +645,13 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof ApiMediaUploadRouteImport
       parentRoute: typeof rootRouteImport
     }
+    '/api/public/emissor-manifest': {
+      id: '/api/public/emissor-manifest'
+      path: '/api/public/emissor-manifest'
+      fullPath: '/api/public/emissor-manifest'
+      preLoaderRoute: typeof ApiPublicEmissorManifestRouteImport
+      parentRoute: typeof rootRouteImport
+    }
     '/api/public/widget-data': {
       id: '/api/public/widget-data'
       path: '/api/public/widget-data'
@@ -779,6 +800,7 @@ const rootRouteChildren: RootRouteChildren = {
   ApiBrandingLogoRoute: ApiBrandingLogoRoute,
   ApiMediaReplaceRoute: ApiMediaReplaceRoute,
   ApiMediaUploadRoute: ApiMediaUploadRoute,
+  ApiPublicEmissorManifestRoute: ApiPublicEmissorManifestRoute,
   ApiPublicWidgetDataRoute: ApiPublicWidgetDataRoute,
   ApiQueueChimeRoute: ApiQueueChimeRoute,
   ApiPublicPlayerAnnounceRoute: ApiPublicPlayerAnnounceRoute,
@@ -793,13 +815,3 @@ const rootRouteChildren: RootRouteChildren = {
 export const routeTree = rootRouteImport
   ._addFileChildren(rootRouteChildren)
   ._addFileTypes<FileRouteTypes>()
-
-import type { getRouter } from './router.tsx'
-import type { startInstance } from './start.ts'
-declare module '@tanstack/react-start' {
-  interface Register {
-    ssr: true
-    router: Awaited<ReturnType<typeof getRouter>>
-    config: Awaited<ReturnType<typeof startInstance.getOptions>>
-  }
-}
