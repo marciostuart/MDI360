@@ -1,12 +1,27 @@
 import { createServerFn } from "@tanstack/react-start";
 import { z } from "zod";
 
+export type KioskTheme = {
+  bgColor: string;
+  bgImageUrl: string | null;
+  cardColor: string;
+  titleColor: string;
+  textColor: string;
+  normalButtonColor: string;
+  normalButtonTextColor: string;
+  priorityButtonColor: string;
+  priorityButtonTextColor: string;
+  title: string;
+  logoUrl: string | null;
+};
+
 export type KioskPanel = {
   panelId: string;
   panelName: string;
   mode: string;
   priorityPolicy: string;
   sectors: { id: string; name: string }[];
+  theme: KioskTheme;
 } | null;
 
 const tokenSchema = z.string().trim().length(32);
@@ -26,9 +41,25 @@ export const getKioskPanel = createServerFn({ method: "POST" })
         mode: schema.queuePanels.mode,
         priorityPolicy: schema.queuePanels.priorityPolicy,
         deviceName: schema.devices.name,
+        kioskBgColor: schema.queuePanels.kioskBgColor,
+        kioskBgMediaId: schema.queuePanels.kioskBgMediaId,
+        kioskCardColor: schema.queuePanels.kioskCardColor,
+        kioskTitleColor: schema.queuePanels.kioskTitleColor,
+        kioskTextColor: schema.queuePanels.kioskTextColor,
+        kioskNormalButtonColor: schema.queuePanels.kioskNormalButtonColor,
+        kioskNormalButtonTextColor: schema.queuePanels.kioskNormalButtonTextColor,
+        kioskPriorityButtonColor: schema.queuePanels.kioskPriorityButtonColor,
+        kioskPriorityButtonTextColor: schema.queuePanels.kioskPriorityButtonTextColor,
+        kioskTitle: schema.queuePanels.kioskTitle,
+        kioskShowLogo: schema.queuePanels.kioskShowLogo,
+        brandLogoKey: schema.organizations.brandLogoKey,
       })
       .from(schema.queuePanels)
       .innerJoin(schema.devices, eq(schema.devices.id, schema.queuePanels.deviceId))
+      .innerJoin(
+        schema.organizations,
+        eq(schema.organizations.id, schema.queuePanels.organizationId),
+      )
       .where(
         and(eq(schema.queuePanels.kioskToken, data.token), eq(schema.queuePanels.isEnabled, true)),
       )
@@ -36,6 +67,32 @@ export const getKioskPanel = createServerFn({ method: "POST" })
 
     const panel = rows[0];
     if (!panel) return null;
+
+    // Imagem de fundo e logo assinadas para o terminal (URLs temporárias).
+    let bgImageUrl: string | null = null;
+    let logoUrl: string | null = null;
+    try {
+      const { isStorageConfigured, createDownloadUrl } = await import("@/lib/storage.server");
+      if (isStorageConfigured()) {
+        if (panel.kioskBgMediaId) {
+          const asset = await db
+            .select({
+              storageKey: schema.mediaAssets.storageKey,
+              status: schema.mediaAssets.status,
+            })
+            .from(schema.mediaAssets)
+            .where(eq(schema.mediaAssets.id, panel.kioskBgMediaId))
+            .limit(1);
+          const key = asset[0]?.status === "ready" ? asset[0]?.storageKey : null;
+          if (key) bgImageUrl = await createDownloadUrl(key, 3600);
+        }
+        if (panel.kioskShowLogo && panel.brandLogoKey) {
+          logoUrl = await createDownloadUrl(panel.brandLogoKey, 3600);
+        }
+      }
+    } catch {
+      // Sem storage configurado o terminal segue funcionando apenas com cores.
+    }
 
     const sectors = await db
       .select({ id: schema.queueSectors.id, name: schema.queueSectors.name })
@@ -54,6 +111,19 @@ export const getKioskPanel = createServerFn({ method: "POST" })
       mode: panel.mode,
       priorityPolicy: panel.priorityPolicy,
       sectors,
+      theme: {
+        bgColor: panel.kioskBgColor || "#0b1220",
+        bgImageUrl,
+        cardColor: panel.kioskCardColor || "#111a2e",
+        titleColor: panel.kioskTitleColor || "#ffffff",
+        textColor: panel.kioskTextColor || "#cbd5f5",
+        normalButtonColor: panel.kioskNormalButtonColor || "#2563eb",
+        normalButtonTextColor: panel.kioskNormalButtonTextColor || "#ffffff",
+        priorityButtonColor: panel.kioskPriorityButtonColor || "#f59e0b",
+        priorityButtonTextColor: panel.kioskPriorityButtonTextColor || "#0b1220",
+        title: panel.kioskTitle?.trim() || "Retire sua senha",
+        logoUrl,
+      },
     };
   });
 
