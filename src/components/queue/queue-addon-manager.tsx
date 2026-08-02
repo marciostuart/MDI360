@@ -737,6 +737,13 @@ export function QueueAddonManager() {
                       Cancelar
                     </Button>
                   </div>
+                      {saveMutation.isPending ? <Loader2 className="size-4 animate-spin" /> : null}
+                      Salvar
+                    </Button>
+                    <Button type="button" variant="ghost" onClick={() => setEditing(null)}>
+                      Cancelar
+                    </Button>
+                  </div>
                 </form>
               ) : null}
             </CardContent>
