@@ -245,7 +245,8 @@ function KioskPage() {
           <img
             src={theme.logoUrl}
             alt="Logotipo da empresa"
-            className="mx-auto max-h-24 w-auto object-contain"
+            className="mx-auto w-auto object-contain"
+            style={{ maxHeight: `${theme.logoHeight}px` }}
           />
         ) : null}
         <h1 className="font-display text-3xl font-semibold" style={{ color: theme.titleColor }}>
