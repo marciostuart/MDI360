@@ -167,6 +167,7 @@ export function QueueAddonManager() {
       kioskPriorityButtonTextColor: string;
       kioskTitle: string | null;
       kioskShowLogo: boolean;
+      kioskLogoHeight: number;
       chimeVolume: number;
       voiceVolume: number;
     }) => savePanel({ data: input }),
@@ -223,6 +224,7 @@ export function QueueAddonManager() {
         panel.kioskPriorityButtonTextColor || KIOSK_THEME_DEFAULTS.kioskPriorityButtonTextColor,
       kioskTitle: panel.kioskTitle ?? "",
       kioskShowLogo: panel.kioskShowLogo ?? true,
+      kioskLogoHeight: panel.kioskLogoHeight ?? KIOSK_THEME_DEFAULTS.kioskLogoHeight,
       chimeVolume: panel.chimeVolume ?? QUEUE_SOUND_DEFAULTS.chimeVolume,
       voiceVolume: panel.voiceVolume ?? QUEUE_SOUND_DEFAULTS.voiceVolume,
     });
@@ -406,6 +408,7 @@ export function QueueAddonManager() {
                       kioskPriorityButtonTextColor: form.kioskPriorityButtonTextColor,
                       kioskTitle: form.kioskTitle.trim() || null,
                       kioskShowLogo: form.kioskShowLogo,
+                      kioskLogoHeight: form.kioskLogoHeight,
                       chimeVolume: form.chimeVolume,
                       voiceVolume: form.voiceVolume,
                     });
