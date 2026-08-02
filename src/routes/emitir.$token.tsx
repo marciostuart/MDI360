@@ -1,7 +1,7 @@
 import { useMutation, useQuery } from "@tanstack/react-query";
 import { createFileRoute } from "@tanstack/react-router";
 import { useServerFn } from "@tanstack/react-start";
-import { Loader2, Ticket } from "lucide-react";
+import { Loader2, Maximize, Ticket } from "lucide-react";
 import { useEffect, useState } from "react";
 
 import { Button } from "@/components/ui/button";
@@ -27,7 +27,7 @@ function desktopBridge(): DesktopBridge | null {
 }
 
 export const Route = createFileRoute("/emitir/$token")({
-  head: () => ({
+  head: ({ params }) => ({
     meta: [
       { title: "Retire sua senha · MDI 360" },
       {
@@ -43,15 +43,67 @@ export const Route = createFileRoute("/emitir/$token")({
       { property: "og:type", content: "website" },
       { name: "twitter:card", content: "summary" },
       { name: "robots", content: "noindex" },
+      // PWA: permite instalar o emissor como aplicativo em tela cheia.
+      { name: "theme-color", content: "#0b1220" },
+      { name: "mobile-web-app-capable", content: "yes" },
+      { name: "apple-mobile-web-app-capable", content: "yes" },
+      { name: "apple-mobile-web-app-title", content: "Senhas" },
+      { name: "apple-mobile-web-app-status-bar-style", content: "black-translucent" },
+    ],
+    links: [
+      {
+        rel: "manifest",
+        href: `/api/public/emissor-manifest?token=${encodeURIComponent(params.token)}`,
+      },
+      { rel: "apple-touch-icon", href: "/emissor-icon.png" },
     ],
   }),
   component: KioskPage,
 });
 
+/** Trava a página: sem rolagem, sem "puxar para atualizar", ocupando a tela toda. */
+function useKioskViewport() {
+  useEffect(() => {
+    const html = document.documentElement;
+    const body = document.body;
+    const previous = { html: html.getAttribute("style"), body: body.getAttribute("style") };
+    const lock = "margin:0;padding:0;width:100%;height:100%;overflow:hidden;overscroll-behavior:none;";
+    html.setAttribute("style", lock);
+    body.setAttribute("style", `${lock}position:fixed;inset:0;touch-action:manipulation;`);
+    return () => {
+      if (previous.html === null) html.removeAttribute("style");
+      else html.setAttribute("style", previous.html);
+      if (previous.body === null) body.removeAttribute("style");
+      else body.setAttribute("style", previous.body);
+    };
+  }, []);
+}
+
+function requestFullscreen() {
+  const el = document.documentElement as HTMLElement & {
+    webkitRequestFullscreen?: () => Promise<void> | void;
+  };
+  try {
+    if (el.requestFullscreen) void el.requestFullscreen();
+    else if (el.webkitRequestFullscreen) void el.webkitRequestFullscreen();
+  } catch {
+    // Alguns navegadores bloqueiam sem gesto do usuário; ignorar silenciosamente.
+  }
+}
+
 function KioskPage() {
   const { token } = Route.useParams();
+  useKioskViewport();
   const loadPanel = useServerFn(getKioskPanel);
   const issue = useServerFn(issueKioskTicket);
+  const [isFullscreen, setIsFullscreen] = useState(false);
+
+  useEffect(() => {
+    const sync = () => setIsFullscreen(Boolean(document.fullscreenElement));
+    sync();
+    document.addEventListener("fullscreenchange", sync);
+    return () => document.removeEventListener("fullscreenchange", sync);
+  }, []);
 
   const { data, isPending } = useQuery({
     queryKey: ["queue-kiosk", token],
@@ -113,7 +165,7 @@ function KioskPage() {
 
   if (isPending) {
     return (
-      <main className="grid min-h-screen place-items-center bg-background">
+      <main className="grid h-dvh place-items-center overflow-hidden bg-background">
         <Loader2 className="size-8 animate-spin text-muted-foreground" />
       </main>
     );
@@ -121,7 +173,7 @@ function KioskPage() {
 
   if (!data) {
     return (
-      <main className="grid min-h-screen place-items-center bg-background px-6 text-center">
+      <main className="grid h-dvh place-items-center overflow-hidden bg-background px-6 text-center">
         <div>
           <h1 className="font-display text-2xl font-semibold">Tela de emissão indisponível</h1>
           <p className="mt-2 text-muted-foreground">
@@ -134,7 +186,7 @@ function KioskPage() {
 
   if (issued) {
     return (
-      <main className="grid min-h-screen place-items-center bg-background px-6 text-center">
+      <main className="grid h-dvh place-items-center overflow-hidden bg-background px-6 text-center">
         <div className="space-y-3">
           <p className="text-sm uppercase tracking-widest text-muted-foreground">
             {issued.kind === "priority" ? "Atendimento preferencial" : "Sua senha"}
@@ -165,10 +217,16 @@ function KioskPage() {
   };
 
   return (
-    <main className="mx-auto flex min-h-screen max-w-3xl flex-col justify-center gap-6 p-6">
+    <main className="mx-auto flex h-dvh max-w-3xl flex-col justify-center gap-6 overflow-hidden p-6">
       <header className="text-center">
         <h1 className="font-display text-3xl font-semibold">Retire sua senha</h1>
         <p className="text-muted-foreground">{data.panelName}</p>
+        {!isFullscreen ? (
+          <Button variant="ghost" size="sm" className="mt-2" onClick={requestFullscreen}>
+            <Maximize className="size-4" />
+            Tela cheia
+          </Button>
+        ) : null}
       </header>
 
       {pendingKind && needsSectorChoice ? (
