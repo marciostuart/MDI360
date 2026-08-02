@@ -27,6 +27,9 @@ type SyncResponse = {
     audioEnabled?: boolean;
     /** "fade" faz um crossfade suave entre arquivos; "none" corta seco. */
     transitionEffect?: string;
+    /** Resolução forçada de renderização (null = tamanho real do painel). */
+    screenWidth?: number | null;
+    screenHeight?: number | null;
   };
   playlist: { id: string; name: string; revision: number; items: PlayerItem[] } | null;
   branding: {
@@ -46,6 +49,35 @@ type SyncResponse = {
 const TOKEN_KEY = "mdi360.deviceToken";
 const CODE_KEY = "mdi360.activationCode";
 const APP_VERSION = "web-1.0.0";
+
+/**
+ * Ponte com o aplicativo Android (quando o player roda dentro do APK).
+ * No navegador comum ela simplesmente não existe e tudo é ignorado.
+ */
+type NativeBridge = {
+  clearCache?: () => void;
+  reboot?: () => void;
+  requestScreenshot?: () => void;
+  setResolution?: (width: number, height: number) => void;
+  version?: () => string;
+};
+
+function nativeBridge(): NativeBridge | null {
+  if (typeof window === "undefined") return null;
+  return (window as unknown as { MDI360Native?: NativeBridge }).MDI360Native ?? null;
+}
+
+/** Apaga só os arquivos em cache, mantendo o vínculo desta tela. */
+async function clearMediaCache() {
+  if ("caches" in window) {
+    try {
+      const keys = await caches.keys();
+      await Promise.allSettled(keys.map((key) => caches.delete(key)));
+    } catch {
+      // Cache API indisponível neste aparelho.
+    }
+  }
+}
 
 /**
  * Wipes everything this screen cached locally. Runs when the customer deletes
