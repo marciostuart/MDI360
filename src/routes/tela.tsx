@@ -546,6 +546,35 @@ function PlayerScreen() {
     beatRef.current = Date.now();
   }, [index, current, sync, activeCall, linked]);
 
+  // Monitoramento remoto: o aplicativo Android devolve a captura por aqui e o
+  // player apenas a entrega ao servidor.
+  useEffect(() => {
+    if (!token) return;
+    const upload = async (image: string, contentType?: string) => {
+      try {
+        await fetch("/api/public/player/screenshot", {
+          method: "POST",
+          headers: { "content-type": "application/json", authorization: `Bearer ${token}` },
+          body: JSON.stringify({ image, contentType: contentType ?? "image/jpeg" }),
+        });
+      } catch {
+        // Sem rede agora: a próxima captura tenta de novo.
+      }
+    };
+    (window as unknown as { __mdi360Screenshot?: typeof upload }).__mdi360Screenshot = upload;
+    return () => {
+      delete (window as unknown as { __mdi360Screenshot?: typeof upload }).__mdi360Screenshot;
+    };
+  }, [token]);
+
+  // Resolução forçada: o aplicativo passa a desenhar a página no tamanho exato
+  // pedido e encaixa o resultado no painel físico.
+  const forcedWidth = sync?.device?.screenWidth ?? null;
+  const forcedHeight = sync?.device?.screenHeight ?? null;
+  useEffect(() => {
+    nativeBridge()?.setResolution?.(forcedWidth ?? 0, forcedHeight ?? 0);
+  }, [forcedWidth, forcedHeight]);
+
   useEffect(() => {
     if (!linked) return;
     const interval = window.setInterval(() => {
