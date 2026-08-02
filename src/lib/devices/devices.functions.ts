@@ -17,6 +17,12 @@ export type DeviceListItem = {
   audioEnabled: boolean;
   /** "none" = corte seco · "fade" = transição suave entre arquivos. */
   transitionEffect: string;
+  /** Custom render resolution (null = use the panel's own size). */
+  screenWidth: number | null;
+  screenHeight: number | null;
+  /** Last remote screenshot of this screen, when one was captured. */
+  screenshotUrl: string | null;
+  screenshotAt: string | null;
   appVersion: string | null;
   lastSeenAt: string | null;
   online: boolean;
@@ -44,6 +50,16 @@ export const listDevices = createServerFn({ method: "GET" }).handler(
       .limit(500);
 
     const now = Date.now();
+    const { createDownloadUrl } = await import("@/lib/storage.server");
+    const shots = new Map<string, string>();
+    for (const row of rows) {
+      if (!row.lastScreenshotKey) continue;
+      try {
+        shots.set(row.id, await createDownloadUrl(row.lastScreenshotKey, 3600));
+      } catch {
+        // Storage hiccup must never break the screen list.
+      }
+    }
     return {
       configured: true,
       items: rows.map((row) => ({
@@ -56,6 +72,10 @@ export const listDevices = createServerFn({ method: "GET" }).handler(
         defaultPlaylistId: row.defaultPlaylistId,
         audioEnabled: row.audioEnabled,
         transitionEffect: row.transitionEffect,
+        screenWidth: row.screenWidth,
+        screenHeight: row.screenHeight,
+        screenshotUrl: shots.get(row.id) ?? null,
+        screenshotAt: row.lastScreenshotAt ? row.lastScreenshotAt.toISOString() : null,
         appVersion: row.appVersion,
         lastSeenAt: row.lastSeenAt ? row.lastSeenAt.toISOString() : null,
         online: row.lastSeenAt ? now - row.lastSeenAt.getTime() < DEVICE_ONLINE_WINDOW_MS : false,
