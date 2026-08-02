@@ -347,22 +347,25 @@ export const saveQueuePanel = createServerFn({ method: "POST" })
       .limit(1);
     if (!owned[0]) throw new Error("Tela não encontrada.");
 
-    // Imagem de fundo precisa ser uma imagem pronta da própria organização.
-    let bgMediaId: string | null = data.themeBgMediaId ?? null;
-    if (bgMediaId) {
+    // Imagens de fundo precisam ser imagens prontas da própria organização.
+    const ensureOwnedImage = async (id: string | null) => {
+      if (!id) return null;
       const asset = await db
         .select({ id: schema.mediaAssets.id })
         .from(schema.mediaAssets)
         .where(
           and(
-            eq(schema.mediaAssets.id, bgMediaId),
+            eq(schema.mediaAssets.id, id),
             eq(schema.mediaAssets.organizationId, user.organizationId),
             eq(schema.mediaAssets.kind, "image"),
           ),
         )
         .limit(1);
       if (!asset[0]) throw new Error("Imagem de fundo não encontrada na sua biblioteca.");
-    }
+      return id;
+    };
+    const bgMediaId = await ensureOwnedImage(data.themeBgMediaId ?? null);
+    const kioskBgMediaId = await ensureOwnedImage(data.kioskBgMediaId ?? null);
 
     const configValues = {
       mode: data.mode,
@@ -380,6 +383,17 @@ export const saveQueuePanel = createServerFn({ method: "POST" })
       themeTicketColor: data.themeTicketColor,
       themeTextColor: data.themeTextColor,
       themeHistoryColor: data.themeHistoryColor,
+      kioskBgColor: data.kioskBgColor,
+      kioskBgMediaId,
+      kioskCardColor: data.kioskCardColor,
+      kioskTitleColor: data.kioskTitleColor,
+      kioskTextColor: data.kioskTextColor,
+      kioskNormalButtonColor: data.kioskNormalButtonColor,
+      kioskNormalButtonTextColor: data.kioskNormalButtonTextColor,
+      kioskPriorityButtonColor: data.kioskPriorityButtonColor,
+      kioskPriorityButtonTextColor: data.kioskPriorityButtonTextColor,
+      kioskTitle: data.kioskTitle,
+      kioskShowLogo: data.kioskShowLogo,
     };
 
     const { toQueueError } = await import("@/lib/queue/queue-errors.server");
