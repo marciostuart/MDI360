@@ -1,12 +1,16 @@
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { useServerFn } from "@tanstack/react-start";
 import {
+  Camera,
+  Eraser,
   Link2,
   Loader2,
   MonitorSmartphone,
   Pencil,
+  Power,
   Replace,
   RefreshCw,
+  Ruler,
   Sparkles,
   Trash2,
   Tv,
@@ -44,6 +48,7 @@ import {
   replaceDevice,
   sendDeviceCommand,
   setDeviceAudio,
+  setDeviceResolution,
   setDeviceTransition,
   setDevicePlaylist,
   updateDevice,
@@ -74,6 +79,7 @@ export function DeviceManager() {
   const setTransitionFn = useServerFn(setDeviceTransition);
   const replaceFn = useServerFn(replaceDevice);
   const updateFn = useServerFn(updateDevice);
+  const setResolutionFn = useServerFn(setDeviceResolution);
 
   const [name, setName] = useState("");
   const [code, setCode] = useState("");
@@ -82,6 +88,13 @@ export function DeviceManager() {
   const [replaceCode, setReplaceCode] = useState("");
   const [renameTarget, setRenameTarget] = useState<{ id: string; name: string } | null>(null);
   const [renameValue, setRenameValue] = useState("");
+  /** Resolução em edição por tela (só é salva quando o cliente confirma). */
+  const [resolutionDraft, setResolutionDraft] = useState<
+    Record<string, { width: string; height: string }>
+  >({});
+  const [shotPreview, setShotPreview] = useState<
+    { name: string; url: string; at: string | null } | null
+  >(null);
 
   const devices = useQuery({
     queryKey: ["devices"],
@@ -119,10 +132,44 @@ export function DeviceManager() {
   });
 
   const commandMutation = useMutation({
-    mutationFn: (vars: { deviceId: string; kind: "reload" | "restart" }) =>
-      commandFn({ data: vars }),
-    onSuccess: () => toast.success("Comando enviado. A tela executa no próximo contato."),
+    mutationFn: (vars: {
+      deviceId: string;
+      kind: "reload" | "restart" | "screenshot" | "clear_cache" | "reboot";
+    }) => commandFn({ data: vars }),
+    onSuccess: (_data, vars) => {
+      if (vars.kind === "screenshot") {
+        toast.success("Captura solicitada. A imagem aparece aqui em alguns segundos.");
+      } else if (vars.kind === "clear_cache") {
+        toast.success("Limpeza enviada: a tela apaga os arquivos e baixa tudo de novo.");
+      } else if (vars.kind === "reboot") {
+        toast.success("Reinicialização enviada para o aparelho.");
+      } else {
+        toast.success("Comando enviado. A tela executa no próximo contato.");
+      }
+    },
     onError: () => toast.error("Não foi possível enviar o comando."),
+  });
+
+  const resolutionMutation = useMutation({
+    mutationFn: (vars: {
+      deviceId: string;
+      screenWidth: number | null;
+      screenHeight: number | null;
+    }) => setResolutionFn({ data: vars }),
+    onSuccess: async (_data, vars) => {
+      toast.success(
+        vars.screenWidth
+          ? `Resolução definida em ${vars.screenWidth}×${vars.screenHeight}.`
+          : "Resolução voltou ao tamanho real do painel.",
+      );
+      await refresh();
+    },
+    onError: (error: unknown) =>
+      toast.error(
+        error instanceof Error && error.message
+          ? error.message
+          : "Não foi possível alterar a resolução desta tela.",
+      ),
   });
 
   const renameMutation = useMutation({
@@ -372,6 +419,138 @@ export function DeviceManager() {
                     />
                   </div>
 
+                  <div className="space-y-3 rounded-lg border border-border p-3">
+                    <div className="flex items-center gap-2">
+                      <Ruler className="size-4 text-muted-foreground" />
+                      <div>
+                        <p className="text-sm font-medium">Resolução da tela</p>
+                        <p className="text-xs text-muted-foreground">
+                          Deixe em branco para usar o tamanho real do painel. Use valores
+                          personalizados em telas fora do formato convencional (faixas de LED,
+                          totens recortados).
+                        </p>
+                      </div>
+                    </div>
+                    <div className="flex flex-wrap items-end gap-2">
+                      <div className="w-24 space-y-1">
+                        <Label className="text-xs text-muted-foreground">Largura</Label>
+                        <Input
+                          inputMode="numeric"
+                          placeholder="auto"
+                          value={
+                            resolutionDraft[device.id]?.width ??
+                            (device.screenWidth ? String(device.screenWidth) : "")
+                          }
+                          onChange={(event) =>
+                            setResolutionDraft((current) => ({
+                              ...current,
+                              [device.id]: {
+                                width: event.target.value.replace(/[^0-9]/g, "").slice(0, 4),
+                                height:
+                                  current[device.id]?.height ??
+                                  (device.screenHeight ? String(device.screenHeight) : ""),
+                              },
+                            }))
+                          }
+                        />
+                      </div>
+                      <div className="w-24 space-y-1">
+                        <Label className="text-xs text-muted-foreground">Altura</Label>
+                        <Input
+                          inputMode="numeric"
+                          placeholder="auto"
+                          value={
+                            resolutionDraft[device.id]?.height ??
+                            (device.screenHeight ? String(device.screenHeight) : "")
+                          }
+                          onChange={(event) =>
+                            setResolutionDraft((current) => ({
+                              ...current,
+                              [device.id]: {
+                                width:
+                                  current[device.id]?.width ??
+                                  (device.screenWidth ? String(device.screenWidth) : ""),
+                                height: event.target.value.replace(/[^0-9]/g, "").slice(0, 4),
+                              },
+                            }))
+                          }
+                        />
+                      </div>
+                      <Button
+                        size="sm"
+                        variant="outline"
+                        disabled={resolutionMutation.isPending}
+                        onClick={() => {
+                          const draft = resolutionDraft[device.id];
+                          const width = Number(
+                            draft?.width ?? (device.screenWidth ? String(device.screenWidth) : ""),
+                          );
+                          const height = Number(
+                            draft?.height ??
+                              (device.screenHeight ? String(device.screenHeight) : ""),
+                          );
+                          const bothEmpty = !width && !height;
+                          if (!bothEmpty && (width < 240 || height < 240)) {
+                            toast.error("Informe largura e altura de no mínimo 240 pixels.");
+                            return;
+                          }
+                          resolutionMutation.mutate({
+                            deviceId: device.id,
+                            screenWidth: bothEmpty ? null : width,
+                            screenHeight: bothEmpty ? null : height,
+                          });
+                        }}
+                      >
+                        Salvar
+                      </Button>
+                    </div>
+                  </div>
+
+                  <div className="space-y-3 rounded-lg border border-border p-3">
+                    <div className="flex items-center gap-2">
+                      <Camera className="size-4 text-muted-foreground" />
+                      <div>
+                        <p className="text-sm font-medium">Monitoramento</p>
+                        <p className="text-xs text-muted-foreground">
+                          {device.screenshotAt
+                            ? `Última captura ${formatLastSeen(device.screenshotAt)}.`
+                            : "Nenhuma captura ainda. Disponível no aplicativo Android."}
+                        </p>
+                      </div>
+                    </div>
+                    {device.screenshotUrl ? (
+                      <button
+                        type="button"
+                        className="block w-full overflow-hidden rounded-md border border-border"
+                        onClick={() =>
+                          setShotPreview({
+                            name: device.name,
+                            url: device.screenshotUrl!,
+                            at: device.screenshotAt,
+                          })
+                        }
+                      >
+                        <img
+                          src={device.screenshotUrl}
+                          alt={`Captura da tela ${device.name}`}
+                          loading="lazy"
+                          className="aspect-video w-full bg-black object-contain"
+                        />
+                      </button>
+                    ) : null}
+                    <Button
+                      size="sm"
+                      variant="outline"
+                      disabled={device.status !== "active"}
+                      onClick={() =>
+                        commandMutation.mutate({ deviceId: device.id, kind: "screenshot" })
+                      }
+                    >
+                      <Camera className="size-3.5" />
+                      Capturar tela
+                    </Button>
+                  </div>
+
                   <div className="flex flex-wrap gap-2">
                     <Button
                       size="sm"
@@ -408,6 +587,28 @@ export function DeviceManager() {
                     </Button>
                     <Button
                       size="sm"
+                      variant="outline"
+                      disabled={device.status !== "active"}
+                      onClick={() =>
+                        commandMutation.mutate({ deviceId: device.id, kind: "clear_cache" })
+                      }
+                    >
+                      <Eraser className="size-3.5" />
+                      Limpar cache
+                    </Button>
+                    <Button
+                      size="sm"
+                      variant="outline"
+                      disabled={device.status !== "active"}
+                      onClick={() =>
+                        commandMutation.mutate({ deviceId: device.id, kind: "reboot" })
+                      }
+                    >
+                      <Power className="size-3.5" />
+                      Reiniciar aparelho
+                    </Button>
+                    <Button
+                      size="sm"
                       variant="ghost"
                       className="text-muted-foreground"
                       onClick={() => removeMutation.mutate(device.id)}
@@ -422,6 +623,26 @@ export function DeviceManager() {
           })}
         </div>
       )}
+
+      <Dialog open={shotPreview !== null} onOpenChange={(open) => !open && setShotPreview(null)}>
+        <DialogContent className="max-w-3xl">
+          <DialogHeader>
+            <DialogTitle>Captura de {shotPreview?.name}</DialogTitle>
+            <DialogDescription>
+              {shotPreview?.at
+                ? `Imagem recebida ${formatLastSeen(shotPreview.at)}.`
+                : "Imagem recebida do aparelho."}
+            </DialogDescription>
+          </DialogHeader>
+          {shotPreview ? (
+            <img
+              src={shotPreview.url}
+              alt={`Captura da tela ${shotPreview.name}`}
+              className="w-full rounded-md border border-border bg-black object-contain"
+            />
+          ) : null}
+        </DialogContent>
+      </Dialog>
 
       <Dialog
         open={replaceTarget !== null}
