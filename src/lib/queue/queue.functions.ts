@@ -30,6 +30,18 @@ export type QueuePanelSummary = {
   themeTicketColor: string;
   themeTextColor: string;
   themeHistoryColor: string;
+  /** Aparência da tela de emissão de senhas (totem). */
+  kioskBgColor: string;
+  kioskBgMediaId: string | null;
+  kioskCardColor: string;
+  kioskTitleColor: string;
+  kioskTextColor: string;
+  kioskNormalButtonColor: string;
+  kioskNormalButtonTextColor: string;
+  kioskPriorityButtonColor: string;
+  kioskPriorityButtonTextColor: string;
+  kioskTitle: string | null;
+  kioskShowLogo: boolean;
   /** Tom de chamada personalizado e volumes. */
   chimeName: string | null;
   chimeVolume: number;
@@ -47,6 +59,20 @@ export const QUEUE_THEME_DEFAULTS = {
 export const QUEUE_SOUND_DEFAULTS = {
   chimeVolume: 55,
   voiceVolume: 200,
+};
+
+export const KIOSK_THEME_DEFAULTS = {
+  kioskBgColor: "#0b1220",
+  kioskBgMediaId: null as string | null,
+  kioskCardColor: "#111a2e",
+  kioskTitleColor: "#ffffff",
+  kioskTextColor: "#cbd5f5",
+  kioskNormalButtonColor: "#2563eb",
+  kioskNormalButtonTextColor: "#ffffff",
+  kioskPriorityButtonColor: "#f59e0b",
+  kioskPriorityButtonTextColor: "#0b1220",
+  kioskTitle: "",
+  kioskShowLogo: true,
 };
 
 const hexColor = z
@@ -111,6 +137,17 @@ export const listQueuePanels = createServerFn({ method: "GET" }).handler(
           themeTicketColor: schema.queuePanels.themeTicketColor,
           themeTextColor: schema.queuePanels.themeTextColor,
           themeHistoryColor: schema.queuePanels.themeHistoryColor,
+          kioskBgColor: schema.queuePanels.kioskBgColor,
+          kioskBgMediaId: schema.queuePanels.kioskBgMediaId,
+          kioskCardColor: schema.queuePanels.kioskCardColor,
+          kioskTitleColor: schema.queuePanels.kioskTitleColor,
+          kioskTextColor: schema.queuePanels.kioskTextColor,
+          kioskNormalButtonColor: schema.queuePanels.kioskNormalButtonColor,
+          kioskNormalButtonTextColor: schema.queuePanels.kioskNormalButtonTextColor,
+          kioskPriorityButtonColor: schema.queuePanels.kioskPriorityButtonColor,
+          kioskPriorityButtonTextColor: schema.queuePanels.kioskPriorityButtonTextColor,
+          kioskTitle: schema.queuePanels.kioskTitle,
+          kioskShowLogo: schema.queuePanels.kioskShowLogo,
           chimeName: schema.queuePanels.chimeName,
           chimeVolume: schema.queuePanels.chimeVolume,
           voiceVolume: schema.queuePanels.voiceVolume,
@@ -190,6 +227,22 @@ export const listQueuePanels = createServerFn({ method: "GET" }).handler(
             themeTicketColor: row.themeTicketColor ?? QUEUE_THEME_DEFAULTS.themeTicketColor,
             themeTextColor: row.themeTextColor ?? QUEUE_THEME_DEFAULTS.themeTextColor,
             themeHistoryColor: row.themeHistoryColor ?? QUEUE_THEME_DEFAULTS.themeHistoryColor,
+            kioskBgColor: row.kioskBgColor ?? KIOSK_THEME_DEFAULTS.kioskBgColor,
+            kioskBgMediaId: row.kioskBgMediaId ?? null,
+            kioskCardColor: row.kioskCardColor ?? KIOSK_THEME_DEFAULTS.kioskCardColor,
+            kioskTitleColor: row.kioskTitleColor ?? KIOSK_THEME_DEFAULTS.kioskTitleColor,
+            kioskTextColor: row.kioskTextColor ?? KIOSK_THEME_DEFAULTS.kioskTextColor,
+            kioskNormalButtonColor:
+              row.kioskNormalButtonColor ?? KIOSK_THEME_DEFAULTS.kioskNormalButtonColor,
+            kioskNormalButtonTextColor:
+              row.kioskNormalButtonTextColor ?? KIOSK_THEME_DEFAULTS.kioskNormalButtonTextColor,
+            kioskPriorityButtonColor:
+              row.kioskPriorityButtonColor ?? KIOSK_THEME_DEFAULTS.kioskPriorityButtonColor,
+            kioskPriorityButtonTextColor:
+              row.kioskPriorityButtonTextColor ??
+              KIOSK_THEME_DEFAULTS.kioskPriorityButtonTextColor,
+            kioskTitle: row.kioskTitle ?? null,
+            kioskShowLogo: row.kioskShowLogo ?? true,
             chimeName: row.chimeName ?? null,
             chimeVolume: row.chimeVolume ?? QUEUE_SOUND_DEFAULTS.chimeVolume,
             voiceVolume: row.voiceVolume ?? QUEUE_SOUND_DEFAULTS.voiceVolume,
@@ -239,6 +292,27 @@ export const saveQueuePanel = createServerFn({ method: "POST" })
         themeTicketColor: hexColor.default(QUEUE_THEME_DEFAULTS.themeTicketColor),
         themeTextColor: hexColor.default(QUEUE_THEME_DEFAULTS.themeTextColor),
         themeHistoryColor: hexColor.default(QUEUE_THEME_DEFAULTS.themeHistoryColor),
+        kioskBgColor: hexColor.default(KIOSK_THEME_DEFAULTS.kioskBgColor),
+        kioskBgMediaId: z.preprocess(
+          (value) => (typeof value === "string" && value.trim() === "" ? null : value),
+          z.string().uuid().nullable().default(null),
+        ),
+        kioskCardColor: hexColor.default(KIOSK_THEME_DEFAULTS.kioskCardColor),
+        kioskTitleColor: hexColor.default(KIOSK_THEME_DEFAULTS.kioskTitleColor),
+        kioskTextColor: hexColor.default(KIOSK_THEME_DEFAULTS.kioskTextColor),
+        kioskNormalButtonColor: hexColor.default(KIOSK_THEME_DEFAULTS.kioskNormalButtonColor),
+        kioskNormalButtonTextColor: hexColor.default(
+          KIOSK_THEME_DEFAULTS.kioskNormalButtonTextColor,
+        ),
+        kioskPriorityButtonColor: hexColor.default(KIOSK_THEME_DEFAULTS.kioskPriorityButtonColor),
+        kioskPriorityButtonTextColor: hexColor.default(
+          KIOSK_THEME_DEFAULTS.kioskPriorityButtonTextColor,
+        ),
+        kioskTitle: z.preprocess(
+          (value) => (typeof value === "string" && value.trim() === "" ? null : value),
+          z.string().trim().max(60).nullable().default(null),
+        ),
+        kioskShowLogo: z.boolean().default(true),
         chimeVolume: z.number().int().min(0).max(100).default(QUEUE_SOUND_DEFAULTS.chimeVolume),
         voiceVolume: z.number().int().min(0).max(300).default(QUEUE_SOUND_DEFAULTS.voiceVolume),
       })
@@ -273,22 +347,25 @@ export const saveQueuePanel = createServerFn({ method: "POST" })
       .limit(1);
     if (!owned[0]) throw new Error("Tela não encontrada.");
 
-    // Imagem de fundo precisa ser uma imagem pronta da própria organização.
-    let bgMediaId: string | null = data.themeBgMediaId ?? null;
-    if (bgMediaId) {
+    // Imagens de fundo precisam ser imagens prontas da própria organização.
+    const ensureOwnedImage = async (id: string | null) => {
+      if (!id) return null;
       const asset = await db
         .select({ id: schema.mediaAssets.id })
         .from(schema.mediaAssets)
         .where(
           and(
-            eq(schema.mediaAssets.id, bgMediaId),
+            eq(schema.mediaAssets.id, id),
             eq(schema.mediaAssets.organizationId, user.organizationId),
             eq(schema.mediaAssets.kind, "image"),
           ),
         )
         .limit(1);
       if (!asset[0]) throw new Error("Imagem de fundo não encontrada na sua biblioteca.");
-    }
+      return id;
+    };
+    const bgMediaId = await ensureOwnedImage(data.themeBgMediaId ?? null);
+    const kioskBgMediaId = await ensureOwnedImage(data.kioskBgMediaId ?? null);
 
     const configValues = {
       mode: data.mode,
@@ -306,6 +383,17 @@ export const saveQueuePanel = createServerFn({ method: "POST" })
       themeTicketColor: data.themeTicketColor,
       themeTextColor: data.themeTextColor,
       themeHistoryColor: data.themeHistoryColor,
+      kioskBgColor: data.kioskBgColor,
+      kioskBgMediaId,
+      kioskCardColor: data.kioskCardColor,
+      kioskTitleColor: data.kioskTitleColor,
+      kioskTextColor: data.kioskTextColor,
+      kioskNormalButtonColor: data.kioskNormalButtonColor,
+      kioskNormalButtonTextColor: data.kioskNormalButtonTextColor,
+      kioskPriorityButtonColor: data.kioskPriorityButtonColor,
+      kioskPriorityButtonTextColor: data.kioskPriorityButtonTextColor,
+      kioskTitle: data.kioskTitle,
+      kioskShowLogo: data.kioskShowLogo,
     };
 
     const { toQueueError } = await import("@/lib/queue/queue-errors.server");

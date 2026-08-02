@@ -423,6 +423,25 @@ export const queuePanels = pgTable(
     themeTicketColor: text("theme_ticket_color").notNull().default("#ffffff"),
     themeTextColor: text("theme_text_color").notNull().default("#38bdf8"),
     themeHistoryColor: text("theme_history_color").notNull().default("#ffffff"),
+    /** Aparência da tela de emissão (totem/celular), personalizável no Studio. */
+    kioskBgColor: text("kiosk_bg_color").notNull().default("#0b1220"),
+    kioskBgMediaId: uuid("kiosk_bg_media_id").references(() => mediaAssets.id, {
+      onDelete: "set null",
+    }),
+    kioskCardColor: text("kiosk_card_color").notNull().default("#111a2e"),
+    kioskTitleColor: text("kiosk_title_color").notNull().default("#ffffff"),
+    kioskTextColor: text("kiosk_text_color").notNull().default("#cbd5f5"),
+    kioskNormalButtonColor: text("kiosk_normal_button_color").notNull().default("#2563eb"),
+    kioskNormalButtonTextColor: text("kiosk_normal_button_text_color")
+      .notNull()
+      .default("#ffffff"),
+    kioskPriorityButtonColor: text("kiosk_priority_button_color").notNull().default("#f59e0b"),
+    kioskPriorityButtonTextColor: text("kiosk_priority_button_text_color")
+      .notNull()
+      .default("#0b1220"),
+    /** Título exibido no topo da emissão. `null` usa "Retire sua senha". */
+    kioskTitle: text("kiosk_title"),
+    kioskShowLogo: boolean("kiosk_show_logo").notNull().default(true),
     /** Tom de chamada personalizado (MP3 enviado pelo cliente), no MinIO. */
     chimeStorageKey: text("chime_storage_key"),
     chimeName: text("chime_name"),

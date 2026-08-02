@@ -148,6 +148,13 @@
       "when": 1785600000000,
       "tag": "0020_queue_priority_sequence",
       "breakpoints": true
+    },
+    {
+      "idx": 21,
+      "version": "7",
+      "when": 1785700000000,
+      "tag": "0021_kiosk_theme",
+      "breakpoints": true
     }
   ]
 }

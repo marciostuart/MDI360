@@ -25,6 +25,7 @@ import {
   setQueuePanelEnabled,
   QUEUE_THEME_DEFAULTS,
   QUEUE_SOUND_DEFAULTS,
+  KIOSK_THEME_DEFAULTS,
   clearQueueChime,
   type QueuePanelSummary,
 } from "@/lib/queue/queue.functions";
@@ -95,6 +96,7 @@ export function QueueAddonManager() {
     displaySeconds: 20,
     ...QUEUE_THEME_DEFAULTS,
     ...QUEUE_SOUND_DEFAULTS,
+    ...KIOSK_THEME_DEFAULTS,
   });
 
   const [uploadingChime, setUploadingChime] = useState<string | null>(null);
@@ -154,6 +156,17 @@ export function QueueAddonManager() {
       themeTicketColor: string;
       themeTextColor: string;
       themeHistoryColor: string;
+      kioskBgColor: string;
+      kioskBgMediaId: string | null;
+      kioskCardColor: string;
+      kioskTitleColor: string;
+      kioskTextColor: string;
+      kioskNormalButtonColor: string;
+      kioskNormalButtonTextColor: string;
+      kioskPriorityButtonColor: string;
+      kioskPriorityButtonTextColor: string;
+      kioskTitle: string | null;
+      kioskShowLogo: boolean;
       chimeVolume: number;
       voiceVolume: number;
     }) => savePanel({ data: input }),
@@ -195,6 +208,21 @@ export function QueueAddonManager() {
       themeTicketColor: panel.themeTicketColor || QUEUE_THEME_DEFAULTS.themeTicketColor,
       themeTextColor: panel.themeTextColor || QUEUE_THEME_DEFAULTS.themeTextColor,
       themeHistoryColor: panel.themeHistoryColor || QUEUE_THEME_DEFAULTS.themeHistoryColor,
+      kioskBgColor: panel.kioskBgColor || KIOSK_THEME_DEFAULTS.kioskBgColor,
+      kioskBgMediaId: panel.kioskBgMediaId ?? null,
+      kioskCardColor: panel.kioskCardColor || KIOSK_THEME_DEFAULTS.kioskCardColor,
+      kioskTitleColor: panel.kioskTitleColor || KIOSK_THEME_DEFAULTS.kioskTitleColor,
+      kioskTextColor: panel.kioskTextColor || KIOSK_THEME_DEFAULTS.kioskTextColor,
+      kioskNormalButtonColor:
+        panel.kioskNormalButtonColor || KIOSK_THEME_DEFAULTS.kioskNormalButtonColor,
+      kioskNormalButtonTextColor:
+        panel.kioskNormalButtonTextColor || KIOSK_THEME_DEFAULTS.kioskNormalButtonTextColor,
+      kioskPriorityButtonColor:
+        panel.kioskPriorityButtonColor || KIOSK_THEME_DEFAULTS.kioskPriorityButtonColor,
+      kioskPriorityButtonTextColor:
+        panel.kioskPriorityButtonTextColor || KIOSK_THEME_DEFAULTS.kioskPriorityButtonTextColor,
+      kioskTitle: panel.kioskTitle ?? "",
+      kioskShowLogo: panel.kioskShowLogo ?? true,
       chimeVolume: panel.chimeVolume ?? QUEUE_SOUND_DEFAULTS.chimeVolume,
       voiceVolume: panel.voiceVolume ?? QUEUE_SOUND_DEFAULTS.voiceVolume,
     });
@@ -367,6 +395,17 @@ export function QueueAddonManager() {
                       themeTicketColor: form.themeTicketColor,
                       themeTextColor: form.themeTextColor,
                       themeHistoryColor: form.themeHistoryColor,
+                      kioskBgColor: form.kioskBgColor,
+                      kioskBgMediaId: form.kioskBgMediaId,
+                      kioskCardColor: form.kioskCardColor,
+                      kioskTitleColor: form.kioskTitleColor,
+                      kioskTextColor: form.kioskTextColor,
+                      kioskNormalButtonColor: form.kioskNormalButtonColor,
+                      kioskNormalButtonTextColor: form.kioskNormalButtonTextColor,
+                      kioskPriorityButtonColor: form.kioskPriorityButtonColor,
+                      kioskPriorityButtonTextColor: form.kioskPriorityButtonTextColor,
+                      kioskTitle: form.kioskTitle.trim() || null,
+                      kioskShowLogo: form.kioskShowLogo,
                       chimeVolume: form.chimeVolume,
                       voiceVolume: form.voiceVolume,
                     });
@@ -684,6 +723,176 @@ export function QueueAddonManager() {
                           >
                             A011 - Caixa 2 A010 - Triagem
                           </p>
+                        </div>
+                      </div>
+                    </div>
+                  </div>
+
+                  <div className="flex gap-2 sm:col-span-2">
+                    <div className="w-full space-y-3 rounded-lg border border-border p-4">
+                      <p className="text-sm font-medium">Aparência da tela de emissão (totem)</p>
+                      <div className="grid gap-3 sm:grid-cols-2">
+                        <div className="space-y-1.5 sm:col-span-2">
+                          <Label htmlFor={`kiosk-title-${panel.deviceId}`}>
+                            Título da tela (opcional)
+                          </Label>
+                          <Input
+                            id={`kiosk-title-${panel.deviceId}`}
+                            value={form.kioskTitle}
+                            maxLength={60}
+                            placeholder="Retire sua senha"
+                            onChange={(event) =>
+                              setForm((prev) => ({ ...prev, kioskTitle: event.target.value }))
+                            }
+                          />
+                        </div>
+                        <ColorField
+                          id={`kbg-${panel.deviceId}`}
+                          label="Cor de fundo"
+                          value={form.kioskBgColor}
+                          onChange={(value) => setForm((prev) => ({ ...prev, kioskBgColor: value }))}
+                        />
+                        <ColorField
+                          id={`kcard-${panel.deviceId}`}
+                          label="Cor do painel dos botões"
+                          value={form.kioskCardColor}
+                          onChange={(value) =>
+                            setForm((prev) => ({ ...prev, kioskCardColor: value }))
+                          }
+                        />
+                        <ColorField
+                          id={`ktitle-${panel.deviceId}`}
+                          label="Cor do título e da senha emitida"
+                          value={form.kioskTitleColor}
+                          onChange={(value) =>
+                            setForm((prev) => ({ ...prev, kioskTitleColor: value }))
+                          }
+                        />
+                        <ColorField
+                          id={`ktext-${panel.deviceId}`}
+                          label="Cor dos textos auxiliares"
+                          value={form.kioskTextColor}
+                          onChange={(value) =>
+                            setForm((prev) => ({ ...prev, kioskTextColor: value }))
+                          }
+                        />
+                        <ColorField
+                          id={`knbtn-${panel.deviceId}`}
+                          label="Cor do botão Senha normal"
+                          value={form.kioskNormalButtonColor}
+                          onChange={(value) =>
+                            setForm((prev) => ({ ...prev, kioskNormalButtonColor: value }))
+                          }
+                        />
+                        <ColorField
+                          id={`knbtntx-${panel.deviceId}`}
+                          label="Texto do botão Senha normal"
+                          value={form.kioskNormalButtonTextColor}
+                          onChange={(value) =>
+                            setForm((prev) => ({ ...prev, kioskNormalButtonTextColor: value }))
+                          }
+                        />
+                        <ColorField
+                          id={`kpbtn-${panel.deviceId}`}
+                          label="Cor do botão Preferencial"
+                          value={form.kioskPriorityButtonColor}
+                          onChange={(value) =>
+                            setForm((prev) => ({ ...prev, kioskPriorityButtonColor: value }))
+                          }
+                        />
+                        <ColorField
+                          id={`kpbtntx-${panel.deviceId}`}
+                          label="Texto do botão Preferencial"
+                          value={form.kioskPriorityButtonTextColor}
+                          onChange={(value) =>
+                            setForm((prev) => ({ ...prev, kioskPriorityButtonTextColor: value }))
+                          }
+                        />
+                        <div className="space-y-1.5 sm:col-span-2">
+                          <Label>Imagem de fundo (opcional)</Label>
+                          <Select
+                            value={form.kioskBgMediaId ?? "none"}
+                            onValueChange={(value) =>
+                              setForm((prev) => ({
+                                ...prev,
+                                kioskBgMediaId: value === "none" ? null : value,
+                              }))
+                            }
+                          >
+                            <SelectTrigger>
+                              <SelectValue placeholder="Somente cor de fundo" />
+                            </SelectTrigger>
+                            <SelectContent>
+                              <SelectItem value="none">Somente cor de fundo</SelectItem>
+                              {images.map((image) => (
+                                <SelectItem key={image.id} value={image.id}>
+                                  {image.name}
+                                </SelectItem>
+                              ))}
+                            </SelectContent>
+                          </Select>
+                        </div>
+                        <div className="flex items-center gap-2 sm:col-span-2">
+                          <Switch
+                            id={`klogo-${panel.deviceId}`}
+                            checked={form.kioskShowLogo}
+                            onCheckedChange={(checked) =>
+                              setForm((prev) => ({ ...prev, kioskShowLogo: checked }))
+                            }
+                          />
+                          <Label htmlFor={`klogo-${panel.deviceId}`} className="text-sm">
+                            Exibir a logo da empresa na tela de emissão
+                          </Label>
+                        </div>
+                      </div>
+
+                      <div
+                        className="space-y-3 rounded-md bg-cover bg-center p-6 text-center"
+                        style={{
+                          backgroundColor: form.kioskBgColor,
+                          ...(form.kioskBgMediaId
+                            ? {
+                                backgroundImage: `url(${JSON.stringify(
+                                  images.find((i) => i.id === form.kioskBgMediaId)?.previewUrl ??
+                                    "",
+                                )})`,
+                              }
+                            : {}),
+                        }}
+                      >
+                        <p
+                          className="text-lg font-semibold"
+                          style={{ color: form.kioskTitleColor }}
+                        >
+                          {form.kioskTitle.trim() || "Retire sua senha"}
+                        </p>
+                        <div
+                          className="space-y-2 rounded-md p-3"
+                          style={{ backgroundColor: form.kioskCardColor }}
+                        >
+                          <p className="text-xs" style={{ color: form.kioskTextColor }}>
+                            Toque no tipo de senha
+                          </p>
+                          <div className="grid gap-2 sm:grid-cols-2">
+                            <span
+                              className="rounded-md py-3 text-sm font-semibold"
+                              style={{
+                                backgroundColor: form.kioskNormalButtonColor,
+                                color: form.kioskNormalButtonTextColor,
+                              }}
+                            >
+                              Senha normal
+                            </span>
+                            <span
+                              className="rounded-md py-3 text-sm font-semibold"
+                              style={{
+                                backgroundColor: form.kioskPriorityButtonColor,
+                                color: form.kioskPriorityButtonTextColor,
+                              }}
+                            >
+                              Preferencial
+                            </span>
+                          </div>
                         </div>
                       </div>
                     </div>
