@@ -17,6 +17,12 @@ export type DeviceListItem = {
   audioEnabled: boolean;
   /** "none" = corte seco · "fade" = transição suave entre arquivos. */
   transitionEffect: string;
+  /** Custom render resolution (null = use the panel's own size). */
+  screenWidth: number | null;
+  screenHeight: number | null;
+  /** Last remote screenshot of this screen, when one was captured. */
+  screenshotUrl: string | null;
+  screenshotAt: string | null;
   appVersion: string | null;
   lastSeenAt: string | null;
   online: boolean;
@@ -44,6 +50,16 @@ export const listDevices = createServerFn({ method: "GET" }).handler(
       .limit(500);
 
     const now = Date.now();
+    const { createDownloadUrl } = await import("@/lib/storage.server");
+    const shots = new Map<string, string>();
+    for (const row of rows) {
+      if (!row.lastScreenshotKey) continue;
+      try {
+        shots.set(row.id, await createDownloadUrl(row.lastScreenshotKey, 3600));
+      } catch {
+        // Storage hiccup must never break the screen list.
+      }
+    }
     return {
       configured: true,
       items: rows.map((row) => ({
@@ -56,6 +72,10 @@ export const listDevices = createServerFn({ method: "GET" }).handler(
         defaultPlaylistId: row.defaultPlaylistId,
         audioEnabled: row.audioEnabled,
         transitionEffect: row.transitionEffect,
+        screenWidth: row.screenWidth,
+        screenHeight: row.screenHeight,
+        screenshotUrl: shots.get(row.id) ?? null,
+        screenshotAt: row.lastScreenshotAt ? row.lastScreenshotAt.toISOString() : null,
         appVersion: row.appVersion,
         lastSeenAt: row.lastSeenAt ? row.lastSeenAt.toISOString() : null,
         online: row.lastSeenAt ? now - row.lastSeenAt.getTime() < DEVICE_ONLINE_WINDOW_MS : false,
@@ -456,12 +476,64 @@ export const setDeviceTransition = createServerFn({ method: "POST" })
     return { ok: true };
   });
 
+/**
+ * Custom render resolution of a screen. Panels outside the usual formats (LED
+ * strips, stacked totems, cropped monitors) render at exactly this size and the
+ * player scales the result to fit. Passing nulls goes back to the panel size.
+ */
+export const setDeviceResolution = createServerFn({ method: "POST" })
+  .inputValidator((input: unknown) =>
+    z
+      .object({
+        deviceId: z.string().uuid(),
+        screenWidth: z.number().int().min(240).max(7680).nullable(),
+        screenHeight: z.number().int().min(240).max(7680).nullable(),
+      })
+      .refine(
+        (value) => (value.screenWidth === null) === (value.screenHeight === null),
+        "Informe largura e altura, ou deixe as duas em branco.",
+      )
+      .parse(input),
+  )
+  .handler(async ({ data }) => {
+    const { getDb, schema } = await import("@/lib/db/index.server");
+    const { requireUser } = await import("@/lib/auth/session.server");
+    const { and, eq } = await import("drizzle-orm");
+    const user = await requireUser();
+
+    const updated = await getDb()
+      .update(schema.devices)
+      .set({ screenWidth: data.screenWidth, screenHeight: data.screenHeight })
+      .where(
+        and(
+          eq(schema.devices.id, data.deviceId),
+          eq(schema.devices.organizationId, user.organizationId),
+        ),
+      )
+      .returning({ id: schema.devices.id });
+
+    if (!updated[0]) throw new Error("Tela não encontrada.");
+
+    const { notifyDevice } = await import("@/lib/player/realtime.server");
+    notifyDevice(data.deviceId);
+
+    return { ok: true };
+  });
+
 export const sendDeviceCommand = createServerFn({ method: "POST" })
   .inputValidator((input: unknown) =>
     z
       .object({
         deviceId: z.string().uuid(),
-        kind: z.enum(["reload", "restart", "screenshot", "sync_playlist", "update_app"]),
+        kind: z.enum([
+          "reload",
+          "restart",
+          "screenshot",
+          "sync_playlist",
+          "update_app",
+          "clear_cache",
+          "reboot",
+        ]),
       })
       .parse(input),
   )

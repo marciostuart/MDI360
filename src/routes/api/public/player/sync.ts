@@ -145,6 +145,8 @@ export const Route = createFileRoute("/api/public/player/sync")({
               canvasPreset: device.canvasPreset,
               audioEnabled: device.audioEnabled,
               transitionEffect: device.transitionEffect,
+              screenWidth: device.screenWidth,
+              screenHeight: device.screenHeight,
             },
             playlist,
             branding,

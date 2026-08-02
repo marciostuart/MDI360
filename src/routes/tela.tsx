@@ -27,6 +27,9 @@ type SyncResponse = {
     audioEnabled?: boolean;
     /** "fade" faz um crossfade suave entre arquivos; "none" corta seco. */
     transitionEffect?: string;
+    /** Resolução forçada de renderização (null = tamanho real do painel). */
+    screenWidth?: number | null;
+    screenHeight?: number | null;
   };
   playlist: { id: string; name: string; revision: number; items: PlayerItem[] } | null;
   branding: {
@@ -46,6 +49,35 @@ type SyncResponse = {
 const TOKEN_KEY = "mdi360.deviceToken";
 const CODE_KEY = "mdi360.activationCode";
 const APP_VERSION = "web-1.0.0";
+
+/**
+ * Ponte com o aplicativo Android (quando o player roda dentro do APK).
+ * No navegador comum ela simplesmente não existe e tudo é ignorado.
+ */
+type NativeBridge = {
+  clearCache?: () => void;
+  reboot?: () => void;
+  requestScreenshot?: () => void;
+  setResolution?: (width: number, height: number) => void;
+  version?: () => string;
+};
+
+function nativeBridge(): NativeBridge | null {
+  if (typeof window === "undefined") return null;
+  return (window as unknown as { MDI360Native?: NativeBridge }).MDI360Native ?? null;
+}
+
+/** Apaga só os arquivos em cache, mantendo o vínculo desta tela. */
+async function clearMediaCache() {
+  if ("caches" in window) {
+    try {
+      const keys = await caches.keys();
+      await Promise.allSettled(keys.map((key) => caches.delete(key)));
+    } catch {
+      // Cache API indisponível neste aparelho.
+    }
+  }
+}
 
 /**
  * Wipes everything this screen cached locally. Runs when the customer deletes
@@ -287,6 +319,26 @@ function PlayerScreen() {
           pendingSyncRef.current = data;
           setHasPending(true);
         }
+        // Comandos remotos enviados pelo Studio.
+        const native = nativeBridge();
+        if (data.commands.includes("screenshot")) {
+          // Captura feita pelo aplicativo Android; o envio acontece no callback.
+          native?.requestScreenshot?.();
+        }
+        if (data.commands.includes("reboot")) {
+          if (native?.reboot) {
+            native.reboot();
+          } else {
+            window.location.reload();
+          }
+          return;
+        }
+        if (data.commands.includes("clear_cache")) {
+          await clearMediaCache();
+          native?.clearCache?.();
+          window.location.reload();
+          return;
+        }
         if (data.commands.includes("reload") || data.commands.includes("restart")) {
           window.location.reload();
         }
@@ -493,6 +545,35 @@ function PlayerScreen() {
   useEffect(() => {
     beatRef.current = Date.now();
   }, [index, current, sync, activeCall, linked]);
+
+  // Monitoramento remoto: o aplicativo Android devolve a captura por aqui e o
+  // player apenas a entrega ao servidor.
+  useEffect(() => {
+    if (!token) return;
+    const upload = async (image: string, contentType?: string) => {
+      try {
+        await fetch("/api/public/player/screenshot", {
+          method: "POST",
+          headers: { "content-type": "application/json", authorization: `Bearer ${token}` },
+          body: JSON.stringify({ image, contentType: contentType ?? "image/jpeg" }),
+        });
+      } catch {
+        // Sem rede agora: a próxima captura tenta de novo.
+      }
+    };
+    (window as unknown as { __mdi360Screenshot?: typeof upload }).__mdi360Screenshot = upload;
+    return () => {
+      delete (window as unknown as { __mdi360Screenshot?: typeof upload }).__mdi360Screenshot;
+    };
+  }, [token]);
+
+  // Resolução forçada: o aplicativo passa a desenhar a página no tamanho exato
+  // pedido e encaixa o resultado no painel físico.
+  const forcedWidth = sync?.device?.screenWidth ?? null;
+  const forcedHeight = sync?.device?.screenHeight ?? null;
+  useEffect(() => {
+    nativeBridge()?.setResolution?.(forcedWidth ?? 0, forcedHeight ?? 0);
+  }, [forcedWidth, forcedHeight]);
 
   useEffect(() => {
     if (!linked) return;

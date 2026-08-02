@@ -20,6 +20,9 @@ export type PlayerDevice = {
   status: "pending" | "active" | "blocked";
   audioEnabled: boolean;
   transitionEffect: string;
+  /** Custom render resolution (null = use the panel's own size). */
+  screenWidth: number | null;
+  screenHeight: number | null;
 };
 
 /** Resolves the device row for a token, whatever its status (may be unlinked). */
@@ -40,6 +43,8 @@ export async function resolveDeviceByToken(request: Request): Promise<
       pairingCode: schema.devices.pairingCode,
       audioEnabled: schema.devices.audioEnabled,
       transitionEffect: schema.devices.transitionEffect,
+      screenWidth: schema.devices.screenWidth,
+      screenHeight: schema.devices.screenHeight,
     })
     .from(schema.devices)
     .where(
@@ -71,6 +76,8 @@ export async function authenticateDevice(request: Request): Promise<PlayerDevice
       status: schema.devices.status,
       audioEnabled: schema.devices.audioEnabled,
       transitionEffect: schema.devices.transitionEffect,
+      screenWidth: schema.devices.screenWidth,
+      screenHeight: schema.devices.screenHeight,
     })
     .from(schema.devices)
     .where(

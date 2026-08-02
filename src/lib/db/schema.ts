@@ -29,6 +29,10 @@ export const commandKindEnum = pgEnum("command_kind", [
   "screenshot",
   "sync_playlist",
   "update_app",
+  /** Wipes every local file/cache of the player and reloads it. */
+  "clear_cache",
+  /** Reboots the device itself (Android box/TV), not just the app. */
+  "reboot",
 ]);
 export const commandStatusEnum = pgEnum("command_status", [
   "queued",
@@ -201,6 +205,13 @@ export const devices = pgTable(
     transitionEffect: text("transition_effect").notNull().default("none"),
     /** Screen shape this TV/totem uses; drives which media fits it. */
     canvasPreset: text("canvas_preset").notNull().default("landscape-fhd"),
+    /**
+     * Optional custom render resolution, in pixels. Used by panels with unusual
+     * shapes (LED strips, stacked totems): the player renders at exactly this
+     * size and scales it to fit the physical screen. Null = use the panel size.
+     */
+    screenWidth: integer("screen_width"),
+    screenHeight: integer("screen_height"),
     appVersion: text("app_version"),
     lastSeenAt: timestamp("last_seen_at", { withTimezone: true }),
     lastScreenshotKey: text("last_screenshot_key"),

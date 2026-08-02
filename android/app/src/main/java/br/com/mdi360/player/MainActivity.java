@@ -3,8 +3,14 @@ package br.com.mdi360.player;
 import android.annotation.SuppressLint;
 import android.app.AlertDialog;
 import android.content.Context;
+import android.content.Intent;
 import android.content.SharedPreferences;
+import android.graphics.Bitmap;
+import android.graphics.Canvas;
 import android.os.Build;
+import android.os.PowerManager;
+import android.os.Process;
+import android.util.Base64;
 import android.os.Bundle;
 import android.os.Handler;
 import android.os.Looper;
@@ -21,6 +27,9 @@ import android.webkit.WebViewClient;
 import android.widget.EditText;
 import android.widget.FrameLayout;
 
+import java.io.ByteArrayOutputStream;
+import java.io.File;
+
 import androidx.appcompat.app.AppCompatActivity;
 
 /**
@@ -33,6 +42,7 @@ public class MainActivity extends AppCompatActivity {
     private static final String KEY_URL = "server_url";
 
     private WebView webView;
+    private FrameLayout root;
     private final Handler handler = new Handler(Looper.getMainLooper());
 
     @SuppressLint("SetJavaScriptEnabled")
@@ -42,7 +52,7 @@ public class MainActivity extends AppCompatActivity {
 
         getWindow().addFlags(WindowManager.LayoutParams.FLAG_KEEP_SCREEN_ON);
 
-        FrameLayout root = new FrameLayout(this);
+        root = new FrameLayout(this);
         webView = new WebView(this);
         root.addView(webView, new FrameLayout.LayoutParams(
                 FrameLayout.LayoutParams.MATCH_PARENT, FrameLayout.LayoutParams.MATCH_PARENT));
@@ -72,6 +82,10 @@ public class MainActivity extends AppCompatActivity {
                 }
             }
         });
+
+        // Controles remotos (captura de tela, limpeza de cache, reboot,
+        // resolucao) usados pelo painel do cliente.
+        webView.addJavascriptInterface(new NativeBridge(this), "MDI360Native");
 
         hideSystemUi();
         webView.loadUrl(playerUrl());
@@ -129,6 +143,128 @@ public class MainActivity extends AppCompatActivity {
         // Bloqueia o "voltar" para a tela nunca sair do player.
         if (keyCode == KeyEvent.KEYCODE_BACK) return true;
         return super.onKeyDown(keyCode, event);
+    }
+
+    /* ---------------------------------------------------------------- */
+    /* Controles remotos                                                 */
+    /* ---------------------------------------------------------------- */
+
+    /**
+     * Limpeza forcada de cache. Apaga os arquivos baixados e o cache do WebView,
+     * mas NUNCA o armazenamento local: o vinculo da tela e mantido.
+     */
+    void clearAllCaches() {
+        webView.clearCache(true);
+        webView.clearHistory();
+        deleteRecursively(getCacheDir());
+        deleteRecursively(new File(getFilesDir(), "webview"));
+        webView.loadUrl(playerUrl());
+    }
+
+    private void deleteRecursively(File file) {
+        if (file == null || !file.exists()) return;
+        File[] children = file.listFiles();
+        if (children != null) {
+            for (File child : children) deleteRecursively(child);
+        }
+        if (!file.equals(getCacheDir())) {
+            // Ignora falhas: arquivos em uso serao apagados na proxima limpeza.
+            //noinspection ResultOfMethodCallIgnored
+            file.delete();
+        }
+    }
+
+    /**
+     * Reinicializacao. Aparelhos com root ou permissao de sistema reiniciam de
+     * verdade; nos demais o aplicativo se reinicia, que resolve travamentos.
+     */
+    void rebootDevice() {
+        try {
+            PowerManager power = (PowerManager) getSystemService(Context.POWER_SERVICE);
+            if (power != null) {
+                power.reboot(null);
+                return;
+            }
+        } catch (Throwable ignored) {
+            // Sem permissao de sistema: tenta root, depois reinicia o app.
+        }
+        try {
+            Runtime.getRuntime().exec(new String[] { "su", "-c", "reboot" });
+            return;
+        } catch (Throwable ignored) {
+            // Aparelho sem root.
+        }
+        restartApp();
+    }
+
+    private void restartApp() {
+        Intent intent = new Intent(this, MainActivity.class);
+        intent.addFlags(Intent.FLAG_ACTIVITY_NEW_TASK | Intent.FLAG_ACTIVITY_CLEAR_TASK);
+        startActivity(intent);
+        finish();
+        Process.killProcess(Process.myPid());
+    }
+
+    /**
+     * Captura de tela do aparelho para monitoramento. A imagem e reduzida e
+     * entregue a pagina, que a envia ao servidor.
+     */
+    void captureScreenshot() {
+        try {
+            int width = webView.getWidth();
+            int height = webView.getHeight();
+            if (width <= 0 || height <= 0) return;
+
+            Bitmap bitmap = Bitmap.createBitmap(width, height, Bitmap.Config.RGB_565);
+            Canvas canvas = new Canvas(bitmap);
+            webView.draw(canvas);
+
+            // Nunca envia mais que 1280px de largura: economiza dados da TV.
+            if (width > 1280) {
+                int scaledHeight = Math.max(1, (int) (height * (1280f / width)));
+                Bitmap scaled = Bitmap.createScaledBitmap(bitmap, 1280, scaledHeight, true);
+                bitmap.recycle();
+                bitmap = scaled;
+            }
+
+            ByteArrayOutputStream out = new ByteArrayOutputStream();
+            bitmap.compress(Bitmap.CompressFormat.JPEG, 70, out);
+            bitmap.recycle();
+            String base64 = Base64.encodeToString(out.toByteArray(), Base64.NO_WRAP);
+            webView.evaluateJavascript(
+                    "window.__mdi360Screenshot && window.__mdi360Screenshot('" + base64
+                            + "','image/jpeg')",
+                    null);
+        } catch (Throwable ignored) {
+            // Falha de captura nunca pode derrubar a reproducao.
+        }
+    }
+
+    /**
+     * Resolucao de renderizacao. O WebView passa a desenhar a pagina no tamanho
+     * pedido e o resultado e esticado para preencher o painel fisico, o que
+     * permite telas com formatos fora do convencional. Zero volta ao padrao.
+     */
+    void applyResolution(int width, int height) {
+        FrameLayout.LayoutParams params;
+        if (width <= 0 || height <= 0) {
+            params = new FrameLayout.LayoutParams(
+                    FrameLayout.LayoutParams.MATCH_PARENT, FrameLayout.LayoutParams.MATCH_PARENT);
+            webView.setScaleX(1f);
+            webView.setScaleY(1f);
+        } else {
+            int screenWidth = root.getWidth() > 0 ? root.getWidth() : getResources()
+                    .getDisplayMetrics().widthPixels;
+            int screenHeight = root.getHeight() > 0 ? root.getHeight() : getResources()
+                    .getDisplayMetrics().heightPixels;
+            params = new FrameLayout.LayoutParams(width, height);
+            webView.setPivotX(0f);
+            webView.setPivotY(0f);
+            webView.setScaleX((float) screenWidth / width);
+            webView.setScaleY((float) screenHeight / height);
+        }
+        webView.setLayoutParams(params);
+        webView.requestLayout();
     }
 
     @Override
