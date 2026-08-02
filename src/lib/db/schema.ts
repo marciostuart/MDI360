@@ -205,6 +205,13 @@ export const devices = pgTable(
     transitionEffect: text("transition_effect").notNull().default("none"),
     /** Screen shape this TV/totem uses; drives which media fits it. */
     canvasPreset: text("canvas_preset").notNull().default("landscape-fhd"),
+    /**
+     * Optional custom render resolution, in pixels. Used by panels with unusual
+     * shapes (LED strips, stacked totems): the player renders at exactly this
+     * size and scales it to fit the physical screen. Null = use the panel size.
+     */
+    screenWidth: integer("screen_width"),
+    screenHeight: integer("screen_height"),
     appVersion: text("app_version"),
     lastSeenAt: timestamp("last_seen_at", { withTimezone: true }),
     lastScreenshotKey: text("last_screenshot_key"),
