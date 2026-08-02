@@ -29,6 +29,10 @@ export const commandKindEnum = pgEnum("command_kind", [
   "screenshot",
   "sync_playlist",
   "update_app",
+  /** Wipes every local file/cache of the player and reloads it. */
+  "clear_cache",
+  /** Reboots the device itself (Android box/TV), not just the app. */
+  "reboot",
 ]);
 export const commandStatusEnum = pgEnum("command_status", [
   "queued",
