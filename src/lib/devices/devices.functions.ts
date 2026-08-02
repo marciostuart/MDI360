@@ -476,12 +476,64 @@ export const setDeviceTransition = createServerFn({ method: "POST" })
     return { ok: true };
   });
 
+/**
+ * Custom render resolution of a screen. Panels outside the usual formats (LED
+ * strips, stacked totems, cropped monitors) render at exactly this size and the
+ * player scales the result to fit. Passing nulls goes back to the panel size.
+ */
+export const setDeviceResolution = createServerFn({ method: "POST" })
+  .inputValidator((input: unknown) =>
+    z
+      .object({
+        deviceId: z.string().uuid(),
+        screenWidth: z.number().int().min(240).max(7680).nullable(),
+        screenHeight: z.number().int().min(240).max(7680).nullable(),
+      })
+      .refine(
+        (value) => (value.screenWidth === null) === (value.screenHeight === null),
+        "Informe largura e altura, ou deixe as duas em branco.",
+      )
+      .parse(input),
+  )
+  .handler(async ({ data }) => {
+    const { getDb, schema } = await import("@/lib/db/index.server");
+    const { requireUser } = await import("@/lib/auth/session.server");
+    const { and, eq } = await import("drizzle-orm");
+    const user = await requireUser();
+
+    const updated = await getDb()
+      .update(schema.devices)
+      .set({ screenWidth: data.screenWidth, screenHeight: data.screenHeight })
+      .where(
+        and(
+          eq(schema.devices.id, data.deviceId),
+          eq(schema.devices.organizationId, user.organizationId),
+        ),
+      )
+      .returning({ id: schema.devices.id });
+
+    if (!updated[0]) throw new Error("Tela não encontrada.");
+
+    const { notifyDevice } = await import("@/lib/player/realtime.server");
+    notifyDevice(data.deviceId);
+
+    return { ok: true };
+  });
+
 export const sendDeviceCommand = createServerFn({ method: "POST" })
   .inputValidator((input: unknown) =>
     z
       .object({
         deviceId: z.string().uuid(),
-        kind: z.enum(["reload", "restart", "screenshot", "sync_playlist", "update_app"]),
+        kind: z.enum([
+          "reload",
+          "restart",
+          "screenshot",
+          "sync_playlist",
+          "update_app",
+          "clear_cache",
+          "reboot",
+        ]),
       })
       .parse(input),
   )
