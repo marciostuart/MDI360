@@ -120,7 +120,9 @@ export const listQueuePanels = createServerFn({ method: "GET" }).handler(
     try {
       const { getOrgLimits } = await import("@/lib/admin/limits.server");
       const limits = await getOrgLimits(user.organizationId);
-      if (!limits.queueEnabled) return { configured: true, available: false, items: [] };
+      // Available means the customer CAN use the feature (billing check).
+      // If not available, the Studio shows the "Upgrade" card.
+      const available = limits.queueEnabled;
 
       const rows = await db
         .select({
@@ -207,7 +209,7 @@ export const listQueuePanels = createServerFn({ method: "GET" }).handler(
       const now = Date.now();
       return {
         configured: true,
-        available: true,
+        available,
         items: rows.map((row) => {
           const last = row.panelId ? lastCalls.get(row.panelId) : undefined;
           return {
