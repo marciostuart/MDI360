@@ -70,6 +70,8 @@ export function QueuePanelConfig({
   const resetCounters = useServerFn(resetQueueCounters);
   const rotateToken = useServerFn(rotateQueueKioskToken);
   const setIssuing = useServerFn(setQueueIssuing);
+  const requestPairing = useServerFn(await import("@/lib/queue/emitter.functions").then(m => m.requestEmitterPairing));
+
 
   // A gestão de filas e operadores fica sempre visível: é o painel de trabalho
   // do cliente, não um detalhe escondido.
@@ -662,55 +664,90 @@ export function QueuePanelConfig({
             )}
           </section>
 
-          <section className="space-y-2">
-            <p className="text-xs font-semibold uppercase tracking-wider text-muted-foreground">
-              Tela de emissão (totem / recepção)
-            </p>
-            {kioskUrl ? (
-              <div className="flex flex-wrap items-center gap-2">
-                <Input readOnly value={kioskUrl} className="min-w-56 flex-1 font-mono text-xs" />
+          <section className="space-y-4">
+            <div className="space-y-2">
+              <p className="text-xs font-semibold uppercase tracking-wider text-muted-foreground">
+                Impressor Desktop (Windows / Linux)
+              </p>
+              <div className="flex flex-wrap items-center gap-3 rounded-lg border border-border p-4 bg-muted/30">
+                <div className="flex-1 space-y-1">
+                  <p className="text-sm font-medium">Vinculação do terminal</p>
+                  <p className="text-xs text-muted-foreground">
+                    Use o código abaixo para conectar o aplicativo MDI360 Impressor instalado no computador à sua impressora térmica.
+                  </p>
+                </div>
+                {data.emitterPairingCode ? (
+                  <div className="flex items-center gap-3">
+                    <div className="bg-primary/10 text-primary font-mono text-2xl font-bold px-4 py-2 rounded-md border border-primary/20 tracking-widest">
+                      {data.emitterPairingCode}
+                    </div>
+                    <p className="text-[10px] text-muted-foreground max-w-[80px]">
+                      Expira em {new Date(data.emitterPairingExpiresAt!).toLocaleTimeString()}
+                    </p>
+                  </div>
+                ) : (
+                  <Button 
+                    variant="outline" 
+                    size="sm"
+                    onClick={() => requestPairing({ data: { panelId } })}
+                  >
+                    Gerar código de vinculação
+                  </Button>
+                )}
+              </div>
+            </div>
+
+            <div className="space-y-2">
+              <p className="text-xs font-semibold uppercase tracking-wider text-muted-foreground">
+                Tela de emissão (totem / recepção)
+              </p>
+              {kioskUrl ? (
+                <div className="flex flex-wrap items-center gap-2">
+                  <Input readOnly value={kioskUrl} className="min-w-56 flex-1 font-mono text-xs" />
+                  <Button
+                    variant="outline"
+                    size="sm"
+                    onClick={async () => {
+                      await navigator.clipboard.writeText(kioskUrl);
+                      toast.success("Endereço copiado.");
+                    }}
+                  >
+                    <Copy className="size-4" />
+                    Copiar
+                  </Button>
+                  <Button variant="outline" size="sm" asChild>
+                    <a href={kioskUrl} target="_blank" rel="noreferrer">
+                      Abrir
+                    </a>
+                  </Button>
+                  <Button
+                    variant="ghost"
+                    size="sm"
+                    onClick={() => rotateMutation.mutate()}
+                    disabled={rotateMutation.isPending}
+                  >
+                    <RefreshCw className="size-4" />
+                    Gerar novo
+                  </Button>
+                </div>
+              ) : (
                 <Button
                   variant="outline"
-                  size="sm"
-                  onClick={async () => {
-                    await navigator.clipboard.writeText(kioskUrl);
-                    toast.success("Endereço copiado.");
-                  }}
-                >
-                  <Copy className="size-4" />
-                  Copiar
-                </Button>
-                <Button variant="outline" size="sm" asChild>
-                  <a href={kioskUrl} target="_blank" rel="noreferrer">
-                    Abrir
-                  </a>
-                </Button>
-                <Button
-                  variant="ghost"
                   size="sm"
                   onClick={() => rotateMutation.mutate()}
                   disabled={rotateMutation.isPending}
                 >
                   <RefreshCw className="size-4" />
-                  Gerar novo
+                  Gerar endereço de emissão
                 </Button>
-              </div>
-            ) : (
-              <Button
-                variant="outline"
-                size="sm"
-                onClick={() => rotateMutation.mutate()}
-                disabled={rotateMutation.isPending}
-              >
-                <RefreshCw className="size-4" />
-                Gerar endereço de emissão
-              </Button>
-            )}
-            <p className="text-xs text-muted-foreground">
-              Abra este endereço em um tablet ou totem na recepção: o cliente escolhe o atendimento
-              e retira senha normal ou preferencial.
-            </p>
+              )}
+              <p className="text-xs text-muted-foreground">
+                Abra este endereço em um tablet ou totem na recepção: o cliente escolhe o atendimento
+                e retira senha normal ou preferencial.
+              </p>
+            </div>
           </section>
+
         </>
       ) : null}
     </div>

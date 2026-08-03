@@ -199,14 +199,37 @@ async function printTicket(payload) {
 async function poll() {
   if (polling) return;
   const cfg = loadConfig();
-  if (!cfg.token || !cfg.serverUrl) {
-    pushStatus({ connected: false, message: "Informe o token do painel (F10)." });
+  if ((!cfg.token && !cfg.pairingCode) || !cfg.serverUrl) {
+    pushStatus({ connected: false, message: "Aguardando vinculação (F10)." });
     return;
   }
+
   polling = true;
   try {
     const base = cfg.serverUrl.replace(/\/+$/, "");
+
+    // Se temos um código de pareamento mas não temos token, tentamos parear.
+    if (!cfg.token && cfg.pairingCode) {
+      const pairUrl = new URL(`${base}/api/queue/pair-emitter`);
+      const pairRes = await fetch(pairUrl, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ code: cfg.pairingCode }),
+      });
+      if (pairRes.ok) {
+        const { token } = await pairRes.json();
+        cfg.token = token;
+        cfg.pairingCode = ""; // Limpa o código após sucesso
+        saveConfig(cfg);
+        pushStatus({ message: "Vinculado com sucesso!" });
+      } else {
+        pushStatus({ connected: false, message: `Código ${cfg.pairingCode} inválido ou expirado.` });
+        return;
+      }
+    }
+
     const url = new URL(`${base}/api/public/queue/print-spool`);
+
     url.searchParams.set("token", cfg.token);
     if (sinceAt) url.searchParams.set("since", sinceAt);
 
