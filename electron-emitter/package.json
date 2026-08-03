@@ -23,7 +23,6 @@
     "appId": "br.com.360bh.mdi360.emissor",
     "productName": "MDI360 Emissor",
     "icon": "../public/emissor-icon.png",
-    "artifactName": "MDI360-Emissor-${version}-${os}-${arch}.${ext}",
     "asar": true,
     "files": [
       "*.cjs",
@@ -34,6 +33,7 @@
       "output": "release"
     },
     "win": {
+      "artifactName": "MDI360-Emissor-Windows-x64.${ext}",
       "target": [
         {
           "target": "nsis",
@@ -51,6 +51,7 @@
       "createStartMenuShortcut": true
     },
     "linux": {
+      "artifactName": "MDI360-Emissor-MiniOS-x64.${ext}",
       "target": [
         {
           "target": "AppImage",

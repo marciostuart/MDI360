@@ -36,6 +36,10 @@ import { Route as ApiMediaUploadRouteImport } from './routes/api/media/upload'
 import { Route as ApiPublicEmissorManifestRouteImport } from './routes/api/public/emissor-manifest'
 import { Route as ApiPublicWidgetDataRouteImport } from './routes/api/public/widget-data'
 import { Route as ApiQueueChimeRouteImport } from './routes/api/queue/chime'
+import { Route as StudioInstalarAndroidRouteImport } from './routes/studio/instalar/android'
+import { Route as StudioInstalarEmissorLinuxRouteImport } from './routes/studio/instalar/emissor-linux'
+import { Route as StudioInstalarEmissorWindowsRouteImport } from './routes/studio/instalar/emissor-windows'
+import { Route as StudioInstalarRokuRouteImport } from './routes/studio/instalar/roku'
 import { Route as TorreClientesIndexRouteImport } from './routes/torre/clientes/index'
 import { Route as TorreClientesOrganizationIdRouteImport } from './routes/torre/clientes/$organizationId'
 import { Route as ApiPublicEmitterRegisterRouteImport } from './routes/api/public/emitter/register'
@@ -186,6 +190,28 @@ const ApiQueueChimeRoute = ApiQueueChimeRouteImport.update({
   path: '/api/queue/chime',
   getParentRoute: () => rootRouteImport,
 } as any)
+const StudioInstalarAndroidRoute = StudioInstalarAndroidRouteImport.update({
+  id: '/instalar/android',
+  path: '/instalar/android',
+  getParentRoute: () => StudioRouteRoute,
+} as any)
+const StudioInstalarEmissorLinuxRoute =
+  StudioInstalarEmissorLinuxRouteImport.update({
+    id: '/instalar/emissor-linux',
+    path: '/instalar/emissor-linux',
+    getParentRoute: () => StudioRouteRoute,
+  } as any)
+const StudioInstalarEmissorWindowsRoute =
+  StudioInstalarEmissorWindowsRouteImport.update({
+    id: '/instalar/emissor-windows',
+    path: '/instalar/emissor-windows',
+    getParentRoute: () => StudioRouteRoute,
+  } as any)
+const StudioInstalarRokuRoute = StudioInstalarRokuRouteImport.update({
+  id: '/instalar/roku',
+  path: '/instalar/roku',
+  getParentRoute: () => StudioRouteRoute,
+} as any)
 const TorreClientesIndexRoute = TorreClientesIndexRouteImport.update({
   id: '/clientes/',
   path: '/clientes/',
@@ -284,6 +310,10 @@ export interface FileRoutesByFullPath {
   '/api/public/emissor-manifest': typeof ApiPublicEmissorManifestRoute
   '/api/public/widget-data': typeof ApiPublicWidgetDataRoute
   '/api/queue/chime': typeof ApiQueueChimeRoute
+  '/studio/instalar/android': typeof StudioInstalarAndroidRoute
+  '/studio/instalar/emissor-linux': typeof StudioInstalarEmissorLinuxRoute
+  '/studio/instalar/emissor-windows': typeof StudioInstalarEmissorWindowsRoute
+  '/studio/instalar/roku': typeof StudioInstalarRokuRoute
   '/torre/clientes/$organizationId': typeof TorreClientesOrganizationIdRoute
   '/torre/clientes/': typeof TorreClientesIndexRoute
   '/api/public/emitter/register': typeof ApiPublicEmitterRegisterRoute
@@ -324,6 +354,10 @@ export interface FileRoutesByTo {
   '/api/public/emissor-manifest': typeof ApiPublicEmissorManifestRoute
   '/api/public/widget-data': typeof ApiPublicWidgetDataRoute
   '/api/queue/chime': typeof ApiQueueChimeRoute
+  '/studio/instalar/android': typeof StudioInstalarAndroidRoute
+  '/studio/instalar/emissor-linux': typeof StudioInstalarEmissorLinuxRoute
+  '/studio/instalar/emissor-windows': typeof StudioInstalarEmissorWindowsRoute
+  '/studio/instalar/roku': typeof StudioInstalarRokuRoute
   '/torre/clientes/$organizationId': typeof TorreClientesOrganizationIdRoute
   '/torre/clientes': typeof TorreClientesIndexRoute
   '/api/public/emitter/register': typeof ApiPublicEmitterRegisterRoute
@@ -367,6 +401,10 @@ export interface FileRoutesById {
   '/api/public/emissor-manifest': typeof ApiPublicEmissorManifestRoute
   '/api/public/widget-data': typeof ApiPublicWidgetDataRoute
   '/api/queue/chime': typeof ApiQueueChimeRoute
+  '/studio/instalar/android': typeof StudioInstalarAndroidRoute
+  '/studio/instalar/emissor-linux': typeof StudioInstalarEmissorLinuxRoute
+  '/studio/instalar/emissor-windows': typeof StudioInstalarEmissorWindowsRoute
+  '/studio/instalar/roku': typeof StudioInstalarRokuRoute
   '/torre/clientes/$organizationId': typeof TorreClientesOrganizationIdRoute
   '/torre/clientes/': typeof TorreClientesIndexRoute
   '/api/public/emitter/register': typeof ApiPublicEmitterRegisterRoute
@@ -411,6 +449,10 @@ export interface FileRouteTypes {
     | '/api/public/emissor-manifest'
     | '/api/public/widget-data'
     | '/api/queue/chime'
+    | '/studio/instalar/android'
+    | '/studio/instalar/emissor-linux'
+    | '/studio/instalar/emissor-windows'
+    | '/studio/instalar/roku'
     | '/torre/clientes/$organizationId'
     | '/torre/clientes/'
     | '/api/public/emitter/register'
@@ -451,6 +493,10 @@ export interface FileRouteTypes {
     | '/api/public/emissor-manifest'
     | '/api/public/widget-data'
     | '/api/queue/chime'
+    | '/studio/instalar/android'
+    | '/studio/instalar/emissor-linux'
+    | '/studio/instalar/emissor-windows'
+    | '/studio/instalar/roku'
     | '/torre/clientes/$organizationId'
     | '/torre/clientes'
     | '/api/public/emitter/register'
@@ -493,6 +539,10 @@ export interface FileRouteTypes {
     | '/api/public/emissor-manifest'
     | '/api/public/widget-data'
     | '/api/queue/chime'
+    | '/studio/instalar/android'
+    | '/studio/instalar/emissor-linux'
+    | '/studio/instalar/emissor-windows'
+    | '/studio/instalar/roku'
     | '/torre/clientes/$organizationId'
     | '/torre/clientes/'
     | '/api/public/emitter/register'
@@ -727,6 +777,34 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof ApiQueueChimeRouteImport
       parentRoute: typeof rootRouteImport
     }
+    '/studio/instalar/android': {
+      id: '/studio/instalar/android'
+      path: '/instalar/android'
+      fullPath: '/studio/instalar/android'
+      preLoaderRoute: typeof StudioInstalarAndroidRouteImport
+      parentRoute: typeof StudioRouteRoute
+    }
+    '/studio/instalar/emissor-linux': {
+      id: '/studio/instalar/emissor-linux'
+      path: '/instalar/emissor-linux'
+      fullPath: '/studio/instalar/emissor-linux'
+      preLoaderRoute: typeof StudioInstalarEmissorLinuxRouteImport
+      parentRoute: typeof StudioRouteRoute
+    }
+    '/studio/instalar/emissor-windows': {
+      id: '/studio/instalar/emissor-windows'
+      path: '/instalar/emissor-windows'
+      fullPath: '/studio/instalar/emissor-windows'
+      preLoaderRoute: typeof StudioInstalarEmissorWindowsRouteImport
+      parentRoute: typeof StudioRouteRoute
+    }
+    '/studio/instalar/roku': {
+      id: '/studio/instalar/roku'
+      path: '/instalar/roku'
+      fullPath: '/studio/instalar/roku'
+      preLoaderRoute: typeof StudioInstalarRokuRouteImport
+      parentRoute: typeof StudioRouteRoute
+    }
     '/torre/clientes/': {
       id: '/torre/clientes/'
       path: '/clientes'
@@ -833,6 +911,10 @@ interface StudioRouteRouteChildren {
   StudioTelasRoute: typeof StudioTelasRoute
   StudioWidgetsRoute: typeof StudioWidgetsRoute
   StudioIndexRoute: typeof StudioIndexRoute
+  StudioInstalarAndroidRoute: typeof StudioInstalarAndroidRoute
+  StudioInstalarEmissorLinuxRoute: typeof StudioInstalarEmissorLinuxRoute
+  StudioInstalarEmissorWindowsRoute: typeof StudioInstalarEmissorWindowsRoute
+  StudioInstalarRokuRoute: typeof StudioInstalarRokuRoute
 }
 
 const StudioRouteRouteChildren: StudioRouteRouteChildren = {
@@ -847,6 +929,10 @@ const StudioRouteRouteChildren: StudioRouteRouteChildren = {
   StudioTelasRoute: StudioTelasRoute,
   StudioWidgetsRoute: StudioWidgetsRoute,
   StudioIndexRoute: StudioIndexRoute,
+  StudioInstalarAndroidRoute: StudioInstalarAndroidRoute,
+  StudioInstalarEmissorLinuxRoute: StudioInstalarEmissorLinuxRoute,
+  StudioInstalarEmissorWindowsRoute: StudioInstalarEmissorWindowsRoute,
+  StudioInstalarRokuRoute: StudioInstalarRokuRoute,
 }
 
 const StudioRouteRouteWithChildren = StudioRouteRoute._addFileChildren(

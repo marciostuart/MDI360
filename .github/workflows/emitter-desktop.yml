@@ -8,6 +8,9 @@ on:
       - "electron-emitter/**"
       - ".github/workflows/emitter-desktop.yml"
 
+permissions:
+  contents: write
+
 jobs:
   build:
     name: ${{ matrix.name }}
@@ -40,10 +43,42 @@ jobs:
         run: npm ci
       - name: Gerar instalador
         run: npm run ${{ matrix.command }}
-      - name: Publicar artefato
+      - name: Publicar artefato Windows
+        if: matrix.os == 'windows-latest'
         uses: actions/upload-artifact@v4
         with:
           name: ${{ matrix.artifact }}
-          path: electron-emitter/release/*
+          path: electron-emitter/release/*.exe
           if-no-files-found: error
           retention-days: 30
+      - name: Publicar artefatos Linux
+        if: matrix.os == 'ubuntu-latest'
+        uses: actions/upload-artifact@v4
+        with:
+          name: ${{ matrix.artifact }}
+          path: |
+            electron-emitter/release/*.deb
+            electron-emitter/release/*.AppImage
+          if-no-files-found: error
+          retention-days: 30
+
+  release:
+    name: Publicar downloads permanentes
+    needs: build
+    runs-on: ubuntu-latest
+    steps:
+      - name: Baixar instaladores
+        uses: actions/download-artifact@v4
+        with:
+          pattern: mdi360-emissor-*
+          path: downloads
+          merge-multiple: true
+      - name: Criar ou atualizar release
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          gh release view desktop-latest --repo "$GITHUB_REPOSITORY" >/dev/null 2>&1 || \
+            gh release create desktop-latest --repo "$GITHUB_REPOSITORY" --target "$GITHUB_SHA" \
+              --title "MDI360 Emissor Desktop" \
+              --notes "Instaladores atuais do emissor de senhas para Windows e MiniOS/Linux."
+          gh release upload desktop-latest downloads/* --repo "$GITHUB_REPOSITORY" --clobber

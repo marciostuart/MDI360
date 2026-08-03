@@ -8,6 +8,9 @@ on:
       - "android/**"
       - ".github/workflows/android-apk.yml"
 
+permissions:
+  contents: write
+
 jobs:
   build:
     runs-on: ubuntu-latest
@@ -40,3 +43,14 @@ jobs:
           name: mdi360-android-apk
           path: saida/mdi360-android.apk
           retention-days: 90
+
+      - name: Publicar APK permanente
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          gh release view android-latest --repo "$GITHUB_REPOSITORY" >/dev/null 2>&1 || \
+            gh release create android-latest --repo "$GITHUB_REPOSITORY" --target "$GITHUB_SHA" \
+              --title "MDI360 Player Android" \
+              --notes "Versão atual do player MDI360 para TV Box, Smart TV Android e celular."
+          gh release upload android-latest saida/mdi360-android.apk \
+            --repo "$GITHUB_REPOSITORY" --clobber
