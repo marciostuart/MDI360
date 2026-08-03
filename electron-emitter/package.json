@@ -1,17 +1,68 @@
 {
   "name": "mdi360-emissor",
-  "productName": "MDI360 Impressor",
-  "version": "2.0.0",
-  "description": "Servico impressor de senhas MDI 360 (ESC/POS) - escuta o servidor e imprime cada senha emitida",
+  "productName": "MDI360 Emissor",
+  "version": "2.1.0",
+  "description": "Terminal MDI 360 em tela cheia com emissão e impressão automática de senhas",
   "main": "main.cjs",
   "author": "MDI 360",
   "license": "UNLICENSED",
   "scripts": {
     "start": "electron .",
-    "package:win": "electron-packager . \"MDI360 Emissor\" --platform=win32 --arch=x64 --out=release --overwrite --prune=true"
+    "dist:win": "electron-builder --win nsis --x64",
+    "dist:linux": "electron-builder --linux AppImage deb --x64"
   },
   "devDependencies": {
-    "electron": "^33.0.0",
-    "@electron/packager": "^18.3.6"
+    "electron": "^43.2.0",
+    "electron-builder": "^26.15.3"
+  },
+  "build": {
+    "appId": "br.com.360bh.mdi360.emissor",
+    "productName": "MDI360 Emissor",
+    "artifactName": "MDI360-Emissor-${version}-${os}-${arch}.${ext}",
+    "asar": true,
+    "files": [
+      "*.cjs",
+      "*.html",
+      "package.json"
+    ],
+    "directories": {
+      "output": "release"
+    },
+    "win": {
+      "target": [
+        {
+          "target": "nsis",
+          "arch": [
+            "x64"
+          ]
+        }
+      ]
+    },
+    "nsis": {
+      "oneClick": false,
+      "perMachine": false,
+      "allowToChangeInstallationDirectory": true,
+      "createDesktopShortcut": true,
+      "createStartMenuShortcut": true
+    },
+    "linux": {
+      "target": [
+        {
+          "target": "AppImage",
+          "arch": [
+            "x64"
+          ]
+        },
+        {
+          "target": "deb",
+          "arch": [
+            "x64"
+          ]
+        }
+      ],
+      "category": "Utility",
+      "executableName": "mdi360-emissor",
+      "synopsis": "Emissor e impressor de senhas MDI 360"
+    }
   }
 }

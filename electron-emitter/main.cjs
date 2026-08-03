@@ -52,6 +52,44 @@ function saveConfig(next) {
 
 let configWindow = null;
 let monitorWindow = null;
+let kioskWindow = null;
+let quitting = false;
+
+function shellQuote(value) {
+  return `'${String(value).replace(/'/g, `'\\''`)}'`;
+}
+
+/** Starts the graphical app with the user's desktop session (Windows and MiniOS/Linux). */
+function ensureAutoStart() {
+  if (!app.isPackaged) return;
+  if (process.platform === "win32") {
+    app.setLoginItemSettings({ openAtLogin: true, path: process.execPath });
+    return;
+  }
+  if (process.platform !== "linux") return;
+  try {
+    const autostartDir = path.join(app.getPath("home"), ".config", "autostart");
+    const executable = process.env.APPIMAGE || process.execPath;
+    fs.mkdirSync(autostartDir, { recursive: true });
+    fs.writeFileSync(
+      path.join(autostartDir, "mdi360-emissor.desktop"),
+      [
+        "[Desktop Entry]",
+        "Type=Application",
+        "Name=MDI360 Emissor",
+        `Exec=${shellQuote(executable)}`,
+        "Terminal=false",
+        "X-GNOME-Autostart-enabled=true",
+        "X-KDE-autostart-after=panel",
+        "StartupNotify=false",
+        "",
+      ].join("\n"),
+      "utf8",
+    );
+  } catch (error) {
+    pushStatus({ lastError: `Não foi possível ativar a inicialização automática: ${error.message}` });
+  }
+}
 
 /* ------------------------------------------------------------------ */
 /* Estado do servico de impressao                                       */
@@ -114,6 +152,38 @@ function openMonitorWindow() {
   monitorWindow.on("closed", () => {
     monitorWindow = null;
   });
+}
+
+/** Full-screen ticket issuer. The same device token also authorizes background printing. */
+function openKioskWindow(base, token) {
+  if (kioskWindow && !kioskWindow.isDestroyed()) return;
+  kioskWindow = new BrowserWindow({
+    fullscreen: true,
+    kiosk: true,
+    autoHideMenuBar: true,
+    backgroundColor: "#0b1220",
+    webPreferences: {
+      contextIsolation: true,
+      nodeIntegration: false,
+      sandbox: true,
+    },
+  });
+  kioskWindow.loadURL(`${base}/emitir/${encodeURIComponent(token)}`);
+  kioskWindow.webContents.on("before-input-event", (_event, input) => {
+    if (input.type !== "keyDown") return;
+    const key = String(input.key).toLowerCase();
+    if (key === "f10" || (input.control && input.shift && key === "c")) openConfigWindow();
+    if (input.control && input.shift && key === "m") openMonitorWindow();
+  });
+  kioskWindow.webContents.on("did-fail-load", () => {
+    pushStatus({ connected: false, message: "Não foi possível abrir a tela de emissão." });
+    openMonitorWindow();
+  });
+  kioskWindow.on("closed", () => {
+    kioskWindow = null;
+    if (!quitting) openMonitorWindow();
+  });
+  if (monitorWindow && !monitorWindow.isDestroyed()) monitorWindow.hide();
 }
 
 function openConfigWindow() {
@@ -259,6 +329,7 @@ async function poll() {
       cfg.pairingCode = "";
       saveConfig(cfg);
     }
+    openKioskWindow(base, cfg.token);
 
     const url = new URL(`${base}/api/public/queue/print-spool`);
 
@@ -348,6 +419,7 @@ ipcMain.handle("config:printers", () => listPrinters());
 ipcMain.handle("config:save", (_e, next) => saveConfig(next));
 ipcMain.handle("config:start", (_e, next) => {
   saveConfig(next);
+  ensureAutoStart();
   startService({ reset: true });
   if (configWindow && !configWindow.isDestroyed()) {
     const win = configWindow;
@@ -387,6 +459,7 @@ app.whenReady().then(() => {
   const cfg = loadConfig();
   openMonitorWindow();
   startService({ reset: true });
+  ensureAutoStart();
   if (!cfg.printerName) openConfigWindow();
 
   globalShortcut.register("Control+Shift+C", () => openConfigWindow());
@@ -396,6 +469,7 @@ app.whenReady().then(() => {
 
 app.on("window-all-closed", () => app.quit());
 app.on("will-quit", () => {
+  quitting = true;
   if (pollTimer) clearInterval(pollTimer);
   globalShortcut.unregisterAll();
 });

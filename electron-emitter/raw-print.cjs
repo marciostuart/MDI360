@@ -44,17 +44,42 @@ $bytes = [System.IO.File]::ReadAllBytes($FilePath)
 
 function rawPrint(printerName, buffer) {
   return new Promise((resolve, reject) => {
-    if (process.platform !== "win32") {
-      reject(new Error("A impressao ESC/POS direta funciona apenas no Windows."));
-      return;
-    }
     if (!printerName) {
       reject(new Error("Selecione a impressora nas configuracoes."));
       return;
     }
     const tmp = path.join(os.tmpdir(), `mdi360-senha-${Date.now()}.bin`);
-    const ps = path.join(os.tmpdir(), `mdi360-rawprint-${Date.now()}.ps1`);
     fs.writeFileSync(tmp, buffer);
+
+    if (process.platform === "linux") {
+      const child = spawn("lp", ["-d", printerName, "-o", "raw", tmp]);
+      let stderr = "";
+      child.stderr.on("data", (data) => {
+        stderr += data.toString();
+      });
+      child.on("error", (error) => {
+        fs.rm(tmp, { force: true }, () => {});
+        reject(
+          error.code === "ENOENT"
+            ? new Error("O CUPS não está instalado. Instale o pacote cups-client.")
+            : error,
+        );
+      });
+      child.on("close", (code) => {
+        fs.rm(tmp, { force: true }, () => {});
+        if (code === 0) resolve();
+        else reject(new Error(stderr.trim() || `Falha ao imprimir (codigo ${code}).`));
+      });
+      return;
+    }
+
+    if (process.platform !== "win32") {
+      fs.rm(tmp, { force: true }, () => {});
+      reject(new Error("Sistema operacional não compatível com impressão ESC/POS direta."));
+      return;
+    }
+
+    const ps = path.join(os.tmpdir(), `mdi360-rawprint-${Date.now()}.ps1`);
     fs.writeFileSync(ps, PS_SCRIPT, "utf8");
     const child = spawn(
       "powershell.exe",

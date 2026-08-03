@@ -1,13 +1,15 @@
-# MDI360 Emissor (Windows)
+# MDI360 Emissor (Windows e MiniOS/Linux)
 
-Terminal de emissão de senhas em tela cheia que carrega `/emitir/<token>` do servidor e imprime cada senha na impressora térmica (EPSON TM-T20 e demais ESC/POS).
+Aplicativo único que abre o terminal de emissão em tela cheia e imprime cada senha na impressora térmica (EPSON TM-T20 e demais ESC/POS), sem depender de navegador aberto.
 
 ## Como usar
 1. Abra `MDI360 Emissor.exe`.
 2. O aplicativo mostra um código de vinculação de 6 caracteres.
 3. No Studio, abra **Senhas**, localize a tela desejada e informe esse código em **Impressor Desktop**.
 4. Selecione a impressora, ajuste margens/corte e clique em **Imprimir teste**.
-5. Depois do vínculo, o aplicativo começa a imprimir automaticamente.
+5. Depois do vínculo, o aplicativo abre o emissor em tela cheia e começa a imprimir automaticamente.
+
+O aplicativo inicia sozinho junto com a sessão gráfica. `F10` abre as configurações e `Ctrl+Shift+M` mostra o monitor de impressão.
 
 Atalhos: `Ctrl+Shift+C` reabre a configuração · `F5` recarrega · `Ctrl+Shift+Q` encerra.
 
@@ -24,10 +26,16 @@ Crie um arquivo vazio `portable.txt` na mesma pasta do `.exe`. A configuração 
 - Margens superior/inferior aceitam valores negativos (avanço reverso) para economizar papel.
 - Se a impressora estiver instalada com driver gráfico (Advanced Printer Driver) e não aceitar ESC/POS cru, troque o modo de impressão para **Driver do Windows**.
 
-## Gerar o .exe
+## MiniOS/Linux
+
+O MiniOS é baseado em Debian. Instale o pacote `.deb` (recomendado) ou execute o `.AppImage` com persistência habilitada. Para impressão ESC/POS direta, o sistema precisa do CUPS e do comando `lp` (`cups-client`), e a impressora deve estar cadastrada no sistema.
+
+## Gerar os instaladores
 ```bash
 cd electron-emitter
-npm install
-npm run package:win
+npm ci
+npm run dist:win
+npm run dist:linux
 ```
-O resultado fica em `release/MDI360 Emissor-win32-x64/`.
+
+O GitHub Actions gera automaticamente os artefatos Windows (`.exe`) e MiniOS/Linux (`.deb` e `.AppImage`) sempre que os arquivos do aplicativo mudam na branch `main`.
