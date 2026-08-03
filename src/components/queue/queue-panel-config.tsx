@@ -56,10 +56,14 @@ const emptyOperator: OperatorDraft = {
  */
 export function QueuePanelConfig({
   panelId,
-  kioskToken,
+  kioskToken: string | null;
+  emitterPairingCode?: string | null;
+  emitterPairingExpiresAt?: string | null;
 }: {
   panelId: string;
   kioskToken: string | null;
+  emitterPairingCode?: string | null;
+  emitterPairingExpiresAt?: string | null;
 }) {
   const queryClient = useQueryClient();
   const loadDetails = useServerFn(getQueuePanelDetails);
@@ -677,13 +681,13 @@ export function QueuePanelConfig({
                     Use o código abaixo para conectar o aplicativo MDI360 Impressor instalado no computador à sua impressora térmica.
                   </p>
                 </div>
-                {panelSummary.emitterPairingCode ? (
+                {emitterPairingCode ? (
                   <div className="flex items-center gap-3">
                     <div className="bg-primary/10 text-primary font-mono text-2xl font-bold px-4 py-2 rounded-md border border-primary/20 tracking-widest">
-                      {panelSummary.emitterPairingCode}
+                      {emitterPairingCode}
                     </div>
                     <p className="text-[10px] text-muted-foreground max-w-[80px]">
-                      Expira em {new Date(panelSummary.emitterPairingExpiresAt!).toLocaleTimeString()}
+                      Expira em {new Date(emitterPairingExpiresAt!).toLocaleTimeString()}
                     </p>
                   </div>
 
