@@ -4,7 +4,11 @@
   "version": "2.1.0",
   "description": "Terminal MDI 360 em tela cheia com emissão e impressão automática de senhas",
   "main": "main.cjs",
-  "author": "MDI 360",
+  "author": {
+    "name": "MDI 360",
+    "email": "106876660+marciostuart@users.noreply.github.com"
+  },
+  "homepage": "https://mdi.360bh.com.br",
   "license": "UNLICENSED",
   "scripts": {
     "start": "electron .",
@@ -18,6 +22,7 @@
   "build": {
     "appId": "br.com.360bh.mdi360.emissor",
     "productName": "MDI360 Emissor",
+    "icon": "../public/emissor-icon.png",
     "artifactName": "MDI360-Emissor-${version}-${os}-${arch}.${ext}",
     "asar": true,
     "files": [
