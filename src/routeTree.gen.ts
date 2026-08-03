@@ -35,6 +35,7 @@ import { Route as ApiMediaUploadRouteImport } from './routes/api/media/upload'
 import { Route as ApiPublicEmissorManifestRouteImport } from './routes/api/public/emissor-manifest'
 import { Route as ApiPublicWidgetDataRouteImport } from './routes/api/public/widget-data'
 import { Route as ApiQueueChimeRouteImport } from './routes/api/queue/chime'
+import { Route as ApiQueuePairEmitterRouteImport } from './routes/api/queue/pair-emitter'
 import { Route as TorreClientesIndexRouteImport } from './routes/torre/clientes/index'
 import { Route as TorreClientesOrganizationIdRouteImport } from './routes/torre/clientes/$organizationId'
 import { Route as ApiPublicPlayerAnnounceRouteImport } from './routes/api/public/player/announce'
@@ -178,6 +179,11 @@ const ApiQueueChimeRoute = ApiQueueChimeRouteImport.update({
   path: '/api/queue/chime',
   getParentRoute: () => rootRouteImport,
 } as any)
+const ApiQueuePairEmitterRoute = ApiQueuePairEmitterRouteImport.update({
+  id: '/api/queue/pair-emitter',
+  path: '/api/queue/pair-emitter',
+  getParentRoute: () => rootRouteImport,
+} as any)
 const TorreClientesIndexRoute = TorreClientesIndexRouteImport.update({
   id: '/clientes/',
   path: '/clientes/',
@@ -264,6 +270,7 @@ export interface FileRoutesByFullPath {
   '/api/public/emissor-manifest': typeof ApiPublicEmissorManifestRoute
   '/api/public/widget-data': typeof ApiPublicWidgetDataRoute
   '/api/queue/chime': typeof ApiQueueChimeRoute
+  '/api/queue/pair-emitter': typeof ApiQueuePairEmitterRoute
   '/torre/clientes/$organizationId': typeof TorreClientesOrganizationIdRoute
   '/torre/clientes/': typeof TorreClientesIndexRoute
   '/api/public/player/announce': typeof ApiPublicPlayerAnnounceRoute
@@ -301,6 +308,7 @@ export interface FileRoutesByTo {
   '/api/public/emissor-manifest': typeof ApiPublicEmissorManifestRoute
   '/api/public/widget-data': typeof ApiPublicWidgetDataRoute
   '/api/queue/chime': typeof ApiQueueChimeRoute
+  '/api/queue/pair-emitter': typeof ApiQueuePairEmitterRoute
   '/torre/clientes/$organizationId': typeof TorreClientesOrganizationIdRoute
   '/torre/clientes': typeof TorreClientesIndexRoute
   '/api/public/player/announce': typeof ApiPublicPlayerAnnounceRoute
@@ -341,6 +349,7 @@ export interface FileRoutesById {
   '/api/public/emissor-manifest': typeof ApiPublicEmissorManifestRoute
   '/api/public/widget-data': typeof ApiPublicWidgetDataRoute
   '/api/queue/chime': typeof ApiQueueChimeRoute
+  '/api/queue/pair-emitter': typeof ApiQueuePairEmitterRoute
   '/torre/clientes/$organizationId': typeof TorreClientesOrganizationIdRoute
   '/torre/clientes/': typeof TorreClientesIndexRoute
   '/api/public/player/announce': typeof ApiPublicPlayerAnnounceRoute
@@ -382,6 +391,7 @@ export interface FileRouteTypes {
     | '/api/public/emissor-manifest'
     | '/api/public/widget-data'
     | '/api/queue/chime'
+    | '/api/queue/pair-emitter'
     | '/torre/clientes/$organizationId'
     | '/torre/clientes/'
     | '/api/public/player/announce'
@@ -419,6 +429,7 @@ export interface FileRouteTypes {
     | '/api/public/emissor-manifest'
     | '/api/public/widget-data'
     | '/api/queue/chime'
+    | '/api/queue/pair-emitter'
     | '/torre/clientes/$organizationId'
     | '/torre/clientes'
     | '/api/public/player/announce'
@@ -458,6 +469,7 @@ export interface FileRouteTypes {
     | '/api/public/emissor-manifest'
     | '/api/public/widget-data'
     | '/api/queue/chime'
+    | '/api/queue/pair-emitter'
     | '/torre/clientes/$organizationId'
     | '/torre/clientes/'
     | '/api/public/player/announce'
@@ -485,6 +497,7 @@ export interface RootRouteChildren {
   ApiPublicEmissorManifestRoute: typeof ApiPublicEmissorManifestRoute
   ApiPublicWidgetDataRoute: typeof ApiPublicWidgetDataRoute
   ApiQueueChimeRoute: typeof ApiQueueChimeRoute
+  ApiQueuePairEmitterRoute: typeof ApiQueuePairEmitterRoute
   ApiPublicPlayerAnnounceRoute: typeof ApiPublicPlayerAnnounceRoute
   ApiPublicPlayerChimeRoute: typeof ApiPublicPlayerChimeRoute
   ApiPublicPlayerEventsRoute: typeof ApiPublicPlayerEventsRoute
@@ -680,6 +693,13 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof ApiQueueChimeRouteImport
       parentRoute: typeof rootRouteImport
     }
+    '/api/queue/pair-emitter': {
+      id: '/api/queue/pair-emitter'
+      path: '/api/queue/pair-emitter'
+      fullPath: '/api/queue/pair-emitter'
+      preLoaderRoute: typeof ApiQueuePairEmitterRouteImport
+      parentRoute: typeof rootRouteImport
+    }
     '/torre/clientes/': {
       id: '/torre/clientes/'
       path: '/clientes'
@@ -824,6 +844,7 @@ const rootRouteChildren: RootRouteChildren = {
   ApiPublicEmissorManifestRoute: ApiPublicEmissorManifestRoute,
   ApiPublicWidgetDataRoute: ApiPublicWidgetDataRoute,
   ApiQueueChimeRoute: ApiQueueChimeRoute,
+  ApiQueuePairEmitterRoute: ApiQueuePairEmitterRoute,
   ApiPublicPlayerAnnounceRoute: ApiPublicPlayerAnnounceRoute,
   ApiPublicPlayerChimeRoute: ApiPublicPlayerChimeRoute,
   ApiPublicPlayerEventsRoute: ApiPublicPlayerEventsRoute,

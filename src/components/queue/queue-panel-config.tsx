@@ -70,7 +70,8 @@ export function QueuePanelConfig({
   const resetCounters = useServerFn(resetQueueCounters);
   const rotateToken = useServerFn(rotateQueueKioskToken);
   const setIssuing = useServerFn(setQueueIssuing);
-  const requestPairing = useServerFn(await import("@/lib/queue/emitter.functions").then(m => m.requestEmitterPairing));
+  const requestPairing = useServerFn(requestEmitterPairing);
+
 
 
   // A gestão de filas e operadores fica sempre visível: é o painel de trabalho
@@ -676,15 +677,16 @@ export function QueuePanelConfig({
                     Use o código abaixo para conectar o aplicativo MDI360 Impressor instalado no computador à sua impressora térmica.
                   </p>
                 </div>
-                {data.emitterPairingCode ? (
+                {panelSummary.emitterPairingCode ? (
                   <div className="flex items-center gap-3">
                     <div className="bg-primary/10 text-primary font-mono text-2xl font-bold px-4 py-2 rounded-md border border-primary/20 tracking-widest">
-                      {data.emitterPairingCode}
+                      {panelSummary.emitterPairingCode}
                     </div>
                     <p className="text-[10px] text-muted-foreground max-w-[80px]">
-                      Expira em {new Date(data.emitterPairingExpiresAt!).toLocaleTimeString()}
+                      Expira em {new Date(panelSummary.emitterPairingExpiresAt!).toLocaleTimeString()}
                     </p>
                   </div>
+
                 ) : (
                   <Button 
                     variant="outline" 
