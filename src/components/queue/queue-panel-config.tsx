@@ -20,6 +20,8 @@ import {
   setQueueIssuing,
   type QueueOperatorRow,
 } from "@/lib/queue/queue.functions";
+import { requestEmitterPairing } from "@/lib/queue/emitter.functions";
+
 
 type SectorDraft = {
   sectorId: string;
