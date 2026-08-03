@@ -62,12 +62,13 @@ export const Route = createFileRoute("/emitir/$token")({
 });
 
 /** Trava a página: sem rolagem, sem "puxar para atualizar", ocupando a tela toda. */
-function useKioskViewport() {
+function useKioskViewport(hideCursor: boolean) {
   useEffect(() => {
     const html = document.documentElement;
     const body = document.body;
     const previous = { html: html.getAttribute("style"), body: body.getAttribute("style") };
-    const lock = "margin:0;padding:0;width:100%;height:100%;overflow:hidden;overscroll-behavior:none;";
+    const cursor = hideCursor ? "cursor:none;" : "";
+    const lock = `margin:0;padding:0;width:100%;height:100%;overflow:hidden;overscroll-behavior:none;${cursor}`;
     html.setAttribute("style", lock);
     body.setAttribute("style", `${lock}position:fixed;inset:0;touch-action:manipulation;`);
     return () => {
@@ -76,7 +77,7 @@ function useKioskViewport() {
       if (previous.body === null) body.removeAttribute("style");
       else body.setAttribute("style", previous.body);
     };
-  }, []);
+  }, [hideCursor]);
 }
 
 function requestFullscreen() {
@@ -93,10 +94,16 @@ function requestFullscreen() {
 
 function KioskPage() {
   const { token } = Route.useParams();
-  useKioskViewport();
+  const [isDesktopApp, setIsDesktopApp] = useState(false);
+  useKioskViewport(isDesktopApp);
   const loadPanel = useServerFn(getKioskPanel);
   const issue = useServerFn(issueKioskTicket);
   const [isFullscreen, setIsFullscreen] = useState(false);
+
+  useEffect(() => {
+    const desktopQuery = new URLSearchParams(window.location.search).get("desktop") === "1";
+    setIsDesktopApp(desktopBridge()?.isDesktop === true || desktopQuery);
+  }, []);
 
   useEffect(() => {
     const sync = () => setIsFullscreen(Boolean(document.fullscreenElement));
@@ -252,7 +259,7 @@ function KioskPage() {
         <h1 className="font-display text-3xl font-semibold" style={{ color: theme.titleColor }}>
           {theme.title}
         </h1>
-        {!isFullscreen ? (
+        {!isFullscreen && !isDesktopApp ? (
           <Button
             variant="ghost"
             size="sm"

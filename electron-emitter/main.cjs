@@ -168,7 +168,10 @@ function openKioskWindow(base, token) {
       sandbox: true,
     },
   });
-  kioskWindow.loadURL(`${base}/emitir/${encodeURIComponent(token)}`);
+  // O terminal ja controla a tela cheia. Oculta o cursor e informa a pagina
+  // para nao oferecer controles que so fazem sentido em um navegador comum.
+  void kioskWindow.webContents.insertCSS("html, body, body * { cursor: none !important; }");
+  kioskWindow.loadURL(`${base}/emitir/${encodeURIComponent(token)}?desktop=1`);
   kioskWindow.webContents.on("before-input-event", (_event, input) => {
     if (input.type !== "keyDown") return;
     const key = String(input.key).toLowerCase();

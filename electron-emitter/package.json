@@ -1,7 +1,7 @@
 {
   "name": "mdi360-emissor",
   "productName": "MDI360 Emissor",
-  "version": "2.1.0",
+  "version": "2.1.1",
   "description": "Terminal MDI 360 em tela cheia com emissão e impressão automática de senhas",
   "main": "main.cjs",
   "author": {
