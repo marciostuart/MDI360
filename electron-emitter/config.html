@@ -39,9 +39,10 @@
           <input id="serverUrl" placeholder="https://mdi.360bh.com.br" />
         </div>
         <div>
-          <label for="token">Token do painel de senhas</label>
-          <input id="token" placeholder="eb2f979144a955a8813b82bfaa2dc5de" spellcheck="false" />
+          <label for="pairingCode">Código de vinculação (exibido no Studio)</label>
+          <input id="pairingCode" placeholder="A1B2C3" maxlength="6" style="text-transform: uppercase" spellcheck="false" />
         </div>
+
       </div>
       <div>
           <label for="pollSeconds">Intervalo de verificação (segundos)</label>
@@ -127,7 +128,7 @@
     <div class="msg" id="msg"></div>
 
     <script>
-      const fields = ["serverUrl","token","printMode","printerName","leftMarginDots","printWidthDots","labelSize","topFeedLines","bottomFeedLines","cutFeedDots","cutMode","headerText","footerText","pollSeconds"];
+      const fields = ["serverUrl","pairingCode","printMode","printerName","leftMarginDots","printWidthDots","labelSize","topFeedLines","bottomFeedLines","cutFeedDots","cutMode","headerText","footerText","pollSeconds"];
       const msg = document.getElementById("msg");
       const show = (text, ok) => { msg.textContent = text; msg.className = "msg " + (ok ? "ok" : "err"); };
 
@@ -157,10 +158,10 @@
         document.getElementById("showWaitingAhead").checked = cfg.showWaitingAhead === true;
       }
 
-      document.getElementById("start").addEventListener("click", async () => {
         const cfg = readForm();
-        if (!cfg.token) return show("Informe o token do emissor.", false);
+        if (!cfg.pairingCode && !cfg.token) return show("Informe o código de vinculação.", false);
         if (!cfg.serverUrl) return show("Informe o endereço do servidor.", false);
+
         await window.mdiEmitter.startService(cfg);
       });
       document.getElementById("test").addEventListener("click", async () => {

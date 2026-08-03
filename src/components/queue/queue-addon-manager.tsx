@@ -358,6 +358,8 @@ export function QueueAddonManager() {
                 <QueuePanelConfig
                   panelId={panel.panelId}
                   kioskToken={panel.kioskToken}
+                  emitterPairingCode={panel.emitterPairingCode}
+                  emitterPairingExpiresAt={panel.emitterPairingExpiresAt}
                 />
               ) : null}
 

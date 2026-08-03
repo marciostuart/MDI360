@@ -20,6 +20,9 @@ export type QueuePanelSummary = {
   priorityPrefix: string | null;
   /** Token da tela de emissão de senhas (totem). */
   kioskToken: string | null;
+  /** Código de pareamento alfanumérico para o impressor desktop. */
+  emitterPairingCode: string | null;
+  emitterPairingExpiresAt: string | null;
   /** Emissão liberada no terminal de emissão (/emitir). */
   issuingEnabled: boolean;
   lastCallLabel: string | null;
@@ -133,6 +136,8 @@ export const listQueuePanels = createServerFn({ method: "GET" }).handler(
           priorityPolicy: schema.queuePanels.priorityPolicy,
           priorityPrefix: schema.queuePanels.priorityPrefix,
           kioskToken: schema.queuePanels.kioskToken,
+          emitterPairingCode: schema.queuePanels.emitterPairingCode,
+          emitterPairingExpiresAt: schema.queuePanels.emitterPairingExpiresAt,
           issuingEnabled: schema.queuePanels.issuingEnabled,
           themeBgColor: schema.queuePanels.themeBgColor,
           themeBgMediaId: schema.queuePanels.themeBgMediaId,
@@ -222,6 +227,8 @@ export const listQueuePanels = createServerFn({ method: "GET" }).handler(
             priorityPolicy: row.priorityPolicy ?? "priority",
             priorityPrefix: row.priorityPrefix ?? null,
             kioskToken: row.kioskToken ?? null,
+            emitterPairingCode: row.emitterPairingCode ?? null,
+            emitterPairingExpiresAt: row.emitterPairingExpiresAt?.toISOString() ?? null,
             issuingEnabled: row.issuingEnabled ?? true,
             lastCallLabel: last?.label ?? null,
             lastCallAt: last?.at ?? null,

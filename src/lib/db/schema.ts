@@ -417,6 +417,9 @@ export const queuePanels = pgTable(
     priorityPrefix: text("priority_prefix"),
     /** Token da tela de emissão (totem), sem login. */
     kioskToken: text("kiosk_token"),
+    /** Código de pareamento alfanumérico para o impressor desktop (Windows/Linux). */
+    emitterPairingCode: text("emitter_pairing_code"),
+    emitterPairingExpiresAt: timestamp("emitter_pairing_expires_at", { withTimezone: true }),
     /** Emissão de senhas liberada no terminal (/emitir) para esta tela. */
     issuingEnabled: boolean("issuing_enabled").notNull().default(true),
     /** Prefix used in sequential mode ("A" -> A001). Optional. */
