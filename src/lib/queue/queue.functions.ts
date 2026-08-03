@@ -20,6 +20,9 @@ export type QueuePanelSummary = {
   priorityPrefix: string | null;
   /** Token da tela de emissão de senhas (totem). */
   kioskToken: string | null;
+  /** Código de pareamento alfanumérico para o impressor desktop. */
+  emitterPairingCode: string | null;
+  emitterPairingExpiresAt: string | null;
   /** Emissão liberada no terminal de emissão (/emitir). */
   issuingEnabled: boolean;
   lastCallLabel: string | null;
