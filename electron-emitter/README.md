@@ -4,9 +4,10 @@ Terminal de emissão de senhas em tela cheia que carrega `/emitir/<token>` do se
 
 ## Como usar
 1. Abra `MDI360 Emissor.exe`.
-2. Informe o endereço do servidor e o **token** (o código que aparece depois de `/emitir/` no link gerado em `/studio/senhas`).
-3. Selecione a impressora, ajuste margens/corte e clique em **Imprimir teste**.
-4. Clique em **Salvar e abrir o emissor** — o app entra em tela cheia e passa a imprimir automaticamente.
+2. O aplicativo mostra um código de vinculação de 6 caracteres.
+3. No Studio, abra **Senhas**, localize a tela desejada e informe esse código em **Impressor Desktop**.
+4. Selecione a impressora, ajuste margens/corte e clique em **Imprimir teste**.
+5. Depois do vínculo, o aplicativo começa a imprimir automaticamente.
 
 Atalhos: `Ctrl+Shift+C` reabre a configuração · `F5` recarrega · `Ctrl+Shift+Q` encerra.
 

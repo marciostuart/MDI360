@@ -9,6 +9,7 @@ const { rawPrint } = require("./raw-print.cjs");
 const DEFAULTS = {
   serverUrl: "https://mdi.360bh.com.br",
   token: "",
+  pairingCode: "",
   printMode: "escpos",
   printerName: "",
   leftMarginDots: 0,
@@ -58,6 +59,7 @@ let monitorWindow = null;
 const state = {
   connected: false,
   panelName: "",
+  pairingCode: "",
   message: "Aguardando configuração.",
   lastError: "",
   printed: 0,
@@ -199,8 +201,8 @@ async function printTicket(payload) {
 async function poll() {
   if (polling) return;
   const cfg = loadConfig();
-  if ((!cfg.token && !cfg.pairingCode) || !cfg.serverUrl) {
-    pushStatus({ connected: false, message: "Aguardando vinculação (F10)." });
+  if (!cfg.serverUrl) {
+    pushStatus({ connected: false, message: "Informe o endereço do servidor em Configuração (F10)." });
     return;
   }
 
@@ -208,24 +210,54 @@ async function poll() {
   try {
     const base = cfg.serverUrl.replace(/\/+$/, "");
 
-    // Se temos um código de pareamento mas não temos token, tentamos parear.
-    if (!cfg.token && cfg.pairingCode) {
-      const pairUrl = new URL(`${base}/api/queue/pair-emitter`);
-      const pairRes = await fetch(pairUrl, {
+    // Como uma TV, o impressor se registra sozinho e recebe um código curto.
+    if (!cfg.token) {
+      const registerUrl = new URL(`${base}/api/public/emitter/register`);
+      const registerRes = await fetch(registerUrl, {
         method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ code: cfg.pairingCode }),
+        headers: { accept: "application/json" },
       });
-      if (pairRes.ok) {
-        const { token } = await pairRes.json();
-        cfg.token = token;
-        cfg.pairingCode = ""; // Limpa o código após sucesso
-        saveConfig(cfg);
-        pushStatus({ message: "Vinculado com sucesso!" });
-      } else {
-        pushStatus({ connected: false, message: `Código ${cfg.pairingCode} inválido ou expirado.` });
+      if (!registerRes.ok) {
+        pushStatus({ connected: false, message: `Servidor respondeu ${registerRes.status}.` });
         return;
       }
+      const registration = await registerRes.json();
+      cfg.token = registration.emitterToken;
+      cfg.pairingCode = registration.pairingCode;
+      saveConfig(cfg);
+    }
+
+    const statusUrl = new URL(`${base}/api/public/emitter/status`);
+    const statusRes = await fetch(statusUrl, {
+      headers: { accept: "application/json", authorization: `Bearer ${cfg.token}` },
+    });
+    if (statusRes.status === 404 || statusRes.status === 410) {
+      saveConfig({ token: "", pairingCode: "" });
+      pushStatus({ connected: false, pairingCode: "", message: "Gerando um novo código..." });
+      return;
+    }
+    if (!statusRes.ok) {
+      pushStatus({ connected: false, message: `Servidor respondeu ${statusRes.status}.` });
+      return;
+    }
+    const emitterStatus = await statusRes.json();
+    if (emitterStatus.state === "waiting") {
+      if (cfg.pairingCode !== emitterStatus.pairingCode) {
+        cfg.pairingCode = emitterStatus.pairingCode;
+        saveConfig(cfg);
+      }
+      pushStatus({
+        connected: false,
+        pairingCode: emitterStatus.pairingCode,
+        panelName: "",
+        message: "Informe este código em Studio → Senhas para vincular o terminal.",
+        lastError: "",
+      });
+      return;
+    }
+    if (cfg.pairingCode) {
+      cfg.pairingCode = "";
+      saveConfig(cfg);
     }
 
     const url = new URL(`${base}/api/public/queue/print-spool`);
@@ -248,6 +280,7 @@ async function poll() {
     const tickets = Array.isArray(data.tickets) ? data.tickets : [];
     pushStatus({
       connected: true,
+      pairingCode: "",
       panelName: data.panelName ?? "",
       message: "Conectado. Aguardando novas senhas.",
       lastError: "",
@@ -353,8 +386,8 @@ ipcMain.handle("app:quit", () => app.quit());
 app.whenReady().then(() => {
   const cfg = loadConfig();
   openMonitorWindow();
-  if (cfg.token) startService({ reset: true });
-  else openConfigWindow();
+  startService({ reset: true });
+  if (!cfg.printerName) openConfigWindow();
 
   globalShortcut.register("Control+Shift+C", () => openConfigWindow());
   globalShortcut.register("F10", () => openConfigWindow());

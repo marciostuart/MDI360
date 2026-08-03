@@ -418,8 +418,6 @@ export const queuePanels = pgTable(
     /** Token da tela de emissão (totem), sem login. */
     kioskToken: text("kiosk_token"),
     /** Código de pareamento alfanumérico para o impressor desktop (Windows/Linux). */
-    emitterPairingCode: text("emitter_pairing_code"),
-    emitterPairingExpiresAt: timestamp("emitter_pairing_expires_at", { withTimezone: true }),
     /** Emissão de senhas liberada no terminal (/emitir) para esta tela. */
     issuingEnabled: boolean("issuing_enabled").notNull().default(true),
     /** Prefix used in sequential mode ("A" -> A001). Optional. */
@@ -472,6 +470,32 @@ export const queuePanels = pgTable(
   (t) => [
     uniqueIndex("queue_panels_device_unique").on(t.deviceId),
     uniqueIndex("queue_panels_username_unique").on(t.username),
+  ],
+);
+
+/**
+ * Desktop emitters register themselves before they belong to a customer. The
+ * raw device token never reaches the database; only its SHA-256 hash does.
+ */
+export const queueEmitters = pgTable(
+  "queue_emitters",
+  {
+    id: uuid("id").primaryKey().defaultRandom(),
+    organizationId: uuid("organization_id").references(() => organizations.id, {
+      onDelete: "cascade",
+    }),
+    panelId: uuid("panel_id").references(() => queuePanels.id, { onDelete: "cascade" }),
+    name: text("name").notNull().default("Terminal emissor"),
+    pairingCode: text("pairing_code"),
+    pairingExpiresAt: timestamp("pairing_expires_at", { withTimezone: true }),
+    tokenHash: text("token_hash").notNull(),
+    lastSeenAt: timestamp("last_seen_at", { withTimezone: true }),
+    createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
+  },
+  (t) => [
+    uniqueIndex("queue_emitters_pairing_code_unique").on(t.pairingCode),
+    uniqueIndex("queue_emitters_token_hash_unique").on(t.tokenHash),
+    index("queue_emitters_panel_idx").on(t.panelId),
   ],
 );
 

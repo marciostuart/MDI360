@@ -25,24 +25,26 @@
       .check { display: flex; gap: 8px; align-items: center; margin-top: 12px; }
       .check input { width: auto; }
       textarea { resize: vertical; font-family: inherit; }
+      .pairing { margin-top: 10px; padding: 14px; border: 1px solid #2f6df6; border-radius: 10px; background: #101a2d; }
+      .pairing-code { font: 800 28px Consolas, monospace; letter-spacing: .25em; color: #8ab4ff; }
     </style>
   </head>
   <body>
     <h1>Configuração do impressor de senhas</h1>
-    <p class="sub">Informe o token do painel de senhas (o código que aparece depois de /emitir/ no endereço gerado no Studio). Este computador ficará apenas ouvindo o sistema e imprimindo cada senha emitida — a emissão pode ser feita em qualquer tablet, celular ou totem.</p>
+    <p class="sub">Este computador gera sozinho um código de vinculação. Informe esse código no Studio para liberar a impressão das senhas.</p>
 
     <fieldset>
       <legend>Vínculo com o sistema</legend>
-      <div class="grid2">
+      <div>
         <div>
           <label for="serverUrl">Endereço do servidor</label>
           <input id="serverUrl" placeholder="https://mdi.360bh.com.br" />
         </div>
-        <div>
-          <label for="pairingCode">Código de vinculação (exibido no Studio)</label>
-          <input id="pairingCode" placeholder="A1B2C3" maxlength="6" style="text-transform: uppercase" spellcheck="false" />
-        </div>
-
+      </div>
+      <div class="pairing">
+        <div class="hint">Código para informar em Studio → Senhas</div>
+        <div class="pairing-code" id="pairingCode">GERANDO</div>
+        <div class="hint" id="pairingStatus">Aguardando conexão com o servidor...</div>
       </div>
       <div>
           <label for="pollSeconds">Intervalo de verificação (segundos)</label>
@@ -128,7 +130,7 @@
     <div class="msg" id="msg"></div>
 
     <script>
-      const fields = ["serverUrl","pairingCode","printMode","printerName","leftMarginDots","printWidthDots","labelSize","topFeedLines","bottomFeedLines","cutFeedDots","cutMode","headerText","footerText","pollSeconds"];
+      const fields = ["serverUrl","printMode","printerName","leftMarginDots","printWidthDots","labelSize","topFeedLines","bottomFeedLines","cutFeedDots","cutMode","headerText","footerText","pollSeconds"];
       const msg = document.getElementById("msg");
       const show = (text, ok) => { msg.textContent = text; msg.className = "msg " + (ok ? "ok" : "err"); };
 
@@ -156,10 +158,16 @@
         }
         document.getElementById("autoPrint").checked = cfg.autoPrint !== false;
         document.getElementById("showWaitingAhead").checked = cfg.showWaitingAhead === true;
+        if (cfg.pairingCode) document.getElementById("pairingCode").textContent = cfg.pairingCode;
       }
 
+      window.mdiEmitter.onStatus((status) => {
+        document.getElementById("pairingCode").textContent = status.pairingCode || (status.connected ? "VINCULADO" : "GERANDO");
+        document.getElementById("pairingStatus").textContent = status.message || "";
+      });
+
+      document.getElementById("start").addEventListener("click", async () => {
         const cfg = readForm();
-        if (!cfg.pairingCode && !cfg.token) return show("Informe o código de vinculação.", false);
         if (!cfg.serverUrl) return show("Informe o endereço do servidor.", false);
 
         await window.mdiEmitter.startService(cfg);

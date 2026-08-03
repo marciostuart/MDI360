@@ -169,6 +169,13 @@
       "when": 1785900000000,
       "tag": "0023_device_remote_control",
       "breakpoints": true
+    },
+    {
+      "idx": 24,
+      "version": "7",
+      "when": 1785986400000,
+      "tag": "0024_queue_emitter_pairing",
+      "breakpoints": true
     }
   ]
 }

@@ -1,6 +1,6 @@
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { useServerFn } from "@tanstack/react-start";
-import { Copy, Loader2, Plus, RefreshCw, Trash2, Users } from "lucide-react";
+import { Copy, Loader2, Plus, Trash2, Users } from "lucide-react";
 import { useState } from "react";
 import { toast } from "sonner";
 
@@ -14,13 +14,16 @@ import {
   deleteQueueSector,
   getQueuePanelDetails,
   resetQueueCounters,
-  rotateQueueKioskToken,
   saveQueueOperator,
   saveQueueSector,
   setQueueIssuing,
   type QueueOperatorRow,
 } from "@/lib/queue/queue.functions";
-import { requestEmitterPairing } from "@/lib/queue/emitter.functions";
+import {
+  claimEmitter,
+  listEmitters,
+  removeEmitter,
+} from "@/lib/queue/emitter.functions";
 
 
 type SectorDraft = {
@@ -58,14 +61,8 @@ const emptyOperator: OperatorDraft = {
  */
 export function QueuePanelConfig({
   panelId,
-  kioskToken,
-  emitterPairingCode,
-  emitterPairingExpiresAt,
 }: {
   panelId: string;
-  kioskToken: string | null;
-  emitterPairingCode?: string | null;
-  emitterPairingExpiresAt?: string | null;
 }) {
   const queryClient = useQueryClient();
   const loadDetails = useServerFn(getQueuePanelDetails);
@@ -74,9 +71,10 @@ export function QueuePanelConfig({
   const saveOperator = useServerFn(saveQueueOperator);
   const removeOperator = useServerFn(deleteQueueOperator);
   const resetCounters = useServerFn(resetQueueCounters);
-  const rotateToken = useServerFn(rotateQueueKioskToken);
   const setIssuing = useServerFn(setQueueIssuing);
-  const requestPairing = useServerFn(requestEmitterPairing);
+  const claimEmitterFn = useServerFn(claimEmitter);
+  const listEmittersFn = useServerFn(listEmitters);
+  const removeEmitterFn = useServerFn(removeEmitter);
 
 
 
@@ -86,12 +84,21 @@ export function QueuePanelConfig({
   const [sectorDraft, setSectorDraft] = useState({ name: "", prefix: "" });
   const [sectorEdit, setSectorEdit] = useState<SectorDraft | null>(null);
   const [operatorDraft, setOperatorDraft] = useState<OperatorDraft | null>(null);
+  const [emitterCode, setEmitterCode] = useState("");
 
   const queryKey = ["queue-panel-details", panelId];
   const { data, isPending } = useQuery({
     queryKey,
     queryFn: () => loadDetails({ data: { panelId } }),
     enabled: open,
+  });
+
+  const emittersQueryKey = ["queue-emitters", panelId];
+  const { data: emittersData } = useQuery({
+    queryKey: emittersQueryKey,
+    queryFn: () => listEmittersFn({ data: { panelId } }),
+    enabled: open,
+    refetchInterval: 10_000,
   });
 
   const invalidate = async () => {
@@ -175,11 +182,21 @@ export function QueuePanelConfig({
     onError: (error: Error) => toast.error(error.message),
   });
 
-  const rotateMutation = useMutation({
-    mutationFn: () => rotateToken({ data: { panelId } }),
+  const claimEmitterMutation = useMutation({
+    mutationFn: () => claimEmitterFn({ data: { panelId, code: emitterCode } }),
     onSuccess: async () => {
-      toast.success("Novo endereço de emissão gerado.");
-      await invalidate();
+      setEmitterCode("");
+      toast.success("Terminal vinculado. Ele começará a imprimir automaticamente.");
+      await queryClient.invalidateQueries({ queryKey: emittersQueryKey });
+    },
+    onError: (error: Error) => toast.error(error.message),
+  });
+
+  const removeEmitterMutation = useMutation({
+    mutationFn: (emitterId: string) => removeEmitterFn({ data: { panelId, emitterId } }),
+    onSuccess: async () => {
+      toast.success("Terminal desvinculado.");
+      await queryClient.invalidateQueries({ queryKey: emittersQueryKey });
     },
     onError: (error: Error) => toast.error(error.message),
   });
@@ -192,9 +209,7 @@ export function QueuePanelConfig({
     onError: (error: Error) => toast.error(error.message),
   });
 
-  const kioskUrl = kioskToken
-    ? `${typeof window === "undefined" ? "" : window.location.origin}/emitir/${kioskToken}`
-    : null;
+  const kioskUrl = `${typeof window === "undefined" ? "" : window.location.origin}/emitir`;
 
   if (!open) {
     return (
@@ -674,81 +689,99 @@ export function QueuePanelConfig({
           <section className="space-y-4">
             <div className="space-y-2">
               <p className="text-xs font-semibold uppercase tracking-wider text-muted-foreground">
-                Impressor Desktop (Windows / Linux)
+                Vincular terminal emissor / impressor
               </p>
               <div className="flex flex-wrap items-center gap-3 rounded-lg border border-border p-4 bg-muted/30">
                 <div className="flex-1 space-y-1">
                   <p className="text-sm font-medium">Vinculação do terminal</p>
                   <p className="text-xs text-muted-foreground">
-                    Use o código abaixo para conectar o aplicativo MDI360 Impressor instalado no computador à sua impressora térmica.
+                    Abra a tela de emissão no tablet/totem ou o MDI360 Impressor no computador.
+                    Digite aqui o código de 6 caracteres exibido no aparelho.
                   </p>
                 </div>
-                {emitterPairingCode ? (
-                  <div className="flex items-center gap-3">
-                    <div className="bg-primary/10 text-primary font-mono text-2xl font-bold px-4 py-2 rounded-md border border-primary/20 tracking-widest">
-                      {emitterPairingCode}
-                    </div>
-                    <p className="text-[10px] text-muted-foreground max-w-[80px]">
-                      Expira em {new Date(emitterPairingExpiresAt!).toLocaleTimeString()}
-                    </p>
-                  </div>
-
-                ) : (
-                  <Button 
-                    variant="outline" 
+                <div className="flex w-full gap-2 sm:w-auto">
+                  <Input
+                    value={emitterCode}
+                    onChange={(event) =>
+                      setEmitterCode(
+                        event.target.value.toUpperCase().replace(/[^A-Z0-9]/g, "").slice(0, 6),
+                      )
+                    }
+                    className="w-36 font-mono text-lg font-bold tracking-[0.2em] uppercase"
+                    placeholder="A1B2C3"
+                    maxLength={6}
+                    autoComplete="off"
+                    aria-label="Código exibido no terminal emissor"
+                  />
+                  <Button
+                    variant="outline"
                     size="sm"
-                    onClick={() => requestPairing({ data: { panelId } })}
+                    disabled={emitterCode.length !== 6 || claimEmitterMutation.isPending}
+                    onClick={() => claimEmitterMutation.mutate()}
                   >
-                    Gerar código de vinculação
+                    {claimEmitterMutation.isPending ? (
+                      <Loader2 className="size-4 animate-spin" />
+                    ) : null}
+                    Vincular
                   </Button>
-                )}
+                </div>
               </div>
+              {(emittersData?.items.length ?? 0) > 0 ? (
+                <div className="space-y-2">
+                  {emittersData!.items.map((emitter) => (
+                    <div
+                      key={emitter.id}
+                      className="flex items-center justify-between gap-3 rounded-md border border-border px-3 py-2"
+                    >
+                      <div>
+                        <p className="text-sm font-medium">{emitter.name}</p>
+                        <p className="text-xs text-muted-foreground">
+                          {emitter.lastSeenAt
+                            ? `Último contato: ${new Date(emitter.lastSeenAt).toLocaleString("pt-BR")}`
+                            : "Vinculado · aguardando primeiro contato"}
+                        </p>
+                      </div>
+                      <Button
+                        variant="ghost"
+                        size="sm"
+                        className="text-destructive"
+                        disabled={removeEmitterMutation.isPending}
+                        onClick={() => removeEmitterMutation.mutate(emitter.id)}
+                      >
+                        <Trash2 className="size-4" />
+                        Desvincular
+                      </Button>
+                    </div>
+                  ))}
+                </div>
+              ) : (
+                <p className="text-xs text-muted-foreground">Nenhum terminal vinculado.</p>
+              )}
             </div>
 
             <div className="space-y-2">
               <p className="text-xs font-semibold uppercase tracking-wider text-muted-foreground">
                 Tela de emissão (totem / recepção)
               </p>
-              {kioskUrl ? (
-                <div className="flex flex-wrap items-center gap-2">
-                  <Input readOnly value={kioskUrl} className="min-w-56 flex-1 font-mono text-xs" />
-                  <Button
-                    variant="outline"
-                    size="sm"
-                    onClick={async () => {
-                      await navigator.clipboard.writeText(kioskUrl);
-                      toast.success("Endereço copiado.");
-                    }}
-                  >
-                    <Copy className="size-4" />
-                    Copiar
-                  </Button>
-                  <Button variant="outline" size="sm" asChild>
-                    <a href={kioskUrl} target="_blank" rel="noreferrer">
-                      Abrir
-                    </a>
-                  </Button>
-                  <Button
-                    variant="ghost"
-                    size="sm"
-                    onClick={() => rotateMutation.mutate()}
-                    disabled={rotateMutation.isPending}
-                  >
-                    <RefreshCw className="size-4" />
-                    Gerar novo
-                  </Button>
-                </div>
-              ) : (
+              <div className="flex flex-wrap items-center gap-2">
+                <Input readOnly value={kioskUrl} className="min-w-56 flex-1 font-mono text-xs" />
                 <Button
                   variant="outline"
                   size="sm"
-                  onClick={() => rotateMutation.mutate()}
-                  disabled={rotateMutation.isPending}
+                  onClick={async () => {
+                    await navigator.clipboard.writeText(kioskUrl);
+                    toast.success("Endereço copiado.");
+                  }}
                 >
-                  <RefreshCw className="size-4" />
-                  Gerar endereço de emissão
+                  <Copy className="size-4" />
+                  Copiar
                 </Button>
-              )}
+                <Button variant="outline" size="sm" asChild>
+                  <a href={kioskUrl} target="_blank" rel="noreferrer">
+                    Abrir
+                  </a>
+                </Button>
+              </div>
               <p className="text-xs text-muted-foreground">
                 Abra este endereço em um tablet ou totem na recepção: o cliente escolhe o atendimento
                 e retira senha normal ou preferencial.

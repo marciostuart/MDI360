@@ -25,7 +25,7 @@ export type KioskPanel = {
   theme: KioskTheme;
 } | null;
 
-const tokenSchema = z.string().trim().length(32);
+const tokenSchema = z.string().trim().min(32).max(64);
 
 /** Reads the kiosk configuration by token. No login: the token is the secret. */
 export const getKioskPanel = createServerFn({ method: "POST" })
@@ -33,7 +33,8 @@ export const getKioskPanel = createServerFn({ method: "POST" })
   .handler(async ({ data }): Promise<KioskPanel> => {
     const { isDatabaseConfigured, getDb, schema } = await import("@/lib/db/index.server");
     if (!isDatabaseConfigured()) return null;
-    const { and, asc, eq } = await import("drizzle-orm");
+    const { and, asc, eq, or } = await import("drizzle-orm");
+    const { hashEmitterToken } = await import("@/lib/queue/emitter-auth.server");
     const db = getDb();
 
     const rows = await db
@@ -62,8 +63,15 @@ export const getKioskPanel = createServerFn({ method: "POST" })
         schema.organizations,
         eq(schema.organizations.id, schema.queuePanels.organizationId),
       )
+      .leftJoin(schema.queueEmitters, eq(schema.queueEmitters.panelId, schema.queuePanels.id))
       .where(
-        and(eq(schema.queuePanels.kioskToken, data.token), eq(schema.queuePanels.isEnabled, true)),
+        and(
+          or(
+            eq(schema.queuePanels.kioskToken, data.token),
+            eq(schema.queueEmitters.tokenHash, hashEmitterToken(data.token)),
+          ),
+          eq(schema.queuePanels.isEnabled, true),
+        ),
       )
       .limit(1);
 
@@ -144,16 +152,27 @@ export const issueKioskTicket = createServerFn({ method: "POST" })
   .handler(async ({ data }) => {
     const { getDb, schema } = await import("@/lib/db/index.server");
     const { issueTicket } = await import("@/lib/queue/tickets.server");
-    const { and, eq } = await import("drizzle-orm");
+    const { and, eq, or } = await import("drizzle-orm");
+    const { hashEmitterToken } = await import("@/lib/queue/emitter-auth.server");
 
-    const panels = await getDb()
-      .select()
+    const panelIds = await getDb()
+      .select({ id: schema.queuePanels.id })
       .from(schema.queuePanels)
+      .leftJoin(schema.queueEmitters, eq(schema.queueEmitters.panelId, schema.queuePanels.id))
       .where(
-        and(eq(schema.queuePanels.kioskToken, data.token), eq(schema.queuePanels.isEnabled, true)),
+        and(
+          or(
+            eq(schema.queuePanels.kioskToken, data.token),
+            eq(schema.queueEmitters.tokenHash, hashEmitterToken(data.token)),
+          ),
+          eq(schema.queuePanels.isEnabled, true),
+        ),
       )
       .limit(1);
-    const panel = panels[0];
+    const panelId = panelIds[0]?.id;
+    const panel = panelId
+      ? await getDb().query.queuePanels.findFirst({ where: eq(schema.queuePanels.id, panelId) })
+      : null;
     if (!panel) throw new Error("Tela de emissão inválida.");
 
     const availableSectors = await getDb()

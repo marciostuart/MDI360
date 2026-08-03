@@ -27,19 +27,25 @@ export const Route = createFileRoute("/api/public/queue/print-spool")({
         const { isDatabaseConfigured, getDb, schema } = await import("@/lib/db/index.server");
         if (!isDatabaseConfigured()) return new Response("Indisponível", { status: 503 });
 
-        const { and, asc, eq, gt } = await import("drizzle-orm");
+        const { and, asc, eq, gt, or } = await import("drizzle-orm");
+        const { hashEmitterToken } = await import("@/lib/queue/emitter-auth.server");
         const db = getDb();
 
         const panels = await db
           .select({
             panelId: schema.queuePanels.id,
             deviceName: schema.devices.name,
+            emitterId: schema.queueEmitters.id,
           })
           .from(schema.queuePanels)
           .innerJoin(schema.devices, eq(schema.devices.id, schema.queuePanels.deviceId))
+          .leftJoin(schema.queueEmitters, eq(schema.queueEmitters.panelId, schema.queuePanels.id))
           .where(
             and(
-              eq(schema.queuePanels.kioskToken, parsed.data.token),
+              or(
+                eq(schema.queueEmitters.tokenHash, hashEmitterToken(parsed.data.token)),
+                eq(schema.queuePanels.kioskToken, parsed.data.token),
+              ),
               eq(schema.queuePanels.isEnabled, true),
             ),
           )
@@ -47,6 +53,12 @@ export const Route = createFileRoute("/api/public/queue/print-spool")({
 
         const panel = panels[0];
         if (!panel) return new Response("Token inválido", { status: 404 });
+        if (panel.emitterId) {
+          await db
+            .update(schema.queueEmitters)
+            .set({ lastSeenAt: new Date() })
+            .where(eq(schema.queueEmitters.id, panel.emitterId));
+        }
 
         const now = new Date();
         // Janela de segurança: nunca imprime histórico antigo ao conectar.

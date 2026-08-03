@@ -26,6 +26,8 @@
       .primary { background: #2f6df6; color: #fff; }
       .ghost { background: #1b2330; color: #cfd8e6; }
       .err { color: #ff7b72; font-size: 12px; margin-top: 8px; }
+      .pairing { margin-top: 14px; padding: 14px; border: 1px solid #2f6df6; border-radius: 10px; text-align: center; background: #101a2d; }
+      .pairing b { display: block; margin-top: 6px; font: 900 34px Consolas, monospace; letter-spacing: .28em; color: #8ab4ff; }
     </style>
   </head>
   <body>
@@ -36,6 +38,10 @@
       <div class="state"><span class="dot" id="dot"></span><span id="stateText">Conectando...</span></div>
       <div class="meta" id="meta"></div>
       <div class="err" id="error"></div>
+      <div class="pairing" id="pairing" hidden>
+        Informe este código em Studio → Senhas
+        <b id="pairingCode"></b>
+      </div>
       <div class="stats">
         <div class="stat"><b id="printed">0</b><span>Senhas impressas nesta sessão</span></div>
         <div class="stat"><b id="panel">—</b><span>Painel vinculado</span></div>
@@ -62,6 +68,8 @@
         el("stateText").textContent = status.connected ? "Conectado ao servidor" : "Desconectado";
         el("meta").textContent = status.message || "";
         el("error").textContent = status.lastError || "";
+        el("pairing").hidden = !status.pairingCode;
+        el("pairingCode").textContent = status.pairingCode || "";
         el("printed").textContent = status.printed ?? 0;
         el("panel").textContent = status.panelName || "—";
         const rows = (status.history || []).map(

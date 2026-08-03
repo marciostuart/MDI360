@@ -15,6 +15,7 @@ import { Route as SenhasRouteImport } from './routes/senhas'
 import { Route as StudioRouteRouteImport } from './routes/studio/route'
 import { Route as TelaRouteImport } from './routes/tela'
 import { Route as TorreRouteRouteImport } from './routes/torre/route'
+import { Route as EmitirIndexRouteImport } from './routes/emitir/index'
 import { Route as EmitirTokenRouteImport } from './routes/emitir.$token'
 import { Route as StudioIndexRouteImport } from './routes/studio/index'
 import { Route as StudioAgendaRouteImport } from './routes/studio/agenda'
@@ -35,9 +36,10 @@ import { Route as ApiMediaUploadRouteImport } from './routes/api/media/upload'
 import { Route as ApiPublicEmissorManifestRouteImport } from './routes/api/public/emissor-manifest'
 import { Route as ApiPublicWidgetDataRouteImport } from './routes/api/public/widget-data'
 import { Route as ApiQueueChimeRouteImport } from './routes/api/queue/chime'
-import { Route as ApiQueuePairEmitterRouteImport } from './routes/api/queue/pair-emitter'
 import { Route as TorreClientesIndexRouteImport } from './routes/torre/clientes/index'
 import { Route as TorreClientesOrganizationIdRouteImport } from './routes/torre/clientes/$organizationId'
+import { Route as ApiPublicEmitterRegisterRouteImport } from './routes/api/public/emitter/register'
+import { Route as ApiPublicEmitterStatusRouteImport } from './routes/api/public/emitter/status'
 import { Route as ApiPublicPlayerAnnounceRouteImport } from './routes/api/public/player/announce'
 import { Route as ApiPublicPlayerChimeRouteImport } from './routes/api/public/player/chime'
 import { Route as ApiPublicPlayerEventsRouteImport } from './routes/api/public/player/events'
@@ -76,6 +78,11 @@ const TelaRoute = TelaRouteImport.update({
 const TorreRouteRoute = TorreRouteRouteImport.update({
   id: '/torre',
   path: '/torre',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const EmitirIndexRoute = EmitirIndexRouteImport.update({
+  id: '/emitir/',
+  path: '/emitir/',
   getParentRoute: () => rootRouteImport,
 } as any)
 const EmitirTokenRoute = EmitirTokenRouteImport.update({
@@ -179,11 +186,6 @@ const ApiQueueChimeRoute = ApiQueueChimeRouteImport.update({
   path: '/api/queue/chime',
   getParentRoute: () => rootRouteImport,
 } as any)
-const ApiQueuePairEmitterRoute = ApiQueuePairEmitterRouteImport.update({
-  id: '/api/queue/pair-emitter',
-  path: '/api/queue/pair-emitter',
-  getParentRoute: () => rootRouteImport,
-} as any)
 const TorreClientesIndexRoute = TorreClientesIndexRouteImport.update({
   id: '/clientes/',
   path: '/clientes/',
@@ -195,6 +197,17 @@ const TorreClientesOrganizationIdRoute =
     path: '/clientes/$organizationId',
     getParentRoute: () => TorreRouteRoute,
   } as any)
+const ApiPublicEmitterRegisterRoute =
+  ApiPublicEmitterRegisterRouteImport.update({
+    id: '/api/public/emitter/register',
+    path: '/api/public/emitter/register',
+    getParentRoute: () => rootRouteImport,
+  } as any)
+const ApiPublicEmitterStatusRoute = ApiPublicEmitterStatusRouteImport.update({
+  id: '/api/public/emitter/status',
+  path: '/api/public/emitter/status',
+  getParentRoute: () => rootRouteImport,
+} as any)
 const ApiPublicPlayerAnnounceRoute = ApiPublicPlayerAnnounceRouteImport.update({
   id: '/api/public/player/announce',
   path: '/api/public/player/announce',
@@ -262,6 +275,7 @@ export interface FileRoutesByFullPath {
   '/studio/telas': typeof StudioTelasRoute
   '/studio/widgets': typeof StudioWidgetsRoute
   '/torre/planos': typeof TorrePlanosRoute
+  '/emitir/': typeof EmitirIndexRoute
   '/studio/': typeof StudioIndexRoute
   '/torre/': typeof TorreIndexRoute
   '/api/branding/logo': typeof ApiBrandingLogoRoute
@@ -270,9 +284,10 @@ export interface FileRoutesByFullPath {
   '/api/public/emissor-manifest': typeof ApiPublicEmissorManifestRoute
   '/api/public/widget-data': typeof ApiPublicWidgetDataRoute
   '/api/queue/chime': typeof ApiQueueChimeRoute
-  '/api/queue/pair-emitter': typeof ApiQueuePairEmitterRoute
   '/torre/clientes/$organizationId': typeof TorreClientesOrganizationIdRoute
   '/torre/clientes/': typeof TorreClientesIndexRoute
+  '/api/public/emitter/register': typeof ApiPublicEmitterRegisterRoute
+  '/api/public/emitter/status': typeof ApiPublicEmitterStatusRoute
   '/api/public/player/announce': typeof ApiPublicPlayerAnnounceRoute
   '/api/public/player/chime': typeof ApiPublicPlayerChimeRoute
   '/api/public/player/events': typeof ApiPublicPlayerEventsRoute
@@ -300,6 +315,7 @@ export interface FileRoutesByTo {
   '/studio/telas': typeof StudioTelasRoute
   '/studio/widgets': typeof StudioWidgetsRoute
   '/torre/planos': typeof TorrePlanosRoute
+  '/emitir': typeof EmitirIndexRoute
   '/studio': typeof StudioIndexRoute
   '/torre': typeof TorreIndexRoute
   '/api/branding/logo': typeof ApiBrandingLogoRoute
@@ -308,9 +324,10 @@ export interface FileRoutesByTo {
   '/api/public/emissor-manifest': typeof ApiPublicEmissorManifestRoute
   '/api/public/widget-data': typeof ApiPublicWidgetDataRoute
   '/api/queue/chime': typeof ApiQueueChimeRoute
-  '/api/queue/pair-emitter': typeof ApiQueuePairEmitterRoute
   '/torre/clientes/$organizationId': typeof TorreClientesOrganizationIdRoute
   '/torre/clientes': typeof TorreClientesIndexRoute
+  '/api/public/emitter/register': typeof ApiPublicEmitterRegisterRoute
+  '/api/public/emitter/status': typeof ApiPublicEmitterStatusRoute
   '/api/public/player/announce': typeof ApiPublicPlayerAnnounceRoute
   '/api/public/player/chime': typeof ApiPublicPlayerChimeRoute
   '/api/public/player/events': typeof ApiPublicPlayerEventsRoute
@@ -341,6 +358,7 @@ export interface FileRoutesById {
   '/studio/telas': typeof StudioTelasRoute
   '/studio/widgets': typeof StudioWidgetsRoute
   '/torre/planos': typeof TorrePlanosRoute
+  '/emitir/': typeof EmitirIndexRoute
   '/studio/': typeof StudioIndexRoute
   '/torre/': typeof TorreIndexRoute
   '/api/branding/logo': typeof ApiBrandingLogoRoute
@@ -349,9 +367,10 @@ export interface FileRoutesById {
   '/api/public/emissor-manifest': typeof ApiPublicEmissorManifestRoute
   '/api/public/widget-data': typeof ApiPublicWidgetDataRoute
   '/api/queue/chime': typeof ApiQueueChimeRoute
-  '/api/queue/pair-emitter': typeof ApiQueuePairEmitterRoute
   '/torre/clientes/$organizationId': typeof TorreClientesOrganizationIdRoute
   '/torre/clientes/': typeof TorreClientesIndexRoute
+  '/api/public/emitter/register': typeof ApiPublicEmitterRegisterRoute
+  '/api/public/emitter/status': typeof ApiPublicEmitterStatusRoute
   '/api/public/player/announce': typeof ApiPublicPlayerAnnounceRoute
   '/api/public/player/chime': typeof ApiPublicPlayerChimeRoute
   '/api/public/player/events': typeof ApiPublicPlayerEventsRoute
@@ -383,6 +402,7 @@ export interface FileRouteTypes {
     | '/studio/telas'
     | '/studio/widgets'
     | '/torre/planos'
+    | '/emitir/'
     | '/studio/'
     | '/torre/'
     | '/api/branding/logo'
@@ -391,9 +411,10 @@ export interface FileRouteTypes {
     | '/api/public/emissor-manifest'
     | '/api/public/widget-data'
     | '/api/queue/chime'
-    | '/api/queue/pair-emitter'
     | '/torre/clientes/$organizationId'
     | '/torre/clientes/'
+    | '/api/public/emitter/register'
+    | '/api/public/emitter/status'
     | '/api/public/player/announce'
     | '/api/public/player/chime'
     | '/api/public/player/events'
@@ -421,6 +442,7 @@ export interface FileRouteTypes {
     | '/studio/telas'
     | '/studio/widgets'
     | '/torre/planos'
+    | '/emitir'
     | '/studio'
     | '/torre'
     | '/api/branding/logo'
@@ -429,9 +451,10 @@ export interface FileRouteTypes {
     | '/api/public/emissor-manifest'
     | '/api/public/widget-data'
     | '/api/queue/chime'
-    | '/api/queue/pair-emitter'
     | '/torre/clientes/$organizationId'
     | '/torre/clientes'
+    | '/api/public/emitter/register'
+    | '/api/public/emitter/status'
     | '/api/public/player/announce'
     | '/api/public/player/chime'
     | '/api/public/player/events'
@@ -461,6 +484,7 @@ export interface FileRouteTypes {
     | '/studio/telas'
     | '/studio/widgets'
     | '/torre/planos'
+    | '/emitir/'
     | '/studio/'
     | '/torre/'
     | '/api/branding/logo'
@@ -469,9 +493,10 @@ export interface FileRouteTypes {
     | '/api/public/emissor-manifest'
     | '/api/public/widget-data'
     | '/api/queue/chime'
-    | '/api/queue/pair-emitter'
     | '/torre/clientes/$organizationId'
     | '/torre/clientes/'
+    | '/api/public/emitter/register'
+    | '/api/public/emitter/status'
     | '/api/public/player/announce'
     | '/api/public/player/chime'
     | '/api/public/player/events'
@@ -491,13 +516,15 @@ export interface RootRouteChildren {
   SenhasRoute: typeof SenhasRoute
   TelaRoute: typeof TelaRoute
   EmitirTokenRoute: typeof EmitirTokenRoute
+  EmitirIndexRoute: typeof EmitirIndexRoute
   ApiBrandingLogoRoute: typeof ApiBrandingLogoRoute
   ApiMediaReplaceRoute: typeof ApiMediaReplaceRoute
   ApiMediaUploadRoute: typeof ApiMediaUploadRoute
   ApiPublicEmissorManifestRoute: typeof ApiPublicEmissorManifestRoute
   ApiPublicWidgetDataRoute: typeof ApiPublicWidgetDataRoute
   ApiQueueChimeRoute: typeof ApiQueueChimeRoute
-  ApiQueuePairEmitterRoute: typeof ApiQueuePairEmitterRoute
+  ApiPublicEmitterRegisterRoute: typeof ApiPublicEmitterRegisterRoute
+  ApiPublicEmitterStatusRoute: typeof ApiPublicEmitterStatusRoute
   ApiPublicPlayerAnnounceRoute: typeof ApiPublicPlayerAnnounceRoute
   ApiPublicPlayerChimeRoute: typeof ApiPublicPlayerChimeRoute
   ApiPublicPlayerEventsRoute: typeof ApiPublicPlayerEventsRoute
@@ -551,6 +578,13 @@ declare module '@tanstack/react-router' {
       path: '/torre'
       fullPath: '/torre'
       preLoaderRoute: typeof TorreRouteRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/emitir/': {
+      id: '/emitir/'
+      path: '/emitir'
+      fullPath: '/emitir/'
+      preLoaderRoute: typeof EmitirIndexRouteImport
       parentRoute: typeof rootRouteImport
     }
     '/emitir/$token': {
@@ -693,13 +727,6 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof ApiQueueChimeRouteImport
       parentRoute: typeof rootRouteImport
     }
-    '/api/queue/pair-emitter': {
-      id: '/api/queue/pair-emitter'
-      path: '/api/queue/pair-emitter'
-      fullPath: '/api/queue/pair-emitter'
-      preLoaderRoute: typeof ApiQueuePairEmitterRouteImport
-      parentRoute: typeof rootRouteImport
-    }
     '/torre/clientes/': {
       id: '/torre/clientes/'
       path: '/clientes'
@@ -713,6 +740,20 @@ declare module '@tanstack/react-router' {
       fullPath: '/torre/clientes/$organizationId'
       preLoaderRoute: typeof TorreClientesOrganizationIdRouteImport
       parentRoute: typeof TorreRouteRoute
+    }
+    '/api/public/emitter/register': {
+      id: '/api/public/emitter/register'
+      path: '/api/public/emitter/register'
+      fullPath: '/api/public/emitter/register'
+      preLoaderRoute: typeof ApiPublicEmitterRegisterRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/api/public/emitter/status': {
+      id: '/api/public/emitter/status'
+      path: '/api/public/emitter/status'
+      fullPath: '/api/public/emitter/status'
+      preLoaderRoute: typeof ApiPublicEmitterStatusRouteImport
+      parentRoute: typeof rootRouteImport
     }
     '/api/public/player/announce': {
       id: '/api/public/player/announce'
@@ -838,13 +879,15 @@ const rootRouteChildren: RootRouteChildren = {
   SenhasRoute: SenhasRoute,
   TelaRoute: TelaRoute,
   EmitirTokenRoute: EmitirTokenRoute,
+  EmitirIndexRoute: EmitirIndexRoute,
   ApiBrandingLogoRoute: ApiBrandingLogoRoute,
   ApiMediaReplaceRoute: ApiMediaReplaceRoute,
   ApiMediaUploadRoute: ApiMediaUploadRoute,
   ApiPublicEmissorManifestRoute: ApiPublicEmissorManifestRoute,
   ApiPublicWidgetDataRoute: ApiPublicWidgetDataRoute,
   ApiQueueChimeRoute: ApiQueueChimeRoute,
-  ApiQueuePairEmitterRoute: ApiQueuePairEmitterRoute,
+  ApiPublicEmitterRegisterRoute: ApiPublicEmitterRegisterRoute,
+  ApiPublicEmitterStatusRoute: ApiPublicEmitterStatusRoute,
   ApiPublicPlayerAnnounceRoute: ApiPublicPlayerAnnounceRoute,
   ApiPublicPlayerChimeRoute: ApiPublicPlayerChimeRoute,
   ApiPublicPlayerEventsRoute: ApiPublicPlayerEventsRoute,
