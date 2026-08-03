@@ -56,9 +56,9 @@ const emptyOperator: OperatorDraft = {
  */
 export function QueuePanelConfig({
   panelId,
-  kioskToken: string | null;
-  emitterPairingCode?: string | null;
-  emitterPairingExpiresAt?: string | null;
+  kioskToken,
+  emitterPairingCode,
+  emitterPairingExpiresAt,
 }: {
   panelId: string;
   kioskToken: string | null;
