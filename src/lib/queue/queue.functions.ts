@@ -111,7 +111,7 @@ export const listQueuePanels = createServerFn({ method: "GET" }).handler(
     if (!isDatabaseConfigured()) return { configured: false, available: false, items: [] };
 
     const { requireUser } = await import("@/lib/auth/session.server");
-    const { desc, eq, sql } = await import("drizzle-orm");
+    const { and, desc, eq, ne, sql } = await import("drizzle-orm");
     const { DEVICE_ONLINE_WINDOW_MS } = await import("@/lib/devices/devices.functions");
     const user = await requireUser();
     const db = getDb();
@@ -164,7 +164,12 @@ export const listQueuePanels = createServerFn({ method: "GET" }).handler(
         })
         .from(schema.devices)
         .leftJoin(schema.queuePanels, eq(schema.queuePanels.deviceId, schema.devices.id))
-        .where(eq(schema.devices.organizationId, user.organizationId))
+        .where(
+          and(
+            eq(schema.devices.organizationId, user.organizationId),
+            ne(schema.devices.status, "pending"),
+          ),
+        )
         .orderBy(desc(schema.devices.createdAt))
         .limit(200);
 
