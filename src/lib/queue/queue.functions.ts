@@ -167,7 +167,7 @@ export const listQueuePanels = createServerFn({ method: "GET" }).handler(
         .where(
           and(
             eq(schema.devices.organizationId, user.organizationId),
-            inArray(schema.devices.status, ["active", "blocked"]),
+            ne(schema.devices.status, "pending"),
           ),
         )
         .orderBy(desc(schema.devices.createdAt))
