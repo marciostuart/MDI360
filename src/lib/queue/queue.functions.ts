@@ -103,6 +103,52 @@ async function requireQueuePlan(organizationId: string) {
 }
 
 /** Every screen of the caller's organization plus its queue add-on state. */
+export type QueueBackgroundImage = { id: string; name: string; previewUrl: string | null };
+
+/** Dedicated image picker: it must not lose images behind the general library's pagination. */
+export const listQueueBackgroundImages = createServerFn({ method: "GET" }).handler(
+  async (): Promise<{ items: QueueBackgroundImage[] }> => {
+    const { getDb, isDatabaseConfigured, schema } = await import("@/lib/db/index.server");
+    if (!isDatabaseConfigured()) return { items: [] };
+    const { requireUser } = await import("@/lib/auth/session.server");
+    const { and, desc, eq } = await import("drizzle-orm");
+    const { createDownloadUrl, isStorageConfigured } = await import("@/lib/storage.server");
+    const user = await requireUser();
+    const rows = await getDb()
+      .select({
+        id: schema.mediaAssets.id,
+        name: schema.mediaAssets.name,
+        storageKey: schema.mediaAssets.storageKey,
+      })
+      .from(schema.mediaAssets)
+      .where(
+        and(
+          eq(schema.mediaAssets.organizationId, user.organizationId),
+          eq(schema.mediaAssets.kind, "image"),
+          eq(schema.mediaAssets.status, "ready"),
+        ),
+      )
+      .orderBy(desc(schema.mediaAssets.createdAt))
+      .limit(1000);
+    const storageReady = isStorageConfigured();
+    return {
+      items: await Promise.all(
+        rows.map(async (row) => {
+          let previewUrl: string | null = null;
+          if (storageReady && row.storageKey) {
+            try {
+              previewUrl = await createDownloadUrl(row.storageKey, 900);
+            } catch {
+              // The image remains selectable even if its preview cannot be signed right now.
+            }
+          }
+          return { id: row.id, name: row.name, previewUrl };
+        }),
+      ),
+    };
+  },
+);
+
 export const listQueuePanels = createServerFn({ method: "GET" }).handler(
   async (): Promise<{ configured: boolean; available: boolean; items: QueuePanelSummary[] }> => {
     const { isDatabaseConfigured, getDb, schema } = await import("@/lib/db/index.server");

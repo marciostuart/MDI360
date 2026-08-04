@@ -21,6 +21,7 @@ import { Switch } from "@/components/ui/switch";
 import {
   deleteQueuePanel,
   listQueuePanels,
+  listQueueBackgroundImages,
   saveQueuePanel,
   setQueuePanelEnabled,
   QUEUE_THEME_DEFAULTS,
@@ -29,7 +30,6 @@ import {
   clearQueueChime,
   type QueuePanelSummary,
 } from "@/lib/queue/queue.functions";
-import { listMediaAssets } from "@/lib/media/media.functions";
 import { QueuePanelConfig } from "@/components/queue/queue-panel-config";
 
 /** Campo de cor com amostra + valor hexadecimal editável. */
@@ -129,15 +129,13 @@ export function QueueAddonManager() {
     onError: (error: Error) => toast.error(error.message),
   });
 
-  const fetchMedia = useServerFn(listMediaAssets);
+  const fetchMedia = useServerFn(listQueueBackgroundImages);
   const { data: media } = useQuery({
     queryKey: ["queue-theme-images"],
     queryFn: () => fetchMedia({}),
     enabled: editing !== null,
   });
-  const images = (media?.items ?? []).filter(
-    (item) => item.kind === "image" && item.status === "ready",
-  );
+  const images = media?.items ?? [];
 
   const invalidate = () => queryClient.invalidateQueries({ queryKey: ["queue-panels"] });
 
@@ -673,6 +671,11 @@ export function QueueAddonManager() {
                             </SelectTrigger>
                             <SelectContent>
                               <SelectItem value="none">Somente cor de fundo</SelectItem>
+                              {!media ? (
+                                <SelectItem value="loading" disabled>Carregando imagens...</SelectItem>
+                              ) : images.length === 0 ? (
+                                <SelectItem value="empty" disabled>Nenhuma imagem pronta na biblioteca</SelectItem>
+                              ) : null}
                               {images.map((image) => (
                                 <SelectItem key={image.id} value={image.id}>
                                   {image.name}
@@ -826,6 +829,11 @@ export function QueueAddonManager() {
                             </SelectTrigger>
                             <SelectContent>
                               <SelectItem value="none">Somente cor de fundo</SelectItem>
+                              {!media ? (
+                                <SelectItem value="loading" disabled>Carregando imagens...</SelectItem>
+                              ) : images.length === 0 ? (
+                                <SelectItem value="empty" disabled>Nenhuma imagem pronta na biblioteca</SelectItem>
+                              ) : null}
                               {images.map((image) => (
                                 <SelectItem key={image.id} value={image.id}>
                                   {image.name}
