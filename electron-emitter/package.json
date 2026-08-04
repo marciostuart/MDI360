@@ -5,8 +5,9 @@
   "description": "Terminal MDI 360 em tela cheia com emissão e impressão automática de senhas",
   "main": "main.cjs",
   "author": {
-    "name": "MDI 360",
-    "email": "106876660+marciostuart@users.noreply.github.com"
+    "name": "Márcio Stuart - 360BH",
+    "email": "106876660+marciostuart@users.noreply.github.com",
+    "url": "https://360bh.com.br"
   },
   "homepage": "https://mdi.360bh.com.br",
   "license": "UNLICENSED",

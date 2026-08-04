@@ -16,45 +16,8 @@ const cache: Map<string, CacheEntry> = (globalRef.__mdiTtsCache ??= new Map());
 const MAX_ENTRIES = 300;
 const TTL_MS = 12 * 60 * 60 * 1000;
 
-/** Lovable AI Gateway (used when the deployment has a key configured). */
-async function synthesizeWithGateway(text: string): Promise<Uint8Array | null> {
-  const apiKey = process.env["LOVABLE_API_KEY"];
-  if (!apiKey) return null;
-  try {
-    // Voice can be tuned per deployment without a code change.
-    const voice = process.env["MDI_TTS_VOICE"] || "onyx";
-    const response = await fetch("https://ai.gateway.lovable.dev/v1/audio/speech", {
-      method: "POST",
-      headers: { Authorization: `Bearer ${apiKey}`, "Content-Type": "application/json" },
-      body: JSON.stringify({
-        model: "openai/gpt-4o-mini-tts",
-        input: text,
-        voice,
-        // Clarity over personality: a waiting room is noisy and the sentence is
-        // very short, so we ask for strong articulation and a slower pace.
-        instructions:
-          "Você é o sistema de chamada de senhas de um atendimento. Fale em português do Brasil, " +
-          "voz firme, grave e muito nítida, articulando cada sílaba. Ritmo pausado, com uma " +
-          "pequena pausa após o nome do setor. Leia os números como números inteiros " +
-          "(por exemplo, 12 como 'doze'). Sem emoção, sem sussurro, sem pressa.",
-        speed: 0.9,
-        response_format: "mp3",
-      }),
-    });
-    if (!response.ok) {
-      console.error("[queue-tts] gateway falhou", response.status, await response.text());
-      return null;
-    }
-    return new Uint8Array(await response.arrayBuffer());
-  } catch (error) {
-    console.error("[queue-tts] gateway erro", error);
-    return null;
-  }
-}
-
 /**
- * Keyless fallback so a self-hosted deployment always announces, even without
- * an AI key configured. Short sentences only, which is exactly our case.
+ * Generates the short announcement with a public Portuguese speech endpoint.
  */
 async function synthesizeWithFallback(text: string): Promise<Uint8Array | null> {
   try {
@@ -77,7 +40,7 @@ export async function announcementMp3(text: string): Promise<Uint8Array | null> 
   const hit = cache.get(key);
   if (hit && Date.now() - hit.at < TTL_MS) return hit.bytes;
 
-  const bytes = (await synthesizeWithGateway(text)) ?? (await synthesizeWithFallback(text));
+  const bytes = await synthesizeWithFallback(text);
   if (!bytes || bytes.byteLength === 0) return null;
 
   if (cache.size >= MAX_ENTRIES) {

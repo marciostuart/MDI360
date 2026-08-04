@@ -1,24 +1,27 @@
-# Good Morning App
+# MDI 360
 
-Boa tarde!
+Plataforma para sinalização digital, gestão de telas, playlists, conteúdos e atendimento por senhas.
 
-This project was built with [Lovable](https://lovable.dev).
+## Autoria
 
-## Build with Lovable
+- Márcio Stuart
+- 360BH
+- https://360bh.com.br
+- (31) 92005-1113
 
-Continue developing this project in the [Lovable editor](https://lovable.dev/projects/264dc95b-f5af-4ed2-8602-95708911ff10).
+## Desenvolvimento local
 
-- **Ship faster**: describe what you want to build and Lovable handles the code.
-- **Stay in sync**: every change made in Lovable is committed straight to this repository.
-- **Full ownership**: this code is yours. Push to `main` on GitHub and your changes sync back into Lovable, ready for your next prompt.
-
-## Development
-
-Prefer working locally? You need Node.js and npm — [install with nvm](https://github.com/nvm-sh/nvm#installing-and-updating).
+Requisitos: Node.js 22 e Bun 1.3.3.
 
 ```sh
-git clone <this-repository-url>
-cd <repository-name>
-npm i
-npm run dev
+bun install --frozen-lockfile
+bun run dev
 ```
+
+## Build de produção
+
+```sh
+bun run build
+```
+
+O contêiner de produção é gerado pelo `Dockerfile` e inicia o servidor na porta 3000.

@@ -1,10 +1,10 @@
-<!-- LOVABLE:BEGIN -->
-> [!IMPORTANT]
-> This project is connected to [Lovable](https://lovable.dev). Avoid rewriting
-> published git history — force pushing, or rebasing/amending/squashing commits
-> that are already pushed — as it rewrites history on Lovable's side and the
-> user will likely lose their project history.
->
-> Commits you push to the connected branch sync back to Lovable and show up in
-> the editor, so keep the branch in a working state.
-<!-- LOVABLE:END -->
+# MDI 360
+
+Projeto de autoria e propriedade de:
+
+- Márcio Stuart
+- 360BH
+- https://360bh.com.br
+- (31) 92005-1113
+
+Preserve o histórico publicado, mantenha a branch principal em estado funcional e valide o build antes de publicar.
