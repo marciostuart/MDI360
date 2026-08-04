@@ -1,7 +1,8 @@
 import { createFileRoute } from "@tanstack/react-router";
+
 import { DeviceHub } from "@/components/devices/device-hub";
 
-export const Route = createFileRoute("/studio/telas/$deviceId")({
+export const Route = createFileRoute("/studio/telas_/$deviceId")({
   head: () => ({ meta: [{ title: "Configuração da TV | MDI 360" }] }),
   component: DevicePage,
 });
