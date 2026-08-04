@@ -1,5 +1,5 @@
 "use strict";
-const { app, BrowserWindow, ipcMain, globalShortcut, dialog } = require("electron");
+const { app, BrowserWindow, ipcMain, globalShortcut, dialog, powerSaveBlocker } = require("electron");
 const fs = require("node:fs");
 const path = require("node:path");
 
@@ -54,6 +54,7 @@ let configWindow = null;
 let monitorWindow = null;
 let kioskWindow = null;
 let quitting = false;
+let powerSaveBlockerId = null;
 
 function shellQuote(value) {
   return `'${String(value).replace(/'/g, `'\\''`)}'`;
@@ -459,6 +460,9 @@ ipcMain.handle("print:test", async (_e, next) => {
 ipcMain.handle("app:quit", () => app.quit());
 
 app.whenReady().then(() => {
+  // Totens precisam permanecer ativos continuamente. Este bloqueio nativo
+  // impede a suspensao do sistema e o desligamento da tela no Windows e Linux.
+  powerSaveBlockerId = powerSaveBlocker.start("prevent-display-sleep");
   const cfg = loadConfig();
   openMonitorWindow();
   startService({ reset: true });
@@ -474,6 +478,9 @@ app.on("window-all-closed", () => app.quit());
 app.on("will-quit", () => {
   quitting = true;
   if (pollTimer) clearInterval(pollTimer);
+  if (powerSaveBlockerId !== null && powerSaveBlocker.isStarted(powerSaveBlockerId)) {
+    powerSaveBlocker.stop(powerSaveBlockerId);
+  }
   globalShortcut.unregisterAll();
 });
 process.on("uncaughtException", (error) => {
