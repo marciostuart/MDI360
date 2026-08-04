@@ -169,9 +169,8 @@ function openKioskWindow(base, token) {
       sandbox: true,
     },
   });
-  // O terminal ja controla a tela cheia. Oculta o cursor e informa a pagina
-  // para nao oferecer controles que so fazem sentido em um navegador comum.
-  void kioskWindow.webContents.insertCSS("html, body, body * { cursor: none !important; }");
+  // Informa a pagina que ela esta no app; a propria interface controla o
+  // cursor por inatividade e omite recursos exclusivos do navegador.
   kioskWindow.loadURL(`${base}/emitir/${encodeURIComponent(token)}?desktop=1`);
   kioskWindow.webContents.on("before-input-event", (_event, input) => {
     if (input.type !== "keyDown") return;

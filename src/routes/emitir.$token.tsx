@@ -62,13 +62,12 @@ export const Route = createFileRoute("/emitir/$token")({
 });
 
 /** Trava a página: sem rolagem, sem "puxar para atualizar", ocupando a tela toda. */
-function useKioskViewport(hideCursor: boolean) {
+function useKioskViewport() {
   useEffect(() => {
     const html = document.documentElement;
     const body = document.body;
     const previous = { html: html.getAttribute("style"), body: body.getAttribute("style") };
-    const cursor = hideCursor ? "cursor:none;" : "";
-    const lock = `margin:0;padding:0;width:100%;height:100%;overflow:hidden;overscroll-behavior:none;${cursor}`;
+    const lock = "margin:0;padding:0;width:100%;height:100%;overflow:hidden;overscroll-behavior:none;";
     html.setAttribute("style", lock);
     body.setAttribute("style", `${lock}position:fixed;inset:0;touch-action:manipulation;`);
     return () => {
@@ -77,7 +76,46 @@ function useKioskViewport(hideCursor: boolean) {
       if (previous.body === null) body.removeAttribute("style");
       else body.setAttribute("style", previous.body);
     };
-  }, [hideCursor]);
+  }, []);
+}
+
+/** No app desktop, mostra o cursor durante o uso e oculta apos inatividade. */
+function useAutoHideCursor(enabled: boolean) {
+  useEffect(() => {
+    const html = document.documentElement;
+    const style = document.createElement("style");
+    style.textContent = "html.mdi-cursor-hidden, html.mdi-cursor-hidden * { cursor: none !important; }";
+    document.head.appendChild(style);
+
+    if (!enabled) {
+      html.classList.remove("mdi-cursor-hidden");
+      return () => style.remove();
+    }
+
+    let timer: ReturnType<typeof setTimeout>;
+    const scheduleHide = () => {
+      clearTimeout(timer);
+      timer = setTimeout(() => html.classList.add("mdi-cursor-hidden"), 2_500);
+    };
+    const showCursor = () => {
+      html.classList.remove("mdi-cursor-hidden");
+      scheduleHide();
+    };
+
+    window.addEventListener("pointermove", showCursor, { passive: true });
+    window.addEventListener("pointerdown", showCursor, { passive: true });
+    window.addEventListener("keydown", showCursor);
+    scheduleHide();
+
+    return () => {
+      clearTimeout(timer);
+      window.removeEventListener("pointermove", showCursor);
+      window.removeEventListener("pointerdown", showCursor);
+      window.removeEventListener("keydown", showCursor);
+      html.classList.remove("mdi-cursor-hidden");
+      style.remove();
+    };
+  }, [enabled]);
 }
 
 function requestFullscreen() {
@@ -95,7 +133,8 @@ function requestFullscreen() {
 function KioskPage() {
   const { token } = Route.useParams();
   const [isDesktopApp, setIsDesktopApp] = useState(false);
-  useKioskViewport(isDesktopApp);
+  useKioskViewport();
+  useAutoHideCursor(isDesktopApp);
   const loadPanel = useServerFn(getKioskPanel);
   const issue = useServerFn(issueKioskTicket);
   const [isFullscreen, setIsFullscreen] = useState(false);
