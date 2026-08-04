@@ -1,7 +1,8 @@
 import { createFileRoute, Link, Outlet } from "@tanstack/react-router";
-import { Building2, LayoutDashboard, MonitorPlay, ShieldCheck, Tags } from "lucide-react";
+import { Building2, Globe2, LayoutDashboard, MonitorPlay, ShieldCheck, Tags } from "lucide-react";
 
 export const Route = createFileRoute("/torre")({
+  head: () => ({ meta: [{ name: "robots", content: "noindex, nofollow" }] }),
   component: TowerLayout,
 });
 
@@ -9,6 +10,7 @@ const NAV = [
   { to: "/torre", label: "Visão geral", icon: LayoutDashboard, exact: true },
   { to: "/torre/clientes", label: "Estabelecimentos", icon: Building2, exact: false },
   { to: "/torre/planos", label: "Planos", icon: Tags, exact: false },
+  { to: "/torre/site", label: "Site", icon: Globe2, exact: false },
 ] as const;
 
 function TowerLayout() {

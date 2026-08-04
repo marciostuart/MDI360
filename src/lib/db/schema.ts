@@ -77,6 +77,15 @@ export const trafficHourly = pgTable("traffic_hourly", {
   bytesOut: bigint("bytes_out", { mode: "number" }).notNull().default(0),
 });
 
+/** Public website content edited by platform staff without rebuilding the app. */
+export const platformSettings = pgTable("platform_settings", {
+  key: text("key").primaryKey(),
+  value: jsonb("value")
+    .notNull()
+    .default(sql`'{}'::jsonb`),
+  updatedAt: timestamp("updated_at", { withTimezone: true }).notNull().defaultNow(),
+});
+
 export const organizations = pgTable("organizations", {
   id: uuid("id").primaryKey().defaultRandom(),
   name: text("name").notNull(),
@@ -220,7 +229,9 @@ export const devices = pgTable(
     lastScreenshotKey: text("last_screenshot_key"),
     lastScreenshotAt: timestamp("last_screenshot_at", { withTimezone: true }),
     /** Weekly windows when this screen is expected to be online (monitoring only). */
-    operatingHours: jsonb("operating_hours").notNull().default(sql`'[]'::jsonb`),
+    operatingHours: jsonb("operating_hours")
+      .notNull()
+      .default(sql`'[]'::jsonb`),
     offlineAlertsEnabled: boolean("offline_alerts_enabled").notNull().default(false),
     recoveryAlertsEnabled: boolean("recovery_alerts_enabled").notNull().default(true),
     offlineToleranceMinutes: smallint("offline_tolerance_minutes").notNull().default(5),
@@ -316,7 +327,9 @@ export const playlistItems = pgTable(
       onDelete: "cascade",
     }),
     /** Availability rules for this nested insertion; [] means always available. */
-    scheduleRules: jsonb("schedule_rules").notNull().default(sql`'[]'::jsonb`),
+    scheduleRules: jsonb("schedule_rules")
+      .notNull()
+      .default(sql`'[]'::jsonb`),
     position: integer("position").notNull(),
     durationMs: integer("duration_ms").notNull().default(10000),
     isMuted: boolean("is_muted").notNull().default(true),
@@ -352,7 +365,9 @@ export const schedules = pgTable(
     isActive: boolean("is_active").notNull().default(true),
     /** New schedules use a friendly rule type/config; legacy weekly fields remain compatible. */
     ruleType: text("rule_type").notNull().default("weekly_time"),
-    ruleConfig: jsonb("rule_config").notNull().default(sql`'{}'::jsonb`),
+    ruleConfig: jsonb("rule_config")
+      .notNull()
+      .default(sql`'{}'::jsonb`),
     createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
   },
   (t) => [index("schedules_device_idx").on(t.deviceId)],
@@ -463,9 +478,7 @@ export const queuePanels = pgTable(
     kioskTitleColor: text("kiosk_title_color").notNull().default("#ffffff"),
     kioskTextColor: text("kiosk_text_color").notNull().default("#cbd5f5"),
     kioskNormalButtonColor: text("kiosk_normal_button_color").notNull().default("#2563eb"),
-    kioskNormalButtonTextColor: text("kiosk_normal_button_text_color")
-      .notNull()
-      .default("#ffffff"),
+    kioskNormalButtonTextColor: text("kiosk_normal_button_text_color").notNull().default("#ffffff"),
     kioskPriorityButtonColor: text("kiosk_priority_button_color").notNull().default("#f59e0b"),
     kioskPriorityButtonTextColor: text("kiosk_priority_button_text_color")
       .notNull()

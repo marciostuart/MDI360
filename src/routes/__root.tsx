@@ -77,7 +77,6 @@ export const Route = createRootRouteWithContext<{ queryClient: QueryClient }>()(
       { name: "copyright", content: "360BH" },
       // Este subdominio hospeda somente o sistema (area logada). O conteudo
       // publico/comercial vive no site institucional, fora desta aplicacao.
-      { name: "robots", content: "noindex, nofollow" },
       { property: "og:type", content: "website" },
       { name: "twitter:card", content: "summary_large_image" },
     ],

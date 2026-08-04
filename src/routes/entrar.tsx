@@ -14,9 +14,13 @@ import { signIn, signUp } from "@/lib/auth/auth.functions";
 import { useSetupState } from "@/lib/auth/useCurrentUser";
 
 export const Route = createFileRoute("/entrar")({
+  validateSearch: (search: Record<string, unknown>) => ({
+    mode: search.mode === "signup" ? ("signup" as const) : ("login" as const),
+  }),
   head: () => ({
     meta: [
       { title: "Entrar | MDI 360" },
+      { name: "robots", content: "noindex, nofollow" },
       {
         name: "description",
         content:
@@ -33,6 +37,7 @@ export const Route = createFileRoute("/entrar")({
 });
 
 function AuthPage() {
+  const { mode } = Route.useSearch();
   const navigate = useNavigate();
   const queryClient = useQueryClient();
   const setup = useSetupState();
@@ -110,7 +115,7 @@ function AuthPage() {
             </CardDescription>
           </CardHeader>
           <CardContent>
-            <Tabs defaultValue="login">
+            <Tabs defaultValue={mode} key={mode}>
               <TabsList className="grid w-full grid-cols-2">
                 <TabsTrigger value="login">Entrar</TabsTrigger>
                 <TabsTrigger value="signup">Criar conta</TabsTrigger>
