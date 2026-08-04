@@ -2,6 +2,7 @@ import { createServerFn } from "@tanstack/react-start";
 import { z } from "zod";
 
 import type { WidgetConfig } from "@/lib/widgets/catalog";
+import type { ScheduleRule } from "@/lib/schedules/rules";
 
 export type PlaylistListItem = {
   id: string;
@@ -15,19 +16,62 @@ export type PlaylistListItem = {
 
 export type PlaylistItemDetail = {
   id: string;
-  mediaAssetId: string;
+  mediaAssetId: string | null;
+  nestedPlaylistId: string | null;
+  scheduleRules: ScheduleRule[];
   position: number;
   durationMs: number;
   isMuted: boolean;
   name: string;
-  kind: "image" | "video" | "web" | "widget" | "stream";
-  canvasPreset: string;
+  kind: "image" | "video" | "web" | "widget" | "stream" | "playlist";
+  canvasPreset: string | null;
   previewUrl: string | null;
   widgetType: string | null;
   widgetConfig: WidgetConfig | null;
 };
 
 const nameSchema = z.string().trim().min(1, "Informe um nome").max(120);
+const playlistRuleSchema = z
+  .object({
+    type: z.enum([
+      "date_time_range",
+      "specific_date_time",
+      "daily_time",
+      "month_day",
+      "weekdays",
+      "month",
+    ]),
+    startAt: z.string().datetime().optional(),
+    endAt: z.string().datetime().optional(),
+    date: z
+      .string()
+      .regex(/^\d{4}-\d{2}-\d{2}$/)
+      .optional(),
+    startMinute: z.number().int().min(0).max(1439).optional(),
+    endMinute: z.number().int().min(1).max(1440).optional(),
+    weekdays: z.array(z.number().int().min(0).max(6)).min(1).optional(),
+    day: z.number().int().min(1).max(31).optional(),
+    month: z.number().int().min(1).max(12).optional(),
+  })
+  .superRefine((rule, ctx) => {
+    if (
+      ["daily_time", "weekdays", "specific_date_time"].includes(rule.type) &&
+      (rule.startMinute === undefined || rule.endMinute === undefined)
+    )
+      ctx.addIssue({ code: "custom", message: "Informe o horário inicial e final da sublista." });
+    if (rule.type === "weekdays" && !rule.weekdays?.length)
+      ctx.addIssue({ code: "custom", message: "Escolha ao menos um dia da semana." });
+    if (rule.type === "specific_date_time" && !rule.date)
+      ctx.addIssue({ code: "custom", message: "Informe a data específica." });
+    if (rule.type === "month_day" && !rule.day)
+      ctx.addIssue({ code: "custom", message: "Informe o dia do mês." });
+    if (rule.type === "month" && !rule.month)
+      ctx.addIssue({ code: "custom", message: "Informe o mês." });
+    if (rule.type === "date_time_range" && !rule.startAt && !rule.endAt)
+      ctx.addIssue({ code: "custom", message: "Informe o início e/ou fim do período." });
+    if (rule.startAt && rule.endAt && new Date(rule.startAt) >= new Date(rule.endAt))
+      ctx.addIssue({ code: "custom", message: "O fim do período deve ser posterior ao início." });
+  });
 
 /** Playlists of the caller's organization only. */
 export const listPlaylists = createServerFn({ method: "GET" }).handler(
@@ -98,6 +142,8 @@ export const getPlaylist = createServerFn({ method: "GET" })
       .select({
         id: schema.playlistItems.id,
         mediaAssetId: schema.playlistItems.mediaAssetId,
+        nestedPlaylistId: schema.playlistItems.nestedPlaylistId,
+        scheduleRules: schema.playlistItems.scheduleRules,
         position: schema.playlistItems.position,
         durationMs: schema.playlistItems.durationMs,
         isMuted: schema.playlistItems.isMuted,
@@ -107,12 +153,11 @@ export const getPlaylist = createServerFn({ method: "GET" })
         storageKey: schema.mediaAssets.storageKey,
         widgetType: schema.mediaAssets.widgetType,
         widgetConfig: schema.mediaAssets.widgetConfig,
+        nestedName: schema.playlists.name,
       })
       .from(schema.playlistItems)
-      .innerJoin(
-        schema.mediaAssets,
-        eq(schema.mediaAssets.id, schema.playlistItems.mediaAssetId),
-      )
+      .leftJoin(schema.mediaAssets, eq(schema.mediaAssets.id, schema.playlistItems.mediaAssetId))
+      .leftJoin(schema.playlists, eq(schema.playlists.id, schema.playlistItems.nestedPlaylistId))
       .where(eq(schema.playlistItems.playlistId, data.playlistId))
       .orderBy(asc(schema.playlistItems.position));
 
@@ -129,6 +174,9 @@ export const getPlaylist = createServerFn({ method: "GET" })
         }
         return {
           ...row,
+          name: row.nestedName ?? row.name ?? "Lista de reprodução",
+          kind: row.nestedPlaylistId ? ("playlist" as const) : row.kind!,
+          scheduleRules: (row.scheduleRules as ScheduleRule[]) ?? [],
           widgetConfig: (row.widgetConfig as WidgetConfig | null) ?? null,
           previewUrl,
         } satisfies PlaylistItemDetail;
@@ -140,9 +188,7 @@ export const getPlaylist = createServerFn({ method: "GET" })
 
 export const createPlaylist = createServerFn({ method: "POST" })
   .inputValidator((input: unknown) =>
-    z
-      .object({ name: nameSchema, description: z.string().trim().max(400).optional() })
-      .parse(input),
+    z.object({ name: nameSchema, description: z.string().trim().max(400).optional() }).parse(input),
   )
   .handler(async ({ data }) => {
     const { getDb, schema, isDatabaseConfigured } = await import("@/lib/db/index.server");
@@ -233,11 +279,22 @@ export const setPlaylistItems = createServerFn({ method: "POST" })
         playlistId: z.string().uuid(),
         items: z
           .array(
-            z.object({
-              mediaAssetId: z.string().uuid(),
-              durationMs: z.number().int().min(1000).max(30 * 60 * 1000),
-              isMuted: z.boolean().default(true),
-            }),
+            z
+              .object({
+                mediaAssetId: z.string().uuid().nullable(),
+                nestedPlaylistId: z.string().uuid().nullable(),
+                scheduleRules: z.array(playlistRuleSchema).max(10).default([]),
+                durationMs: z
+                  .number()
+                  .int()
+                  .min(1000)
+                  .max(30 * 60 * 1000),
+                isMuted: z.boolean().default(true),
+              })
+              .refine(
+                (item) => Boolean(item.mediaAssetId) !== Boolean(item.nestedPlaylistId),
+                "Escolha um arquivo ou uma sublista.",
+              ),
           )
           .max(300),
       })
@@ -262,7 +319,9 @@ export const setPlaylistItems = createServerFn({ method: "POST" })
       .limit(1);
     if (!owned[0]) throw new Error("Playlist não encontrada.");
 
-    const assetIds = [...new Set(data.items.map((item) => item.mediaAssetId))];
+    const assetIds = [
+      ...new Set(data.items.flatMap((item) => (item.mediaAssetId ? [item.mediaAssetId] : []))),
+    ];
     if (assetIds.length > 0) {
       const assets = await db
         .select({ id: schema.mediaAssets.id })
@@ -276,13 +335,59 @@ export const setPlaylistItems = createServerFn({ method: "POST" })
       if (assets.length !== assetIds.length) throw new Error("Conteúdo inválido na playlist.");
     }
 
+    const nestedIds = [
+      ...new Set(
+        data.items.flatMap((item) => (item.nestedPlaylistId ? [item.nestedPlaylistId] : [])),
+      ),
+    ];
+    if (nestedIds.includes(data.playlistId))
+      throw new Error("Uma lista não pode incluir a si mesma.");
+    if (nestedIds.length > 0) {
+      const nested = await db
+        .select({ id: schema.playlists.id })
+        .from(schema.playlists)
+        .where(
+          and(
+            inArray(schema.playlists.id, nestedIds),
+            eq(schema.playlists.organizationId, user.organizationId),
+          ),
+        );
+      if (nested.length !== nestedIds.length) throw new Error("Sublista inválida.");
+      const edges = await db
+        .select({
+          playlistId: schema.playlistItems.playlistId,
+          nestedPlaylistId: schema.playlistItems.nestedPlaylistId,
+        })
+        .from(schema.playlistItems);
+      const graph = new Map<string, string[]>();
+      for (const edge of edges) {
+        if (edge.nestedPlaylistId)
+          graph.set(edge.playlistId, [
+            ...(graph.get(edge.playlistId) ?? []),
+            edge.nestedPlaylistId,
+          ]);
+      }
+      const reachesCurrent = (id: string, seen = new Set<string>()): boolean => {
+        if (id === data.playlistId) return true;
+        if (seen.has(id)) return false;
+        seen.add(id);
+        return (graph.get(id) ?? []).some((next) => reachesCurrent(next, seen));
+      };
+      if (nestedIds.some((id) => reachesCurrent(id)))
+        throw new Error("Esta sublista criaria um ciclo entre listas.");
+    }
+
     await db.transaction(async (tx) => {
-      await tx.delete(schema.playlistItems).where(eq(schema.playlistItems.playlistId, data.playlistId));
+      await tx
+        .delete(schema.playlistItems)
+        .where(eq(schema.playlistItems.playlistId, data.playlistId));
       if (data.items.length > 0) {
         await tx.insert(schema.playlistItems).values(
           data.items.map((item, index) => ({
             playlistId: data.playlistId,
             mediaAssetId: item.mediaAssetId,
+            nestedPlaylistId: item.nestedPlaylistId,
+            scheduleRules: item.scheduleRules,
             position: index,
             durationMs: item.durationMs,
             isMuted: item.isMuted,

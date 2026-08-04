@@ -9,6 +9,26 @@ type ServerEntry = {
 
 let serverEntryPromise: Promise<ServerEntry> | undefined;
 
+const monitorState = globalThis as typeof globalThis & { __mdiDeviceMonitorStarted?: boolean };
+if (!monitorState.__mdiDeviceMonitorStarted) {
+  monitorState.__mdiDeviceMonitorStarted = true;
+  const runDeviceMonitor = () => {
+    if (
+      !process.env.EVOLUTION_API_URL ||
+      !process.env.EVOLUTION_API_INSTANCE ||
+      !process.env.EVOLUTION_API_KEY
+    )
+      return;
+    void import("./lib/notifications/device-monitor.server")
+      .then(({ monitorDeviceNotifications }) => monitorDeviceNotifications())
+      .catch((error) => console.error("[device-monitor] falha no ciclo", error));
+  };
+  const firstRun = setTimeout(runDeviceMonitor, 15_000);
+  const interval = setInterval(runDeviceMonitor, 60_000);
+  firstRun.unref?.();
+  interval.unref?.();
+}
+
 async function getServerEntry(): Promise<ServerEntry> {
   if (!serverEntryPromise) {
     serverEntryPromise = import("@tanstack/react-start/server-entry").then(

@@ -100,6 +100,9 @@ export const organizations = pgTable("organizations", {
   /** Day the billing cycle started; every cycle runs anchor + N months. */
   billingAnchorAt: timestamp("billing_anchor_at", { withTimezone: true }),
   adminNotes: text("admin_notes"),
+  /** Default WhatsApp recipient for device alerts; usable only after OTP verification. */
+  alertWhatsapp: text("alert_whatsapp"),
+  alertWhatsappVerifiedAt: timestamp("alert_whatsapp_verified_at", { withTimezone: true }),
   createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
 });
 
@@ -216,6 +219,15 @@ export const devices = pgTable(
     lastSeenAt: timestamp("last_seen_at", { withTimezone: true }),
     lastScreenshotKey: text("last_screenshot_key"),
     lastScreenshotAt: timestamp("last_screenshot_at", { withTimezone: true }),
+    /** Weekly windows when this screen is expected to be online (monitoring only). */
+    operatingHours: jsonb("operating_hours").notNull().default(sql`'[]'::jsonb`),
+    offlineAlertsEnabled: boolean("offline_alerts_enabled").notNull().default(false),
+    recoveryAlertsEnabled: boolean("recovery_alerts_enabled").notNull().default(true),
+    offlineToleranceMinutes: smallint("offline_tolerance_minutes").notNull().default(5),
+    /** Optional verified recipient overriding the organization's default number. */
+    alertWhatsapp: text("alert_whatsapp"),
+    alertWhatsappVerifiedAt: timestamp("alert_whatsapp_verified_at", { withTimezone: true }),
+    offlineAlertSentAt: timestamp("offline_alert_sent_at", { withTimezone: true }),
     createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
   },
   (t) => [
@@ -298,9 +310,13 @@ export const playlistItems = pgTable(
     playlistId: uuid("playlist_id")
       .notNull()
       .references(() => playlists.id, { onDelete: "cascade" }),
-    mediaAssetId: uuid("media_asset_id")
-      .notNull()
-      .references(() => mediaAssets.id, { onDelete: "cascade" }),
+    mediaAssetId: uuid("media_asset_id").references(() => mediaAssets.id, { onDelete: "cascade" }),
+    /** A row targets either a media asset or another playlist, never both. */
+    nestedPlaylistId: uuid("nested_playlist_id").references(() => playlists.id, {
+      onDelete: "cascade",
+    }),
+    /** Availability rules for this nested insertion; [] means always available. */
+    scheduleRules: jsonb("schedule_rules").notNull().default(sql`'[]'::jsonb`),
     position: integer("position").notNull(),
     durationMs: integer("duration_ms").notNull().default(10000),
     isMuted: boolean("is_muted").notNull().default(true),
@@ -334,6 +350,9 @@ export const schedules = pgTable(
     validFrom: timestamp("valid_from", { withTimezone: true }),
     validUntil: timestamp("valid_until", { withTimezone: true }),
     isActive: boolean("is_active").notNull().default(true),
+    /** New schedules use a friendly rule type/config; legacy weekly fields remain compatible. */
+    ruleType: text("rule_type").notNull().default("weekly_time"),
+    ruleConfig: jsonb("rule_config").notNull().default(sql`'{}'::jsonb`),
     createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
   },
   (t) => [index("schedules_device_idx").on(t.deviceId)],
@@ -497,6 +516,44 @@ export const queueEmitters = pgTable(
     uniqueIndex("queue_emitters_token_hash_unique").on(t.tokenHash),
     index("queue_emitters_panel_idx").on(t.panelId),
   ],
+);
+
+export const whatsappVerifications = pgTable(
+  "whatsapp_verifications",
+  {
+    id: uuid("id").primaryKey().defaultRandom(),
+    organizationId: uuid("organization_id")
+      .notNull()
+      .references(() => organizations.id, { onDelete: "cascade" }),
+    deviceId: uuid("device_id").references(() => devices.id, { onDelete: "cascade" }),
+    phone: text("phone").notNull(),
+    codeHash: text("code_hash").notNull(),
+    expiresAt: timestamp("expires_at", { withTimezone: true }).notNull(),
+    attempts: smallint("attempts").notNull().default(0),
+    verifiedAt: timestamp("verified_at", { withTimezone: true }),
+    createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
+  },
+  (t) => [index("whatsapp_verifications_org_phone_idx").on(t.organizationId, t.phone)],
+);
+
+export const deviceNotificationLogs = pgTable(
+  "device_notification_logs",
+  {
+    id: uuid("id").primaryKey().defaultRandom(),
+    organizationId: uuid("organization_id")
+      .notNull()
+      .references(() => organizations.id, { onDelete: "cascade" }),
+    deviceId: uuid("device_id")
+      .notNull()
+      .references(() => devices.id, { onDelete: "cascade" }),
+    kind: text("kind").notNull(),
+    recipient: text("recipient").notNull(),
+    status: text("status").notNull().default("pending"),
+    error: text("error"),
+    sentAt: timestamp("sent_at", { withTimezone: true }),
+    createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
+  },
+  (t) => [index("device_notification_logs_device_idx").on(t.deviceId, t.createdAt)],
 );
 
 export const queueSectors = pgTable(

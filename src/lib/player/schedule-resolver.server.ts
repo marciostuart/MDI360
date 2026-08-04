@@ -1,12 +1,18 @@
 import { and, asc, desc, eq } from "drizzle-orm";
 
 import { getDb, schema } from "@/lib/db/index.server";
+import {
+  anyScheduleRuleMatches,
+  legacyScheduleRule,
+  matchesScheduleRule,
+  scheduleSpecificity,
+  type ScheduleRule,
+} from "@/lib/schedules/rules";
 import { createDownloadUrl, isStorageConfigured } from "@/lib/storage.server";
 import type { WidgetConfig } from "@/lib/widgets/catalog";
 
 export type PlayerItem = {
   id: string;
-  /** Media library asset behind this item; used by the playback reports. */
   mediaAssetId: string | null;
   kind: "image" | "video" | "web" | "widget" | "stream";
   url: string | null;
@@ -24,101 +30,28 @@ export type PlayerPlaylist = {
   items: PlayerItem[];
 } | null;
 
-/** Minutes since midnight in the given IANA timezone, plus the weekday index. */
-/**
- * Small stable fingerprint of the ids currently allowed on air. Mixed into the
- * playlist revision so a screen reloads the moment a file's airing window opens
- * or closes, even though the playlist itself never changed.
- */
-function fingerprint(ids: string[]) {
+function fingerprint(values: string[]) {
   let hash = 0;
-  for (const id of ids) {
-    for (let i = 0; i < id.length; i += 1) {
-      hash = (hash * 31 + id.charCodeAt(i)) % 100003;
-    }
-  }
+  for (const value of values)
+    for (let i = 0; i < value.length; i += 1) hash = (hash * 31 + value.charCodeAt(i)) % 100003;
   return hash % 997;
 }
 
-function localNow(timezone: string) {
-  const formatter = new Intl.DateTimeFormat("en-US", {
-    timeZone: timezone,
-    hour: "2-digit",
-    minute: "2-digit",
-    weekday: "short",
-    hour12: false,
-  });
-  const parts = formatter.formatToParts(new Date());
-  const get = (type: string) => parts.find((p) => p.type === type)?.value ?? "";
-  const weekdays = ["Sun", "Mon", "Tue", "Wed", "Thu", "Fri", "Sat"];
-  const weekday = Math.max(0, weekdays.indexOf(get("weekday")));
-  const minute = Number(get("hour")) * 60 + Number(get("minute"));
-  return { weekday, minute };
-}
-
-/**
- * Picks the playlist a device should be showing right now: the highest priority
- * active schedule whose weekday/time window matches, otherwise the only playlist
- * scheduled for the device, otherwise nothing.
- */
-export async function resolvePlaylistForDevice(
-  deviceId: string,
-  timezone = "America/Sao_Paulo",
-): Promise<PlayerPlaylist> {
-  const db = getDb();
-  const { weekday, minute } = localNow(timezone);
-
-  const candidates = await db
-    .select({
-      playlistId: schema.schedules.playlistId,
-      weekdayMask: schema.schedules.weekdayMask,
-      startMinute: schema.schedules.startMinute,
-      endMinute: schema.schedules.endMinute,
-      priority: schema.schedules.priority,
-      validFrom: schema.schedules.validFrom,
-      validUntil: schema.schedules.validUntil,
-    })
-    .from(schema.schedules)
-    .where(and(eq(schema.schedules.deviceId, deviceId), eq(schema.schedules.isActive, true)))
-    .orderBy(desc(schema.schedules.priority));
-
-  const now = new Date();
-  const match = candidates.find((row) => {
-    if (row.validFrom && row.validFrom > now) return false;
-    if (row.validUntil && row.validUntil < now) return false;
-    if (((row.weekdayMask >> weekday) & 1) !== 1) return false;
-    return minute >= row.startMinute && minute < row.endMinute;
-  });
-
-  // No schedule matches right now: fall back to the screen's default playlist.
-  let playlistId = match?.playlistId ?? null;
-  if (!playlistId) {
-    const deviceRows = await db
-      .select({ defaultPlaylistId: schema.devices.defaultPlaylistId })
-      .from(schema.devices)
-      .where(eq(schema.devices.id, deviceId))
-      .limit(1);
-    playlistId = deviceRows[0]?.defaultPlaylistId ?? null;
-  }
-  if (!playlistId) return null;
-
-  const playlistRows = await db
-    .select({
-      id: schema.playlists.id,
-      name: schema.playlists.name,
-      revision: schema.playlists.revision,
-    })
-    .from(schema.playlists)
-    .where(eq(schema.playlists.id, playlistId))
-    .limit(1);
-
-  const playlist = playlistRows[0];
-  if (!playlist) return null;
-
-  const itemRows = await db
+async function resolveItems(
+  playlistId: string,
+  timezone: string,
+  now: Date,
+  path: Set<string>,
+  prefix = "",
+): Promise<{ items: PlayerItem[]; finger: string[] }> {
+  if (path.has(playlistId) || path.size >= 8) return { items: [], finger: [`cycle:${playlistId}`] };
+  const nextPath = new Set(path).add(playlistId);
+  const rows = await getDb()
     .select({
       id: schema.playlistItems.id,
       mediaAssetId: schema.playlistItems.mediaAssetId,
+      nestedPlaylistId: schema.playlistItems.nestedPlaylistId,
+      scheduleRules: schema.playlistItems.scheduleRules,
       durationMs: schema.playlistItems.durationMs,
       isMuted: schema.playlistItems.isMuted,
       kind: schema.mediaAssets.kind,
@@ -130,29 +63,40 @@ export async function resolvePlaylistForDevice(
       widgetConfig: schema.mediaAssets.widgetConfig,
       airStartAt: schema.mediaAssets.airStartAt,
       airEndAt: schema.mediaAssets.airEndAt,
+      nestedRevision: schema.playlists.revision,
     })
     .from(schema.playlistItems)
-    .innerJoin(schema.mediaAssets, eq(schema.mediaAssets.id, schema.playlistItems.mediaAssetId))
-    .where(eq(schema.playlistItems.playlistId, playlist.id))
+    .leftJoin(schema.mediaAssets, eq(schema.mediaAssets.id, schema.playlistItems.mediaAssetId))
+    .leftJoin(schema.playlists, eq(schema.playlists.id, schema.playlistItems.nestedPlaylistId))
+    .where(eq(schema.playlistItems.playlistId, playlistId))
     .orderBy(asc(schema.playlistItems.position));
 
-  const storageReady = isStorageConfigured();
   const items: PlayerItem[] = [];
-  /**
-   * Item id + underlying object key. Mixed into the revision so a screen also
-   * re-syncs when a file is *replaced* in place (same playlist, new content).
-   */
-  const fingerSource: string[] = [];
-  for (const row of itemRows) {
-    if (row.status !== "ready") continue;
-    // Per-file airing window (flash offers): outside it the file never plays,
-    // no matter which playlist it belongs to.
+  const finger: string[] = [];
+  for (const row of rows) {
+    if (row.nestedPlaylistId) {
+      const rules = row.scheduleRules as ScheduleRule[];
+      if (!anyScheduleRuleMatches(rules, now, timezone)) continue;
+      const nested = await resolveItems(
+        row.nestedPlaylistId,
+        timezone,
+        now,
+        nextPath,
+        `${prefix}${row.id}:`,
+      );
+      items.push(...nested.items);
+      finger.push(
+        `${row.id}:nested:${row.nestedPlaylistId}:${row.nestedRevision ?? 0}`,
+        ...nested.finger,
+      );
+      continue;
+    }
+    if (!row.mediaAssetId || !row.kind || !row.name || row.status !== "ready") continue;
     if (row.airStartAt && row.airStartAt > now) continue;
     if (row.airEndAt && row.airEndAt < now) continue;
-    // Widgets render locally on the TV from open data; they carry no file URL.
     if (row.kind === "widget") {
       items.push({
-        id: row.id,
+        id: `${prefix}${row.id}`,
         mediaAssetId: row.mediaAssetId,
         kind: "widget",
         url: null,
@@ -162,15 +106,13 @@ export async function resolvePlaylistForDevice(
         widgetType: row.widgetType,
         widgetConfig: (row.widgetConfig as WidgetConfig | null) ?? null,
       });
-      fingerSource.push(`${row.id}:${JSON.stringify(row.widgetConfig ?? null)}`);
+      finger.push(`${row.id}:${JSON.stringify(row.widgetConfig ?? null)}`);
       continue;
     }
-    // `web` e `stream` são endereços externos: a TV abre na hora, sem download.
-    const isExternal = row.kind === "web" || row.kind === "stream";
-    let url: string | null = isExternal ? row.sourceUrl : null;
-    if (!isExternal && storageReady && row.storageKey) {
+    const external = row.kind === "web" || row.kind === "stream";
+    let url: string | null = external ? row.sourceUrl : null;
+    if (!external && isStorageConfigured() && row.storageKey) {
       try {
-        // 6h beats the 5min sync loop by a wide margin, so playback never stalls.
         url = await createDownloadUrl(row.storageKey, 6 * 3600);
       } catch {
         url = null;
@@ -178,7 +120,7 @@ export async function resolvePlaylistForDevice(
     }
     if (!url) continue;
     items.push({
-      id: row.id,
+      id: `${prefix}${row.id}`,
       mediaAssetId: row.mediaAssetId,
       kind: row.kind,
       url,
@@ -188,13 +130,76 @@ export async function resolvePlaylistForDevice(
       widgetType: null,
       widgetConfig: null,
     });
-    fingerSource.push(`${row.id}:${row.storageKey ?? row.sourceUrl ?? ""}`);
+    finger.push(`${row.id}:${row.storageKey ?? row.sourceUrl ?? ""}`);
   }
+  return { items, finger };
+}
 
-  return {
-    id: playlist.id,
-    name: playlist.name,
-    revision: playlist.revision * 1000 + fingerprint(fingerSource),
-    items,
-  };
+/** Selects the most specific active schedule; an empty result falls back to the default playlist. */
+export async function resolvePlaylistForDevice(
+  deviceId: string,
+  timezone = "America/Sao_Paulo",
+): Promise<PlayerPlaylist> {
+  const db = getDb();
+  const now = new Date();
+  const candidates = await db
+    .select({
+      playlistId: schema.schedules.playlistId,
+      weekdayMask: schema.schedules.weekdayMask,
+      startMinute: schema.schedules.startMinute,
+      endMinute: schema.schedules.endMinute,
+      validFrom: schema.schedules.validFrom,
+      validUntil: schema.schedules.validUntil,
+      ruleType: schema.schedules.ruleType,
+      ruleConfig: schema.schedules.ruleConfig,
+      createdAt: schema.schedules.createdAt,
+    })
+    .from(schema.schedules)
+    .where(and(eq(schema.schedules.deviceId, deviceId), eq(schema.schedules.isActive, true)))
+    .orderBy(desc(schema.schedules.createdAt));
+
+  const matches = candidates
+    .map((row) => ({ ...row, rule: legacyScheduleRule(row) }))
+    .filter((row) => matchesScheduleRule(row.rule, now, timezone))
+    .sort(
+      (a, b) =>
+        scheduleSpecificity(b.rule.type) - scheduleSpecificity(a.rule.type) ||
+        b.createdAt.getTime() - a.createdAt.getTime(),
+    );
+
+  const device = await db
+    .select({ defaultPlaylistId: schema.devices.defaultPlaylistId })
+    .from(schema.devices)
+    .where(eq(schema.devices.id, deviceId))
+    .limit(1);
+  const choices = [
+    ...new Set(
+      [...matches.map((row) => row.playlistId), device[0]?.defaultPlaylistId].filter(
+        (id): id is string => Boolean(id),
+      ),
+    ),
+  ];
+  for (const playlistId of choices) {
+    const playlist = (
+      await db
+        .select({
+          id: schema.playlists.id,
+          name: schema.playlists.name,
+          revision: schema.playlists.revision,
+        })
+        .from(schema.playlists)
+        .where(eq(schema.playlists.id, playlistId))
+        .limit(1)
+    )[0];
+    if (!playlist) continue;
+    const resolved = await resolveItems(playlist.id, timezone, now, new Set());
+    if (!resolved.items.length) continue;
+    return {
+      id: playlist.id,
+      name: playlist.name,
+      revision: playlist.revision * 1000 + fingerprint(resolved.finger),
+      items: resolved.items,
+    };
+  }
+  return null;
 }

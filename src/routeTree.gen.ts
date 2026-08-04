@@ -31,6 +31,7 @@ import { Route as StudioWidgetsRouteImport } from './routes/studio/widgets'
 import { Route as TorreIndexRouteImport } from './routes/torre/index'
 import { Route as TorrePlanosRouteImport } from './routes/torre/planos'
 import { Route as ApiBrandingLogoRouteImport } from './routes/api/branding/logo'
+import { Route as ApiInternalDeviceMonitorRouteImport } from './routes/api/internal/device-monitor'
 import { Route as ApiMediaReplaceRouteImport } from './routes/api/media/replace'
 import { Route as ApiMediaUploadRouteImport } from './routes/api/media/upload'
 import { Route as ApiPublicEmissorManifestRouteImport } from './routes/api/public/emissor-manifest'
@@ -40,6 +41,7 @@ import { Route as StudioInstalarAndroidRouteImport } from './routes/studio/insta
 import { Route as StudioInstalarEmissorLinuxRouteImport } from './routes/studio/instalar/emissor-linux'
 import { Route as StudioInstalarEmissorWindowsRouteImport } from './routes/studio/instalar/emissor-windows'
 import { Route as StudioInstalarRokuRouteImport } from './routes/studio/instalar/roku'
+import { Route as StudioTelasDeviceIdRouteImport } from './routes/studio/telas.$deviceId'
 import { Route as TorreClientesIndexRouteImport } from './routes/torre/clientes/index'
 import { Route as TorreClientesOrganizationIdRouteImport } from './routes/torre/clientes/$organizationId'
 import { Route as ApiPublicEmitterRegisterRouteImport } from './routes/api/public/emitter/register'
@@ -164,6 +166,12 @@ const ApiBrandingLogoRoute = ApiBrandingLogoRouteImport.update({
   path: '/api/branding/logo',
   getParentRoute: () => rootRouteImport,
 } as any)
+const ApiInternalDeviceMonitorRoute =
+  ApiInternalDeviceMonitorRouteImport.update({
+    id: '/api/internal/device-monitor',
+    path: '/api/internal/device-monitor',
+    getParentRoute: () => rootRouteImport,
+  } as any)
 const ApiMediaReplaceRoute = ApiMediaReplaceRouteImport.update({
   id: '/api/media/replace',
   path: '/api/media/replace',
@@ -211,6 +219,11 @@ const StudioInstalarRokuRoute = StudioInstalarRokuRouteImport.update({
   id: '/instalar/roku',
   path: '/instalar/roku',
   getParentRoute: () => StudioRouteRoute,
+} as any)
+const StudioTelasDeviceIdRoute = StudioTelasDeviceIdRouteImport.update({
+  id: '/$deviceId',
+  path: '/$deviceId',
+  getParentRoute: () => StudioTelasRoute,
 } as any)
 const TorreClientesIndexRoute = TorreClientesIndexRouteImport.update({
   id: '/clientes/',
@@ -298,13 +311,14 @@ export interface FileRoutesByFullPath {
   '/studio/playlists': typeof StudioPlaylistsRoute
   '/studio/relatorios': typeof StudioRelatoriosRoute
   '/studio/senhas': typeof StudioSenhasRoute
-  '/studio/telas': typeof StudioTelasRoute
+  '/studio/telas': typeof StudioTelasRouteWithChildren
   '/studio/widgets': typeof StudioWidgetsRoute
   '/torre/planos': typeof TorrePlanosRoute
   '/emitir/': typeof EmitirIndexRoute
   '/studio/': typeof StudioIndexRoute
   '/torre/': typeof TorreIndexRoute
   '/api/branding/logo': typeof ApiBrandingLogoRoute
+  '/api/internal/device-monitor': typeof ApiInternalDeviceMonitorRoute
   '/api/media/replace': typeof ApiMediaReplaceRoute
   '/api/media/upload': typeof ApiMediaUploadRoute
   '/api/public/emissor-manifest': typeof ApiPublicEmissorManifestRoute
@@ -314,6 +328,7 @@ export interface FileRoutesByFullPath {
   '/studio/instalar/emissor-linux': typeof StudioInstalarEmissorLinuxRoute
   '/studio/instalar/emissor-windows': typeof StudioInstalarEmissorWindowsRoute
   '/studio/instalar/roku': typeof StudioInstalarRokuRoute
+  '/studio/telas/$deviceId': typeof StudioTelasDeviceIdRoute
   '/torre/clientes/$organizationId': typeof TorreClientesOrganizationIdRoute
   '/torre/clientes/': typeof TorreClientesIndexRoute
   '/api/public/emitter/register': typeof ApiPublicEmitterRegisterRoute
@@ -342,13 +357,14 @@ export interface FileRoutesByTo {
   '/studio/playlists': typeof StudioPlaylistsRoute
   '/studio/relatorios': typeof StudioRelatoriosRoute
   '/studio/senhas': typeof StudioSenhasRoute
-  '/studio/telas': typeof StudioTelasRoute
+  '/studio/telas': typeof StudioTelasRouteWithChildren
   '/studio/widgets': typeof StudioWidgetsRoute
   '/torre/planos': typeof TorrePlanosRoute
   '/emitir': typeof EmitirIndexRoute
   '/studio': typeof StudioIndexRoute
   '/torre': typeof TorreIndexRoute
   '/api/branding/logo': typeof ApiBrandingLogoRoute
+  '/api/internal/device-monitor': typeof ApiInternalDeviceMonitorRoute
   '/api/media/replace': typeof ApiMediaReplaceRoute
   '/api/media/upload': typeof ApiMediaUploadRoute
   '/api/public/emissor-manifest': typeof ApiPublicEmissorManifestRoute
@@ -358,6 +374,7 @@ export interface FileRoutesByTo {
   '/studio/instalar/emissor-linux': typeof StudioInstalarEmissorLinuxRoute
   '/studio/instalar/emissor-windows': typeof StudioInstalarEmissorWindowsRoute
   '/studio/instalar/roku': typeof StudioInstalarRokuRoute
+  '/studio/telas/$deviceId': typeof StudioTelasDeviceIdRoute
   '/torre/clientes/$organizationId': typeof TorreClientesOrganizationIdRoute
   '/torre/clientes': typeof TorreClientesIndexRoute
   '/api/public/emitter/register': typeof ApiPublicEmitterRegisterRoute
@@ -389,13 +406,14 @@ export interface FileRoutesById {
   '/studio/playlists': typeof StudioPlaylistsRoute
   '/studio/relatorios': typeof StudioRelatoriosRoute
   '/studio/senhas': typeof StudioSenhasRoute
-  '/studio/telas': typeof StudioTelasRoute
+  '/studio/telas': typeof StudioTelasRouteWithChildren
   '/studio/widgets': typeof StudioWidgetsRoute
   '/torre/planos': typeof TorrePlanosRoute
   '/emitir/': typeof EmitirIndexRoute
   '/studio/': typeof StudioIndexRoute
   '/torre/': typeof TorreIndexRoute
   '/api/branding/logo': typeof ApiBrandingLogoRoute
+  '/api/internal/device-monitor': typeof ApiInternalDeviceMonitorRoute
   '/api/media/replace': typeof ApiMediaReplaceRoute
   '/api/media/upload': typeof ApiMediaUploadRoute
   '/api/public/emissor-manifest': typeof ApiPublicEmissorManifestRoute
@@ -405,6 +423,7 @@ export interface FileRoutesById {
   '/studio/instalar/emissor-linux': typeof StudioInstalarEmissorLinuxRoute
   '/studio/instalar/emissor-windows': typeof StudioInstalarEmissorWindowsRoute
   '/studio/instalar/roku': typeof StudioInstalarRokuRoute
+  '/studio/telas/$deviceId': typeof StudioTelasDeviceIdRoute
   '/torre/clientes/$organizationId': typeof TorreClientesOrganizationIdRoute
   '/torre/clientes/': typeof TorreClientesIndexRoute
   '/api/public/emitter/register': typeof ApiPublicEmitterRegisterRoute
@@ -444,6 +463,7 @@ export interface FileRouteTypes {
     | '/studio/'
     | '/torre/'
     | '/api/branding/logo'
+    | '/api/internal/device-monitor'
     | '/api/media/replace'
     | '/api/media/upload'
     | '/api/public/emissor-manifest'
@@ -453,6 +473,7 @@ export interface FileRouteTypes {
     | '/studio/instalar/emissor-linux'
     | '/studio/instalar/emissor-windows'
     | '/studio/instalar/roku'
+    | '/studio/telas/$deviceId'
     | '/torre/clientes/$organizationId'
     | '/torre/clientes/'
     | '/api/public/emitter/register'
@@ -488,6 +509,7 @@ export interface FileRouteTypes {
     | '/studio'
     | '/torre'
     | '/api/branding/logo'
+    | '/api/internal/device-monitor'
     | '/api/media/replace'
     | '/api/media/upload'
     | '/api/public/emissor-manifest'
@@ -497,6 +519,7 @@ export interface FileRouteTypes {
     | '/studio/instalar/emissor-linux'
     | '/studio/instalar/emissor-windows'
     | '/studio/instalar/roku'
+    | '/studio/telas/$deviceId'
     | '/torre/clientes/$organizationId'
     | '/torre/clientes'
     | '/api/public/emitter/register'
@@ -534,6 +557,7 @@ export interface FileRouteTypes {
     | '/studio/'
     | '/torre/'
     | '/api/branding/logo'
+    | '/api/internal/device-monitor'
     | '/api/media/replace'
     | '/api/media/upload'
     | '/api/public/emissor-manifest'
@@ -543,6 +567,7 @@ export interface FileRouteTypes {
     | '/studio/instalar/emissor-linux'
     | '/studio/instalar/emissor-windows'
     | '/studio/instalar/roku'
+    | '/studio/telas/$deviceId'
     | '/torre/clientes/$organizationId'
     | '/torre/clientes/'
     | '/api/public/emitter/register'
@@ -568,6 +593,7 @@ export interface RootRouteChildren {
   EmitirTokenRoute: typeof EmitirTokenRoute
   EmitirIndexRoute: typeof EmitirIndexRoute
   ApiBrandingLogoRoute: typeof ApiBrandingLogoRoute
+  ApiInternalDeviceMonitorRoute: typeof ApiInternalDeviceMonitorRoute
   ApiMediaReplaceRoute: typeof ApiMediaReplaceRoute
   ApiMediaUploadRoute: typeof ApiMediaUploadRoute
   ApiPublicEmissorManifestRoute: typeof ApiPublicEmissorManifestRoute
@@ -742,6 +768,13 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof ApiBrandingLogoRouteImport
       parentRoute: typeof rootRouteImport
     }
+    '/api/internal/device-monitor': {
+      id: '/api/internal/device-monitor'
+      path: '/api/internal/device-monitor'
+      fullPath: '/api/internal/device-monitor'
+      preLoaderRoute: typeof ApiInternalDeviceMonitorRouteImport
+      parentRoute: typeof rootRouteImport
+    }
     '/api/media/replace': {
       id: '/api/media/replace'
       path: '/api/media/replace'
@@ -804,6 +837,13 @@ declare module '@tanstack/react-router' {
       fullPath: '/studio/instalar/roku'
       preLoaderRoute: typeof StudioInstalarRokuRouteImport
       parentRoute: typeof StudioRouteRoute
+    }
+    '/studio/telas/$deviceId': {
+      id: '/studio/telas/$deviceId'
+      path: '/$deviceId'
+      fullPath: '/studio/telas/$deviceId'
+      preLoaderRoute: typeof StudioTelasDeviceIdRouteImport
+      parentRoute: typeof StudioTelasRoute
     }
     '/torre/clientes/': {
       id: '/torre/clientes/'
@@ -899,6 +939,18 @@ declare module '@tanstack/react-router' {
   }
 }
 
+interface StudioTelasRouteChildren {
+  StudioTelasDeviceIdRoute: typeof StudioTelasDeviceIdRoute
+}
+
+const StudioTelasRouteChildren: StudioTelasRouteChildren = {
+  StudioTelasDeviceIdRoute: StudioTelasDeviceIdRoute,
+}
+
+const StudioTelasRouteWithChildren = StudioTelasRoute._addFileChildren(
+  StudioTelasRouteChildren,
+)
+
 interface StudioRouteRouteChildren {
   StudioAgendaRoute: typeof StudioAgendaRoute
   StudioConfiguracoesRoute: typeof StudioConfiguracoesRoute
@@ -908,7 +960,7 @@ interface StudioRouteRouteChildren {
   StudioPlaylistsRoute: typeof StudioPlaylistsRoute
   StudioRelatoriosRoute: typeof StudioRelatoriosRoute
   StudioSenhasRoute: typeof StudioSenhasRoute
-  StudioTelasRoute: typeof StudioTelasRoute
+  StudioTelasRoute: typeof StudioTelasRouteWithChildren
   StudioWidgetsRoute: typeof StudioWidgetsRoute
   StudioIndexRoute: typeof StudioIndexRoute
   StudioInstalarAndroidRoute: typeof StudioInstalarAndroidRoute
@@ -926,7 +978,7 @@ const StudioRouteRouteChildren: StudioRouteRouteChildren = {
   StudioPlaylistsRoute: StudioPlaylistsRoute,
   StudioRelatoriosRoute: StudioRelatoriosRoute,
   StudioSenhasRoute: StudioSenhasRoute,
-  StudioTelasRoute: StudioTelasRoute,
+  StudioTelasRoute: StudioTelasRouteWithChildren,
   StudioWidgetsRoute: StudioWidgetsRoute,
   StudioIndexRoute: StudioIndexRoute,
   StudioInstalarAndroidRoute: StudioInstalarAndroidRoute,
@@ -967,6 +1019,7 @@ const rootRouteChildren: RootRouteChildren = {
   EmitirTokenRoute: EmitirTokenRoute,
   EmitirIndexRoute: EmitirIndexRoute,
   ApiBrandingLogoRoute: ApiBrandingLogoRoute,
+  ApiInternalDeviceMonitorRoute: ApiInternalDeviceMonitorRoute,
   ApiMediaReplaceRoute: ApiMediaReplaceRoute,
   ApiMediaUploadRoute: ApiMediaUploadRoute,
   ApiPublicEmissorManifestRoute: ApiPublicEmissorManifestRoute,

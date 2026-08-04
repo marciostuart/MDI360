@@ -300,6 +300,13 @@ export const replaceDevice = createServerFn({ method: "POST" })
         defaultPlaylistId: old.defaultPlaylistId,
         audioEnabled: old.audioEnabled,
         transitionEffect: old.transitionEffect,
+        operatingHours: old.operatingHours,
+        offlineAlertsEnabled: old.offlineAlertsEnabled,
+        recoveryAlertsEnabled: old.recoveryAlertsEnabled,
+        offlineToleranceMinutes: old.offlineToleranceMinutes,
+        alertWhatsapp: old.alertWhatsapp,
+        alertWhatsappVerifiedAt: old.alertWhatsappVerifiedAt,
+        offlineAlertSentAt: null,
         status: "active",
         pairingExpiresAt: null,
       })

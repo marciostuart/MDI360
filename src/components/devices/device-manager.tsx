@@ -1,5 +1,6 @@
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { useServerFn } from "@tanstack/react-start";
+import { Link } from "@tanstack/react-router";
 import {
   Camera,
   Eraser,
@@ -552,6 +553,12 @@ export function DeviceManager() {
                   </div>
 
                   <div className="flex flex-wrap gap-2">
+                    <Button size="sm" asChild>
+                      <Link to="/studio/telas/$deviceId" params={{ deviceId: device.id }}>
+                        <Tv className="size-3.5" />
+                        Abrir TV
+                      </Link>
+                    </Button>
                     <Button
                       size="sm"
                       variant="outline"

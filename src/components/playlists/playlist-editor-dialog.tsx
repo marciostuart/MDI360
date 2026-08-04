@@ -6,6 +6,7 @@ import {
   Image as ImageIcon,
   Loader2,
   Newspaper,
+  ListVideo,
   Save,
   Search,
   Sparkles,
@@ -30,14 +31,22 @@ import { Input } from "@/components/ui/input";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import type { MediaListItem } from "@/lib/media/media.functions";
 import { listMediaAssets } from "@/lib/media/media.functions";
-import { getPlaylist, setPlaylistItems, updatePlaylist } from "@/lib/playlists/playlists.functions";
+import {
+  getPlaylist,
+  listPlaylists,
+  setPlaylistItems,
+  updatePlaylist,
+} from "@/lib/playlists/playlists.functions";
+import type { ScheduleRule } from "@/lib/schedules/rules";
 
 type DraftItem = {
   /** Unique per row so the same asset can appear many times in one playlist. */
   rowId: string;
-  mediaAssetId: string;
+  mediaAssetId: string | null;
+  nestedPlaylistId: string | null;
+  scheduleRules: ScheduleRule[];
   name: string;
-  kind: MediaListItem["kind"];
+  kind: MediaListItem["kind"] | "playlist";
   durationMs: number;
   isMuted: boolean;
 };
@@ -53,7 +62,8 @@ function bucketOf(item: MediaListItem): "files" | "fun" | "tools" {
   return ENTERTAINMENT_WIDGETS.has(item.widgetType ?? "") ? "fun" : "tools";
 }
 
-function kindIcon(kind: MediaListItem["kind"], widgetType: string | null) {
+function kindIcon(kind: MediaListItem["kind"] | "playlist", widgetType: string | null) {
+  if (kind === "playlist") return <ListVideo className="size-4 shrink-0 text-primary" />;
   if (kind === "video" || kind === "stream")
     return <Film className="size-4 shrink-0 text-muted-foreground" />;
   if (kind === "widget")
@@ -92,6 +102,7 @@ export function PlaylistEditorDialog({
   const queryClient = useQueryClient();
   const getFn = useServerFn(getPlaylist);
   const mediaFn = useServerFn(listMediaAssets);
+  const playlistsFn = useServerFn(listPlaylists);
   const saveItemsFn = useServerFn(setPlaylistItems);
   const renameFn = useServerFn(updatePlaylist);
 
@@ -110,6 +121,11 @@ export function PlaylistEditorDialog({
     queryFn: () => mediaFn({}),
     enabled: open,
   });
+  const playlists = useQuery({
+    queryKey: ["playlists"],
+    queryFn: () => playlistsFn(),
+    enabled: open,
+  });
 
   useEffect(() => setName(playlistName), [playlistName]);
 
@@ -119,6 +135,8 @@ export function PlaylistEditorDialog({
       detail.data.items.map((item) => ({
         rowId: nextRowId(),
         mediaAssetId: item.mediaAssetId,
+        nestedPlaylistId: item.nestedPlaylistId,
+        scheduleRules: item.scheduleRules,
         name: item.name,
         kind: item.kind,
         durationMs: item.durationMs,
@@ -150,6 +168,8 @@ export function PlaylistEditorDialog({
           playlistId,
           items: draft.map((item) => ({
             mediaAssetId: item.mediaAssetId,
+            nestedPlaylistId: item.nestedPlaylistId,
+            scheduleRules: item.scheduleRules,
             durationMs: item.durationMs,
             isMuted: item.isMuted,
           })),
@@ -170,12 +190,12 @@ export function PlaylistEditorDialog({
     const entry: DraftItem = {
       rowId: nextRowId(),
       mediaAssetId: asset.id,
+      nestedPlaylistId: null,
+      scheduleRules: [],
       name: asset.name,
       kind: asset.kind,
       durationMs:
-        asset.kind === "video" || asset.kind === "stream"
-          ? (asset.durationMs ?? 15000)
-          : 10000,
+        asset.kind === "video" || asset.kind === "stream" ? (asset.durationMs ?? 15000) : 10000,
       isMuted: true,
     };
     setDraft((items) => {
@@ -183,6 +203,24 @@ export function PlaylistEditorDialog({
       next.splice(Math.min(Math.max(index, 0), next.length), 0, entry);
       return next;
     });
+  }
+
+  function insertPlaylist(id: string) {
+    const item = playlists.data?.items.find((entry) => entry.id === id);
+    if (!item || item.id === playlistId) return;
+    setDraft((items) => [
+      ...items,
+      {
+        rowId: nextRowId(),
+        mediaAssetId: null,
+        nestedPlaylistId: item.id,
+        scheduleRules: [],
+        name: item.name,
+        kind: "playlist",
+        durationMs: Math.max(item.totalDurationMs, 1000),
+        isMuted: true,
+      },
+    ]);
   }
 
   function moveRow(rowId: string, index: number) {
@@ -311,6 +349,26 @@ export function PlaylistEditorDialog({
                   <TabsContent value="files">{renderLibrary("files")}</TabsContent>
                   <TabsContent value="fun">{renderLibrary("fun")}</TabsContent>
                   <TabsContent value="tools">{renderLibrary("tools")}</TabsContent>
+                  <TabsContent value="tools">
+                    <div className="mt-3 border-t pt-3">
+                      <p className="mb-2 text-xs font-medium text-muted-foreground">
+                        Lista de reprodução (sublista)
+                      </p>
+                      {(playlists.data?.items ?? [])
+                        .filter((item) => item.id !== playlistId)
+                        .map((item) => (
+                          <button
+                            key={item.id}
+                            type="button"
+                            onClick={() => insertPlaylist(item.id)}
+                            className="mb-2 flex w-full items-center gap-2 rounded-lg border p-2.5 text-left hover:border-primary/50"
+                          >
+                            <ListVideo className="size-4 text-primary" />
+                            <span className="truncate text-sm">{item.name}</span>
+                          </button>
+                        ))}
+                    </div>
+                  </TabsContent>
                 </div>
               </Tabs>
             </div>
@@ -370,6 +428,21 @@ export function PlaylistEditorDialog({
                           </span>
                           {kindIcon(item.kind, null)}
                           <span className="min-w-24 flex-1 truncate text-sm">{item.name}</span>
+                          {item.kind === "playlist" ? (
+                            <SublistRuleEditor
+                              rules={item.scheduleRules}
+                              name={item.name}
+                              onChange={(scheduleRules) =>
+                                setDraft((items) =>
+                                  items.map((entry) =>
+                                    entry.rowId === item.rowId
+                                      ? { ...entry, scheduleRules }
+                                      : entry,
+                                  ),
+                                )
+                              }
+                            />
+                          ) : null}
                           <div className="flex items-center gap-1">
                             <Input
                               type="number"
@@ -451,5 +524,192 @@ export function PlaylistEditorDialog({
         </div>
       </DialogContent>
     </Dialog>
+  );
+}
+
+const SUBLIST_WEEKDAYS = ["D", "S", "T", "Q", "Q", "S", "S"];
+const toTime = (value = 0) =>
+  `${String(Math.floor(value / 60)).padStart(2, "0")}:${String(value % 60).padStart(2, "0")}`;
+const fromTime = (value: string) => {
+  const [hour, minute] = value.split(":").map(Number);
+  return hour * 60 + minute;
+};
+function newSublistRule(type: ScheduleRule["type"] = "daily_time"): ScheduleRule {
+  const today = new Date().toISOString().slice(0, 10);
+  if (type === "weekdays")
+    return { type, weekdays: [1, 2, 3, 4, 5], startMinute: 480, endMinute: 1080 };
+  if (type === "month_day") return { type, day: 1 };
+  if (type === "month") return { type, month: 1 };
+  if (type === "specific_date_time")
+    return { type, date: today, startMinute: 480, endMinute: 1080 };
+  if (type === "date_time_range")
+    return {
+      type,
+      startAt: new Date(`${today}T08:00`).toISOString(),
+      endAt: new Date(`${today}T18:00`).toISOString(),
+    };
+  return { type: "daily_time", startMinute: 480, endMinute: 1080 };
+}
+
+function SublistRuleEditor({
+  rules,
+  name,
+  onChange,
+}: {
+  rules: ScheduleRule[];
+  name: string;
+  onChange: (rules: ScheduleRule[]) => void;
+}) {
+  const patch = (index: number, value: Partial<ScheduleRule>) =>
+    onChange(
+      rules.map((rule, position) =>
+        position === index ? ({ ...rule, ...value } as ScheduleRule) : rule,
+      ),
+    );
+  return (
+    <div className="w-full space-y-2 rounded-md bg-muted/40 p-2">
+      <div className="flex items-center justify-between gap-2">
+        <span className="text-xs text-muted-foreground">
+          {rules.length ? "Ativa se qualquer regra for válida" : "Sempre ativa"}
+        </span>
+        <Button
+          type="button"
+          size="sm"
+          variant="outline"
+          className="h-7 text-xs"
+          onClick={() => onChange([...rules, newSublistRule()])}
+        >
+          + Regra
+        </Button>
+      </div>
+      {rules.map((rule, index) => (
+        <div key={index} className="flex flex-wrap items-center gap-1 border-t pt-2">
+          <select
+            className="h-8 rounded-md border bg-background px-2 text-xs"
+            value={rule.type}
+            onChange={(event) =>
+              onChange(
+                rules.map((item, position) =>
+                  position === index
+                    ? newSublistRule(event.target.value as ScheduleRule["type"])
+                    : item,
+                ),
+              )
+            }
+            aria-label={`Regra ${index + 1} de ${name}`}
+          >
+            <option value="daily_time">Horário diário</option>
+            <option value="weekdays">Dias da semana</option>
+            <option value="month_day">Dia do mês</option>
+            <option value="month">Mês</option>
+            <option value="specific_date_time">Data específica</option>
+            <option value="date_time_range">Período</option>
+          </select>
+          {["daily_time", "weekdays", "specific_date_time"].includes(rule.type) ? (
+            <>
+              <Input
+                type="time"
+                className="h-8 w-28 text-xs"
+                value={toTime(rule.startMinute)}
+                onChange={(event) => patch(index, { startMinute: fromTime(event.target.value) })}
+              />
+              <Input
+                type="time"
+                className="h-8 w-28 text-xs"
+                value={toTime(rule.endMinute ?? 1440)}
+                onChange={(event) => patch(index, { endMinute: fromTime(event.target.value) })}
+              />
+            </>
+          ) : null}
+          {rule.type === "weekdays" ? (
+            <div className="flex gap-1">
+              {SUBLIST_WEEKDAYS.map((label, day) => (
+                <Button
+                  key={day}
+                  type="button"
+                  size="icon"
+                  variant={(rule.weekdays ?? []).includes(day) ? "default" : "outline"}
+                  className="size-7 text-[10px]"
+                  onClick={() =>
+                    patch(index, {
+                      weekdays: (rule.weekdays ?? []).includes(day)
+                        ? (rule.weekdays ?? []).filter((value) => value !== day)
+                        : [...(rule.weekdays ?? []), day],
+                    })
+                  }
+                >
+                  {label}
+                </Button>
+              ))}
+            </div>
+          ) : null}
+          {rule.type === "specific_date_time" ? (
+            <Input
+              type="date"
+              className="h-8 w-36 text-xs"
+              value={rule.date ?? ""}
+              onChange={(event) => patch(index, { date: event.target.value })}
+            />
+          ) : null}
+          {rule.type === "month_day" ? (
+            <Input
+              type="number"
+              min={1}
+              max={31}
+              className="h-8 w-20 text-xs"
+              value={rule.day ?? 1}
+              onChange={(event) => patch(index, { day: Number(event.target.value) })}
+            />
+          ) : null}
+          {rule.type === "month" ? (
+            <Input
+              type="number"
+              min={1}
+              max={12}
+              className="h-8 w-20 text-xs"
+              value={rule.month ?? 1}
+              onChange={(event) => patch(index, { month: Number(event.target.value) })}
+            />
+          ) : null}
+          {rule.type === "date_time_range" ? (
+            <>
+              <Input
+                type="datetime-local"
+                className="h-8 w-48 text-xs"
+                value={rule.startAt ? new Date(rule.startAt).toISOString().slice(0, 16) : ""}
+                onChange={(event) =>
+                  patch(index, {
+                    startAt: event.target.value
+                      ? new Date(event.target.value).toISOString()
+                      : undefined,
+                  })
+                }
+              />
+              <Input
+                type="datetime-local"
+                className="h-8 w-48 text-xs"
+                value={rule.endAt ? new Date(rule.endAt).toISOString().slice(0, 16) : ""}
+                onChange={(event) =>
+                  patch(index, {
+                    endAt: event.target.value
+                      ? new Date(event.target.value).toISOString()
+                      : undefined,
+                  })
+                }
+              />
+            </>
+          ) : null}
+          <Button
+            type="button"
+            size="icon"
+            variant="ghost"
+            className="size-8 text-destructive"
+            onClick={() => onChange(rules.filter((_, position) => position !== index))}
+          >
+            <Trash2 className="size-3.5" />
+          </Button>
+        </div>
+      ))}
+    </div>
   );
 }
