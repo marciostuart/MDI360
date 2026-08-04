@@ -73,7 +73,7 @@ function OverviewPage() {
             <CardTitle className="text-3xl">{stats?.mediaReady ?? 0}</CardTitle>
           </CardHeader>
           <CardContent className="text-xs text-muted-foreground">
-            Imagens e vídeos no seu MinIO
+            Imagens e vídeos no seu armazenamento
           </CardContent>
         </Card>
         <Card>

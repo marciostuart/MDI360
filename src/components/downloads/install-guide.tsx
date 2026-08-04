@@ -57,7 +57,7 @@ export function InstallGuide({
       <Card className="border-primary/30">
         <CardHeader>
           <CardTitle className="text-lg">Download</CardTitle>
-          <CardDescription>O download começa diretamente, sem necessidade de entrar no GitHub.</CardDescription>
+          <CardDescription>O download começa imediatamente.</CardDescription>
         </CardHeader>
         <CardContent className="flex flex-col gap-2 sm:flex-row">
           {downloads.map((download) => (
