@@ -44,6 +44,7 @@
             <intent-filter>
                 <action android:name="android.intent.action.BOOT_COMPLETED" />
                 <action android:name="android.intent.action.LOCKED_BOOT_COMPLETED" />
+                <action android:name="android.intent.action.MY_PACKAGE_REPLACED" />
                 <!-- Alguns firmwares de TV Box usam este evento proprietário. -->
                 <action android:name="android.intent.action.QUICKBOOT_POWERON" />
             </intent-filter>
