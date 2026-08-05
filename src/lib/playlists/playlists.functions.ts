@@ -221,10 +221,15 @@ export const updatePlaylist = createServerFn({ method: "POST" })
   .handler(async ({ data }) => {
     const { getDb, schema } = await import("@/lib/db/index.server");
     const { requireUser } = await import("@/lib/auth/session.server");
-    const { and, eq } = await import("drizzle-orm");
+    const { and, eq, sql } = await import("drizzle-orm");
     const user = await requireUser();
 
-    const patch: Record<string, unknown> = { updatedAt: new Date() };
+    const patch: Record<string, unknown> = {
+      // The player uses this revision to apply playlist changes at the next
+      // item boundary, without interrupting the item currently on screen.
+      revision: sql`${schema.playlists.revision} + 1`,
+      updatedAt: new Date(),
+    };
     if (data.name) patch.name = data.name;
     if (data.description !== undefined) patch.description = data.description || null;
 
