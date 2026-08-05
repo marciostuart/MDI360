@@ -105,12 +105,11 @@ public class MainActivity extends AppCompatActivity {
         webView.loadUrl(playerUrl());
     }
 
-    /** Keeps Android WebView's native play overlay out of the kiosk player. */
+    /** Removes media controls without changing the configured audio mode. */
     private void enforceVideoKioskMode(WebView view) {
         String script = "(function(){document.querySelectorAll('video').forEach(function(v){"
                 + "v.controls=false;v.removeAttribute('controls');v.removeAttribute('poster');"
                 + "v.setAttribute('playsinline','');v.setAttribute('autoplay','');"
-                + "v.muted=true;var p=v.play();if(p&&p.catch)p.catch(function(){});"
                 + "});})();";
         view.evaluateJavascript(script, null);
     }

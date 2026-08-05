@@ -68,15 +68,19 @@ function nativeBridge(): NativeBridge | null {
 }
 
 /**
- * Browsers can reject autoplay when a video has audio. Never let that policy
- * stop the rotation: retry muted so the content keeps playing in web mode.
+ * Browsers can reject autoplay when a video has audio. Retry muted only in a
+ * normal browser; the Android WebView is explicitly configured to allow
+ * media playback with audio and must preserve the customer's audio setting.
  */
 async function playWithBrowserFallback(video: HTMLVideoElement) {
   try {
     await video.play();
   } catch {
-    // Android WebView may reject autoplay with audio. Retry muted so the
-    // video keeps playing instead of remaining stopped.
+    if (nativeBridge()) {
+      // Do not mute Android as a fallback: that would break audio and can
+      // leave the WebView's native play overlay visible on the next item.
+      return;
+    }
     video.muted = true;
     try {
       await video.play();
@@ -685,9 +689,7 @@ function PlayerScreen() {
             key={`${current.id}-${index}`}
             url={current.url}
             name={current.name}
-            muted={
-              current.isMuted || sync.device?.audioEnabled === false || Boolean(activeCall)
-            }
+            muted={current.isMuted || sync.device?.audioEnabled === false || Boolean(activeCall)}
             loop={items.length === 1 && !hasPending}
           />
         </FadeLayer>
@@ -768,7 +770,7 @@ function StreamLayer({
       playsInline
       muted={muted}
       loop={loop}
-            controls={false}
+      controls={false}
       controlsList="nodownload nofullscreen noremoteplayback"
       disableRemotePlayback
       disablePictureInPicture
