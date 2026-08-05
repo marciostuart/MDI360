@@ -673,7 +673,10 @@ function PlayerScreen() {
             // ícone de "Play" e qualquer interface do sistema no primeiro frame.
             // The transition wrapper handles visual swaps. Do not depend on
             // the browser firing "playing" after a background sync.
-            style={{ opacity: videoPlayingKey === videoRenderKey ? 1 : 0 }}
+            style={{
+              opacity: videoPlayingKey === videoRenderKey ? 1 : 0,
+              transition: fade ? `opacity ${FADE_MS}ms ease-in-out` : undefined,
+            }}
             onCanPlay={(event) => {
               void playWithBrowserFallback(event.currentTarget);
             }}
