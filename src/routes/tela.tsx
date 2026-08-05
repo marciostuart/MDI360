@@ -645,7 +645,10 @@ function PlayerScreen() {
             muted={current.isMuted || sync.device?.audioEnabled === false || Boolean(activeCall)}
             playsInline
             controls={false}
+            controlsList="nodownload nofullscreen noremoteplayback"
+            disableRemotePlayback
             disablePictureInPicture
+            poster=""
             preload="auto"
             // Só revela o vídeo quando ele realmente começa a tocar: evita o
             // ícone de "Play" e qualquer interface do sistema no primeiro frame.
@@ -763,8 +766,11 @@ function StreamLayer({
       playsInline
       muted={muted}
       loop={loop}
-      controls={false}
+            controls={false}
+      controlsList="nodownload nofullscreen noremoteplayback"
+      disableRemotePlayback
       disablePictureInPicture
+      poster=""
       // Some browsers do not fire "playing" again when a source changes
       // during a background sync, so the stream must never start invisible.
       style={{ opacity: 1 }}
