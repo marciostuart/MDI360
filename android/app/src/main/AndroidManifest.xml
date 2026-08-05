@@ -17,6 +17,7 @@
         android:label="MDI 360"
         android:icon="@mipmap/ic_launcher"
         android:banner="@drawable/tv_banner"
+        android:directBootAware="true"
         android:usesCleartextTraffic="true"
         android:hardwareAccelerated="true"
         android:theme="@style/AppTheme">
@@ -38,9 +39,13 @@
         <receiver
             android:name=".BootReceiver"
             android:enabled="true"
-            android:exported="true">
+            android:exported="true"
+            android:directBootAware="true">
             <intent-filter>
                 <action android:name="android.intent.action.BOOT_COMPLETED" />
+                <action android:name="android.intent.action.LOCKED_BOOT_COMPLETED" />
+                <!-- Alguns firmwares de TV Box usam este evento proprietário. -->
+                <action android:name="android.intent.action.QUICKBOOT_POWERON" />
             </intent-filter>
         </receiver>
     </application>
