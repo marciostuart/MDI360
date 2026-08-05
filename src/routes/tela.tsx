@@ -632,10 +632,9 @@ function PlayerScreen() {
             preload="auto"
             // Só revela o vídeo quando ele realmente começa a tocar: evita o
             // ícone de "Play" e qualquer interface do sistema no primeiro frame.
-            style={{ opacity: 0, transition: "opacity 120ms linear" }}
-            onPlaying={(event) => {
-              event.currentTarget.style.opacity = "1";
-            }}
+            // The transition wrapper handles visual swaps. Do not depend on
+            // the browser firing "playing" after a background sync.
+            style={{ opacity: 1 }}
             loop={items.length === 1 && !hasPending}
             onTimeUpdate={(event) => {
               if (!fade || leaving) return;
@@ -746,10 +745,9 @@ function StreamLayer({
       loop={loop}
       controls={false}
       disablePictureInPicture
-      style={{ opacity: 0, transition: "opacity 120ms linear" }}
-      onPlaying={(event) => {
-        event.currentTarget.style.opacity = "1";
-      }}
+      // Some browsers do not fire "playing" again when a source changes
+      // during a background sync, so the stream must never start invisible.
+      style={{ opacity: 1 }}
     />
   );
 }
