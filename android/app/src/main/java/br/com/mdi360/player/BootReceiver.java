@@ -15,7 +15,9 @@ public class BootReceiver extends BroadcastReceiver {
         String action = intent.getAction();
         if (!Intent.ACTION_BOOT_COMPLETED.equals(action)
                 && !Intent.ACTION_LOCKED_BOOT_COMPLETED.equals(action)
-                && !"android.intent.action.QUICKBOOT_POWERON".equals(action)) return;
+                && !"android.intent.action.QUICKBOOT_POWERON".equals(action)
+                && !Intent.ACTION_USER_PRESENT.equals(action)
+                && !Intent.ACTION_SCREEN_ON.equals(action)) return;
         final PendingResult pending = goAsync();
         Intent open = new Intent(context, MainActivity.class);
         open.addFlags(Intent.FLAG_ACTIVITY_NEW_TASK | Intent.FLAG_ACTIVITY_RESET_TASK_IF_NEEDED);
