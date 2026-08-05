@@ -107,15 +107,11 @@ public class MainActivity extends AppCompatActivity {
 
     /** Keeps Android WebView's native play overlay out of the kiosk player. */
     private void enforceVideoKioskMode(WebView view) {
-        String script = "(function(){"
-                + "function arm(){document.querySelectorAll('video').forEach(function(v){"
+        String script = "(function(){document.querySelectorAll('video').forEach(function(v){"
                 + "v.controls=false;v.removeAttribute('controls');v.removeAttribute('poster');"
                 + "v.setAttribute('playsinline','');v.setAttribute('autoplay','');"
-                + "var p=v.play();if(p&&p.catch)p.catch(function(){v.muted=true;"
-                + "var q=v.play();if(q&&q.catch)q.catch(function(){});});"
-                + "});}"
-                + "arm();new MutationObserver(arm).observe(document.documentElement,{subtree:true,childList:true});"
-                + "})();";
+                + "v.muted=true;var p=v.play();if(p&&p.catch)p.catch(function(){});"
+                + "});})();";
         view.evaluateJavascript(script, null);
     }
 

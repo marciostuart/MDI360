@@ -72,15 +72,17 @@ function nativeBridge(): NativeBridge | null {
  * stop the rotation: retry muted so the content keeps playing in web mode.
  */
 async function playWithBrowserFallback(video: HTMLVideoElement) {
+  // Starting muted avoids Android WebView's native play overlay. Once the
+  // media is actually playing, restore the configured audio state.
+  const wantsAudio = !video.muted;
+  video.muted = true;
   try {
     await video.play();
   } catch {
-    video.muted = true;
-    try {
-      await video.play();
-    } catch {
-      // The normal error handler/watchdog will recover from a real media error.
-    }
+    return;
+  }
+  if (wantsAudio) {
+    video.muted = false;
   }
 }
 
