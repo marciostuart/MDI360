@@ -189,6 +189,8 @@ function LandingPage() {
               "MONITORAMENTO EM TEMPO REAL",
               "ATENDIMENTO POR SENHAS",
               "ALERTAS NO WHATSAPP",
+              "PROVA DE EXIBIÇÃO",
+              "GESTÃO MULTIEMPRESA",
             ])
             .map((label, i) => (
               <span key={`${label}-${i}`}>
