@@ -67,6 +67,23 @@ function nativeBridge(): NativeBridge | null {
   return (window as unknown as { MDI360Native?: NativeBridge }).MDI360Native ?? null;
 }
 
+/**
+ * Browsers can reject autoplay when a video has audio. Never let that policy
+ * stop the rotation: retry muted so the content keeps playing in web mode.
+ */
+async function playWithBrowserFallback(video: HTMLVideoElement) {
+  try {
+    await video.play();
+  } catch {
+    video.muted = true;
+    try {
+      await video.play();
+    } catch {
+      // The normal error handler/watchdog will recover from a real media error.
+    }
+  }
+}
+
 /** Apaga só os arquivos em cache, mantendo o vínculo desta tela. */
 async function clearMediaCache() {
   if ("caches" in window) {
@@ -635,6 +652,9 @@ function PlayerScreen() {
             // The transition wrapper handles visual swaps. Do not depend on
             // the browser firing "playing" after a background sync.
             style={{ opacity: 1 }}
+            onCanPlay={(event) => {
+              void playWithBrowserFallback(event.currentTarget);
+            }}
             loop={items.length === 1 && !hasPending}
             onTimeUpdate={(event) => {
               if (!fade || leaving) return;
@@ -748,6 +768,9 @@ function StreamLayer({
       // Some browsers do not fire "playing" again when a source changes
       // during a background sync, so the stream must never start invisible.
       style={{ opacity: 1 }}
+      onCanPlay={(event) => {
+        void playWithBrowserFallback(event.currentTarget);
+      }}
     />
   );
 }
