@@ -80,7 +80,14 @@ public class MainActivity extends AppCompatActivity {
         }
 
         webView.setBackgroundColor(0xFF000000);
-        webView.setWebChromeClient(new WebChromeClient());
+        webView.setWebChromeClient(new WebChromeClient() {
+            @Override
+            public Bitmap getDefaultVideoPoster() {
+                // Android WebView otherwise draws its large default play icon
+                // before the first frame. The page supplies the real video.
+                return Bitmap.createBitmap(1, 1, Bitmap.Config.ARGB_8888);
+            }
+        });
         webView.setWebViewClient(new WebViewClient() {
             @Override
             public void onPageFinished(WebView view, String url) {
@@ -108,7 +115,7 @@ public class MainActivity extends AppCompatActivity {
     /** Removes media controls without changing the configured audio mode. */
     private void enforceVideoKioskMode(WebView view) {
         String script = "(function(){document.querySelectorAll('video').forEach(function(v){"
-                + "v.controls=false;v.removeAttribute('controls');v.removeAttribute('poster');"
+                + "v.controls=false;v.removeAttribute('controls');"
                 + "v.setAttribute('playsinline','');v.setAttribute('autoplay','');"
                 + "});})();";
         view.evaluateJavascript(script, null);

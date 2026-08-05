@@ -49,6 +49,10 @@ type SyncResponse = {
 const TOKEN_KEY = "mdi360.deviceToken";
 const CODE_KEY = "mdi360.activationCode";
 const APP_VERSION = "web-1.0.0";
+// Prevents Android WebView from showing its default giant play poster while
+// the first video frame is being decoded.
+const TRANSPARENT_VIDEO_POSTER =
+  "data:image/gif;base64,R0lGODlhAQABAIAAAAAAAP///ywAAAAAAQABAAACAUwAOw==";
 
 /**
  * Ponte com o aplicativo Android (quando o player roda dentro do APK).
@@ -143,6 +147,7 @@ function PlayerScreen() {
   const [sync, setSync] = useState<SyncResponse | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [index, setIndex] = useState(0);
+  const [videoPlayingKey, setVideoPlayingKey] = useState<string | null>(null);
   const timerRef = useRef<number | null>(null);
   /** Ultimo sinal de vida do player, usado pelo watchdog. */
   const beatRef = useRef<number>(Date.now());
@@ -493,6 +498,13 @@ function PlayerScreen() {
   // Identity that survives a re-sign of the media link, used for React keys and
   // effect dependencies so the file on screen is never remounted mid-playback.
   const currentKey = current?.url ? mediaCache.keyFor(current.url) : null;
+  const videoRenderKey = current ? `${current.id}-${index}` : null;
+
+  // Keep the surface black until the video really starts. This prevents the
+  // Android WebView default play artwork from ever becoming visible.
+  useEffect(() => {
+    setVideoPlayingKey(null);
+  }, [videoRenderKey]);
 
   // Playback always reads from the local copy when there is one.
   useEffect(() => {
@@ -643,6 +655,7 @@ function PlayerScreen() {
         />
       ) : current?.kind === "video" ? (
         <FadeLayer enabled={fade} step={index} leaving={leaving}>
+          <div className="h-screen w-screen overflow-hidden bg-black">
           <video
             key={`${current.id}-${index}-${localSrc ? "local" : "remote"}`}
             src={localSrc ?? current.url ?? undefined}
@@ -654,16 +667,19 @@ function PlayerScreen() {
             controlsList="nodownload nofullscreen noremoteplayback"
             disableRemotePlayback
             disablePictureInPicture
-            poster=""
+            poster={TRANSPARENT_VIDEO_POSTER}
             preload="auto"
             // Só revela o vídeo quando ele realmente começa a tocar: evita o
             // ícone de "Play" e qualquer interface do sistema no primeiro frame.
             // The transition wrapper handles visual swaps. Do not depend on
             // the browser firing "playing" after a background sync.
-            style={{ opacity: 1 }}
+            style={{ opacity: videoPlayingKey === videoRenderKey ? 1 : 0 }}
             onCanPlay={(event) => {
               void playWithBrowserFallback(event.currentTarget);
             }}
+            onPlaying={() => setVideoPlayingKey(videoRenderKey)}
+            onWaiting={() => setVideoPlayingKey(null)}
+            onStalled={() => setVideoPlayingKey(null)}
             loop={items.length === 1 && !hasPending}
             onTimeUpdate={(event) => {
               if (!fade || leaving) return;
@@ -673,11 +689,16 @@ function PlayerScreen() {
               if (el.duration - el.currentTime <= FADE_MS / 1000) setLeaving(true);
             }}
             onEnded={() => {
+              setVideoPlayingKey(null);
               if (items.length === 1 && !hasPending) return;
               advance();
             }}
-            onError={() => advance()}
+            onError={() => {
+              setVideoPlayingKey(null);
+              advance();
+            }}
           />
+          </div>
         </FadeLayer>
       ) : current?.kind === "widget" && current.widgetConfig ? (
         <FadeLayer enabled={fade} step={index} leaving={leaving} key={`${current.id}-${index}`}>
@@ -774,7 +795,7 @@ function StreamLayer({
       controlsList="nodownload nofullscreen noremoteplayback"
       disableRemotePlayback
       disablePictureInPicture
-      poster=""
+      poster={TRANSPARENT_VIDEO_POSTER}
       // Some browsers do not fire "playing" again when a source changes
       // during a background sync, so the stream must never start invisible.
       style={{ opacity: 1 }}
