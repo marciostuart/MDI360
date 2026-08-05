@@ -83,6 +83,12 @@ public class MainActivity extends AppCompatActivity {
         webView.setWebChromeClient(new WebChromeClient());
         webView.setWebViewClient(new WebViewClient() {
             @Override
+            public void onPageFinished(WebView view, String url) {
+                super.onPageFinished(view, url);
+                enforceVideoKioskMode(view);
+            }
+
+            @Override
             public void onReceivedError(WebView view, WebResourceRequest request, WebResourceError error) {
                 // Sem internet ou servidor fora: tenta novamente em 15 segundos.
                 if (request != null && request.isForMainFrame()) {
@@ -97,6 +103,20 @@ public class MainActivity extends AppCompatActivity {
 
         hideSystemUi();
         webView.loadUrl(playerUrl());
+    }
+
+    /** Keeps Android WebView's native play overlay out of the kiosk player. */
+    private void enforceVideoKioskMode(WebView view) {
+        String script = "(function(){"
+                + "function arm(){document.querySelectorAll('video').forEach(function(v){"
+                + "v.controls=false;v.removeAttribute('controls');v.removeAttribute('poster');"
+                + "v.setAttribute('playsinline','');v.setAttribute('autoplay','');"
+                + "var p=v.play();if(p&&p.catch)p.catch(function(){v.muted=true;"
+                + "var q=v.play();if(q&&q.catch)q.catch(function(){});});"
+                + "});}"
+                + "arm();new MutationObserver(arm).observe(document.documentElement,{subtree:true,childList:true});"
+                + "})();";
+        view.evaluateJavascript(script, null);
     }
 
     /**
