@@ -10,6 +10,8 @@ import android.graphics.Canvas;
 import android.os.Build;
 import android.os.PowerManager;
 import android.os.Process;
+import android.provider.Settings;
+import android.net.Uri;
 import android.util.Base64;
 import android.os.Bundle;
 import android.os.Handler;
@@ -62,6 +64,8 @@ public class MainActivity extends AppCompatActivity {
                 FrameLayout.LayoutParams.MATCH_PARENT, FrameLayout.LayoutParams.MATCH_PARENT));
         setContentView(root);
 
+        requestOverlayPermissionIfNeeded();
+
         WebSettings s = webView.getSettings();
         s.setJavaScriptEnabled(true);
         s.setDomStorageEnabled(true);
@@ -93,6 +97,33 @@ public class MainActivity extends AppCompatActivity {
 
         hideSystemUi();
         webView.loadUrl(playerUrl());
+    }
+
+    /**
+     * Android 10 blocks background activity launches after boot unless the
+     * operator grants this special permission. It is requested once during
+     * setup; normal playback does not use an overlay window.
+     */
+    private void requestOverlayPermissionIfNeeded() {
+        if (Build.VERSION.SDK_INT < Build.VERSION_CODES.M || Settings.canDrawOverlays(this)) {
+            return;
+        }
+        new AlertDialog.Builder(this)
+                .setTitle("Inicialização automática")
+                .setMessage("Para iniciar o MDI 360 automaticamente quando a TV Box ligar, permita a sobreposição nas configurações do Android.")
+                .setPositiveButton("Abrir configuração", (dialog, which) -> {
+                    try {
+                        Intent settings = new Intent(
+                                Settings.ACTION_MANAGE_OVERLAY_PERMISSION,
+                                Uri.parse("package:" + getPackageName()));
+                        startActivity(settings);
+                    } catch (RuntimeException ignored) {
+                        startActivity(new Intent(Settings.ACTION_MANAGE_OVERLAY_PERMISSION));
+                    }
+                })
+                .setNegativeButton("Agora não", null)
+                .setCancelable(false)
+                .show();
     }
 
     private SharedPreferences prefs() {
