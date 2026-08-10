@@ -143,6 +143,9 @@ export const Route = createFileRoute("/api/public/player/sync")({
               id: device.id,
               name: device.name,
               canvasPreset: device.canvasPreset,
+              enabledModes: Array.isArray(device.enabledModes)
+                ? (device.enabledModes as string[])
+                : ["display"],
               audioEnabled: device.audioEnabled,
               transitionEffect: device.transitionEffect,
               screenWidth: device.screenWidth,

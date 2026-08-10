@@ -30,6 +30,7 @@ type SyncResponse = {
     /** Resolução forçada de renderização (null = tamanho real do painel). */
     screenWidth?: number | null;
     screenHeight?: number | null;
+    enabledModes?: string[];
   };
   playlist: { id: string; name: string; revision: number; items: PlayerItem[] } | null;
   branding: {
@@ -48,7 +49,14 @@ type SyncResponse = {
 
 const TOKEN_KEY = "mdi360.deviceToken";
 const CODE_KEY = "mdi360.activationCode";
-const APP_VERSION = "web-1.0.0";
+const APP_VERSION =
+  typeof window !== "undefined" &&
+  new URLSearchParams(window.location.search).get("android") === "hybrid"
+    ? "android-hybrid"
+    : "web-1.0.0";
+const IS_ANDROID_HYBRID =
+  typeof window !== "undefined" &&
+  new URLSearchParams(window.location.search).get("android") === "hybrid";
 // Prevents Android WebView from showing its default giant play poster while
 // the first video frame is being decoded.
 const TRANSPARENT_VIDEO_POSTER =
@@ -625,7 +633,8 @@ function PlayerScreen() {
   // The call is drawn ON TOP of the playlist: nothing is unmounted, so the
   // rotation keeps its place and simply resumes when the call disappears.
   // Video audio is muted while a call is on screen.
-  const callOverlay = activeCall ? (
+  const callOverlay = activeCall &&
+    (!IS_ANDROID_HYBRID || sync?.device.enabledModes?.includes("caller")) ? (
     <QueueCallOverlay
       call={activeCall}
       accentColor={sync?.branding?.color ?? null}
@@ -643,7 +652,9 @@ function PlayerScreen() {
 
   return (
     <div className="relative min-h-screen overflow-hidden bg-black">
-      {items.length === 0 ? (
+      {IS_ANDROID_HYBRID && !sync.device.enabledModes?.includes("display") ? (
+        <div className="h-screen w-screen bg-black" aria-label="Exibição de mídias desativada" />
+      ) : items.length === 0 ? (
         <SplashScreen
           branding={sync.branding}
           message={

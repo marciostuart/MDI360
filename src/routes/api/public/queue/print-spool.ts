@@ -25,6 +25,7 @@ export const Route = createFileRoute("/api/public/queue/print-spool")({
 
         const { and, asc, eq, gt, or } = await import("drizzle-orm");
         const { bearerToken, hashEmitterToken } = await import("@/lib/queue/emitter-auth.server");
+        const { hashDeviceToken } = await import("@/lib/player/player-auth.server");
         // Authorization is preferred. The query fallback is temporary for
         // already-installed desktop emitters during this rollout.
         const token = bearerToken(request) ?? url.searchParams.get("token")?.trim() ?? "";
@@ -46,6 +47,7 @@ export const Route = createFileRoute("/api/public/queue/print-spool")({
               or(
                 eq(schema.queueEmitters.tokenHash, hashEmitterToken(token)),
                 eq(schema.queuePanels.kioskToken, token),
+                eq(schema.devices.tokenHash, hashDeviceToken(token)),
               ),
               eq(schema.queuePanels.isEnabled, true),
             ),

@@ -110,6 +110,9 @@ export const getDeviceHub = createServerFn({ method: "GET" })
         audioEnabled: device.audioEnabled,
         transitionEffect: device.transitionEffect,
         canvasPreset: device.canvasPreset,
+        enabledModes: Array.isArray(device.enabledModes)
+          ? (device.enabledModes as string[])
+          : ["display"],
         screenWidth: device.screenWidth,
         screenHeight: device.screenHeight,
         appVersion: device.appVersion,
@@ -151,6 +154,7 @@ export const updateDeviceHub = createServerFn({ method: "POST" })
         defaultPlaylistId: z.string().uuid().nullable(),
         audioEnabled: z.boolean(),
         transitionEffect: z.enum(["none", "fade"]),
+        enabledModes: z.array(z.enum(["display", "issuer", "caller"])).min(1).max(3),
         operatingHours: z.array(operatingWindow).max(14),
         offlineAlertsEnabled: z.boolean(),
         recoveryAlertsEnabled: z.boolean(),

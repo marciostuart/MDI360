@@ -66,6 +66,9 @@ export const Route = createFileRoute("/api/public/player/status")({
                 id: device.id,
                 name: device.name,
                 canvasPreset: device.canvasPreset,
+                enabledModes: Array.isArray(device.enabledModes)
+                  ? (device.enabledModes as string[])
+                  : ["display"],
               },
             },
             { headers: { "cache-control": "no-store" } },

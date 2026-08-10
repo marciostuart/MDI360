@@ -39,7 +39,10 @@ export const Route = createFileRoute("/api/queue/kiosk-media")({
           const { db, schema, panel, user } = await requirePanel(request, deviceId);
           if (!panel) return Response.json({ error: "Terminal nÃ£o encontrado." }, { status: 404 });
           const key = `org/${user.organizationId}/queue/${panel.id}/${slot}-${Date.now()}.webp`;
-          const { putObject, deleteObject } = await import("@/lib/storage.server");
+          const { putObject, deleteObject, isStorageConfigured } = await import("@/lib/storage.server");
+          if (!isStorageConfigured()) {
+            return Response.json({ error: "Armazenamento de imagens não está configurado." }, { status: 503 });
+          }
           await putObject(key, new Uint8Array(await file.arrayBuffer()), "image/webp");
           const field =
             slot === "logo"

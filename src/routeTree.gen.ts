@@ -56,6 +56,7 @@ import { Route as ApiPublicPlayerRegisterRouteImport } from './routes/api/public
 import { Route as ApiPublicPlayerScreenshotRouteImport } from './routes/api/public/player/screenshot'
 import { Route as ApiPublicPlayerStatusRouteImport } from './routes/api/public/player/status'
 import { Route as ApiPublicPlayerSyncRouteImport } from './routes/api/public/player/sync'
+import { Route as ApiPublicQueueIssueRouteImport } from './routes/api/public/queue/issue'
 import { Route as ApiPublicQueuePrintSpoolRouteImport } from './routes/api/public/queue/print-spool'
 
 const IndexRoute = IndexRouteImport.update({
@@ -300,6 +301,11 @@ const ApiPublicPlayerSyncRoute = ApiPublicPlayerSyncRouteImport.update({
   path: '/api/public/player/sync',
   getParentRoute: () => rootRouteImport,
 } as any)
+const ApiPublicQueueIssueRoute = ApiPublicQueueIssueRouteImport.update({
+  id: '/api/public/queue/issue',
+  path: '/api/public/queue/issue',
+  getParentRoute: () => rootRouteImport,
+} as any)
 const ApiPublicQueuePrintSpoolRoute =
   ApiPublicQueuePrintSpoolRouteImport.update({
     id: '/api/public/queue/print-spool',
@@ -355,6 +361,7 @@ export interface FileRoutesByFullPath {
   '/api/public/player/screenshot': typeof ApiPublicPlayerScreenshotRoute
   '/api/public/player/status': typeof ApiPublicPlayerStatusRoute
   '/api/public/player/sync': typeof ApiPublicPlayerSyncRoute
+  '/api/public/queue/issue': typeof ApiPublicQueueIssueRoute
   '/api/public/queue/print-spool': typeof ApiPublicQueuePrintSpoolRoute
 }
 export interface FileRoutesByTo {
@@ -403,6 +410,7 @@ export interface FileRoutesByTo {
   '/api/public/player/screenshot': typeof ApiPublicPlayerScreenshotRoute
   '/api/public/player/status': typeof ApiPublicPlayerStatusRoute
   '/api/public/player/sync': typeof ApiPublicPlayerSyncRoute
+  '/api/public/queue/issue': typeof ApiPublicQueueIssueRoute
   '/api/public/queue/print-spool': typeof ApiPublicQueuePrintSpoolRoute
 }
 export interface FileRoutesById {
@@ -454,6 +462,7 @@ export interface FileRoutesById {
   '/api/public/player/screenshot': typeof ApiPublicPlayerScreenshotRoute
   '/api/public/player/status': typeof ApiPublicPlayerStatusRoute
   '/api/public/player/sync': typeof ApiPublicPlayerSyncRoute
+  '/api/public/queue/issue': typeof ApiPublicQueueIssueRoute
   '/api/public/queue/print-spool': typeof ApiPublicQueuePrintSpoolRoute
 }
 export interface FileRouteTypes {
@@ -506,6 +515,7 @@ export interface FileRouteTypes {
     | '/api/public/player/screenshot'
     | '/api/public/player/status'
     | '/api/public/player/sync'
+    | '/api/public/queue/issue'
     | '/api/public/queue/print-spool'
   fileRoutesByTo: FileRoutesByTo
   to:
@@ -554,6 +564,7 @@ export interface FileRouteTypes {
     | '/api/public/player/screenshot'
     | '/api/public/player/status'
     | '/api/public/player/sync'
+    | '/api/public/queue/issue'
     | '/api/public/queue/print-spool'
   id:
     | '__root__'
@@ -604,6 +615,7 @@ export interface FileRouteTypes {
     | '/api/public/player/screenshot'
     | '/api/public/player/status'
     | '/api/public/player/sync'
+    | '/api/public/queue/issue'
     | '/api/public/queue/print-spool'
   fileRoutesById: FileRoutesById
 }
@@ -634,6 +646,7 @@ export interface RootRouteChildren {
   ApiPublicPlayerScreenshotRoute: typeof ApiPublicPlayerScreenshotRoute
   ApiPublicPlayerStatusRoute: typeof ApiPublicPlayerStatusRoute
   ApiPublicPlayerSyncRoute: typeof ApiPublicPlayerSyncRoute
+  ApiPublicQueueIssueRoute: typeof ApiPublicQueueIssueRoute
   ApiPublicQueuePrintSpoolRoute: typeof ApiPublicQueuePrintSpoolRoute
 }
 
@@ -968,6 +981,13 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof ApiPublicPlayerSyncRouteImport
       parentRoute: typeof rootRouteImport
     }
+    '/api/public/queue/issue': {
+      id: '/api/public/queue/issue'
+      path: '/api/public/queue/issue'
+      fullPath: '/api/public/queue/issue'
+      preLoaderRoute: typeof ApiPublicQueueIssueRouteImport
+      parentRoute: typeof rootRouteImport
+    }
     '/api/public/queue/print-spool': {
       id: '/api/public/queue/print-spool'
       path: '/api/public/queue/print-spool'
@@ -1067,6 +1087,7 @@ const rootRouteChildren: RootRouteChildren = {
   ApiPublicPlayerScreenshotRoute: ApiPublicPlayerScreenshotRoute,
   ApiPublicPlayerStatusRoute: ApiPublicPlayerStatusRoute,
   ApiPublicPlayerSyncRoute: ApiPublicPlayerSyncRoute,
+  ApiPublicQueueIssueRoute: ApiPublicQueueIssueRoute,
   ApiPublicQueuePrintSpoolRoute: ApiPublicQueuePrintSpoolRoute,
 }
 export const routeTree = rootRouteImport

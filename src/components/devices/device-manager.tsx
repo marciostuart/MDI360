@@ -238,6 +238,16 @@ export function DeviceManager() {
     onError: () => toast.error("Não foi possível alterar a transição desta tela."),
   });
 
+  const modesMutation = useMutation({
+    mutationFn: (vars: { deviceId: string; enabledModes: string[] }) =>
+      updateFn({ data: vars }),
+    onSuccess: async () => {
+      toast.success("Funções do aparelho atualizadas. O Android aplica a mudança em instantes.");
+      await refresh();
+    },
+    onError: () => toast.error("Não foi possível alterar as funções deste aparelho."),
+  });
+
   const items = devices.data?.items ?? [];
   const playlistItems = playlists.data?.items ?? [];
 
@@ -395,6 +405,41 @@ export function DeviceManager() {
                       }
                     />
                   </div>
+
+                  {device.appVersion?.startsWith("android") ? <div className="space-y-3 rounded-lg border border-lime-500/30 bg-lime-500/5 p-3">
+                    <div>
+                      <p className="text-sm font-medium">Funções do aparelho Android</p>
+                      <p className="text-xs text-muted-foreground">
+                        O mesmo aparelho pode exibir mídias, emitir e chamar senhas ao mesmo tempo.
+                        Roku e navegador continuam funcionando como telas.
+                      </p>
+                    </div>
+                    {([
+                      ["display", "Exibir mídias"],
+                      ["issuer", "Emitir senhas"],
+                      ["caller", "Chamar senhas"],
+                    ] as const).map(([mode, label]) => {
+                      const enabled = device.enabledModes.includes(mode);
+                      return (
+                        <div key={mode} className="flex items-center justify-between gap-3">
+                          <span className="text-sm">{label}</span>
+                          <Switch
+                            checked={enabled}
+                            onCheckedChange={(checked) => {
+                              const next = new Set(device.enabledModes);
+                              if (checked) next.add(mode);
+                              else next.delete(mode);
+                              if (next.size === 0) next.add("display");
+                              modesMutation.mutate({
+                                deviceId: device.id,
+                                enabledModes: Array.from(next),
+                              });
+                            }}
+                          />
+                        </div>
+                      );
+                    })}
+                  </div> : null}
 
                   <div className="flex items-center justify-between gap-3 rounded-lg border border-border p-3">
                     <div className="flex items-center gap-2">

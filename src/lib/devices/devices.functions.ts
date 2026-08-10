@@ -11,6 +11,7 @@ export type DeviceListItem = {
   name: string;
   status: "pending" | "active" | "blocked";
   canvasPreset: string;
+  enabledModes: string[];
   pairingCode: string | null;
   pairingExpiresAt: string | null;
   defaultPlaylistId: string | null;
@@ -67,6 +68,7 @@ export const listDevices = createServerFn({ method: "GET" }).handler(
         name: row.name,
         status: row.status,
         canvasPreset: row.canvasPreset,
+        enabledModes: Array.isArray(row.enabledModes) ? (row.enabledModes as string[]) : ["display"],
         pairingCode: row.status === "active" ? null : row.pairingCode,
         pairingExpiresAt: row.pairingExpiresAt ? row.pairingExpiresAt.toISOString() : null,
         defaultPlaylistId: row.defaultPlaylistId,
@@ -163,6 +165,7 @@ export const updateDevice = createServerFn({ method: "POST" })
         deviceId: z.string().uuid(),
         name: nameSchema.optional(),
         canvasPreset: presetSchema.optional(),
+        enabledModes: z.array(z.enum(["display", "issuer", "caller"])).min(1).max(3).optional(),
       })
       .parse(input),
   )
@@ -172,9 +175,10 @@ export const updateDevice = createServerFn({ method: "POST" })
     const { and, eq } = await import("drizzle-orm");
     const user = await requireUser();
 
-    const patch: { name?: string; canvasPreset?: string } = {};
+    const patch: { name?: string; canvasPreset?: string; enabledModes?: string[] } = {};
     if (data.name) patch.name = data.name;
     if (data.canvasPreset) patch.canvasPreset = data.canvasPreset;
+    if (data.enabledModes) patch.enabledModes = data.enabledModes;
     if (Object.keys(patch).length === 0) return { ok: true };
 
     await getDb()
@@ -300,6 +304,7 @@ export const replaceDevice = createServerFn({ method: "POST" })
         defaultPlaylistId: old.defaultPlaylistId,
         audioEnabled: old.audioEnabled,
         transitionEffect: old.transitionEffect,
+        enabledModes: old.enabledModes,
         operatingHours: old.operatingHours,
         offlineAlertsEnabled: old.offlineAlertsEnabled,
         recoveryAlertsEnabled: old.recoveryAlertsEnabled,

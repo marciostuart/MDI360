@@ -204,6 +204,13 @@
       "when": 1786379241343,
       "tag": "0028_queue_kiosk_media",
       "breakpoints": true
+    },
+    {
+      "idx": 29,
+      "version": "7",
+      "when": 1786379242343,
+      "tag": "0029_android_hybrid_modes",
+      "breakpoints": true
     }
   ]
 }

@@ -35,6 +35,7 @@ export const getKioskPanel = createServerFn({ method: "POST" })
     if (!isDatabaseConfigured()) return null;
     const { and, asc, eq, or } = await import("drizzle-orm");
     const { hashEmitterToken } = await import("@/lib/queue/emitter-auth.server");
+    const { hashDeviceToken } = await import("@/lib/player/player-auth.server");
     const db = getDb();
 
     const rows = await db
@@ -71,6 +72,7 @@ export const getKioskPanel = createServerFn({ method: "POST" })
           or(
             eq(schema.queuePanels.kioskToken, data.token),
             eq(schema.queueEmitters.tokenHash, hashEmitterToken(data.token)),
+            eq(schema.devices.tokenHash, hashDeviceToken(data.token)),
           ),
           eq(schema.queuePanels.isEnabled, true),
         ),
@@ -158,6 +160,7 @@ export const issueKioskTicket = createServerFn({ method: "POST" })
     const { issueTicket } = await import("@/lib/queue/tickets.server");
     const { and, eq, or } = await import("drizzle-orm");
     const { hashEmitterToken } = await import("@/lib/queue/emitter-auth.server");
+    const { hashDeviceToken } = await import("@/lib/player/player-auth.server");
 
     const panelIds = await getDb()
       .select({ id: schema.queuePanels.id })
@@ -168,6 +171,7 @@ export const issueKioskTicket = createServerFn({ method: "POST" })
           or(
             eq(schema.queuePanels.kioskToken, data.token),
             eq(schema.queueEmitters.tokenHash, hashEmitterToken(data.token)),
+            eq(schema.devices.tokenHash, hashDeviceToken(data.token)),
           ),
           eq(schema.queuePanels.isEnabled, true),
         ),

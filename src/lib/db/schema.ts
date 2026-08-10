@@ -217,6 +217,10 @@ export const devices = pgTable(
     transitionEffect: text("transition_effect").notNull().default("none"),
     /** Screen shape this TV/totem uses; drives which media fits it. */
     canvasPreset: text("canvas_preset").notNull().default("landscape-fhd"),
+    /** Functions enabled on the unified Android app. Web and Roku continue to use display only. */
+    enabledModes: jsonb("enabled_modes")
+      .notNull()
+      .default(sql`'["display"]'::jsonb`),
     /**
      * Optional custom render resolution, in pixels. Used by panels with unusual
      * shapes (LED strips, stacked totems): the player renders at exactly this
