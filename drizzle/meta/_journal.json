@@ -190,6 +190,13 @@
       "when": 1786086000000,
       "tag": "0026_landing_content",
       "breakpoints": true
+    },
+    {
+      "idx": 27,
+      "version": "7",
+      "when": 1786379240343,
+      "tag": "0027_queue_printer_footer",
+      "breakpoints": true
     }
   ]
 }

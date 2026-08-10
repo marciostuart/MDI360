@@ -9,6 +9,7 @@ import { PUBLIC_SITE_URL } from "@/lib/site-config";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
+import { Textarea } from "@/components/ui/textarea";
 import { Label } from "@/components/ui/label";
 import {
   Select,
@@ -97,6 +98,7 @@ export function QueueAddonManager() {
     ...QUEUE_THEME_DEFAULTS,
     ...QUEUE_SOUND_DEFAULTS,
     ...KIOSK_THEME_DEFAULTS,
+    printerFooterText: "",
   });
 
   const [uploadingChime, setUploadingChime] = useState<string | null>(null);
@@ -166,6 +168,7 @@ export function QueueAddonManager() {
       kioskTitle: string | null;
       kioskShowLogo: boolean;
       kioskLogoHeight: number;
+      printerFooterText: string | null;
       chimeVolume: number;
       voiceVolume: number;
     }) => savePanel({ data: input }),
@@ -223,6 +226,7 @@ export function QueueAddonManager() {
       kioskTitle: panel.kioskTitle ?? "",
       kioskShowLogo: panel.kioskShowLogo ?? true,
       kioskLogoHeight: panel.kioskLogoHeight ?? KIOSK_THEME_DEFAULTS.kioskLogoHeight,
+      printerFooterText: panel.printerFooterText ?? "",
       chimeVolume: panel.chimeVolume ?? QUEUE_SOUND_DEFAULTS.chimeVolume,
       voiceVolume: panel.voiceVolume ?? QUEUE_SOUND_DEFAULTS.voiceVolume,
     });
@@ -406,6 +410,7 @@ export function QueueAddonManager() {
                       kioskTitle: form.kioskTitle.trim() || null,
                       kioskShowLogo: form.kioskShowLogo,
                       kioskLogoHeight: form.kioskLogoHeight,
+                      printerFooterText: form.printerFooterText.trim() || null,
                       chimeVolume: form.chimeVolume,
                       voiceVolume: form.voiceVolume,
                     });
@@ -750,6 +755,24 @@ export function QueueAddonManager() {
                               setForm((prev) => ({ ...prev, kioskTitle: event.target.value }))
                             }
                           />
+                        </div>
+                        <div className="space-y-1.5 sm:col-span-2">
+                          <Label htmlFor={`printer-footer-${panel.deviceId}`}>
+                            RodapÃ© do comprovante (opcional)
+                          </Label>
+                          <Textarea
+                            id={`printer-footer-${panel.deviceId}`}
+                            value={form.printerFooterText}
+                            maxLength={240}
+                            rows={3}
+                            placeholder="Ex.: Obrigado pela preferÃªncia\nAguarde ser chamado"
+                            onChange={(event) =>
+                              setForm((prev) => ({ ...prev, printerFooterText: event.target.value }))
+                            }
+                          />
+                          <p className="text-xs text-muted-foreground">
+                            O texto serÃ¡ impresso abaixo da data e hora. Use Enter para quebrar linhas.
+                          </p>
                         </div>
                         <ColorField
                           id={`kbg-${panel.deviceId}`}

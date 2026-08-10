@@ -44,6 +44,7 @@ export type QueuePanelSummary = {
   kioskTitle: string | null;
   kioskShowLogo: boolean;
   kioskLogoHeight: number;
+  printerFooterText: string | null;
   /** Tom de chamada personalizado e volumes. */
   chimeName: string | null;
   chimeVolume: number;
@@ -200,6 +201,7 @@ export const listQueuePanels = createServerFn({ method: "GET" }).handler(
           kioskTitle: schema.queuePanels.kioskTitle,
           kioskShowLogo: schema.queuePanels.kioskShowLogo,
           kioskLogoHeight: schema.queuePanels.kioskLogoHeight,
+          printerFooterText: schema.queuePanels.printerFooterText,
           chimeName: schema.queuePanels.chimeName,
           chimeVolume: schema.queuePanels.chimeVolume,
           voiceVolume: schema.queuePanels.voiceVolume,
@@ -301,6 +303,7 @@ export const listQueuePanels = createServerFn({ method: "GET" }).handler(
             kioskTitle: row.kioskTitle ?? null,
             kioskShowLogo: row.kioskShowLogo ?? true,
             kioskLogoHeight: row.kioskLogoHeight ?? KIOSK_THEME_DEFAULTS.kioskLogoHeight,
+            printerFooterText: row.printerFooterText ?? null,
             chimeName: row.chimeName ?? null,
             chimeVolume: row.chimeVolume ?? QUEUE_SOUND_DEFAULTS.chimeVolume,
             voiceVolume: row.voiceVolume ?? QUEUE_SOUND_DEFAULTS.voiceVolume,
@@ -377,6 +380,10 @@ export const saveQueuePanel = createServerFn({ method: "POST" })
           .min(40)
           .max(400)
           .default(KIOSK_THEME_DEFAULTS.kioskLogoHeight),
+        printerFooterText: z.preprocess(
+          (value) => (typeof value === "string" && value.trim() === "" ? null : value),
+          z.string().trim().max(240).nullable().default(null),
+        ),
         chimeVolume: z.number().int().min(0).max(100).default(QUEUE_SOUND_DEFAULTS.chimeVolume),
         voiceVolume: z.number().int().min(0).max(300).default(QUEUE_SOUND_DEFAULTS.voiceVolume),
       })
@@ -459,6 +466,7 @@ export const saveQueuePanel = createServerFn({ method: "POST" })
       kioskTitle: data.kioskTitle,
       kioskShowLogo: data.kioskShowLogo,
       kioskLogoHeight: data.kioskLogoHeight,
+      printerFooterText: data.printerFooterText,
     };
 
     const { toQueueError } = await import("@/lib/queue/queue-errors.server");

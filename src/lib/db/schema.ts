@@ -488,6 +488,8 @@ export const queuePanels = pgTable(
     kioskShowLogo: boolean("kiosk_show_logo").notNull().default(true),
     /** Altura da logo na tela de emissão, em pixels. */
     kioskLogoHeight: integer("kiosk_logo_height").notNull().default(96),
+    /** Texto opcional impresso abaixo da data/hora do comprovante. */
+    printerFooterText: text("printer_footer_text"),
     /** Tom de chamada personalizado (MP3 enviado pelo cliente), no MinIO. */
     chimeStorageKey: text("chime_storage_key"),
     chimeName: text("chime_name"),

@@ -36,6 +36,7 @@ export const Route = createFileRoute("/api/public/queue/print-spool")({
             panelId: schema.queuePanels.id,
             deviceName: schema.devices.name,
             emitterId: schema.queueEmitters.id,
+            printerFooterText: schema.queuePanels.printerFooterText,
           })
           .from(schema.queuePanels)
           .innerJoin(schema.devices, eq(schema.devices.id, schema.queuePanels.deviceId))
@@ -108,7 +109,12 @@ export const Route = createFileRoute("/api/public/queue/print-spool")({
         }));
 
         return Response.json(
-          { panelName: panel.deviceName, serverTime: now.toISOString(), tickets },
+          {
+            panelName: panel.deviceName,
+            printerFooterText: panel.printerFooterText,
+            serverTime: now.toISOString(),
+            tickets,
+          },
           { headers: { "cache-control": "no-store" } },
         );
         } catch (error) {
