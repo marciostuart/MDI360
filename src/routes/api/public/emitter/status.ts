@@ -24,7 +24,11 @@ export const Route = createFileRoute("/api/public/emitter/status")({
               return new Response("Código expirado", { status: 410 });
             }
             return Response.json(
-              { state: "waiting", pairingCode: emitter.pairingCode },
+              {
+                state: "waiting",
+                pairingCode: emitter.pairingCode,
+                expiresAt: emitter.pairingExpiresAt.toISOString(),
+              },
               { headers: { "cache-control": "no-store" } },
             );
           }

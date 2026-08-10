@@ -7,7 +7,6 @@ import { z } from "zod";
  * Somente dados do cupom são retornados (rótulo, tipo, setor, horário) — sem PII.
  */
 const querySchema = z.object({
-  token: z.string().trim().min(8).max(128),
   /** ISO do último cupom já impresso; só retorna senhas emitidas depois disso. */
   since: z.string().trim().datetime().optional(),
 });
@@ -18,17 +17,18 @@ export const Route = createFileRoute("/api/public/queue/print-spool")({
       GET: async ({ request }) => {
         try {
         const url = new URL(request.url);
-        const parsed = querySchema.safeParse({
-          token: url.searchParams.get("token") ?? "",
-          since: url.searchParams.get("since") ?? undefined,
-        });
+        const parsed = querySchema.safeParse({ since: url.searchParams.get("since") ?? undefined });
         if (!parsed.success) return new Response("Parâmetros inválidos", { status: 400 });
 
         const { isDatabaseConfigured, getDb, schema } = await import("@/lib/db/index.server");
         if (!isDatabaseConfigured()) return new Response("Indisponível", { status: 503 });
 
         const { and, asc, eq, gt, or } = await import("drizzle-orm");
-        const { hashEmitterToken } = await import("@/lib/queue/emitter-auth.server");
+        const { bearerToken, hashEmitterToken } = await import("@/lib/queue/emitter-auth.server");
+        // Authorization is preferred. The query fallback is temporary for
+        // already-installed desktop emitters during this rollout.
+        const token = bearerToken(request) ?? url.searchParams.get("token")?.trim() ?? "";
+        if (token.length < 8 || token.length > 128) return new Response("NÃ£o autorizado", { status: 401 });
         const db = getDb();
 
         const panels = await db
@@ -43,8 +43,8 @@ export const Route = createFileRoute("/api/public/queue/print-spool")({
           .where(
             and(
               or(
-                eq(schema.queueEmitters.tokenHash, hashEmitterToken(parsed.data.token)),
-                eq(schema.queuePanels.kioskToken, parsed.data.token),
+                eq(schema.queueEmitters.tokenHash, hashEmitterToken(token)),
+                eq(schema.queuePanels.kioskToken, token),
               ),
               eq(schema.queuePanels.isEnabled, true),
             ),
