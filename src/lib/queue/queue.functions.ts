@@ -3,6 +3,7 @@ import { z } from "zod";
 
 /** Add-on config as the customer sees it in the Studio (one row per screen). */
 export type QueuePanelSummary = {
+  queueName: string;
   deviceId: string;
   deviceName: string;
   deviceOnline: boolean;
@@ -53,6 +54,14 @@ export type QueuePanelSummary = {
   chimeName: string | null;
   chimeVolume: number;
   voiceVolume: number;
+  linkedDevices: Array<{ id: string; name: string; online: boolean }>;
+};
+
+export type QueueDeviceOption = {
+  id: string;
+  name: string;
+  online: boolean;
+  queueId: string | null;
 };
 
 export const QUEUE_THEME_DEFAULTS = {
@@ -155,9 +164,16 @@ export const listQueueBackgroundImages = createServerFn({ method: "GET" }).handl
 );
 
 export const listQueuePanels = createServerFn({ method: "GET" }).handler(
-  async (): Promise<{ configured: boolean; available: boolean; items: QueuePanelSummary[] }> => {
+  async (): Promise<{
+    configured: boolean;
+    available: boolean;
+    items: QueuePanelSummary[];
+    devices: QueueDeviceOption[];
+  }> => {
     const { isDatabaseConfigured, getDb, schema } = await import("@/lib/db/index.server");
-    if (!isDatabaseConfigured()) return { configured: false, available: false, items: [] };
+    if (!isDatabaseConfigured()) {
+      return { configured: false, available: false, items: [], devices: [] };
+    }
 
     const { requireUser } = await import("@/lib/auth/session.server");
     const { and, desc, eq, inArray, ne, sql } = await import("drizzle-orm");
@@ -179,6 +195,7 @@ export const listQueuePanels = createServerFn({ method: "GET" }).handler(
           deviceName: schema.devices.name,
           lastSeenAt: schema.devices.lastSeenAt,
           panelId: schema.queuePanels.id,
+          queueName: schema.queuePanels.name,
           isEnabled: schema.queuePanels.isEnabled,
           mode: schema.queuePanels.mode,
           username: schema.queuePanels.username,
@@ -213,7 +230,11 @@ export const listQueuePanels = createServerFn({ method: "GET" }).handler(
           voiceVolume: schema.queuePanels.voiceVolume,
         })
         .from(schema.devices)
-        .leftJoin(schema.queuePanels, eq(schema.queuePanels.deviceId, schema.devices.id))
+        .leftJoin(
+          schema.queuePanelDevices,
+          eq(schema.queuePanelDevices.deviceId, schema.devices.id),
+        )
+        .leftJoin(schema.queuePanels, eq(schema.queuePanels.id, schema.queuePanelDevices.panelId))
         .where(
           and(
             eq(schema.devices.organizationId, user.organizationId),
@@ -223,11 +244,23 @@ export const listQueuePanels = createServerFn({ method: "GET" }).handler(
         .orderBy(desc(schema.devices.createdAt))
         .limit(200);
 
-      const panelIds = rows.map((r) => r.panelId).filter((id): id is string => Boolean(id));
+      const seenPanels = new Set<string>();
+      const uniqueRows = rows.filter((row) => {
+        if (!row.panelId) return true;
+        if (seenPanels.has(row.panelId)) return false;
+        seenPanels.add(row.panelId);
+        return true;
+      });
+
+      const panelIds = uniqueRows.map((r) => r.panelId).filter((id): id is string => Boolean(id));
 
       const sectorCounts = new Map<string, number>();
       const operatorCounts = new Map<string, number>();
       const lastCalls = new Map<string, { label: string; at: string }>();
+      const linkedDevices = new Map<
+        string,
+        Array<{ id: string; name: string; lastSeenAt: Date | null }>
+      >();
       if (panelIds.length > 0) {
         const { inArray } = await import("drizzle-orm");
         const sectors = await db
@@ -259,15 +292,34 @@ export const listQueuePanels = createServerFn({ method: "GET" }).handler(
             lastCalls.set(call.panelId, { label: call.label, at: call.calledAt.toISOString() });
           }
         }
+
+        const links = await db
+          .select({
+            panelId: schema.queuePanelDevices.panelId,
+            id: schema.devices.id,
+            name: schema.devices.name,
+            lastSeenAt: schema.devices.lastSeenAt,
+          })
+          .from(schema.queuePanelDevices)
+          .innerJoin(schema.devices, eq(schema.devices.id, schema.queuePanelDevices.deviceId))
+          .where(inArray(schema.queuePanelDevices.panelId, panelIds));
+        for (const link of links) {
+          const current = linkedDevices.get(link.panelId) ?? [];
+          current.push({ id: link.id, name: link.name, lastSeenAt: link.lastSeenAt });
+          linkedDevices.set(link.panelId, current);
+        }
       }
 
       const now = Date.now();
-      const kioskPreviewUrls = new Map<string, { logo: string | null; background: string | null }>();
+      const kioskPreviewUrls = new Map<
+        string,
+        { logo: string | null; background: string | null }
+      >();
       try {
         const { createDownloadUrl, isStorageConfigured } = await import("@/lib/storage.server");
         if (isStorageConfigured()) {
           await Promise.all(
-            rows.map(async (row) => {
+            uniqueRows.map(async (row) => {
               const [logo, background] = await Promise.all([
                 row.kioskLogoKey ? createDownloadUrl(row.kioskLogoKey, 900) : Promise.resolve(null),
                 row.kioskBgImageKey
@@ -284,9 +336,16 @@ export const listQueuePanels = createServerFn({ method: "GET" }).handler(
       return {
         configured: true,
         available,
-        items: rows.map((row) => {
+        devices: rows.map((row) => ({
+          id: row.deviceId,
+          name: row.deviceName,
+          online: row.lastSeenAt ? now - row.lastSeenAt.getTime() < DEVICE_ONLINE_WINDOW_MS : false,
+          queueId: row.panelId ?? null,
+        })),
+        items: uniqueRows.map((row) => {
           const last = row.panelId ? lastCalls.get(row.panelId) : undefined;
           return {
+            queueName: row.queueName ?? row.deviceName,
             deviceId: row.deviceId,
             deviceName: row.deviceName,
             deviceOnline: row.lastSeenAt
@@ -323,8 +382,7 @@ export const listQueuePanels = createServerFn({ method: "GET" }).handler(
             kioskPriorityButtonColor:
               row.kioskPriorityButtonColor ?? KIOSK_THEME_DEFAULTS.kioskPriorityButtonColor,
             kioskPriorityButtonTextColor:
-              row.kioskPriorityButtonTextColor ??
-              KIOSK_THEME_DEFAULTS.kioskPriorityButtonTextColor,
+              row.kioskPriorityButtonTextColor ?? KIOSK_THEME_DEFAULTS.kioskPriorityButtonTextColor,
             kioskTitle: row.kioskTitle ?? null,
             kioskShowLogo: row.kioskShowLogo ?? true,
             kioskLogoHeight: row.kioskLogoHeight ?? KIOSK_THEME_DEFAULTS.kioskLogoHeight,
@@ -336,6 +394,19 @@ export const listQueuePanels = createServerFn({ method: "GET" }).handler(
             chimeName: row.chimeName ?? null,
             chimeVolume: row.chimeVolume ?? QUEUE_SOUND_DEFAULTS.chimeVolume,
             voiceVolume: row.voiceVolume ?? QUEUE_SOUND_DEFAULTS.voiceVolume,
+            linkedDevices: row.panelId
+              ? (
+                  linkedDevices.get(row.panelId) ?? [
+                    { id: row.deviceId, name: row.deviceName, lastSeenAt: row.lastSeenAt },
+                  ]
+                ).map((device) => ({
+                  id: device.id,
+                  name: device.name,
+                  online: device.lastSeenAt
+                    ? now - device.lastSeenAt.getTime() < DEVICE_ONLINE_WINDOW_MS
+                    : false,
+                }))
+              : [],
           };
         }),
       };
@@ -354,6 +425,7 @@ export const saveQueuePanel = createServerFn({ method: "POST" })
     const result = z
       .object({
         deviceId: z.string().uuid(),
+        queueName: z.string().trim().min(2).max(80),
         username: usernameSchema,
         // An empty field means "keep the current password".
         password: z.preprocess(
@@ -502,8 +574,9 @@ export const saveQueuePanel = createServerFn({ method: "POST" })
     try {
       const existing = await db
         .select({ id: schema.queuePanels.id })
-        .from(schema.queuePanels)
-        .where(eq(schema.queuePanels.deviceId, data.deviceId))
+        .from(schema.queuePanelDevices)
+        .innerJoin(schema.queuePanels, eq(schema.queuePanels.id, schema.queuePanelDevices.panelId))
+        .where(eq(schema.queuePanelDevices.deviceId, data.deviceId))
         .limit(1);
 
       const taken = await db
@@ -524,6 +597,7 @@ export const saveQueuePanel = createServerFn({ method: "POST" })
         await db
           .update(schema.queuePanels)
           .set({
+            name: data.queueName,
             username: data.username,
             isEnabled: true,
             ...configValues,
@@ -564,8 +638,8 @@ export const saveQueuePanel = createServerFn({ method: "POST" })
         const created = await db
           .insert(schema.queuePanels)
           .values({
+            name: data.queueName,
             organizationId: user.organizationId,
-            deviceId: data.deviceId,
             username: data.username,
             passwordHash,
             kioskToken: randomBytes(16).toString("hex"),
@@ -574,6 +648,10 @@ export const saveQueuePanel = createServerFn({ method: "POST" })
           })
           .returning({ id: schema.queuePanels.id });
         if (created[0]) {
+          await db.insert(schema.queuePanelDevices).values({
+            panelId: created[0].id,
+            deviceId: data.deviceId,
+          });
           await db.insert(schema.queueOperators).values({
             panelId: created[0].id,
             name: "Operador principal",
@@ -582,12 +660,95 @@ export const saveQueuePanel = createServerFn({ method: "POST" })
           });
         }
       }
+
+      if (existing[0]) {
+        await db
+          .insert(schema.queuePanelDevices)
+          .values({ panelId: existing[0].id, deviceId: data.deviceId })
+          .onConflictDoNothing();
+      }
     } catch (error) {
       throw toQueueError(error);
     }
 
+    const { notifyQueueForDevice } = await import("@/lib/queue/queue-devices.server");
+    await notifyQueueForDevice(data.deviceId);
+    return { ok: true };
+  });
+
+/** Define os terminais que exibem, emitem ou chamam senhas nesta fila. */
+export const setQueuePanelDevices = createServerFn({ method: "POST" })
+  .inputValidator((input: unknown) =>
+    z
+      .object({
+        panelId: z.string().uuid(),
+        deviceIds: z.array(z.string().uuid()).min(1, "Selecione ao menos um terminal."),
+      })
+      .parse(input),
+  )
+  .handler(async ({ data }) => {
+    const { getDb, schema } = await import("@/lib/db/index.server");
+    const { requireUser } = await import("@/lib/auth/session.server");
+    const { and, eq, inArray, ne } = await import("drizzle-orm");
+    const user = await requireUser();
+    const db = getDb();
+    const ids = [...new Set(data.deviceIds)];
+
+    const panel = await db
+      .select({ id: schema.queuePanels.id })
+      .from(schema.queuePanels)
+      .where(
+        and(
+          eq(schema.queuePanels.id, data.panelId),
+          eq(schema.queuePanels.organizationId, user.organizationId),
+        ),
+      )
+      .limit(1);
+    if (!panel[0]) throw new Error("Fila não encontrada.");
+
+    const owned = await db
+      .select({ id: schema.devices.id })
+      .from(schema.devices)
+      .where(
+        and(
+          eq(schema.devices.organizationId, user.organizationId),
+          inArray(schema.devices.id, ids),
+          ne(schema.devices.status, "pending"),
+        ),
+      );
+    if (owned.length !== ids.length) throw new Error("Um dos terminais selecionados é inválido.");
+
+    const conflicts = await db
+      .select({ deviceId: schema.queuePanelDevices.deviceId })
+      .from(schema.queuePanelDevices)
+      .where(
+        and(
+          inArray(schema.queuePanelDevices.deviceId, ids),
+          ne(schema.queuePanelDevices.panelId, data.panelId),
+        ),
+      );
+    if (conflicts.length > 0) {
+      throw new Error("Um terminal selecionado já pertence a outra fila.");
+    }
+
+    const previous = await db
+      .select({ deviceId: schema.queuePanelDevices.deviceId })
+      .from(schema.queuePanelDevices)
+      .where(eq(schema.queuePanelDevices.panelId, data.panelId));
+
+    await db.transaction(async (tx) => {
+      await tx
+        .delete(schema.queuePanelDevices)
+        .where(eq(schema.queuePanelDevices.panelId, data.panelId));
+      await tx
+        .insert(schema.queuePanelDevices)
+        .values(ids.map((deviceId) => ({ panelId: data.panelId, deviceId })));
+    });
+
     const { notifyDevice } = await import("@/lib/player/realtime.server");
-    notifyDevice(data.deviceId);
+    for (const deviceId of new Set([...previous.map((item) => item.deviceId), ...ids])) {
+      notifyDevice(deviceId);
+    }
     return { ok: true };
   });
 
@@ -605,10 +766,11 @@ export const setQueuePanelEnabled = createServerFn({ method: "POST" })
 
     const panels = await db
       .select({ id: schema.queuePanels.id })
-      .from(schema.queuePanels)
+      .from(schema.queuePanelDevices)
+      .innerJoin(schema.queuePanels, eq(schema.queuePanels.id, schema.queuePanelDevices.panelId))
       .where(
         and(
-          eq(schema.queuePanels.deviceId, data.deviceId),
+          eq(schema.queuePanelDevices.deviceId, data.deviceId),
           eq(schema.queuePanels.organizationId, user.organizationId),
         ),
       )
@@ -629,8 +791,8 @@ export const setQueuePanelEnabled = createServerFn({ method: "POST" })
         .where(inArray(schema.queueSessions.panelId, [panels[0].id]));
     }
 
-    const { notifyDevice } = await import("@/lib/player/realtime.server");
-    notifyDevice(data.deviceId);
+    const { notifyQueueDevices } = await import("@/lib/queue/queue-devices.server");
+    await notifyQueueDevices(panels[0].id);
     return { ok: true };
   });
 
@@ -643,14 +805,20 @@ export const deleteQueuePanel = createServerFn({ method: "POST" })
     const { and, eq } = await import("drizzle-orm");
     const user = await requireUser();
 
-    await getDb()
-      .delete(schema.queuePanels)
+    const panel = await getDb()
+      .select({ id: schema.queuePanels.id })
+      .from(schema.queuePanelDevices)
+      .innerJoin(schema.queuePanels, eq(schema.queuePanels.id, schema.queuePanelDevices.panelId))
       .where(
         and(
-          eq(schema.queuePanels.deviceId, data.deviceId),
+          eq(schema.queuePanelDevices.deviceId, data.deviceId),
           eq(schema.queuePanels.organizationId, user.organizationId),
         ),
-      );
+      )
+      .limit(1);
+    if (!panel[0]) return { ok: true };
+
+    await getDb().delete(schema.queuePanels).where(eq(schema.queuePanels.id, panel[0].id));
 
     const { notifyDevice } = await import("@/lib/player/realtime.server");
     notifyDevice(data.deviceId);
@@ -714,9 +882,7 @@ async function requireOwnedPanel(panelId: string) {
 export const getQueuePanelDetails = createServerFn({ method: "POST" })
   .inputValidator((input: unknown) => z.object({ panelId: z.string().uuid() }).parse(input))
   .handler(
-    async ({
-      data,
-    }): Promise<{ sectors: QueueSectorRow[]; operators: QueueOperatorRow[] }> => {
+    async ({ data }): Promise<{ sectors: QueueSectorRow[]; operators: QueueOperatorRow[] }> => {
       const { getDb, schema } = await import("@/lib/db/index.server");
       const { and, asc, eq, inArray, sql } = await import("drizzle-orm");
       const panel = await requireOwnedPanel(data.panelId);
@@ -830,8 +996,7 @@ export const saveQueueSector = createServerFn({ method: "POST" })
         ),
         /** Quantidade de senhas por dia. `null` = ilimitado. */
         dailyLimit: z.preprocess(
-          (value) =>
-            value === "" || value === undefined || value === null ? null : Number(value),
+          (value) => (value === "" || value === undefined || value === null ? null : Number(value)),
           z.number().int().min(1).max(9999).nullable().default(null),
         ),
         /** Quando informado, redefine quais operadores podem chamar este setor. */
@@ -859,10 +1024,7 @@ export const saveQueueSector = createServerFn({ method: "POST" })
           ...(data.issuingEnabled === undefined ? {} : { issuingEnabled: data.issuingEnabled }),
         })
         .where(
-          and(
-            eq(schema.queueSectors.id, data.sectorId),
-            eq(schema.queueSectors.panelId, panel.id),
-          ),
+          and(eq(schema.queueSectors.id, data.sectorId), eq(schema.queueSectors.panelId, panel.id)),
         );
     } else {
       const next = await db
@@ -978,10 +1140,7 @@ export const resetQueueCounters = createServerFn({ method: "POST" })
         .update(schema.queueSectors)
         .set({ lastNumber: 0, lastPriorityNumber: 0 })
         .where(
-          and(
-            eq(schema.queueSectors.id, data.sectorId),
-            eq(schema.queueSectors.panelId, panel.id),
-          ),
+          and(eq(schema.queueSectors.id, data.sectorId), eq(schema.queueSectors.panelId, panel.id)),
         );
       await db
         .update(schema.queueTickets)
@@ -1088,7 +1247,10 @@ export const saveQueueOperator = createServerFn({ method: "POST" })
           ...(data.password ? { passwordHash: await hashQueuePassword(data.password) } : {}),
         })
         .where(
-          and(eq(schema.queueOperators.id, operatorId), eq(schema.queueOperators.panelId, panel.id)),
+          and(
+            eq(schema.queueOperators.id, operatorId),
+            eq(schema.queueOperators.panelId, panel.id),
+          ),
         );
     } else {
       if (!data.password) throw new Error("Defina uma senha para o operador.");
@@ -1165,10 +1327,11 @@ export const clearQueueChime = createServerFn({ method: "POST" })
 
     const panels = await db
       .select({ id: schema.queuePanels.id, key: schema.queuePanels.chimeStorageKey })
-      .from(schema.queuePanels)
+      .from(schema.queuePanelDevices)
+      .innerJoin(schema.queuePanels, eq(schema.queuePanels.id, schema.queuePanelDevices.panelId))
       .where(
         and(
-          eq(schema.queuePanels.deviceId, data.deviceId),
+          eq(schema.queuePanelDevices.deviceId, data.deviceId),
           eq(schema.queuePanels.organizationId, user.organizationId),
         ),
       )

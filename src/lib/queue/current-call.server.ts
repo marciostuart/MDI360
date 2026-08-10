@@ -59,8 +59,9 @@ export async function recentQueueCalls(deviceId: string): Promise<QueueCallPaylo
       chimeVolume: schema.queuePanels.chimeVolume,
       voiceVolume: schema.queuePanels.voiceVolume,
     })
-    .from(schema.queuePanels)
-    .where(eq(schema.queuePanels.deviceId, deviceId))
+    .from(schema.queuePanelDevices)
+    .innerJoin(schema.queuePanels, eq(schema.queuePanels.id, schema.queuePanelDevices.panelId))
+    .where(eq(schema.queuePanelDevices.deviceId, deviceId))
     .limit(1);
 
   const panel = panels[0];

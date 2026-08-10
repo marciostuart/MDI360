@@ -64,7 +64,9 @@ export async function destroyQueueSession() {
   const token = getCookie(COOKIE_NAME);
   deleteCookie(COOKIE_NAME, { path: "/" });
   if (!token) return;
-  await getDb().delete(schema.queueSessions).where(eq(schema.queueSessions.id, hashToken(token)));
+  await getDb()
+    .delete(schema.queueSessions)
+    .where(eq(schema.queueSessions.id, hashToken(token)));
 }
 
 /** Verifies the operator credentials. Same generic failure for user/password. */
@@ -101,7 +103,7 @@ export async function getQueueSession(): Promise<QueuePanelSession | null> {
     .select({
       panelId: schema.queuePanels.id,
       organizationId: schema.queuePanels.organizationId,
-      deviceId: schema.queuePanels.deviceId,
+      deviceId: schema.queuePanelDevices.deviceId,
       deviceName: schema.devices.name,
       mode: schema.queuePanels.mode,
       prefix: schema.queuePanels.prefix,
@@ -119,7 +121,11 @@ export async function getQueueSession(): Promise<QueuePanelSession | null> {
     })
     .from(schema.queueSessions)
     .innerJoin(schema.queuePanels, eq(schema.queuePanels.id, schema.queueSessions.panelId))
-    .innerJoin(schema.devices, eq(schema.devices.id, schema.queuePanels.deviceId))
+    .innerJoin(
+      schema.queuePanelDevices,
+      eq(schema.queuePanelDevices.panelId, schema.queuePanels.id),
+    )
+    .innerJoin(schema.devices, eq(schema.devices.id, schema.queuePanelDevices.deviceId))
     .innerJoin(schema.queueOperators, eq(schema.queueOperators.id, schema.queueSessions.operatorId))
     .where(
       and(
@@ -165,9 +171,7 @@ export function spokenLabel(label: string) {
  * "Guichê cento e três".
  */
 export function spokenSectorName(sectorName: string) {
-  return sectorName
-    .trim()
-    .replace(/\d+/g, (digits) => String(Number(digits)));
+  return sectorName.trim().replace(/\d+/g, (digits) => String(Number(digits)));
 }
 
 /** "Senha doze. Caixa 2." — ticket first, then the sector, as requested. */

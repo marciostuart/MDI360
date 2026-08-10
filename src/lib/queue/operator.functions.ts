@@ -178,9 +178,8 @@ export const queueLogin = createServerFn({ method: "POST" })
     const { isDatabaseConfigured } = await import("@/lib/db/index.server");
     if (!isDatabaseConfigured()) return { ok: false, message: "Serviço indisponível." };
 
-    const { authenticateOperator, createQueueSession } = await import(
-      "@/lib/queue/queue-auth.server"
-    );
+    const { authenticateOperator, createQueueSession } =
+      await import("@/lib/queue/queue-auth.server");
     const operator = await authenticateOperator(data.username, data.password);
     if (!operator) return { ok: false, message: "Usuário ou senha inválidos." };
     await createQueueSession(operator.panelId, operator.operatorId);
@@ -284,10 +283,7 @@ export const callNextTicket = createServerFn({ method: "POST" })
           calledByOperatorId: session.operatorId,
         })
         .where(
-          and(
-            eq(schema.queueTickets.id, candidate.id),
-            eq(schema.queueTickets.status, "waiting"),
-          ),
+          and(eq(schema.queueTickets.id, candidate.id), eq(schema.queueTickets.status, "waiting")),
         )
         .returning();
       ticket = claimed[0];
@@ -330,8 +326,8 @@ export const callNextTicket = createServerFn({ method: "POST" })
       })
       .returning({ id: schema.queueCalls.id });
 
-    const { notifyDevice } = await import("@/lib/player/realtime.server");
-    notifyDevice(session.deviceId);
+    const { notifyQueueDevices } = await import("@/lib/queue/queue-devices.server");
+    await notifyQueueDevices(session.panelId);
 
     return {
       ok: true as const,
@@ -385,8 +381,8 @@ export const repeatLastTicket = createServerFn({ method: "POST" }).handler(async
     })
     .where(eq(schema.queueCalls.id, last[0].id));
 
-  const { notifyDevice } = await import("@/lib/player/realtime.server");
-  notifyDevice(session.deviceId);
+  const { notifyQueueDevices } = await import("@/lib/queue/queue-devices.server");
+  await notifyQueueDevices(session.panelId);
 
   return { ok: true, label: last[0].label };
 });

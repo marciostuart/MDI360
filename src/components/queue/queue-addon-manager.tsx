@@ -1,6 +1,6 @@
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { useServerFn } from "@tanstack/react-start";
-import { ExternalLink, Loader2, Ticket, Trash2, Tv } from "lucide-react";
+import { ExternalLink, Link2, Loader2, Settings2, Ticket, Trash2, Tv } from "lucide-react";
 import { useEffect, useRef, useState } from "react";
 import { toast } from "sonner";
 
@@ -24,6 +24,7 @@ import {
   listQueuePanels,
   listQueueBackgroundImages,
   saveQueuePanel,
+  setQueuePanelDevices,
   setQueuePanelEnabled,
   QUEUE_THEME_DEFAULTS,
   QUEUE_SOUND_DEFAULTS,
@@ -97,6 +98,7 @@ export function QueueAddonManager() {
   const togglePanel = useServerFn(setQueuePanelEnabled);
   const removePanel = useServerFn(deleteQueuePanel);
   const removeChime = useServerFn(clearQueueChime);
+  const saveDevices = useServerFn(setQueuePanelDevices);
 
   const { data, isPending } = useQuery({
     queryKey: ["queue-panels"],
@@ -106,6 +108,7 @@ export function QueueAddonManager() {
 
   const [editing, setEditing] = useState<string | null>(null);
   const [form, setForm] = useState({
+    queueName: "",
     username: "",
     password: "",
     mode: "sequential",
@@ -120,6 +123,7 @@ export function QueueAddonManager() {
   });
 
   const [uploadingChime, setUploadingChime] = useState<string | null>(null);
+  const [selectedDeviceIds, setSelectedDeviceIds] = useState<string[]>([]);
 
   /** Envia o MP3 do tom de chamada pelo proxy do servidor (sem CORS). */
   const uploadChime = async (deviceId: string, file: File) => {
@@ -206,6 +210,7 @@ export function QueueAddonManager() {
   const saveMutation = useMutation({
     mutationFn: (input: {
       deviceId: string;
+      queueName: string;
       username: string;
       password?: string;
       mode: "sequential" | "sector";
@@ -242,6 +247,15 @@ export function QueueAddonManager() {
     onError: (error: Error) => toast.error(error.message || "Não foi possível salvar."),
   });
 
+  const devicesMutation = useMutation({
+    mutationFn: (input: { panelId: string; deviceIds: string[] }) => saveDevices({ data: input }),
+    onSuccess: async () => {
+      toast.success("Terminais vinculados à fila.");
+      await invalidate();
+    },
+    onError: (error: Error) => toast.error(error.message),
+  });
+
   const toggleMutation = useMutation({
     mutationFn: (input: { deviceId: string; isEnabled: boolean }) => togglePanel({ data: input }),
     onSuccess: invalidate,
@@ -259,7 +273,13 @@ export function QueueAddonManager() {
 
   const startEdit = (panel: QueuePanelSummary) => {
     setEditing(panel.deviceId);
+    setSelectedDeviceIds(
+      panel.linkedDevices.length > 0
+        ? panel.linkedDevices.map((device) => device.id)
+        : [panel.deviceId],
+    );
     setForm({
+      queueName: panel.queueName || panel.deviceName,
       username: panel.username ?? "",
       password: "",
       mode: panel.mode === "sector" ? "sector" : "sequential",
@@ -392,9 +412,13 @@ export function QueueAddonManager() {
                     <Tv className="size-4" />
                   </span>
                   <div>
-                    <p className="font-medium">{panel.deviceName}</p>
+                    <p className="font-medium">
+                      {panel.panelId ? panel.queueName : `Nova fila em ${panel.deviceName}`}
+                    </p>
                     <p className="text-xs text-muted-foreground">
-                      {panel.deviceOnline ? "Online" : "Offline"}
+                      {panel.panelId
+                        ? `${panel.linkedDevices.length} terminal${panel.linkedDevices.length === 1 ? "" : "is"}`
+                        : "Terminal disponível"}
                       {panel.username ? ` · operador: ${panel.username}` : ""}
                     </p>
                   </div>
@@ -420,7 +444,7 @@ export function QueueAddonManager() {
                   ) : null}
                   <Button variant="outline" size="sm" onClick={() => startEdit(panel)}>
                     <Ticket className="size-4" />
-                    {panel.panelId ? "Editar acesso" : "Habilitar"}
+                    {panel.panelId ? "Configurar fila" : "Criar fila"}
                   </Button>
                   {panel.panelId ? (
                     <Button
@@ -435,7 +459,25 @@ export function QueueAddonManager() {
                 </div>
               </div>
 
-              {panel.panelId ? <QueuePanelConfig panelId={panel.panelId} /> : null}
+              {panel.panelId ? (
+                <>
+                  <div className="flex flex-wrap gap-2">
+                    {panel.linkedDevices.map((device) => (
+                      <Badge key={device.id} variant={device.online ? "default" : "secondary"}>
+                        <Tv className="mr-1 size-3" /> {device.name}
+                      </Badge>
+                    ))}
+                  </div>
+                  <details className="rounded-lg border border-border p-4">
+                    <summary className="flex cursor-pointer list-none items-center gap-2 font-medium">
+                      <Ticket className="size-4 text-primary" /> Setores e operadores
+                    </summary>
+                    <div className="mt-4">
+                      <QueuePanelConfig panelId={panel.panelId} />
+                    </div>
+                  </details>
+                </>
+              ) : null}
 
               {editing === panel.deviceId ? (
                 <form
@@ -460,6 +502,7 @@ export function QueueAddonManager() {
                     }
                     saveMutation.mutate({
                       deviceId: panel.deviceId,
+                      queueName: form.queueName.trim(),
                       username,
                       password: password || undefined,
                       mode: form.mode === "sector" ? "sector" : "sequential",
@@ -491,6 +534,88 @@ export function QueueAddonManager() {
                     });
                   }}
                 >
+                  <div className="space-y-1.5 sm:col-span-2">
+                    <Label htmlFor={`queue-name-${panel.deviceId}`}>Nome da fila</Label>
+                    <Input
+                      id={`queue-name-${panel.deviceId}`}
+                      value={form.queueName}
+                      onChange={(event) =>
+                        setForm((value) => ({ ...value, queueName: event.target.value }))
+                      }
+                      placeholder="Ex.: Recepção, Caixa ou Triagem"
+                      minLength={2}
+                      maxLength={80}
+                      required
+                    />
+                    <p className="text-xs text-muted-foreground">
+                      A aparência da emissão e da chamada será aplicada globalmente a esta fila.
+                    </p>
+                  </div>
+
+                  {panel.panelId ? (
+                    <div className="space-y-3 rounded-lg border border-border p-4 sm:col-span-2">
+                      <div className="flex items-center gap-2">
+                        <Link2 className="size-4 text-primary" />
+                        <p className="font-medium">Terminais vinculados</p>
+                      </div>
+                      <p className="text-xs text-muted-foreground">
+                        Selecione os terminais que participam desta fila. As funções habilitadas em
+                        cada terminal definem se ele exibe chamadas, emite ou chama senhas.
+                      </p>
+                      <div className="grid gap-2 sm:grid-cols-2 lg:grid-cols-3">
+                        {(data?.devices ?? []).map((candidate) => {
+                          const belongsHere = panel.linkedDevices.some(
+                            (device) => device.id === candidate.id,
+                          );
+                          const belongsElsewhere = Boolean(candidate.queueId) && !belongsHere;
+                          return (
+                            <label
+                              key={candidate.id}
+                              className="flex items-center gap-2 rounded-md border border-border p-3 text-sm"
+                            >
+                              <input
+                                type="checkbox"
+                                checked={selectedDeviceIds.includes(candidate.id)}
+                                disabled={belongsElsewhere}
+                                onChange={(event) =>
+                                  setSelectedDeviceIds((current) =>
+                                    event.target.checked
+                                      ? [...new Set([...current, candidate.id])]
+                                      : current.filter((id) => id !== candidate.id),
+                                  )
+                                }
+                              />
+                              {candidate.name}
+                              {belongsElsewhere ? " · em outra fila" : ""}
+                            </label>
+                          );
+                        })}
+                      </div>
+                      <Button
+                        type="button"
+                        variant="outline"
+                        disabled={devicesMutation.isPending || selectedDeviceIds.length === 0}
+                        onClick={() =>
+                          devicesMutation.mutate({
+                            panelId: panel.panelId!,
+                            deviceIds: selectedDeviceIds,
+                          })
+                        }
+                      >
+                        {devicesMutation.isPending ? (
+                          <Loader2 className="size-4 animate-spin" />
+                        ) : (
+                          <Link2 className="size-4" />
+                        )}
+                        Salvar terminais
+                      </Button>
+                    </div>
+                  ) : null}
+
+                  <div className="flex items-center gap-2 sm:col-span-2">
+                    <Settings2 className="size-4 text-primary" />
+                    <p className="font-medium">Configuração da fila</p>
+                  </div>
                   <div className="space-y-1.5">
                     <Label htmlFor={`user-${panel.deviceId}`}>Usuário do operador</Label>
                     <Input

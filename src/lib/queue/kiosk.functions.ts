@@ -61,7 +61,11 @@ export const getKioskPanel = createServerFn({ method: "POST" })
         brandLogoKey: schema.organizations.brandLogoKey,
       })
       .from(schema.queuePanels)
-      .innerJoin(schema.devices, eq(schema.devices.id, schema.queuePanels.deviceId))
+      .innerJoin(
+        schema.queuePanelDevices,
+        eq(schema.queuePanelDevices.panelId, schema.queuePanels.id),
+      )
+      .innerJoin(schema.devices, eq(schema.devices.id, schema.queuePanelDevices.deviceId))
       .innerJoin(
         schema.organizations,
         eq(schema.organizations.id, schema.queuePanels.organizationId),

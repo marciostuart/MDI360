@@ -64,10 +64,14 @@ export const Route = createFileRoute("/api/queue/chime")({
 
         const panels = await db
           .select({ id: schema.queuePanels.id, key: schema.queuePanels.chimeStorageKey })
-          .from(schema.queuePanels)
+          .from(schema.queuePanelDevices)
+          .innerJoin(
+            schema.queuePanels,
+            eq(schema.queuePanels.id, schema.queuePanelDevices.panelId),
+          )
           .where(
             and(
-              eq(schema.queuePanels.deviceId, deviceId),
+              eq(schema.queuePanelDevices.deviceId, deviceId),
               eq(schema.queuePanels.organizationId, user.organizationId),
             ),
           )
@@ -77,9 +81,8 @@ export const Route = createFileRoute("/api/queue/chime")({
           return Response.json({ error: "Painel de senhas não encontrado." }, { status: 404 });
         }
 
-        const { putObject, deleteObject, isStorageConfigured } = await import(
-          "@/lib/storage.server"
-        );
+        const { putObject, deleteObject, isStorageConfigured } =
+          await import("@/lib/storage.server");
         if (!isStorageConfigured()) {
           return Response.json({ error: "Armazenamento não configurado." }, { status: 503 });
         }

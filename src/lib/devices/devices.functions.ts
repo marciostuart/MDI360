@@ -355,11 +355,11 @@ export const replaceDevice = createServerFn({ method: "POST" })
       .update(schema.schedules)
       .set({ deviceId: next.id })
       .where(eq(schema.schedules.deviceId, old.id));
-    await db.delete(schema.queuePanels).where(eq(schema.queuePanels.deviceId, next.id));
+    await db.delete(schema.queuePanelDevices).where(eq(schema.queuePanelDevices.deviceId, next.id));
     await db
-      .update(schema.queuePanels)
+      .update(schema.queuePanelDevices)
       .set({ deviceId: next.id })
-      .where(eq(schema.queuePanels.deviceId, old.id));
+      .where(eq(schema.queuePanelDevices.deviceId, old.id));
     await db
       .update(schema.playbackEvents)
       .set({ deviceId: next.id })

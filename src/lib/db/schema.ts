@@ -349,12 +349,12 @@ export const schedules = pgTable(
   "schedules",
   {
     id: uuid("id").primaryKey().defaultRandom(),
-    organizationId: uuid("organization_id")
-      .notNull()
-      .references(() => organizations.id, { onDelete: "cascade" }),
     deviceId: uuid("device_id")
       .notNull()
       .references(() => devices.id, { onDelete: "cascade" }),
+    organizationId: uuid("organization_id")
+      .notNull()
+      .references(() => organizations.id, { onDelete: "cascade" }),
     playlistId: uuid("playlist_id")
       .notNull()
       .references(() => playlists.id, { onDelete: "cascade" }),
@@ -433,12 +433,10 @@ export const queuePanels = pgTable(
   "queue_panels",
   {
     id: uuid("id").primaryKey().defaultRandom(),
+    name: text("name").notNull().default("Fila de atendimento"),
     organizationId: uuid("organization_id")
       .notNull()
       .references(() => organizations.id, { onDelete: "cascade" }),
-    deviceId: uuid("device_id")
-      .notNull()
-      .references(() => devices.id, { onDelete: "cascade" }),
     isEnabled: boolean("is_enabled").notNull().default(true),
     /** "sequential" = só o número · "sector" = setor + número. */
     mode: text("mode").notNull().default("sequential"),
@@ -508,9 +506,25 @@ export const queuePanels = pgTable(
     passwordHash: text("password_hash").notNull(),
     createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
   },
+  (t) => [uniqueIndex("queue_panels_username_unique").on(t.username)],
+);
+
+/** Terminais que participam de uma fila. */
+export const queuePanelDevices = pgTable(
+  "queue_panel_devices",
+  {
+    panelId: uuid("panel_id")
+      .notNull()
+      .references(() => queuePanels.id, { onDelete: "cascade" }),
+    deviceId: uuid("device_id")
+      .notNull()
+      .references(() => devices.id, { onDelete: "cascade" }),
+    createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
+  },
   (t) => [
-    uniqueIndex("queue_panels_device_unique").on(t.deviceId),
-    uniqueIndex("queue_panels_username_unique").on(t.username),
+    primaryKey({ columns: [t.panelId, t.deviceId] }),
+    uniqueIndex("queue_panel_devices_device_unique").on(t.deviceId),
+    index("queue_panel_devices_panel_idx").on(t.panelId),
   ],
 );
 
