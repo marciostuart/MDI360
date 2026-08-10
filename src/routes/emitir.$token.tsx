@@ -130,6 +130,37 @@ function requestFullscreen() {
   }
 }
 
+/**
+ * Signed storage URLs change at every settings poll. Keep the already loaded
+ * bitmap while the underlying file version is unchanged, and preload a new
+ * file before swapping it so the kiosk background never flashes.
+ */
+function useStableAssetUrl(version: string | null, candidate: string | null) {
+  const [current, setCurrent] = useState<{ version: string | null; url: string | null }>({
+    version: null,
+    url: null,
+  });
+
+  useEffect(() => {
+    if (!candidate || !version) {
+      if (current.version !== null || current.url !== null) {
+        setCurrent({ version: null, url: null });
+      }
+      return;
+    }
+    if (current.version === version && current.url) return;
+    const image = new Image();
+    image.onload = () => setCurrent({ version, url: candidate });
+    image.src = candidate;
+    return () => {
+      image.onload = null;
+    };
+  }, [candidate, version, current.version, current.url]);
+
+  // Keep the previous bitmap visible while a genuinely new file is loading.
+  return current.url;
+}
+
 function KioskPage() {
   const { token: routeToken } = Route.useParams();
   const [deviceToken, setDeviceToken] = useState<string | null>(
@@ -211,6 +242,15 @@ function KioskPage() {
     return () => window.clearTimeout(timer);
   }, [issued]);
 
+  const stableBackgroundUrl = useStableAssetUrl(
+    data?.theme.bgImageVersion ?? null,
+    data?.theme.bgImageUrl ?? null,
+  );
+  const stableLogoUrl = useStableAssetUrl(
+    data?.theme.logoVersion ?? null,
+    data?.theme.logoUrl ?? null,
+  );
+
   if (!token || isPending) {
     return (
       <main className="grid h-dvh place-items-center overflow-hidden bg-background">
@@ -235,9 +275,9 @@ function KioskPage() {
   const theme = data.theme;
   const surface = {
     backgroundColor: theme.bgColor,
-    ...(theme.bgImageUrl
+    ...(stableBackgroundUrl
       ? {
-          backgroundImage: `url("${theme.bgImageUrl}")`,
+          backgroundImage: `url("${stableBackgroundUrl}")`,
           backgroundSize: "cover",
           backgroundPosition: "center",
         }
@@ -271,9 +311,9 @@ function KioskPage() {
     <main className="h-dvh overflow-hidden" style={surface}>
       <div className="mx-auto flex h-full max-w-3xl flex-col justify-center gap-6 p-6">
       <header className="space-y-2 text-center">
-        {theme.logoUrl ? (
+        {stableLogoUrl ? (
           <img
-            src={theme.logoUrl}
+            src={stableLogoUrl}
             alt="Logotipo da empresa"
             className="mx-auto w-auto object-contain"
             style={{ maxHeight: `${theme.logoHeight}px` }}

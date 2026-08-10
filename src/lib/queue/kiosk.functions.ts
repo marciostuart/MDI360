@@ -4,6 +4,7 @@ import { z } from "zod";
 export type KioskTheme = {
   bgColor: string;
   bgImageUrl: string | null;
+  bgImageVersion: string | null;
   cardColor: string;
   titleColor: string;
   textColor: string;
@@ -13,6 +14,7 @@ export type KioskTheme = {
   priorityButtonTextColor: string;
   title: string;
   logoUrl: string | null;
+  logoVersion: string | null;
   logoHeight: number;
 };
 
@@ -89,11 +91,14 @@ export const getKioskPanel = createServerFn({ method: "POST" })
     // Imagem de fundo e logo assinadas para o terminal (URLs temporárias).
     let bgImageUrl: string | null = null;
     let logoUrl: string | null = null;
+    let bgImageVersion: string | null = null;
+    let logoVersion: string | null = null;
     try {
       const { isStorageConfigured, createDownloadUrl } = await import("@/lib/storage.server");
       if (isStorageConfigured()) {
         if (panel.kioskBgImageKey) {
           bgImageUrl = await createDownloadUrl(panel.kioskBgImageKey, 3600);
+          bgImageVersion = panel.kioskBgImageKey;
         } else if (panel.kioskBgMediaId) {
           const asset = await db
             .select({
@@ -104,10 +109,15 @@ export const getKioskPanel = createServerFn({ method: "POST" })
             .where(eq(schema.mediaAssets.id, panel.kioskBgMediaId))
             .limit(1);
           const key = asset[0]?.status === "ready" ? asset[0]?.storageKey : null;
-          if (key) bgImageUrl = await createDownloadUrl(key, 3600);
+          if (key) {
+            bgImageUrl = await createDownloadUrl(key, 3600);
+            bgImageVersion = key;
+          }
         }
         if (panel.kioskShowLogo && (panel.kioskLogoKey || panel.brandLogoKey)) {
-          logoUrl = await createDownloadUrl(panel.kioskLogoKey ?? panel.brandLogoKey!, 3600);
+          const key = panel.kioskLogoKey ?? panel.brandLogoKey!;
+          logoUrl = await createDownloadUrl(key, 3600);
+          logoVersion = key;
         }
       }
     } catch {
@@ -134,6 +144,7 @@ export const getKioskPanel = createServerFn({ method: "POST" })
       theme: {
         bgColor: panel.kioskBgColor || "#0b1220",
         bgImageUrl,
+        bgImageVersion,
         cardColor: panel.kioskCardColor || "#111a2e",
         titleColor: panel.kioskTitleColor || "#ffffff",
         textColor: panel.kioskTextColor || "#cbd5f5",
@@ -143,6 +154,7 @@ export const getKioskPanel = createServerFn({ method: "POST" })
         priorityButtonTextColor: panel.kioskPriorityButtonTextColor || "#0b1220",
         title: panel.kioskTitle?.trim() || "Retire sua senha",
         logoUrl,
+        logoVersion,
         logoHeight: panel.kioskLogoHeight ?? 96,
       },
     };
