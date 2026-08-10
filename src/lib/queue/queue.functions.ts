@@ -44,6 +44,10 @@ export type QueuePanelSummary = {
   kioskTitle: string | null;
   kioskShowLogo: boolean;
   kioskLogoHeight: number;
+  hasKioskLogo: boolean;
+  hasKioskBgImage: boolean;
+  kioskLogoPreviewUrl: string | null;
+  kioskBgImagePreviewUrl: string | null;
   printerFooterText: string | null;
   /** Tom de chamada personalizado e volumes. */
   chimeName: string | null;
@@ -201,6 +205,8 @@ export const listQueuePanels = createServerFn({ method: "GET" }).handler(
           kioskTitle: schema.queuePanels.kioskTitle,
           kioskShowLogo: schema.queuePanels.kioskShowLogo,
           kioskLogoHeight: schema.queuePanels.kioskLogoHeight,
+          kioskLogoKey: schema.queuePanels.kioskLogoKey,
+          kioskBgImageKey: schema.queuePanels.kioskBgImageKey,
           printerFooterText: schema.queuePanels.printerFooterText,
           chimeName: schema.queuePanels.chimeName,
           chimeVolume: schema.queuePanels.chimeVolume,
@@ -256,6 +262,25 @@ export const listQueuePanels = createServerFn({ method: "GET" }).handler(
       }
 
       const now = Date.now();
+      const kioskPreviewUrls = new Map<string, { logo: string | null; background: string | null }>();
+      try {
+        const { createDownloadUrl, isStorageConfigured } = await import("@/lib/storage.server");
+        if (isStorageConfigured()) {
+          await Promise.all(
+            rows.map(async (row) => {
+              const [logo, background] = await Promise.all([
+                row.kioskLogoKey ? createDownloadUrl(row.kioskLogoKey, 900) : Promise.resolve(null),
+                row.kioskBgImageKey
+                  ? createDownloadUrl(row.kioskBgImageKey, 900)
+                  : Promise.resolve(null),
+              ]);
+              kioskPreviewUrls.set(row.deviceId, { logo, background });
+            }),
+          );
+        }
+      } catch {
+        // A preview unavailable must not block editing the terminal.
+      }
       return {
         configured: true,
         available,
@@ -303,6 +328,10 @@ export const listQueuePanels = createServerFn({ method: "GET" }).handler(
             kioskTitle: row.kioskTitle ?? null,
             kioskShowLogo: row.kioskShowLogo ?? true,
             kioskLogoHeight: row.kioskLogoHeight ?? KIOSK_THEME_DEFAULTS.kioskLogoHeight,
+            hasKioskLogo: Boolean(row.kioskLogoKey),
+            hasKioskBgImage: Boolean(row.kioskBgImageKey),
+            kioskLogoPreviewUrl: kioskPreviewUrls.get(row.deviceId)?.logo ?? null,
+            kioskBgImagePreviewUrl: kioskPreviewUrls.get(row.deviceId)?.background ?? null,
             printerFooterText: row.printerFooterText ?? null,
             chimeName: row.chimeName ?? null,
             chimeVolume: row.chimeVolume ?? QUEUE_SOUND_DEFAULTS.chimeVolume,

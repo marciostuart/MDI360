@@ -62,7 +62,7 @@ export function WidgetsManager() {
           <div className="grid gap-4 sm:grid-cols-2 xl:grid-cols-3">
             {widgets.map((item) => (
               <div key={item.id} className="overflow-hidden rounded-xl border border-border">
-                <div className="aspect-video w-full bg-muted">
+                <div className="relative aspect-video w-full overflow-hidden bg-muted">
                   <WidgetView config={item.widgetConfig!} />
                 </div>
                 <div className="flex items-start justify-between gap-2 p-3">

@@ -32,6 +32,8 @@ import {
   type QueuePanelSummary,
 } from "@/lib/queue/queue.functions";
 import { QueuePanelConfig } from "@/components/queue/queue-panel-config";
+import { DEFAULT_CANVAS_PRESET } from "@/lib/media/presets";
+import { prepareUpload } from "@/lib/media/optimize-client";
 
 /** Campo de cor com amostra + valor hexadecimal editável. */
 function ColorField({
@@ -140,6 +142,48 @@ export function QueueAddonManager() {
   const images = media?.items ?? [];
 
   const invalidate = () => queryClient.invalidateQueries({ queryKey: ["queue-panels"] });
+
+  const [uploadingKioskMedia, setUploadingKioskMedia] = useState<string | null>(null);
+
+  const uploadKioskMedia = async (deviceId: string, slot: "logo" | "background", file: File) => {
+    setUploadingKioskMedia(`${deviceId}:${slot}`);
+    try {
+      const prepared = await prepareUpload(file, DEFAULT_CANVAS_PRESET);
+      if (prepared.kind !== "image") throw new Error("Selecione uma imagem.");
+      const body = new FormData();
+      body.append("deviceId", deviceId);
+      body.append("slot", slot);
+      body.append("file", prepared.blob, `${slot}.webp`);
+      const response = await fetch("/api/queue/kiosk-media", { method: "POST", body });
+      const payload = (await response.json().catch(() => ({}))) as { error?: string };
+      if (!response.ok) throw new Error(payload.error || "NÃ£o foi possÃ­vel enviar a imagem.");
+      toast.success(slot === "logo" ? "Logo do emissor atualizada." : "Fundo do emissor atualizado.");
+      await invalidate();
+    } catch (error) {
+      toast.error((error as Error).message);
+    } finally {
+      setUploadingKioskMedia(null);
+    }
+  };
+
+  const removeKioskMedia = async (deviceId: string, slot: "logo" | "background") => {
+    setUploadingKioskMedia(`${deviceId}:${slot}`);
+    try {
+      const response = await fetch("/api/queue/kiosk-media", {
+        method: "DELETE",
+        headers: { "content-type": "application/json" },
+        body: JSON.stringify({ deviceId, slot }),
+      });
+      const payload = (await response.json().catch(() => ({}))) as { error?: string };
+      if (!response.ok) throw new Error(payload.error || "NÃ£o foi possÃ­vel remover a imagem.");
+      toast.success("Imagem removida.");
+      await invalidate();
+    } catch (error) {
+      toast.error((error as Error).message);
+    } finally {
+      setUploadingKioskMedia(null);
+    }
+  };
 
   const saveMutation = useMutation({
     mutationFn: (input: {
@@ -836,34 +880,41 @@ export function QueueAddonManager() {
                             setForm((prev) => ({ ...prev, kioskPriorityButtonTextColor: value }))
                           }
                         />
-                        <div className="space-y-1.5 sm:col-span-2">
-                          <Label>Imagem de fundo (opcional)</Label>
-                          <Select
-                            value={form.kioskBgMediaId ?? "none"}
-                            onValueChange={(value) =>
-                              setForm((prev) => ({
-                                ...prev,
-                                kioskBgMediaId: value === "none" ? null : value,
-                              }))
-                            }
-                          >
-                            <SelectTrigger>
-                              <SelectValue placeholder="Somente cor de fundo" />
-                            </SelectTrigger>
-                            <SelectContent>
-                              <SelectItem value="none">Somente cor de fundo</SelectItem>
-                              {!media ? (
-                                <SelectItem value="loading" disabled>Carregando imagens...</SelectItem>
-                              ) : images.length === 0 ? (
-                                <SelectItem value="empty" disabled>Nenhuma imagem pronta na biblioteca</SelectItem>
-                              ) : null}
-                              {images.map((image) => (
-                                <SelectItem key={image.id} value={image.id}>
-                                  {image.name}
-                                </SelectItem>
-                              ))}
-                            </SelectContent>
-                          </Select>
+                        <div className="space-y-1.5 sm:col-span-2 rounded-md border border-dashed border-border p-3">
+                          <Label>Imagem de fundo exclusiva do emissor</Label>
+                          <div className="flex flex-wrap items-center gap-2">
+                            <Input
+                              type="file"
+                              accept="image/jpeg,image/png,image/webp,image/avif"
+                              disabled={uploadingKioskMedia === `${panel.deviceId}:background`}
+                              onChange={(event) => {
+                                const file = event.target.files?.[0];
+                                if (file) void uploadKioskMedia(panel.deviceId, "background", file);
+                                event.currentTarget.value = "";
+                              }}
+                            />
+                            {panel.hasKioskBgImage ? (
+                              <Button
+                                type="button"
+                                variant="outline"
+                                size="sm"
+                                disabled={uploadingKioskMedia === `${panel.deviceId}:background`}
+                                onClick={() => void removeKioskMedia(panel.deviceId, "background")}
+                              >
+                                Remover
+                              </Button>
+                            ) : null}
+                          </div>
+                          <p className="text-xs text-muted-foreground">
+                            Esta imagem Ã© exclusiva deste emissor e serÃ¡ convertida para WebP automaticamente.
+                          </p>
+                          {panel.kioskBgImagePreviewUrl ? (
+                            <img
+                              src={panel.kioskBgImagePreviewUrl}
+                              alt="Fundo exclusivo do emissor"
+                              className="aspect-video w-full rounded-md object-cover"
+                            />
+                          ) : null}
                         </div>
                         <div className="flex items-center gap-2 sm:col-span-2">
                           <Switch
@@ -879,6 +930,40 @@ export function QueueAddonManager() {
                         </div>
                         {form.kioskShowLogo ? (
                           <div className="space-y-1.5 sm:col-span-2">
+                            <Label>Logo exclusiva do emissor</Label>
+                            <div className="flex flex-wrap items-center gap-2">
+                              <Input
+                                type="file"
+                                accept="image/jpeg,image/png,image/webp,image/avif"
+                                disabled={uploadingKioskMedia === `${panel.deviceId}:logo`}
+                                onChange={(event) => {
+                                  const file = event.target.files?.[0];
+                                  if (file) void uploadKioskMedia(panel.deviceId, "logo", file);
+                                  event.currentTarget.value = "";
+                                }}
+                              />
+                              {panel.hasKioskLogo ? (
+                                <Button
+                                  type="button"
+                                  variant="outline"
+                                  size="sm"
+                                  disabled={uploadingKioskMedia === `${panel.deviceId}:logo`}
+                                  onClick={() => void removeKioskMedia(panel.deviceId, "logo")}
+                                >
+                                  Remover
+                                </Button>
+                              ) : null}
+                            </div>
+                            <p className="text-xs text-muted-foreground">
+                              Substitui a logo padrÃ£o apenas neste emissor. A imagem Ã© otimizada para WebP.
+                            </p>
+                            {panel.kioskLogoPreviewUrl ? (
+                              <img
+                                src={panel.kioskLogoPreviewUrl}
+                                alt="Logo exclusiva do emissor"
+                                className="max-h-24 max-w-full rounded-md object-contain"
+                              />
+                            ) : null}
                             <Label htmlFor={`klogoh-${panel.deviceId}`}>
                               Tamanho da logo na tela · {form.kioskLogoHeight}px
                             </Label>
@@ -902,27 +987,36 @@ export function QueueAddonManager() {
                       </div>
 
                       <div
-                        className="space-y-3 rounded-md bg-cover bg-center p-6 text-center"
+                        className="relative aspect-video space-y-3 overflow-hidden rounded-md bg-cover bg-center p-6 text-center"
                         style={{
                           backgroundColor: form.kioskBgColor,
-                          ...(form.kioskBgMediaId
+                          ...(panel.kioskBgImagePreviewUrl || form.kioskBgMediaId
                             ? {
                                 backgroundImage: `url(${JSON.stringify(
-                                  images.find((i) => i.id === form.kioskBgMediaId)?.previewUrl ??
-                                    "",
+                                  panel.kioskBgImagePreviewUrl ??
+                                    images.find((i) => i.id === form.kioskBgMediaId)?.previewUrl ?? "",
                                 )})`,
                               }
                             : {}),
                         }}
                       >
                         {form.kioskShowLogo ? (
-                          <div
-                            className="mx-auto rounded bg-foreground/10"
-                            style={{
-                              height: Math.round(form.kioskLogoHeight / 3),
-                              width: Math.round((form.kioskLogoHeight / 3) * 2.5),
-                            }}
-                          />
+                          panel.kioskLogoPreviewUrl ? (
+                            <img
+                              src={panel.kioskLogoPreviewUrl}
+                              alt="Logo do emissor"
+                              className="mx-auto object-contain"
+                              style={{ height: Math.round(form.kioskLogoHeight / 3) }}
+                            />
+                          ) : (
+                            <div
+                              className="mx-auto rounded bg-foreground/10"
+                              style={{
+                                height: Math.round(form.kioskLogoHeight / 3),
+                                width: Math.round((form.kioskLogoHeight / 3) * 2.5),
+                              }}
+                            />
+                          )
                         ) : null}
                         <p
                           className="text-lg font-semibold"

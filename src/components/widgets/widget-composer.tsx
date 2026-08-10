@@ -590,7 +590,7 @@ export function WidgetComposer({
 
         <div className="space-y-2">
           <Label>Prévia</Label>
-          <div className="aspect-video overflow-hidden rounded-xl border border-border">
+          <div className="relative aspect-video w-full overflow-hidden rounded-xl border border-border bg-muted">
             <WidgetView config={config} />
           </div>
           <p className="text-xs text-muted-foreground">

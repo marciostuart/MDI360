@@ -38,6 +38,7 @@ import { Route as ApiMediaUploadRouteImport } from './routes/api/media/upload'
 import { Route as ApiPublicEmissorManifestRouteImport } from './routes/api/public/emissor-manifest'
 import { Route as ApiPublicWidgetDataRouteImport } from './routes/api/public/widget-data'
 import { Route as ApiQueueChimeRouteImport } from './routes/api/queue/chime'
+import { Route as ApiQueueKioskMediaRouteImport } from './routes/api/queue/kiosk-media'
 import { Route as StudioInstalarAndroidRouteImport } from './routes/studio/instalar/android'
 import { Route as StudioInstalarEmissorLinuxRouteImport } from './routes/studio/instalar/emissor-linux'
 import { Route as StudioInstalarEmissorWindowsRouteImport } from './routes/studio/instalar/emissor-windows'
@@ -204,6 +205,11 @@ const ApiQueueChimeRoute = ApiQueueChimeRouteImport.update({
   path: '/api/queue/chime',
   getParentRoute: () => rootRouteImport,
 } as any)
+const ApiQueueKioskMediaRoute = ApiQueueKioskMediaRouteImport.update({
+  id: '/api/queue/kiosk-media',
+  path: '/api/queue/kiosk-media',
+  getParentRoute: () => rootRouteImport,
+} as any)
 const StudioInstalarAndroidRoute = StudioInstalarAndroidRouteImport.update({
   id: '/instalar/android',
   path: '/instalar/android',
@@ -331,6 +337,7 @@ export interface FileRoutesByFullPath {
   '/api/public/emissor-manifest': typeof ApiPublicEmissorManifestRoute
   '/api/public/widget-data': typeof ApiPublicWidgetDataRoute
   '/api/queue/chime': typeof ApiQueueChimeRoute
+  '/api/queue/kiosk-media': typeof ApiQueueKioskMediaRoute
   '/studio/instalar/android': typeof StudioInstalarAndroidRoute
   '/studio/instalar/emissor-linux': typeof StudioInstalarEmissorLinuxRoute
   '/studio/instalar/emissor-windows': typeof StudioInstalarEmissorWindowsRoute
@@ -378,6 +385,7 @@ export interface FileRoutesByTo {
   '/api/public/emissor-manifest': typeof ApiPublicEmissorManifestRoute
   '/api/public/widget-data': typeof ApiPublicWidgetDataRoute
   '/api/queue/chime': typeof ApiQueueChimeRoute
+  '/api/queue/kiosk-media': typeof ApiQueueKioskMediaRoute
   '/studio/instalar/android': typeof StudioInstalarAndroidRoute
   '/studio/instalar/emissor-linux': typeof StudioInstalarEmissorLinuxRoute
   '/studio/instalar/emissor-windows': typeof StudioInstalarEmissorWindowsRoute
@@ -428,6 +436,7 @@ export interface FileRoutesById {
   '/api/public/emissor-manifest': typeof ApiPublicEmissorManifestRoute
   '/api/public/widget-data': typeof ApiPublicWidgetDataRoute
   '/api/queue/chime': typeof ApiQueueChimeRoute
+  '/api/queue/kiosk-media': typeof ApiQueueKioskMediaRoute
   '/studio/instalar/android': typeof StudioInstalarAndroidRoute
   '/studio/instalar/emissor-linux': typeof StudioInstalarEmissorLinuxRoute
   '/studio/instalar/emissor-windows': typeof StudioInstalarEmissorWindowsRoute
@@ -479,6 +488,7 @@ export interface FileRouteTypes {
     | '/api/public/emissor-manifest'
     | '/api/public/widget-data'
     | '/api/queue/chime'
+    | '/api/queue/kiosk-media'
     | '/studio/instalar/android'
     | '/studio/instalar/emissor-linux'
     | '/studio/instalar/emissor-windows'
@@ -526,6 +536,7 @@ export interface FileRouteTypes {
     | '/api/public/emissor-manifest'
     | '/api/public/widget-data'
     | '/api/queue/chime'
+    | '/api/queue/kiosk-media'
     | '/studio/instalar/android'
     | '/studio/instalar/emissor-linux'
     | '/studio/instalar/emissor-windows'
@@ -575,6 +586,7 @@ export interface FileRouteTypes {
     | '/api/public/emissor-manifest'
     | '/api/public/widget-data'
     | '/api/queue/chime'
+    | '/api/queue/kiosk-media'
     | '/studio/instalar/android'
     | '/studio/instalar/emissor-linux'
     | '/studio/instalar/emissor-windows'
@@ -611,6 +623,7 @@ export interface RootRouteChildren {
   ApiPublicEmissorManifestRoute: typeof ApiPublicEmissorManifestRoute
   ApiPublicWidgetDataRoute: typeof ApiPublicWidgetDataRoute
   ApiQueueChimeRoute: typeof ApiQueueChimeRoute
+  ApiQueueKioskMediaRoute: typeof ApiQueueKioskMediaRoute
   ApiPublicEmitterRegisterRoute: typeof ApiPublicEmitterRegisterRoute
   ApiPublicEmitterStatusRoute: typeof ApiPublicEmitterStatusRoute
   ApiPublicPlayerAnnounceRoute: typeof ApiPublicPlayerAnnounceRoute
@@ -829,6 +842,13 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof ApiQueueChimeRouteImport
       parentRoute: typeof rootRouteImport
     }
+    '/api/queue/kiosk-media': {
+      id: '/api/queue/kiosk-media'
+      path: '/api/queue/kiosk-media'
+      fullPath: '/api/queue/kiosk-media'
+      preLoaderRoute: typeof ApiQueueKioskMediaRouteImport
+      parentRoute: typeof rootRouteImport
+    }
     '/studio/instalar/android': {
       id: '/studio/instalar/android'
       path: '/instalar/android'
@@ -1036,6 +1056,7 @@ const rootRouteChildren: RootRouteChildren = {
   ApiPublicEmissorManifestRoute: ApiPublicEmissorManifestRoute,
   ApiPublicWidgetDataRoute: ApiPublicWidgetDataRoute,
   ApiQueueChimeRoute: ApiQueueChimeRoute,
+  ApiQueueKioskMediaRoute: ApiQueueKioskMediaRoute,
   ApiPublicEmitterRegisterRoute: ApiPublicEmitterRegisterRoute,
   ApiPublicEmitterStatusRoute: ApiPublicEmitterStatusRoute,
   ApiPublicPlayerAnnounceRoute: ApiPublicPlayerAnnounceRoute,

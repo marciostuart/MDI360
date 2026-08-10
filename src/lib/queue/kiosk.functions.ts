@@ -55,6 +55,8 @@ export const getKioskPanel = createServerFn({ method: "POST" })
         kioskTitle: schema.queuePanels.kioskTitle,
         kioskShowLogo: schema.queuePanels.kioskShowLogo,
         kioskLogoHeight: schema.queuePanels.kioskLogoHeight,
+        kioskLogoKey: schema.queuePanels.kioskLogoKey,
+        kioskBgImageKey: schema.queuePanels.kioskBgImageKey,
         brandLogoKey: schema.organizations.brandLogoKey,
       })
       .from(schema.queuePanels)
@@ -84,7 +86,9 @@ export const getKioskPanel = createServerFn({ method: "POST" })
     try {
       const { isStorageConfigured, createDownloadUrl } = await import("@/lib/storage.server");
       if (isStorageConfigured()) {
-        if (panel.kioskBgMediaId) {
+        if (panel.kioskBgImageKey) {
+          bgImageUrl = await createDownloadUrl(panel.kioskBgImageKey, 3600);
+        } else if (panel.kioskBgMediaId) {
           const asset = await db
             .select({
               storageKey: schema.mediaAssets.storageKey,
@@ -96,8 +100,8 @@ export const getKioskPanel = createServerFn({ method: "POST" })
           const key = asset[0]?.status === "ready" ? asset[0]?.storageKey : null;
           if (key) bgImageUrl = await createDownloadUrl(key, 3600);
         }
-        if (panel.kioskShowLogo && panel.brandLogoKey) {
-          logoUrl = await createDownloadUrl(panel.brandLogoKey, 3600);
+        if (panel.kioskShowLogo && (panel.kioskLogoKey || panel.brandLogoKey)) {
+          logoUrl = await createDownloadUrl(panel.kioskLogoKey ?? panel.brandLogoKey!, 3600);
         }
       }
     } catch {
