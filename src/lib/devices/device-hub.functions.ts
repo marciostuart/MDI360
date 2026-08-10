@@ -154,7 +154,14 @@ export const updateDeviceHub = createServerFn({ method: "POST" })
         defaultPlaylistId: z.string().uuid().nullable(),
         audioEnabled: z.boolean(),
         transitionEffect: z.enum(["none", "fade"]),
-        enabledModes: z.array(z.enum(["display", "issuer", "caller"])).min(1).max(3),
+        // Optional for compatibility with a Studio tab that may still be open
+        // with an older bundle. When omitted, Drizzle leaves the current modes
+        // untouched instead of rejecting unrelated audio/transition changes.
+        enabledModes: z
+          .array(z.enum(["display", "issuer", "caller"]))
+          .min(1)
+          .max(3)
+          .optional(),
         operatingHours: z.array(operatingWindow).max(14),
         offlineAlertsEnabled: z.boolean(),
         recoveryAlertsEnabled: z.boolean(),

@@ -38,11 +38,13 @@ import { sendDeviceCommand } from "@/lib/devices/devices.functions";
 import type { ScheduleRuleType } from "@/lib/schedules/rules";
 
 type OperatingWindow = { weekdays: number[]; startMinute: number; endMinute: number };
+type DeviceMode = "display" | "issuer" | "caller";
 type DeviceForm = {
   name: string;
   defaultPlaylistId: string;
   audioEnabled: boolean;
   transitionEffect: "none" | "fade";
+  enabledModes: DeviceMode[];
   operatingHours: OperatingWindow[];
   offlineAlertsEnabled: boolean;
   recoveryAlertsEnabled: boolean;
@@ -114,6 +116,9 @@ export function DeviceHub({ deviceId }: { deviceId: string }) {
       defaultPlaylistId: d.defaultPlaylistId ?? "",
       audioEnabled: d.audioEnabled,
       transitionEffect: d.transitionEffect === "fade" ? "fade" : "none",
+      enabledModes: d.enabledModes.filter(
+        (mode): mode is DeviceMode => mode === "display" || mode === "issuer" || mode === "caller",
+      ),
       operatingHours: d.operatingHours ?? [],
       offlineAlertsEnabled: d.offlineAlertsEnabled,
       recoveryAlertsEnabled: d.recoveryAlertsEnabled,
