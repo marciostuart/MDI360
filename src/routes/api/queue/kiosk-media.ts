@@ -50,6 +50,7 @@ export const Route = createFileRoute("/api/queue/kiosk-media")({
               : { kioskBgImageKey: key, kioskBgMediaId: null };
           const oldKey = slot === "logo" ? panel.logoKey : panel.bgKey;
           try {
+            const { eq } = await import("drizzle-orm");
             await db.update(schema.queuePanels).set(field).where(eq(schema.queuePanels.id, panel.id));
           } catch (error) {
             try { await deleteObject(key); } catch { /* best effort cleanup */ }
