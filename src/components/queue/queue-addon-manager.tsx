@@ -1,7 +1,7 @@
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { useServerFn } from "@tanstack/react-start";
 import { ExternalLink, Loader2, Ticket, Trash2, Tv } from "lucide-react";
-import { useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { toast } from "sonner";
 
 import { Badge } from "@/components/ui/badge";
@@ -35,6 +35,21 @@ import { QueuePanelConfig } from "@/components/queue/queue-panel-config";
 import { DEFAULT_CANVAS_PRESET } from "@/lib/media/presets";
 import { prepareUpload } from "@/lib/media/optimize-client";
 
+function repairMojibake(value: string) {
+  let result = value;
+  for (let attempt = 0; attempt < 2 && /[ÃÂ]/.test(result); attempt += 1) {
+    try {
+      const bytes = Uint8Array.from(Array.from(result), (character) => character.charCodeAt(0));
+      const decoded = new TextDecoder("utf-8").decode(bytes);
+      if (decoded === result) break;
+      result = decoded;
+    } catch {
+      break;
+    }
+  }
+  return result;
+}
+
 /** Campo de cor com amostra + valor hexadecimal editável. */
 function ColorField({
   id,
@@ -49,7 +64,7 @@ function ColorField({
 }) {
   return (
     <div className="space-y-1.5">
-      <Label htmlFor={id}>{label}</Label>
+        <Label htmlFor={id}>{repairMojibake(label)}</Label>
       <div className="flex items-center gap-2">
         <input
           id={id}
@@ -57,7 +72,7 @@ function ColorField({
           value={value}
           onChange={(event) => onChange(event.target.value)}
           className="size-9 shrink-0 cursor-pointer rounded-md border border-border bg-transparent p-0.5"
-          aria-label={label}
+          aria-label={repairMojibake(label)}
         />
         <Input
           value={value}
@@ -75,6 +90,7 @@ function ColorField({
  * operator login that only reaches the queue panel — never the content library.
  */
 export function QueueAddonManager() {
+  const contentRef = useRef<HTMLDivElement>(null);
   const queryClient = useQueryClient();
   const fetchPanels = useServerFn(listQueuePanels);
   const savePanel = useServerFn(saveQueuePanel);
@@ -286,6 +302,23 @@ export function QueueAddonManager() {
 
   const panels = data?.items ?? [];
 
+  useEffect(() => {
+    const root = contentRef.current;
+    if (!root) return;
+    const walker = document.createTreeWalker(root, NodeFilter.SHOW_TEXT);
+    const textNodes: Text[] = [];
+    let node = walker.nextNode();
+    while (node) {
+      textNodes.push(node as Text);
+      node = walker.nextNode();
+    }
+    for (const textNode of textNodes) {
+      if (/[ÃÂ]/.test(textNode.nodeValue ?? "")) {
+        textNode.nodeValue = repairMojibake(textNode.nodeValue ?? "");
+      }
+    }
+  }, [data, editing, media, uploadingChime, uploadingKioskMedia]);
+
   if (data && data.configured && !data.available) {
     return (
       <div className="space-y-6">
@@ -321,7 +354,7 @@ export function QueueAddonManager() {
   }
 
   return (
-    <div className="space-y-6">
+    <div ref={contentRef} className="space-y-6">
       <header className="space-y-1">
         <h1 className="font-display text-2xl font-semibold">Sistema de senhas</h1>
         <p className="text-sm text-muted-foreground">
@@ -740,7 +773,7 @@ export function QueueAddonManager() {
                       </div>
 
                       <div
-                        className="grid place-items-center rounded-md bg-cover bg-center p-6 text-center"
+                        className="relative aspect-video grid place-items-center overflow-hidden rounded-md bg-cover bg-center p-6 text-center"
                         style={{
                           backgroundColor: form.themeBgColor,
                           ...(form.themeBgMediaId
@@ -906,7 +939,7 @@ export function QueueAddonManager() {
                             ) : null}
                           </div>
                           <p className="text-xs text-muted-foreground">
-                            {"Esta imagem \\u00e9 exclusiva deste emissor e ser\\u00e1 convertida para WebP automaticamente."}
+                            {"Esta imagem \u00e9 exclusiva deste emissor e ser\u00e1 convertida para WebP automaticamente."}
                           </p>
                           {panel.kioskBgImagePreviewUrl ? (
                             <img
@@ -955,7 +988,7 @@ export function QueueAddonManager() {
                               ) : null}
                             </div>
                             <p className="text-xs text-muted-foreground">
-                              {"Substitui a logo padr\\u00e3o apenas neste emissor. A imagem \\u00e9 otimizada para WebP."}
+                              {"Substitui a logo padr\u00e3o apenas neste emissor. A imagem \u00e9 otimizada para WebP."}
                             </p>
                             {panel.kioskLogoPreviewUrl ? (
                               <img
@@ -987,7 +1020,7 @@ export function QueueAddonManager() {
                       </div>
 
                       <div
-                        className="relative aspect-video space-y-3 overflow-hidden rounded-md bg-cover bg-center p-6 text-center"
+                        className="relative aspect-video flex flex-col justify-center space-y-3 overflow-hidden rounded-md bg-cover bg-center p-6 text-center"
                         style={{
                           backgroundColor: form.kioskBgColor,
                           ...(panel.kioskBgImagePreviewUrl || form.kioskBgMediaId

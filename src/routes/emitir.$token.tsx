@@ -159,12 +159,7 @@ function KioskPage() {
 
   const [pendingKind, setPendingKind] = useState<"normal" | "priority" | null>(null);
   const [printError, setPrintError] = useState<string | null>(null);
-  const [issued, setIssued] = useState<{
-    label: string;
-    kind: string;
-    sectorName: string | null;
-    waitingAhead: number;
-  } | null>(null);
+  const [issued, setIssued] = useState(false);
 
   const issueMutation = useMutation({
     mutationFn: (input: { kind: "normal" | "priority"; sectorId: string | null }) =>
@@ -172,12 +167,7 @@ function KioskPage() {
     onSuccess: (ticket) => {
       setPendingKind(null);
       setPrintError(null);
-      setIssued({
-        label: ticket.label,
-        kind: ticket.kind,
-        sectorName: ticket.sectorName,
-        waitingAhead: ticket.waitingAhead,
-      });
+      setIssued(true);
       const bridge = desktopBridge();
       if (bridge?.printTicket) {
         void bridge
@@ -199,11 +189,11 @@ function KioskPage() {
     },
   });
 
-  // A senha emitida fica na tela por alguns segundos e volta ao início.
+  // Mostra apenas o estado de impressão e retorna ao início após alguns segundos.
   useEffect(() => {
     if (!issued) return;
     const timer = window.setTimeout(() => {
-      setIssued(null);
+      setIssued(false);
       setPendingKind(null);
     }, 3_000);
     return () => window.clearTimeout(timer);
@@ -246,29 +236,11 @@ function KioskPage() {
     return (
       <main className="grid h-dvh place-items-center overflow-hidden px-6 text-center" style={surface}>
         <div className="space-y-3">
-          <p className="text-sm uppercase tracking-widest" style={{ color: theme.textColor }}>
-            {issued.kind === "priority" ? "Atendimento preferencial" : "Sua senha"}
+          <Loader2 className="mx-auto size-10 animate-spin" style={{ color: theme.titleColor }} />
+          <p className="text-3xl font-semibold" style={{ color: theme.titleColor }}>
+            Imprimindo...
           </p>
-          <p className="font-display text-8xl font-black" style={{ color: theme.titleColor }}>
-            {issued.label}
-          </p>
-          {issued.sectorName ? (
-            <p className="text-xl" style={{ color: theme.titleColor }}>
-              {issued.sectorName}
-            </p>
-          ) : null}
           {printError ? <p className="text-sm text-destructive">{printError}</p> : null}
-          <Button
-            variant="outline"
-            style={{
-              backgroundColor: theme.cardColor,
-              color: theme.titleColor,
-              borderColor: theme.textColor,
-            }}
-            onClick={() => setIssued(null)}
-          >
-            Emitir outra senha
-          </Button>
         </div>
       </main>
     );
