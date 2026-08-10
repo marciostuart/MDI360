@@ -360,9 +360,6 @@ function KioskPage() {
       ) : (
         <Card style={{ backgroundColor: theme.cardColor, borderColor: theme.cardColor }}>
           <CardContent className="space-y-3 py-5">
-            <p className="text-sm font-medium" style={{ color: theme.textColor }}>
-              Toque no tipo de senha
-            </p>
             <div className="grid gap-3 sm:grid-cols-2">
               <Button
                 size="lg"

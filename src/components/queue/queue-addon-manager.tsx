@@ -906,7 +906,7 @@ export function QueueAddonManager() {
                             ) : null}
                           </div>
                           <p className="text-xs text-muted-foreground">
-                            Esta imagem Ã© exclusiva deste emissor e serÃ¡ convertida para WebP automaticamente.
+                            {"Esta imagem \\u00e9 exclusiva deste emissor e ser\\u00e1 convertida para WebP automaticamente."}
                           </p>
                           {panel.kioskBgImagePreviewUrl ? (
                             <img
@@ -955,7 +955,7 @@ export function QueueAddonManager() {
                               ) : null}
                             </div>
                             <p className="text-xs text-muted-foreground">
-                              Substitui a logo padrÃ£o apenas neste emissor. A imagem Ã© otimizada para WebP.
+                              {"Substitui a logo padr\\u00e3o apenas neste emissor. A imagem \\u00e9 otimizada para WebP."}
                             </p>
                             {panel.kioskLogoPreviewUrl ? (
                               <img
@@ -1028,9 +1028,6 @@ export function QueueAddonManager() {
                           className="space-y-2 rounded-md p-3"
                           style={{ backgroundColor: form.kioskCardColor }}
                         >
-                          <p className="text-xs" style={{ color: form.kioskTextColor }}>
-                            Toque no tipo de senha
-                          </p>
                           <div className="grid gap-2 sm:grid-cols-2">
                             <span
                               className="rounded-md py-3 text-sm font-semibold"
