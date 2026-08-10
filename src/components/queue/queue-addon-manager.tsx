@@ -758,20 +758,20 @@ export function QueueAddonManager() {
                         </div>
                         <div className="space-y-1.5 sm:col-span-2">
                           <Label htmlFor={`printer-footer-${panel.deviceId}`}>
-                            RodapÃ© do comprovante (opcional)
+                            {"Rodap\u00e9 do comprovante (opcional)"}
                           </Label>
                           <Textarea
                             id={`printer-footer-${panel.deviceId}`}
                             value={form.printerFooterText}
                             maxLength={240}
                             rows={3}
-                            placeholder="Ex.: Obrigado pela preferÃªncia\nAguarde ser chamado"
+                            placeholder={"Ex.: Obrigado pela prefer\u00eancia\nAguarde ser chamado"}
                             onChange={(event) =>
                               setForm((prev) => ({ ...prev, printerFooterText: event.target.value }))
                             }
                           />
                           <p className="text-xs text-muted-foreground">
-                            O texto serÃ¡ impresso abaixo da data e hora. Use Enter para quebrar linhas.
+                            {"O texto ser\u00e1 impresso abaixo da data e hora. Use Enter para quebrar linhas."}
                           </p>
                         </div>
                         <ColorField
