@@ -236,7 +236,9 @@ export function QueueCallOverlay({
         // ignore
       }
     };
-  }, [call]);
+  // The same call may receive updated colors/background from Studio. Its id
+  // stays stable so the visual refresh does not replay the chime or speech.
+  }, [call.id]);
 
   // Cores personalizadas pelo cliente; os padrões repetem o canal Roku.
   const accent = call.theme?.textColor || "#38bdf8";

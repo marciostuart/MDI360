@@ -193,7 +193,21 @@ function PlayerScreen() {
     (calls: QueueCallPayload[]) => {
       let added = false;
       for (const call of calls) {
-        if (!call?.id || seenCallIdsRef.current.has(call.id)) continue;
+        if (!call?.id) continue;
+
+        // Presentation settings can change while a call is on screen or still
+        // waiting. Refresh that payload in place, without replaying the call.
+        if (activeCallRef.current?.id === call.id) {
+          activeCallRef.current = call;
+          setActiveCall(call);
+          continue;
+        }
+        const waitingIndex = waitingCallsRef.current.findIndex((item) => item.id === call.id);
+        if (waitingIndex >= 0) {
+          waitingCallsRef.current[waitingIndex] = call;
+          continue;
+        }
+        if (seenCallIdsRef.current.has(call.id)) continue;
         seenCallIdsRef.current.add(call.id);
         waitingCallsRef.current.push(call);
         added = true;
