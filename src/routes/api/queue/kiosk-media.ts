@@ -48,10 +48,16 @@ export const Route = createFileRoute("/api/queue/kiosk-media")({
           const oldKey = slot === "logo" ? panel.logoKey : panel.bgKey;
           try {
             await db.update(schema.queuePanels).set(field).where(eq(schema.queuePanels.id, panel.id));
-            if (oldKey && oldKey !== key) await deleteObject(oldKey);
           } catch (error) {
             try { await deleteObject(key); } catch { /* best effort cleanup */ }
             throw error;
+          }
+          if (oldKey && oldKey !== key) {
+            try {
+              await deleteObject(oldKey);
+            } catch (error) {
+              console.warn("[queue/kiosk-media] old object cleanup failed", error);
+            }
           }
           return Response.json({ ok: true });
         } catch (error) {

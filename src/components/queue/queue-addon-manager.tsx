@@ -176,7 +176,7 @@ export function QueueAddonManager() {
       toast.success(slot === "logo" ? "Logo do emissor atualizada." : "Fundo do emissor atualizado.");
       await invalidate();
     } catch (error) {
-      toast.error((error as Error).message);
+      toast.error(repairMojibake((error as Error).message));
     } finally {
       setUploadingKioskMedia(null);
     }
@@ -195,7 +195,7 @@ export function QueueAddonManager() {
       toast.success("Imagem removida.");
       await invalidate();
     } catch (error) {
-      toast.error((error as Error).message);
+      toast.error(repairMojibake((error as Error).message));
     } finally {
       setUploadingKioskMedia(null);
     }
@@ -1033,6 +1033,7 @@ export function QueueAddonManager() {
                             : {}),
                         }}
                       >
+                        <div className="flex w-[40%] min-w-[280px] flex-col justify-center gap-6">
                         {form.kioskShowLogo ? (
                           panel.kioskLogoPreviewUrl ? (
                             <img
@@ -1052,7 +1053,7 @@ export function QueueAddonManager() {
                           )
                         ) : null}
                         <p
-                          className="text-lg font-semibold"
+                          className="text-3xl font-semibold"
                           style={{ color: form.kioskTitleColor }}
                         >
                           {form.kioskTitle.trim() || "Retire sua senha"}
@@ -1063,7 +1064,7 @@ export function QueueAddonManager() {
                         >
                           <div className="grid gap-2 sm:grid-cols-2">
                             <span
-                              className="rounded-md py-3 text-sm font-semibold"
+                              className="h-24 rounded-md py-3 text-lg font-semibold"
                               style={{
                                 backgroundColor: form.kioskNormalButtonColor,
                                 color: form.kioskNormalButtonTextColor,
@@ -1072,7 +1073,7 @@ export function QueueAddonManager() {
                               Senha normal
                             </span>
                             <span
-                              className="rounded-md py-3 text-sm font-semibold"
+                              className="h-24 rounded-md py-3 text-lg font-semibold"
                               style={{
                                 backgroundColor: form.kioskPriorityButtonColor,
                                 color: form.kioskPriorityButtonTextColor,
@@ -1081,6 +1082,7 @@ export function QueueAddonManager() {
                               Preferencial
                             </span>
                           </div>
+                        </div>
                         </div>
                       </div>
                     </div>
