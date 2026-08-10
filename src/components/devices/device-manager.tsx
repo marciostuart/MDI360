@@ -92,9 +92,11 @@ export function DeviceManager() {
   const [resolutionDraft, setResolutionDraft] = useState<
     Record<string, { width: string; height: string }>
   >({});
-  const [shotPreview, setShotPreview] = useState<
-    { name: string; url: string; at: string | null } | null
-  >(null);
+  const [shotPreview, setShotPreview] = useState<{
+    name: string;
+    url: string;
+    at: string | null;
+  } | null>(null);
 
   const devices = useQuery({
     queryKey: ["devices"],
@@ -111,15 +113,21 @@ export function DeviceManager() {
 
   const linkMutation = useMutation({
     mutationFn: () =>
-      linkFn({ data: { code: code.trim().toUpperCase(), name: name.trim(), canvasPreset: presetId } }),
+      linkFn({
+        data: {
+          code: code.trim().toUpperCase(),
+          name: name.trim(),
+          canvasPreset: presetId,
+          deviceClass: "screen",
+        },
+      }),
     onSuccess: async () => {
       toast.success("Tela vinculada. O aparelho começa a exibir na próxima sincronização.");
       setName("");
       setCode("");
       await refresh();
     },
-    onError: () =>
-      toast.error("Código inválido ou já utilizado. Confira o código exibido na TV."),
+    onError: () => toast.error("Código inválido ou já utilizado. Confira o código exibido na TV."),
   });
 
   const removeMutation = useMutation({
@@ -238,17 +246,9 @@ export function DeviceManager() {
     onError: () => toast.error("Não foi possível alterar a transição desta tela."),
   });
 
-  const modesMutation = useMutation({
-    mutationFn: (vars: { deviceId: string; enabledModes: string[] }) =>
-      updateFn({ data: vars }),
-    onSuccess: async () => {
-      toast.success("Funções do aparelho atualizadas. O Android aplica a mudança em instantes.");
-      await refresh();
-    },
-    onError: () => toast.error("Não foi possível alterar as funções deste aparelho."),
-  });
-
-  const items = devices.data?.items ?? [];
+  const items = (devices.data?.items ?? []).filter(
+    (device) => !device.appVersion?.toLowerCase().startsWith("android"),
+  );
   const playlistItems = playlists.data?.items ?? [];
 
   return (
@@ -269,7 +269,12 @@ export function DeviceManager() {
               id="device-code"
               value={code}
               onChange={(event) =>
-                setCode(event.target.value.toUpperCase().replace(/[^A-Z0-9]/g, "").slice(0, 6))
+                setCode(
+                  event.target.value
+                    .toUpperCase()
+                    .replace(/[^A-Z0-9]/g, "")
+                    .slice(0, 6),
+                )
               }
               placeholder="ABC123"
               className="font-display tracking-[0.3em] uppercase"
@@ -405,41 +410,6 @@ export function DeviceManager() {
                       }
                     />
                   </div>
-
-                  {device.appVersion?.startsWith("android") ? <div className="space-y-3 rounded-lg border border-lime-500/30 bg-lime-500/5 p-3">
-                    <div>
-                      <p className="text-sm font-medium">Funções do aparelho Android</p>
-                      <p className="text-xs text-muted-foreground">
-                        O mesmo aparelho pode exibir mídias, emitir e chamar senhas ao mesmo tempo.
-                        Roku e navegador continuam funcionando como telas.
-                      </p>
-                    </div>
-                    {([
-                      ["display", "Exibir mídias"],
-                      ["issuer", "Emitir senhas"],
-                      ["caller", "Chamar senhas"],
-                    ] as const).map(([mode, label]) => {
-                      const enabled = device.enabledModes.includes(mode);
-                      return (
-                        <div key={mode} className="flex items-center justify-between gap-3">
-                          <span className="text-sm">{label}</span>
-                          <Switch
-                            checked={enabled}
-                            onCheckedChange={(checked) => {
-                              const next = new Set(device.enabledModes);
-                              if (checked) next.add(mode);
-                              else next.delete(mode);
-                              if (next.size === 0) next.add("display");
-                              modesMutation.mutate({
-                                deviceId: device.id,
-                                enabledModes: Array.from(next),
-                              });
-                            }}
-                          />
-                        </div>
-                      );
-                    })}
-                  </div> : null}
 
                   <div className="flex items-center justify-between gap-3 rounded-lg border border-border p-3">
                     <div className="flex items-center gap-2">
@@ -721,7 +691,10 @@ export function DeviceManager() {
               value={replaceCode}
               onChange={(event) =>
                 setReplaceCode(
-                  event.target.value.toUpperCase().replace(/[^A-Z0-9]/g, "").slice(0, 6),
+                  event.target.value
+                    .toUpperCase()
+                    .replace(/[^A-Z0-9]/g, "")
+                    .slice(0, 6),
                 )
               }
               placeholder="ABC123"

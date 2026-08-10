@@ -27,6 +27,7 @@ import { Route as StudioPlaylistsRouteImport } from './routes/studio/playlists'
 import { Route as StudioRelatoriosRouteImport } from './routes/studio/relatorios'
 import { Route as StudioSenhasRouteImport } from './routes/studio/senhas'
 import { Route as StudioTelasRouteImport } from './routes/studio/telas'
+import { Route as StudioTerminaisRouteImport } from './routes/studio/terminais'
 import { Route as StudioWidgetsRouteImport } from './routes/studio/widgets'
 import { Route as TorreIndexRouteImport } from './routes/torre/index'
 import { Route as TorrePlanosRouteImport } from './routes/torre/planos'
@@ -147,6 +148,11 @@ const StudioSenhasRoute = StudioSenhasRouteImport.update({
 const StudioTelasRoute = StudioTelasRouteImport.update({
   id: '/telas',
   path: '/telas',
+  getParentRoute: () => StudioRouteRoute,
+} as any)
+const StudioTerminaisRoute = StudioTerminaisRouteImport.update({
+  id: '/terminais',
+  path: '/terminais',
   getParentRoute: () => StudioRouteRoute,
 } as any)
 const StudioWidgetsRoute = StudioWidgetsRouteImport.update({
@@ -330,6 +336,7 @@ export interface FileRoutesByFullPath {
   '/studio/relatorios': typeof StudioRelatoriosRoute
   '/studio/senhas': typeof StudioSenhasRoute
   '/studio/telas': typeof StudioTelasRoute
+  '/studio/terminais': typeof StudioTerminaisRoute
   '/studio/widgets': typeof StudioWidgetsRoute
   '/torre/planos': typeof TorrePlanosRoute
   '/torre/site': typeof TorreSiteRoute
@@ -379,6 +386,7 @@ export interface FileRoutesByTo {
   '/studio/relatorios': typeof StudioRelatoriosRoute
   '/studio/senhas': typeof StudioSenhasRoute
   '/studio/telas': typeof StudioTelasRoute
+  '/studio/terminais': typeof StudioTerminaisRoute
   '/studio/widgets': typeof StudioWidgetsRoute
   '/torre/planos': typeof TorrePlanosRoute
   '/torre/site': typeof TorreSiteRoute
@@ -431,6 +439,7 @@ export interface FileRoutesById {
   '/studio/relatorios': typeof StudioRelatoriosRoute
   '/studio/senhas': typeof StudioSenhasRoute
   '/studio/telas': typeof StudioTelasRoute
+  '/studio/terminais': typeof StudioTerminaisRoute
   '/studio/widgets': typeof StudioWidgetsRoute
   '/torre/planos': typeof TorrePlanosRoute
   '/torre/site': typeof TorreSiteRoute
@@ -484,6 +493,7 @@ export interface FileRouteTypes {
     | '/studio/relatorios'
     | '/studio/senhas'
     | '/studio/telas'
+    | '/studio/terminais'
     | '/studio/widgets'
     | '/torre/planos'
     | '/torre/site'
@@ -533,6 +543,7 @@ export interface FileRouteTypes {
     | '/studio/relatorios'
     | '/studio/senhas'
     | '/studio/telas'
+    | '/studio/terminais'
     | '/studio/widgets'
     | '/torre/planos'
     | '/torre/site'
@@ -584,6 +595,7 @@ export interface FileRouteTypes {
     | '/studio/relatorios'
     | '/studio/senhas'
     | '/studio/telas'
+    | '/studio/terminais'
     | '/studio/widgets'
     | '/torre/planos'
     | '/torre/site'
@@ -776,6 +788,13 @@ declare module '@tanstack/react-router' {
       path: '/telas'
       fullPath: '/studio/telas'
       preLoaderRoute: typeof StudioTelasRouteImport
+      parentRoute: typeof StudioRouteRoute
+    }
+    '/studio/terminais': {
+      id: '/studio/terminais'
+      path: '/terminais'
+      fullPath: '/studio/terminais'
+      preLoaderRoute: typeof StudioTerminaisRouteImport
       parentRoute: typeof StudioRouteRoute
     }
     '/studio/widgets': {
@@ -1008,6 +1027,7 @@ interface StudioRouteRouteChildren {
   StudioRelatoriosRoute: typeof StudioRelatoriosRoute
   StudioSenhasRoute: typeof StudioSenhasRoute
   StudioTelasRoute: typeof StudioTelasRoute
+  StudioTerminaisRoute: typeof StudioTerminaisRoute
   StudioWidgetsRoute: typeof StudioWidgetsRoute
   StudioIndexRoute: typeof StudioIndexRoute
   StudioInstalarAndroidRoute: typeof StudioInstalarAndroidRoute
@@ -1027,6 +1047,7 @@ const StudioRouteRouteChildren: StudioRouteRouteChildren = {
   StudioRelatoriosRoute: StudioRelatoriosRoute,
   StudioSenhasRoute: StudioSenhasRoute,
   StudioTelasRoute: StudioTelasRoute,
+  StudioTerminaisRoute: StudioTerminaisRoute,
   StudioWidgetsRoute: StudioWidgetsRoute,
   StudioIndexRoute: StudioIndexRoute,
   StudioInstalarAndroidRoute: StudioInstalarAndroidRoute,

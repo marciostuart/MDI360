@@ -19,12 +19,7 @@ import {
   setQueueIssuing,
   type QueueOperatorRow,
 } from "@/lib/queue/queue.functions";
-import {
-  claimEmitter,
-  listEmitters,
-  removeEmitter,
-} from "@/lib/queue/emitter.functions";
-
+import { claimEmitter, listEmitters, removeEmitter } from "@/lib/queue/emitter.functions";
 
 type SectorDraft = {
   sectorId: string;
@@ -59,11 +54,7 @@ const emptyOperator: OperatorDraft = {
  * Filas, operadores e tela de emissão de um painel de senhas.
  * Tudo aqui é exclusivo do cliente — o operador só chama senhas.
  */
-export function QueuePanelConfig({
-  panelId,
-}: {
-  panelId: string;
-}) {
+export function QueuePanelConfig({ panelId }: { panelId: string }) {
   const queryClient = useQueryClient();
   const loadDetails = useServerFn(getQueuePanelDetails);
   const saveSector = useServerFn(saveQueueSector);
@@ -75,8 +66,6 @@ export function QueuePanelConfig({
   const claimEmitterFn = useServerFn(claimEmitter);
   const listEmittersFn = useServerFn(listEmitters);
   const removeEmitterFn = useServerFn(removeEmitter);
-
-
 
   // A gestão de filas e operadores fica sempre visível: é o painel de trabalho
   // do cliente, não um detalhe escondido.
@@ -279,8 +268,8 @@ export function QueuePanelConfig({
             <div className="space-y-1.5">
               {data.sectors.length === 0 ? (
                 <p className="text-sm text-muted-foreground">
-                  Nenhum setor cadastrado. O emissor gera a senha diretamente ao tocar em Normal
-                  ou Preferencial.
+                  Nenhum setor cadastrado. O emissor gera a senha diretamente ao tocar em Normal ou
+                  Preferencial.
                 </p>
               ) : null}
               {data.sectors.map((sector) => {
@@ -535,9 +524,7 @@ export function QueuePanelConfig({
                     <span className="text-muted-foreground"> · {operator.username}</span>
                   </span>
                   <span className="flex items-center gap-2">
-                    {operator.deskLabel ? (
-                      <Badge>{operator.deskLabel}</Badge>
-                    ) : null}
+                    {operator.deskLabel ? <Badge>{operator.deskLabel}</Badge> : null}
                     <Badge variant="outline">
                       {operator.sectorIds.length === 0
                         ? "Todas as filas"
@@ -635,7 +622,9 @@ export function QueuePanelConfig({
                     id={`op-enabled-${panelId}`}
                     checked={operatorDraft.isEnabled}
                     onCheckedChange={(checked) =>
-                      setOperatorDraft((draft) => (draft ? { ...draft, isEnabled: checked } : draft))
+                      setOperatorDraft((draft) =>
+                        draft ? { ...draft, isEnabled: checked } : draft,
+                      )
                     }
                   />
                   <Label htmlFor={`op-enabled-${panelId}`}>Ativo</Label>
@@ -689,14 +678,15 @@ export function QueuePanelConfig({
           <section className="space-y-4">
             <div className="space-y-2">
               <p className="text-xs font-semibold uppercase tracking-wider text-muted-foreground">
-                Vincular terminal emissor / impressor
+                Impressor dedicado para Windows ou Linux
               </p>
               <div className="flex flex-wrap items-center gap-3 rounded-lg border border-border p-4 bg-muted/30">
                 <div className="flex-1 space-y-1">
-                  <p className="text-sm font-medium">Vinculação do terminal</p>
+                  <p className="text-sm font-medium">Vinculação do aplicativo de impressão</p>
                   <p className="text-xs text-muted-foreground">
-                    Abra a tela de emissão no tablet/totem ou o MDI360 Impressor no computador.
-                    Digite aqui o código de 6 caracteres exibido no aparelho.
+                    Use esta vinculação somente para o MDI360 Impressor instalado em Windows ou
+                    Linux. O aplicativo Android híbrido é vinculado uma única vez em Terminais e não
+                    precisa ser vinculado novamente aqui.
                   </p>
                 </div>
                 <div className="flex w-full gap-2 sm:w-auto">
@@ -704,7 +694,10 @@ export function QueuePanelConfig({
                     value={emitterCode}
                     onChange={(event) =>
                       setEmitterCode(
-                        event.target.value.toUpperCase().replace(/[^A-Z0-9]/g, "").slice(0, 6),
+                        event.target.value
+                          .toUpperCase()
+                          .replace(/[^A-Z0-9]/g, "")
+                          .slice(0, 6),
                       )
                     }
                     className="w-36 font-mono text-lg font-bold tracking-[0.2em] uppercase"
@@ -783,12 +776,11 @@ export function QueuePanelConfig({
                 </Button>
               </div>
               <p className="text-xs text-muted-foreground">
-                Abra este endereço em um tablet ou totem na recepção: o cliente escolhe o atendimento
-                e retira senha normal ou preferencial.
+                Abra este endereço em um tablet ou totem na recepção: o cliente escolhe o
+                atendimento e retira senha normal ou preferencial.
               </p>
             </div>
           </section>
-
         </>
       ) : null}
     </div>

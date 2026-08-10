@@ -68,7 +68,9 @@ export const listDevices = createServerFn({ method: "GET" }).handler(
         name: row.name,
         status: row.status,
         canvasPreset: row.canvasPreset,
-        enabledModes: Array.isArray(row.enabledModes) ? (row.enabledModes as string[]) : ["display"],
+        enabledModes: Array.isArray(row.enabledModes)
+          ? (row.enabledModes as string[])
+          : ["display"],
         pairingCode: row.status === "active" ? null : row.pairingCode,
         pairingExpiresAt: row.pairingExpiresAt ? row.pairingExpiresAt.toISOString() : null,
         defaultPlaylistId: row.defaultPlaylistId,
@@ -103,6 +105,12 @@ export const linkDevice = createServerFn({ method: "POST" })
           .refine((value) => value.length === 6, "Informe o código de 6 caracteres"),
         name: nameSchema,
         canvasPreset: presetSchema,
+        deviceClass: z.enum(["screen", "terminal"]).optional(),
+        enabledModes: z
+          .array(z.enum(["display", "issuer", "caller"]))
+          .min(1)
+          .max(3)
+          .optional(),
       })
       .parse(input),
   )
@@ -113,6 +121,27 @@ export const linkDevice = createServerFn({ method: "POST" })
     const { requireUser } = await import("@/lib/auth/session.server");
     const { and, eq, isNull } = await import("drizzle-orm");
     const user = await requireUser();
+    const db = getDb();
+
+    const candidates = await db
+      .select({
+        id: schema.devices.id,
+        appVersion: schema.devices.appVersion,
+      })
+      .from(schema.devices)
+      .where(and(eq(schema.devices.pairingCode, data.code), isNull(schema.devices.organizationId)))
+      .limit(1);
+
+    const candidate = candidates[0];
+    if (!candidate) throw new Error("Código inválido ou já utilizado.");
+
+    const isAndroid = candidate.appVersion?.toLowerCase().startsWith("android") ?? false;
+    if (data.deviceClass === "terminal" && !isAndroid) {
+      throw new Error("Este código não pertence ao aplicativo Android híbrido.");
+    }
+    if (data.deviceClass === "screen" && isAndroid) {
+      throw new Error("Este aparelho Android deve ser vinculado pelo menu Terminais.");
+    }
 
     // Plan enforcement: a customer can never link more screens than they pay for.
     const { getOrgLimits } = await import("@/lib/admin/limits.server");
@@ -126,21 +155,19 @@ export const linkDevice = createServerFn({ method: "POST" })
       );
     }
 
-    const updated = await getDb()
+    const updated = await db
       .update(schema.devices)
       .set({
         organizationId: user.organizationId,
         name: data.name,
         canvasPreset: data.canvasPreset,
+        ...(data.deviceClass === "terminal"
+          ? { enabledModes: data.enabledModes ?? ["display"] }
+          : {}),
         status: "active",
         pairingExpiresAt: null,
       })
-      .where(
-        and(
-          eq(schema.devices.pairingCode, data.code),
-          isNull(schema.devices.organizationId),
-        ),
-      )
+      .where(and(eq(schema.devices.id, candidate.id), isNull(schema.devices.organizationId)))
       .returning({ id: schema.devices.id, name: schema.devices.name });
 
     // Same generic message for unknown and already-claimed codes.
@@ -165,7 +192,11 @@ export const updateDevice = createServerFn({ method: "POST" })
         deviceId: z.string().uuid(),
         name: nameSchema.optional(),
         canvasPreset: presetSchema.optional(),
-        enabledModes: z.array(z.enum(["display", "issuer", "caller"])).min(1).max(3).optional(),
+        enabledModes: z
+          .array(z.enum(["display", "issuer", "caller"]))
+          .min(1)
+          .max(3)
+          .optional(),
       })
       .parse(input),
   )
@@ -273,9 +304,7 @@ export const replaceDevice = createServerFn({ method: "POST" })
     const target = await db
       .select({ id: schema.devices.id })
       .from(schema.devices)
-      .where(
-        and(eq(schema.devices.pairingCode, data.code), isNull(schema.devices.organizationId)),
-      )
+      .where(and(eq(schema.devices.pairingCode, data.code), isNull(schema.devices.organizationId)))
       .limit(1);
     const next = target[0];
     if (!next) {
@@ -322,9 +351,7 @@ export const replaceDevice = createServerFn({ method: "POST" })
       .update(schema.schedules)
       .set({ deviceId: next.id })
       .where(eq(schema.schedules.deviceId, old.id));
-    await db
-      .delete(schema.queuePanels)
-      .where(eq(schema.queuePanels.deviceId, next.id));
+    await db.delete(schema.queuePanels).where(eq(schema.queuePanels.deviceId, next.id));
     await db
       .update(schema.queuePanels)
       .set({ deviceId: next.id })

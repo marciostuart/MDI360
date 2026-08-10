@@ -16,6 +16,7 @@ import {
   Ticket,
   Download,
   CreditCard,
+  Smartphone,
 } from "lucide-react";
 import { useEffect } from "react";
 
@@ -40,6 +41,7 @@ type NavItem = {
 const NAV: NavItem[] = [
   { to: "/studio", label: "Visão geral", icon: LayoutDashboard, exact: true },
   { to: "/studio/telas", label: "Telas", icon: Tv },
+  { to: "/studio/terminais", label: "Terminais", icon: Smartphone },
   { to: "/studio/conteudos", label: "Conteúdos", icon: Images },
   { to: "/studio/widgets", label: "Widgets", icon: Gauge },
   { to: "/studio/playlists", label: "Playlists", icon: ListVideo },
