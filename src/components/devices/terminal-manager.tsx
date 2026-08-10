@@ -1,8 +1,17 @@
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { Link } from "@tanstack/react-router";
 import { useServerFn } from "@tanstack/react-start";
-import { Link2, Loader2, MonitorSmartphone, Replace, Settings2, Trash2 } from "lucide-react";
-import { useState } from "react";
+import {
+  LayoutGrid,
+  Link2,
+  List,
+  Loader2,
+  MonitorSmartphone,
+  Replace,
+  Settings2,
+  Trash2,
+} from "lucide-react";
+import { useEffect, useState } from "react";
 import { toast } from "sonner";
 
 import { Badge } from "@/components/ui/badge";
@@ -66,6 +75,17 @@ export function TerminalManager() {
   const [name, setName] = useState("");
   const [replaceTarget, setReplaceTarget] = useState<{ id: string; name: string } | null>(null);
   const [replaceCode, setReplaceCode] = useState("");
+  const [viewMode, setViewMode] = useState<"list" | "grid">("list");
+
+  useEffect(() => {
+    const saved = window.localStorage.getItem("mdi360:terminals-view");
+    if (saved === "grid" || saved === "list") setViewMode(saved);
+  }, []);
+
+  const changeViewMode = (mode: "list" | "grid") => {
+    setViewMode(mode);
+    window.localStorage.setItem("mdi360:terminals-view", mode);
+  };
 
   const devices = useQuery({
     queryKey: ["devices"],
@@ -141,11 +161,37 @@ export function TerminalManager() {
   return (
     <div className="space-y-8">
       <header className="space-y-1">
-        <h1 className="font-display text-2xl font-semibold tracking-tight">Terminais</h1>
-        <p className="text-sm text-muted-foreground">
-          Vincule e administre todos os aparelhos em um só lugar: Android, Roku e navegador. Todo
-          novo terminal começa pronto para exibir mídias.
-        </p>
+        <div className="flex flex-wrap items-start justify-between gap-3">
+          <div>
+            <h1 className="font-display text-2xl font-semibold tracking-tight">Terminais</h1>
+            <p className="text-sm text-muted-foreground">
+              Vincule e administre todos os aparelhos em um só lugar: Android, Roku e navegador.
+              Todo novo terminal começa pronto para exibir mídias.
+            </p>
+          </div>
+          <div className="flex rounded-lg border bg-muted/30 p-1" aria-label="Modo de visualização">
+            <Button
+              type="button"
+              size="sm"
+              variant={viewMode === "list" ? "secondary" : "ghost"}
+              onClick={() => changeViewMode("list")}
+              aria-pressed={viewMode === "list"}
+            >
+              <List className="size-4" />
+              Lista
+            </Button>
+            <Button
+              type="button"
+              size="sm"
+              variant={viewMode === "grid" ? "secondary" : "ghost"}
+              onClick={() => changeViewMode("grid")}
+              aria-pressed={viewMode === "grid"}
+            >
+              <LayoutGrid className="size-4" />
+              Cards
+            </Button>
+          </div>
+        </div>
       </header>
 
       <Card>
@@ -214,7 +260,7 @@ export function TerminalManager() {
           </CardContent>
         </Card>
       ) : (
-        <div className="grid gap-4 xl:grid-cols-2">
+        <div className={viewMode === "grid" ? "grid gap-4 xl:grid-cols-2" : "space-y-3"}>
           {terminals.map((terminal) => {
             const appVersion = terminal.appVersion?.toLowerCase() ?? "";
             const isAndroid = appVersion.startsWith("android");
@@ -225,6 +271,101 @@ export function TerminalManager() {
                 : appVersion.startsWith("web")
                   ? "Navegador Web"
                   : "Tela conectada";
+            const playlist = playlistItems.find((item) => item.id === terminal.defaultPlaylistId);
+
+            if (viewMode === "list") {
+              return (
+                <Card key={terminal.id}>
+                  <CardContent className="flex flex-col gap-4 py-4 xl:flex-row xl:items-center">
+                    <div className="flex min-w-0 flex-1 items-center gap-3">
+                      <div className="grid size-10 shrink-0 place-items-center rounded-lg bg-muted">
+                        <MonitorSmartphone className="size-5 text-muted-foreground" />
+                      </div>
+                      <div className="min-w-0">
+                        <p className="truncate font-medium">{terminal.name}</p>
+                        <p className="text-xs text-muted-foreground">
+                          {platform} · visto {formatLastSeen(terminal.lastSeenAt)}
+                        </p>
+                      </div>
+                    </div>
+
+                    <Badge className="w-fit" variant={terminal.online ? "default" : "secondary"}>
+                      {terminal.online ? "online" : "offline"}
+                    </Badge>
+
+                    <div className="flex flex-wrap items-center gap-x-4 gap-y-2 xl:min-w-[390px]">
+                      {(isAndroid ? MODES : MODES.slice(0, 1)).map(([mode, label]) => (
+                        <div key={mode} className="flex items-center gap-2">
+                          <Switch
+                            checked={
+                              mode === "display" && !isAndroid
+                                ? true
+                                : terminal.enabledModes.includes(mode)
+                            }
+                            disabled={!isAndroid || modesMutation.isPending}
+                            onCheckedChange={(checked) => {
+                              const next = new Set(terminal.enabledModes);
+                              if (checked) next.add(mode);
+                              else next.delete(mode);
+                              if (next.size === 0) {
+                                toast.error("O terminal precisa ter pelo menos uma função.");
+                                return;
+                              }
+                              modesMutation.mutate({
+                                deviceId: terminal.id,
+                                enabledModes: Array.from(next),
+                              });
+                            }}
+                            aria-label={label}
+                          />
+                          <span className="text-xs">{label}</span>
+                        </div>
+                      ))}
+                    </div>
+
+                    <div className="min-w-0 xl:w-48">
+                      <p className="text-[11px] text-muted-foreground">Playlist padrão</p>
+                      <p className="truncate text-sm">{playlist?.name ?? "Nenhuma"}</p>
+                    </div>
+
+                    <div className="flex flex-wrap gap-2 xl:justify-end">
+                      <Button variant="outline" size="sm" asChild>
+                        <Link to="/studio/terminais/$deviceId" params={{ deviceId: terminal.id }}>
+                          <Settings2 className="size-4" />
+                          Configurar
+                        </Link>
+                      </Button>
+                      <Button
+                        variant="outline"
+                        size="sm"
+                        onClick={() => {
+                          setReplaceTarget({ id: terminal.id, name: terminal.name });
+                          setReplaceCode("");
+                        }}
+                      >
+                        <Replace className="size-4" />
+                        Substituir
+                      </Button>
+                      <Button
+                        variant="ghost"
+                        size="icon"
+                        className="text-destructive"
+                        aria-label={`Desvincular ${terminal.name}`}
+                        disabled={removeMutation.isPending}
+                        onClick={() => {
+                          if (window.confirm(`Desvincular o terminal ${terminal.name}?`)) {
+                            removeMutation.mutate(terminal.id);
+                          }
+                        }}
+                      >
+                        <Trash2 className="size-4" />
+                      </Button>
+                    </div>
+                  </CardContent>
+                </Card>
+              );
+            }
+
             return (
               <Card key={terminal.id}>
                 <CardContent className="space-y-5 pt-6">
