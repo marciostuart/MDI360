@@ -279,19 +279,25 @@ function KioskPage() {
   const theme = data.theme;
   const surface = {
     backgroundColor: theme.bgColor,
-    ...(stableBackgroundUrl
-      ? {
-          backgroundImage: `url("${stableBackgroundUrl}")`,
-          backgroundSize: "cover",
-          backgroundPosition: "center",
-        }
-      : {}),
   } as const;
+  const backgroundLayer = stableBackgroundUrl ? (
+    <img
+      src={stableBackgroundUrl}
+      alt=""
+      aria-hidden="true"
+      className="pointer-events-none absolute inset-0 size-full select-none object-cover"
+      draggable={false}
+    />
+  ) : null;
 
   if (issued) {
     return (
-      <main className="grid h-dvh place-items-center overflow-hidden px-6 text-center" style={surface}>
-        <div className="space-y-3">
+      <main
+        className="relative grid h-dvh place-items-center overflow-hidden px-6 text-center"
+        style={surface}
+      >
+        {backgroundLayer}
+        <div className="relative z-10 space-y-3">
           <Loader2 className="mx-auto size-10 animate-spin" style={{ color: theme.titleColor }} />
           <p className="text-3xl font-semibold" style={{ color: theme.titleColor }}>
             Imprimindo...
@@ -312,8 +318,9 @@ function KioskPage() {
   };
 
   return (
-    <main className="grid h-dvh place-items-center overflow-hidden" style={surface}>
-      <div className="flex h-full w-full max-w-3xl flex-col justify-center gap-6 p-6">
+    <main className="relative grid h-dvh place-items-center overflow-hidden" style={surface}>
+      {backgroundLayer}
+      <div className="relative z-10 flex h-full w-full max-w-3xl flex-col justify-center gap-6 p-6">
       <header className="w-full space-y-2 text-center">
         {stableLogoUrl ? (
           <img
