@@ -169,6 +169,11 @@ export const issueKioskTicket = createServerFn({ method: "POST" })
     const panelIds = await getDb()
       .select({ id: schema.queuePanels.id })
       .from(schema.queuePanels)
+      .innerJoin(
+        schema.queuePanelDevices,
+        eq(schema.queuePanelDevices.panelId, schema.queuePanels.id),
+      )
+      .innerJoin(schema.devices, eq(schema.devices.id, schema.queuePanelDevices.deviceId))
       .leftJoin(schema.queueEmitters, eq(schema.queueEmitters.panelId, schema.queuePanels.id))
       .where(
         and(

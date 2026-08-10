@@ -131,13 +131,24 @@ function requestFullscreen() {
 }
 
 function KioskPage() {
-  const { token } = Route.useParams();
+  const { token: routeToken } = Route.useParams();
+  const [deviceToken, setDeviceToken] = useState<string | null>(
+    routeToken === "dispositivo" ? null : routeToken,
+  );
+  const token = deviceToken ?? "";
   const [isDesktopApp, setIsDesktopApp] = useState(false);
   useKioskViewport();
   useAutoHideCursor(isDesktopApp);
   const loadPanel = useServerFn(getKioskPanel);
   const issue = useServerFn(issueKioskTicket);
   const [isFullscreen, setIsFullscreen] = useState(false);
+
+  // The Android hybrid player shares the universal device token through
+  // same-origin localStorage, keeping that credential out of the URL.
+  useEffect(() => {
+    if (routeToken !== "dispositivo") return;
+    setDeviceToken(window.localStorage.getItem("mdi360.deviceToken"));
+  }, [routeToken]);
 
   useEffect(() => {
     const desktopQuery = new URLSearchParams(window.location.search).get("desktop") === "1";
@@ -154,6 +165,7 @@ function KioskPage() {
   const { data, isPending } = useQuery({
     queryKey: ["queue-kiosk", token],
     queryFn: () => loadPanel({ data: { token } }),
+    enabled: token.length >= 32,
     refetchInterval: 5_000,
   });
 
@@ -199,7 +211,7 @@ function KioskPage() {
     return () => window.clearTimeout(timer);
   }, [issued]);
 
-  if (isPending) {
+  if (!token || isPending) {
     return (
       <main className="grid h-dvh place-items-center overflow-hidden bg-background">
         <Loader2 className="size-8 animate-spin text-muted-foreground" />

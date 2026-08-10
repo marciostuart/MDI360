@@ -655,6 +655,10 @@ function PlayerScreen() {
       onDone={startNextCall}
     />
   ) : null;
+  const showHybridIssuer =
+    IS_ANDROID_HYBRID &&
+    sync?.device.enabledModes?.includes("issuer") &&
+    !sync?.device.enabledModes?.includes("display");
 
   if (!sync)
     return (
@@ -666,7 +670,14 @@ function PlayerScreen() {
 
   return (
     <div className="relative min-h-screen overflow-hidden bg-black">
-      {IS_ANDROID_HYBRID && !sync.device.enabledModes?.includes("display") ? (
+      {showHybridIssuer ? (
+        <iframe
+          src="/emitir/dispositivo?desktop=1"
+          title="Emissor de senhas"
+          className="h-screen w-screen border-0"
+          allow="autoplay"
+        />
+      ) : IS_ANDROID_HYBRID && !sync.device.enabledModes?.includes("display") ? (
         <div className="h-screen w-screen bg-black" aria-label="Exibição de mídias desativada" />
       ) : items.length === 0 ? (
         <SplashScreen
