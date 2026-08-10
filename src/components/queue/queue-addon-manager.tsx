@@ -292,16 +292,6 @@ export function QueueAddonManager() {
     });
   };
 
-  if (isPending) {
-    return (
-      <div className="grid min-h-[40vh] place-items-center">
-        <Loader2 className="size-6 animate-spin text-muted-foreground" />
-      </div>
-    );
-  }
-
-  const panels = data?.items ?? [];
-
   useEffect(() => {
     const root = contentRef.current;
     if (!root) return;
@@ -318,6 +308,16 @@ export function QueueAddonManager() {
       }
     }
   }, [data, editing, media, uploadingChime, uploadingKioskMedia]);
+
+  if (isPending) {
+    return (
+      <div className="grid min-h-[40vh] place-items-center">
+        <Loader2 className="size-6 animate-spin text-muted-foreground" />
+      </div>
+    );
+  }
+
+  const panels = data?.items ?? [];
 
   if (data && data.configured && !data.available) {
     return (
