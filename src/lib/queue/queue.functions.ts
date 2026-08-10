@@ -29,6 +29,8 @@ export type QueuePanelSummary = {
   /** Aparência da chamada na TV. */
   themeBgColor: string;
   themeBgMediaId: string | null;
+  hasThemeBgImage: boolean;
+  themeBgImagePreviewUrl: string | null;
   themeTicketColor: string;
   themeTextColor: string;
   themeHistoryColor: string;
@@ -207,6 +209,7 @@ export const listQueuePanels = createServerFn({ method: "GET" }).handler(
           issuingEnabled: schema.queuePanels.issuingEnabled,
           themeBgColor: schema.queuePanels.themeBgColor,
           themeBgMediaId: schema.queuePanels.themeBgMediaId,
+          themeBgImageKey: schema.queuePanels.themeBgImageKey,
           themeTicketColor: schema.queuePanels.themeTicketColor,
           themeTextColor: schema.queuePanels.themeTextColor,
           themeHistoryColor: schema.queuePanels.themeHistoryColor,
@@ -313,20 +316,23 @@ export const listQueuePanels = createServerFn({ method: "GET" }).handler(
       const now = Date.now();
       const kioskPreviewUrls = new Map<
         string,
-        { logo: string | null; background: string | null }
+        { logo: string | null; background: string | null; callBackground: string | null }
       >();
       try {
         const { createDownloadUrl, isStorageConfigured } = await import("@/lib/storage.server");
         if (isStorageConfigured()) {
           await Promise.all(
             uniqueRows.map(async (row) => {
-              const [logo, background] = await Promise.all([
+              const [logo, background, callBackground] = await Promise.all([
                 row.kioskLogoKey ? createDownloadUrl(row.kioskLogoKey, 900) : Promise.resolve(null),
                 row.kioskBgImageKey
                   ? createDownloadUrl(row.kioskBgImageKey, 900)
                   : Promise.resolve(null),
+                row.themeBgImageKey
+                  ? createDownloadUrl(row.themeBgImageKey, 900)
+                  : Promise.resolve(null),
               ]);
-              kioskPreviewUrls.set(row.deviceId, { logo, background });
+              kioskPreviewUrls.set(row.deviceId, { logo, background, callBackground });
             }),
           );
         }
@@ -367,6 +373,9 @@ export const listQueuePanels = createServerFn({ method: "GET" }).handler(
             lastCallAt: last?.at ?? null,
             themeBgColor: row.themeBgColor ?? QUEUE_THEME_DEFAULTS.themeBgColor,
             themeBgMediaId: row.themeBgMediaId ?? null,
+            hasThemeBgImage: Boolean(row.themeBgImageKey),
+            themeBgImagePreviewUrl:
+              kioskPreviewUrls.get(row.deviceId)?.callBackground ?? null,
             themeTicketColor: row.themeTicketColor ?? QUEUE_THEME_DEFAULTS.themeTicketColor,
             themeTextColor: row.themeTextColor ?? QUEUE_THEME_DEFAULTS.themeTextColor,
             themeHistoryColor: row.themeHistoryColor ?? QUEUE_THEME_DEFAULTS.themeHistoryColor,
@@ -806,7 +815,12 @@ export const deleteQueuePanel = createServerFn({ method: "POST" })
     const user = await requireUser();
 
     const panel = await getDb()
-      .select({ id: schema.queuePanels.id })
+      .select({
+        id: schema.queuePanels.id,
+        themeBgImageKey: schema.queuePanels.themeBgImageKey,
+        kioskLogoKey: schema.queuePanels.kioskLogoKey,
+        kioskBgImageKey: schema.queuePanels.kioskBgImageKey,
+      })
       .from(schema.queuePanelDevices)
       .innerJoin(schema.queuePanels, eq(schema.queuePanels.id, schema.queuePanelDevices.panelId))
       .where(
@@ -819,6 +833,20 @@ export const deleteQueuePanel = createServerFn({ method: "POST" })
     if (!panel[0]) return { ok: true };
 
     await getDb().delete(schema.queuePanels).where(eq(schema.queuePanels.id, panel[0].id));
+
+    const storedKeys = [
+      panel[0].themeBgImageKey,
+      panel[0].kioskLogoKey,
+      panel[0].kioskBgImageKey,
+    ].filter((key): key is string => Boolean(key));
+    if (storedKeys.length > 0) {
+      try {
+        const { deleteObject } = await import("@/lib/storage.server");
+        await Promise.all(storedKeys.map((key) => deleteObject(key)));
+      } catch (error) {
+        console.warn("[queue] exclusive media cleanup failed", error);
+      }
+    }
 
     const { notifyDevice } = await import("@/lib/player/realtime.server");
     notifyDevice(data.deviceId);

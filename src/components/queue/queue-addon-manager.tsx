@@ -165,7 +165,9 @@ export function QueueAddonManager() {
 
   const [uploadingKioskMedia, setUploadingKioskMedia] = useState<string | null>(null);
 
-  const uploadKioskMedia = async (deviceId: string, slot: "logo" | "background", file: File) => {
+  type ExclusiveMediaSlot = "logo" | "background" | "call-background";
+
+  const uploadKioskMedia = async (deviceId: string, slot: ExclusiveMediaSlot, file: File) => {
     setUploadingKioskMedia(`${deviceId}:${slot}`);
     try {
       const prepared = await prepareUpload(file, DEFAULT_CANVAS_PRESET);
@@ -177,8 +179,15 @@ export function QueueAddonManager() {
       const response = await fetch("/api/queue/kiosk-media", { method: "POST", body });
       const payload = (await response.json().catch(() => ({}))) as { error?: string };
       if (!response.ok) throw new Error(payload.error || "NÃ£o foi possÃ­vel enviar a imagem.");
+      if (slot === "call-background") {
+        setForm((previous) => ({ ...previous, themeBgMediaId: null }));
+      }
       toast.success(
-        slot === "logo" ? "Logo do emissor atualizada." : "Fundo do emissor atualizado.",
+        slot === "logo"
+          ? "Logo do emissor atualizada."
+          : slot === "call-background"
+            ? "Fundo da chamada atualizado."
+            : "Fundo do emissor atualizado.",
       );
       await invalidate();
     } catch (error) {
@@ -188,7 +197,7 @@ export function QueueAddonManager() {
     }
   };
 
-  const removeKioskMedia = async (deviceId: string, slot: "logo" | "background") => {
+  const removeKioskMedia = async (deviceId: string, slot: ExclusiveMediaSlot) => {
     setUploadingKioskMedia(`${deviceId}:${slot}`);
     try {
       const response = await fetch("/api/queue/kiosk-media", {
@@ -198,6 +207,9 @@ export function QueueAddonManager() {
       });
       const payload = (await response.json().catch(() => ({}))) as { error?: string };
       if (!response.ok) throw new Error(payload.error || "NÃ£o foi possÃ­vel remover a imagem.");
+      if (slot === "call-background") {
+        setForm((previous) => ({ ...previous, themeBgMediaId: null }));
+      }
       toast.success("Imagem removida.");
       await invalidate();
     } catch (error) {
@@ -861,40 +873,45 @@ export function QueueAddonManager() {
                           }
                         />
                         <div className="space-y-1.5 sm:col-span-2">
-                          <Label>Imagem de fundo (opcional)</Label>
-                          <Select
-                            value={form.themeBgMediaId ?? "none"}
-                            onValueChange={(value) =>
-                              setForm((prev) => ({
-                                ...prev,
-                                themeBgMediaId: value === "none" ? null : value,
-                              }))
-                            }
-                          >
-                            <SelectTrigger>
-                              <SelectValue placeholder="Somente cor de fundo" />
-                            </SelectTrigger>
-                            <SelectContent>
-                              <SelectItem value="none">Somente cor de fundo</SelectItem>
-                              {!media ? (
-                                <SelectItem value="loading" disabled>
-                                  Carregando imagens...
-                                </SelectItem>
-                              ) : images.length === 0 ? (
-                                <SelectItem value="empty" disabled>
-                                  Nenhuma imagem pronta na biblioteca
-                                </SelectItem>
-                              ) : null}
-                              {images.map((image) => (
-                                <SelectItem key={image.id} value={image.id}>
-                                  {image.name}
-                                </SelectItem>
-                              ))}
-                            </SelectContent>
-                          </Select>
+                          <Label>Imagem de fundo exclusiva da chamada (opcional)</Label>
+                          <div className="flex flex-wrap items-center gap-2">
+                            <Input
+                              type="file"
+                              accept="image/jpeg,image/png,image/webp,image/avif"
+                              disabled={
+                                uploadingKioskMedia === `${panel.deviceId}:call-background`
+                              }
+                              onChange={(event) => {
+                                const file = event.target.files?.[0];
+                                if (file) {
+                                  void uploadKioskMedia(
+                                    panel.deviceId,
+                                    "call-background",
+                                    file,
+                                  );
+                                }
+                                event.currentTarget.value = "";
+                              }}
+                            />
+                            {panel.hasThemeBgImage || form.themeBgMediaId ? (
+                              <Button
+                                type="button"
+                                variant="outline"
+                                size="sm"
+                                disabled={
+                                  uploadingKioskMedia === `${panel.deviceId}:call-background`
+                                }
+                                onClick={() =>
+                                  void removeKioskMedia(panel.deviceId, "call-background")
+                                }
+                              >
+                                Remover
+                              </Button>
+                            ) : null}
+                          </div>
                           <p className="text-xs text-muted-foreground">
-                            Use uma imagem já enviada na sua biblioteca de arquivos. Ela cobre toda
-                            a tela durante a chamada.
+                            Arquivo exclusivo desta fila, otimizado em WebP e separado dos conteúdos
+                            das playlists.
                           </p>
                         </div>
                       </div>
@@ -903,10 +920,11 @@ export function QueueAddonManager() {
                         className="relative aspect-video grid place-items-center overflow-hidden rounded-md bg-cover bg-center p-6 text-center"
                         style={{
                           backgroundColor: form.themeBgColor,
-                          ...(form.themeBgMediaId
+                          ...(panel.themeBgImagePreviewUrl || form.themeBgMediaId
                             ? {
                                 backgroundImage: `url(${JSON.stringify(
-                                  images.find((i) => i.id === form.themeBgMediaId)?.previewUrl ??
+                                  panel.themeBgImagePreviewUrl ??
+                                    images.find((i) => i.id === form.themeBgMediaId)?.previewUrl ??
                                     "",
                                 )})`,
                               }

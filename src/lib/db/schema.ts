@@ -468,6 +468,8 @@ export const queuePanels = pgTable(
     themeBgMediaId: uuid("theme_bg_media_id").references(() => mediaAssets.id, {
       onDelete: "set null",
     }),
+    /** Fundo exclusivo da chamada, separado da biblioteca de conteúdos. */
+    themeBgImageKey: text("theme_bg_image_key"),
     themeTicketColor: text("theme_ticket_color").notNull().default("#ffffff"),
     themeTextColor: text("theme_text_color").notNull().default("#38bdf8"),
     themeHistoryColor: text("theme_history_color").notNull().default("#ffffff"),

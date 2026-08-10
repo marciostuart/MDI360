@@ -91,14 +91,16 @@ export const getKioskPanel = createServerFn({ method: "POST" })
     // Imagem de fundo e logo assinadas para o terminal (URLs temporárias).
     let bgImageUrl: string | null = null;
     let logoUrl: string | null = null;
-    let bgImageVersion: string | null = null;
-    let logoVersion: string | null = null;
+    let bgImageVersion: string | null = panel.kioskBgImageKey ?? null;
+    const logoVersion: string | null =
+      panel.kioskShowLogo && (panel.kioskLogoKey || panel.brandLogoKey)
+        ? (panel.kioskLogoKey ?? panel.brandLogoKey)
+        : null;
     try {
       const { isStorageConfigured, createDownloadUrl } = await import("@/lib/storage.server");
       if (isStorageConfigured()) {
         if (panel.kioskBgImageKey) {
           bgImageUrl = await createDownloadUrl(panel.kioskBgImageKey, 3600);
-          bgImageVersion = panel.kioskBgImageKey;
         } else if (panel.kioskBgMediaId) {
           const asset = await db
             .select({
@@ -117,7 +119,6 @@ export const getKioskPanel = createServerFn({ method: "POST" })
         if (panel.kioskShowLogo && (panel.kioskLogoKey || panel.brandLogoKey)) {
           const key = panel.kioskLogoKey ?? panel.brandLogoKey!;
           logoUrl = await createDownloadUrl(key, 3600);
-          logoVersion = key;
         }
       }
     } catch {

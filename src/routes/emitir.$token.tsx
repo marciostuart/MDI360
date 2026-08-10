@@ -2,11 +2,15 @@ import { useMutation, useQuery } from "@tanstack/react-query";
 import { createFileRoute } from "@tanstack/react-router";
 import { useServerFn } from "@tanstack/react-start";
 import { Loader2, Maximize, Ticket } from "lucide-react";
-import { useEffect, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 
 import { Button } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
-import { getKioskPanel, issueKioskTicket } from "@/lib/queue/kiosk.functions";
+import {
+  getKioskPanel,
+  issueKioskTicket,
+  type KioskPanel,
+} from "@/lib/queue/kiosk.functions";
 
 // Ponte opcional com o aplicativo desktop (MDI360 Emissor) para impressão térmica automática.
 type DesktopBridge = {
@@ -173,6 +177,7 @@ function KioskPage() {
   const loadPanel = useServerFn(getKioskPanel);
   const issue = useServerFn(issueKioskTicket);
   const [isFullscreen, setIsFullscreen] = useState(false);
+  const panelSnapshot = useRef<KioskPanel>(null);
 
   // The Android hybrid player shares the universal device token through
   // same-origin localStorage, keeping that credential out of the URL.
@@ -195,7 +200,38 @@ function KioskPage() {
 
   const { data, isPending } = useQuery({
     queryKey: ["queue-kiosk", token],
-    queryFn: () => loadPanel({ data: { token } }),
+    queryFn: async () => {
+      const next = await loadPanel({ data: { token } });
+      const previous = panelSnapshot.current;
+      if (!next) {
+        panelSnapshot.current = null;
+        return null;
+      }
+
+      // URLs assinadas mudam a cada consulta mesmo quando o arquivo não mudou.
+      // Reutilizar as URLs já carregadas evita um novo decode/pintura no WebView.
+      const normalized = previous
+        ? {
+            ...next,
+            theme: {
+              ...next.theme,
+              bgImageUrl:
+                next.theme.bgImageVersion === previous.theme.bgImageVersion
+                  ? previous.theme.bgImageUrl
+                  : next.theme.bgImageUrl,
+              logoUrl:
+                next.theme.logoVersion === previous.theme.logoVersion
+                  ? previous.theme.logoUrl
+                  : next.theme.logoUrl,
+            },
+          }
+        : next;
+
+      const stable =
+        previous && JSON.stringify(normalized) === JSON.stringify(previous) ? previous : normalized;
+      panelSnapshot.current = stable;
+      return stable;
+    },
     enabled: token.length >= 32,
     refetchInterval: 5_000,
     // Android WebViews can remain visually active without reporting browser

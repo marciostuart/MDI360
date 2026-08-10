@@ -1,7 +1,7 @@
 import { createFileRoute } from "@tanstack/react-router";
 
 const MAX_BYTES = 8 * 1024 * 1024;
-const SLOTS = new Set(["logo", "background"]);
+const SLOTS = new Set(["logo", "background", "call-background"]);
 
 async function requirePanel(request: Request, deviceId: string) {
   const { requireUser } = await import("@/lib/auth/session.server");
@@ -13,6 +13,7 @@ async function requirePanel(request: Request, deviceId: string) {
       id: schema.queuePanels.id,
       logoKey: schema.queuePanels.kioskLogoKey,
       bgKey: schema.queuePanels.kioskBgImageKey,
+      callBgKey: schema.queuePanels.themeBgImageKey,
     })
     .from(schema.queuePanels)
     .innerJoin(
@@ -62,8 +63,15 @@ export const Route = createFileRoute("/api/queue/kiosk-media")({
           const field =
             slot === "logo"
               ? { kioskLogoKey: key }
-              : { kioskBgImageKey: key, kioskBgMediaId: null };
-          const oldKey = slot === "logo" ? panel.logoKey : panel.bgKey;
+              : slot === "background"
+                ? { kioskBgImageKey: key, kioskBgMediaId: null }
+                : { themeBgImageKey: key, themeBgMediaId: null };
+          const oldKey =
+            slot === "logo"
+              ? panel.logoKey
+              : slot === "background"
+                ? panel.bgKey
+                : panel.callBgKey;
           try {
             const { eq } = await import("drizzle-orm");
             await db
@@ -99,8 +107,18 @@ export const Route = createFileRoute("/api/queue/kiosk-media")({
           }
           const { db, schema, panel } = await requirePanel(request, body.deviceId);
           if (!panel) return Response.json({ error: "Terminal nÃ£o encontrado." }, { status: 404 });
-          const oldKey = body.slot === "logo" ? panel.logoKey : panel.bgKey;
-          const field = body.slot === "logo" ? { kioskLogoKey: null } : { kioskBgImageKey: null };
+          const oldKey =
+            body.slot === "logo"
+              ? panel.logoKey
+              : body.slot === "background"
+                ? panel.bgKey
+                : panel.callBgKey;
+          const field =
+            body.slot === "logo"
+              ? { kioskLogoKey: null }
+              : body.slot === "background"
+                ? { kioskBgImageKey: null }
+                : { themeBgImageKey: null, themeBgMediaId: null };
           await db
             .update(schema.queuePanels)
             .set(field)

@@ -52,6 +52,7 @@ export async function recentQueueCalls(deviceId: string): Promise<QueueCallPaylo
       displaySeconds: schema.queuePanels.displaySeconds,
       themeBgColor: schema.queuePanels.themeBgColor,
       themeBgMediaId: schema.queuePanels.themeBgMediaId,
+      themeBgImageKey: schema.queuePanels.themeBgImageKey,
       themeTicketColor: schema.queuePanels.themeTicketColor,
       themeTextColor: schema.queuePanels.themeTextColor,
       themeHistoryColor: schema.queuePanels.themeHistoryColor,
@@ -67,17 +68,21 @@ export async function recentQueueCalls(deviceId: string): Promise<QueueCallPaylo
   const panel = panels[0];
   if (!panel || !panel.isEnabled) return [];
 
-  // Fundo opcional: imagem escolhida na biblioteca, assinada para o player.
+  // O arquivo exclusivo tem prioridade. A mídia antiga fica apenas como
+  // compatibilidade para clientes que ainda não substituíram a configuração.
   let bgImageUrl: string | null = null;
-  if (panel.themeBgMediaId) {
+  if (panel.themeBgImageKey || panel.themeBgMediaId) {
     try {
       const { isStorageConfigured, createDownloadUrl } = await import("@/lib/storage.server");
-      const asset = await db
-        .select({ storageKey: schema.mediaAssets.storageKey, status: schema.mediaAssets.status })
-        .from(schema.mediaAssets)
-        .where(eq(schema.mediaAssets.id, panel.themeBgMediaId))
-        .limit(1);
-      const key = asset[0]?.status === "ready" ? asset[0]?.storageKey : null;
+      let key = panel.themeBgImageKey;
+      if (!key && panel.themeBgMediaId) {
+        const asset = await db
+          .select({ storageKey: schema.mediaAssets.storageKey, status: schema.mediaAssets.status })
+          .from(schema.mediaAssets)
+          .where(eq(schema.mediaAssets.id, panel.themeBgMediaId))
+          .limit(1);
+        key = asset[0]?.status === "ready" ? asset[0]?.storageKey : null;
+      }
       if (key && isStorageConfigured()) bgImageUrl = await createDownloadUrl(key, 3600);
     } catch {
       bgImageUrl = null;
