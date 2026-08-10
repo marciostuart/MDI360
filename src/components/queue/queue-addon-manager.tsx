@@ -1159,7 +1159,7 @@ export function QueueAddonManager() {
                       </div>
 
                       <div
-                        className="relative aspect-video flex flex-col justify-center space-y-3 overflow-hidden rounded-md bg-cover bg-center p-6 text-center"
+                        className="relative grid aspect-video place-items-center overflow-hidden rounded-md bg-cover bg-center p-6 text-center"
                         style={{
                           backgroundColor: form.kioskBgColor,
                           ...(panel.kioskBgImagePreviewUrl || form.kioskBgMediaId
@@ -1173,7 +1173,7 @@ export function QueueAddonManager() {
                             : {}),
                         }}
                       >
-                        <div className="flex w-[40%] min-w-[280px] flex-col justify-center gap-6">
+                        <div className="mx-auto flex w-[40%] min-w-[280px] flex-col justify-center gap-6">
                           {form.kioskShowLogo ? (
                             panel.kioskLogoPreviewUrl ? (
                               <img

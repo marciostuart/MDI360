@@ -198,6 +198,10 @@ function KioskPage() {
     queryFn: () => loadPanel({ data: { token } }),
     enabled: token.length >= 32,
     refetchInterval: 5_000,
+    // Android WebViews can remain visually active without reporting browser
+    // focus after the native settings screen closes. Keep configuration sync
+    // running so later theme changes are not silently ignored.
+    refetchIntervalInBackground: true,
   });
 
   const [pendingKind, setPendingKind] = useState<"normal" | "priority" | null>(null);
@@ -308,9 +312,9 @@ function KioskPage() {
   };
 
   return (
-    <main className="h-dvh overflow-hidden" style={surface}>
-      <div className="mx-auto flex h-full max-w-3xl flex-col justify-center gap-6 p-6">
-      <header className="space-y-2 text-center">
+    <main className="grid h-dvh place-items-center overflow-hidden" style={surface}>
+      <div className="flex h-full w-full max-w-3xl flex-col justify-center gap-6 p-6">
+      <header className="w-full space-y-2 text-center">
         {stableLogoUrl ? (
           <img
             src={stableLogoUrl}
