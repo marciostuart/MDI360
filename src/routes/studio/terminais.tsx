@@ -8,7 +8,7 @@ export const Route = createFileRoute("/studio/terminais")({
       { title: "Terminais | MDI 360" },
       {
         name: "description",
-        content: "Vincule e configure as funções dos terminais Android MDI 360.",
+        content: "Vincule e configure terminais Android, Roku e navegador no MDI 360.",
       },
     ],
   }),

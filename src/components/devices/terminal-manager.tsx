@@ -1,12 +1,21 @@
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
+import { Link } from "@tanstack/react-router";
 import { useServerFn } from "@tanstack/react-start";
-import { Link2, Loader2, MonitorSmartphone, Trash2 } from "lucide-react";
+import { Link2, Loader2, MonitorSmartphone, Replace, Settings2, Trash2 } from "lucide-react";
 import { useState } from "react";
 import { toast } from "sonner";
 
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
+import {
+  Dialog,
+  DialogContent,
+  DialogDescription,
+  DialogFooter,
+  DialogHeader,
+  DialogTitle,
+} from "@/components/ui/dialog";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import {
@@ -21,6 +30,7 @@ import {
   deleteDevice,
   linkDevice,
   listDevices,
+  replaceDevice,
   setDevicePlaylist,
   updateDevice,
 } from "@/lib/devices/devices.functions";
@@ -50,10 +60,12 @@ export function TerminalManager() {
   const updateFn = useServerFn(updateDevice);
   const playlistFn = useServerFn(setDevicePlaylist);
   const deleteFn = useServerFn(deleteDevice);
+  const replaceFn = useServerFn(replaceDevice);
 
   const [code, setCode] = useState("");
   const [name, setName] = useState("");
-  const [initialModes, setInitialModes] = useState<string[]>(["display", "issuer"]);
+  const [replaceTarget, setReplaceTarget] = useState<{ id: string; name: string } | null>(null);
+  const [replaceCode, setReplaceCode] = useState("");
 
   const devices = useQuery({
     queryKey: ["devices"],
@@ -70,14 +82,13 @@ export function TerminalManager() {
           code,
           name,
           canvasPreset: DEFAULT_CANVAS_PRESET.id,
-          deviceClass: "terminal",
-          enabledModes: initialModes as ("display" | "issuer" | "caller")[],
+          deviceClass: "universal",
         },
       }),
     onSuccess: async () => {
       setCode("");
       setName("");
-      toast.success("Terminal Android vinculado. As funções escolhidas já estão ativas.");
+      toast.success("Terminal vinculado para exibição de mídias.");
       await refresh();
     },
     onError: (error: unknown) =>
@@ -109,29 +120,31 @@ export function TerminalManager() {
     onError: () => toast.error("Não foi possível desvincular o terminal."),
   });
 
-  const terminals = (devices.data?.items ?? []).filter((device) =>
-    device.appVersion?.toLowerCase().startsWith("android"),
-  );
-  const playlistItems = playlists.data?.items ?? [];
+  const replaceMutation = useMutation({
+    mutationFn: () => {
+      if (!replaceTarget) throw new Error("Selecione o terminal.");
+      return replaceFn({ data: { deviceId: replaceTarget.id, code: replaceCode } });
+    },
+    onSuccess: async () => {
+      toast.success("Terminal substituído. Configurações e programação foram transferidas.");
+      setReplaceTarget(null);
+      setReplaceCode("");
+      await refresh();
+    },
+    onError: (error: unknown) =>
+      toast.error(error instanceof Error ? error.message : "Não foi possível substituir."),
+  });
 
-  const toggleInitialMode = (mode: string, checked: boolean) => {
-    const next = new Set(initialModes);
-    if (checked) next.add(mode);
-    else next.delete(mode);
-    if (next.size === 0) {
-      toast.error("Selecione pelo menos uma função.");
-      return;
-    }
-    setInitialModes(Array.from(next));
-  };
+  const terminals = devices.data?.items ?? [];
+  const playlistItems = playlists.data?.items ?? [];
 
   return (
     <div className="space-y-8">
       <header className="space-y-1">
         <h1 className="font-display text-2xl font-semibold tracking-tight">Terminais</h1>
         <p className="text-sm text-muted-foreground">
-          Cadastre o aplicativo Android uma única vez e escolha todas as funções do aparelho. Roku e
-          navegador continuam sendo administrados em Telas.
+          Vincule e administre todos os aparelhos em um só lugar: Android, Roku e navegador. Todo
+          novo terminal começa pronto para exibir mídias.
         </p>
       </header>
 
@@ -167,23 +180,10 @@ export function TerminalManager() {
               />
             </div>
           </div>
-          <div className="grid gap-3 md:grid-cols-3">
-            {MODES.map(([mode, label, description]) => (
-              <div
-                key={mode}
-                className="flex items-start justify-between gap-3 rounded-lg border p-3"
-              >
-                <div>
-                  <p className="text-sm font-medium">{label}</p>
-                  <p className="text-xs text-muted-foreground">{description}</p>
-                </div>
-                <Switch
-                  checked={initialModes.includes(mode)}
-                  onCheckedChange={(checked) => toggleInitialMode(mode, checked)}
-                />
-              </div>
-            ))}
-          </div>
+          <p className="text-xs text-muted-foreground">
+            Após o vínculo, aparelhos Android também poderão emitir e chamar senhas. Roku e
+            navegador permanecem dedicados à exibição de mídias.
+          </p>
           <Button
             onClick={() => linkMutation.mutate()}
             disabled={code.length !== 6 || !name.trim() || linkMutation.isPending}
@@ -206,107 +206,191 @@ export function TerminalManager() {
         <Card>
           <CardContent className="grid place-items-center gap-2 py-16 text-center">
             <MonitorSmartphone className="size-8 text-muted-foreground" />
-            <p className="text-sm font-medium">Nenhum terminal Android vinculado</p>
+            <p className="text-sm font-medium">Nenhum terminal vinculado</p>
             <p className="max-w-md text-sm text-muted-foreground">
-              Abra o aplicativo Android híbrido e informe acima o único código de seis caracteres.
+              Abra o aplicativo Android, o canal Roku ou a página de exibição no navegador e informe
+              acima o código de seis caracteres.
             </p>
           </CardContent>
         </Card>
       ) : (
         <div className="grid gap-4 xl:grid-cols-2">
-          {terminals.map((terminal) => (
-            <Card key={terminal.id}>
-              <CardContent className="space-y-5 pt-6">
-                <div className="flex items-start justify-between gap-3">
-                  <div>
-                    <p className="font-medium">{terminal.name}</p>
-                    <p className="text-xs text-muted-foreground">
-                      {terminal.appVersion ?? "Android"} · visto{" "}
-                      {formatLastSeen(terminal.lastSeenAt)}
-                    </p>
-                  </div>
-                  <Badge variant={terminal.online ? "default" : "secondary"}>
-                    {terminal.online ? "online" : "offline"}
-                  </Badge>
-                </div>
-
-                <div className="space-y-3 rounded-lg border border-lime-500/30 bg-lime-500/5 p-4">
-                  <p className="text-sm font-medium">Funções habilitadas</p>
-                  {MODES.map(([mode, label, description]) => (
-                    <div key={mode} className="flex items-start justify-between gap-3">
-                      <div>
-                        <p className="text-sm">{label}</p>
-                        <p className="text-xs text-muted-foreground">{description}</p>
-                      </div>
-                      <Switch
-                        checked={terminal.enabledModes.includes(mode)}
-                        disabled={modesMutation.isPending}
-                        onCheckedChange={(checked) => {
-                          const next = new Set(terminal.enabledModes);
-                          if (checked) next.add(mode);
-                          else next.delete(mode);
-                          if (next.size === 0) {
-                            toast.error("O terminal precisa ter pelo menos uma função.");
-                            return;
-                          }
-                          modesMutation.mutate({
-                            deviceId: terminal.id,
-                            enabledModes: Array.from(next),
-                          });
-                        }}
-                      />
+          {terminals.map((terminal) => {
+            const appVersion = terminal.appVersion?.toLowerCase() ?? "";
+            const isAndroid = appVersion.startsWith("android");
+            const platform = isAndroid
+              ? "Android híbrido"
+              : appVersion.startsWith("roku")
+                ? "Roku"
+                : appVersion.startsWith("web")
+                  ? "Navegador Web"
+                  : "Tela conectada";
+            return (
+              <Card key={terminal.id}>
+                <CardContent className="space-y-5 pt-6">
+                  <div className="flex items-start justify-between gap-3">
+                    <div>
+                      <p className="font-medium">{terminal.name}</p>
+                      <p className="text-xs text-muted-foreground">
+                        {platform} · visto {formatLastSeen(terminal.lastSeenAt)}
+                      </p>
                     </div>
-                  ))}
-                </div>
-
-                {terminal.enabledModes.includes("display") ? (
-                  <div className="space-y-2">
-                    <Label>Playlist padrão</Label>
-                    <Select
-                      value={terminal.defaultPlaylistId ?? "none"}
-                      onValueChange={(value) =>
-                        playlistMutation.mutate({
-                          deviceId: terminal.id,
-                          playlistId: value === "none" ? null : value,
-                        })
-                      }
-                    >
-                      <SelectTrigger>
-                        <SelectValue placeholder="Selecionar playlist" />
-                      </SelectTrigger>
-                      <SelectContent>
-                        <SelectItem value="none">Nenhuma</SelectItem>
-                        {playlistItems.map((playlist) => (
-                          <SelectItem key={playlist.id} value={playlist.id}>
-                            {playlist.name} · {playlist.itemCount} itens
-                          </SelectItem>
-                        ))}
-                      </SelectContent>
-                    </Select>
+                    <Badge variant={terminal.online ? "default" : "secondary"}>
+                      {terminal.online ? "online" : "offline"}
+                    </Badge>
                   </div>
-                ) : null}
 
-                <div className="flex justify-end">
-                  <Button
-                    variant="ghost"
-                    size="sm"
-                    className="text-destructive"
-                    disabled={removeMutation.isPending}
-                    onClick={() => {
-                      if (window.confirm(`Desvincular o terminal ${terminal.name}?`)) {
-                        removeMutation.mutate(terminal.id);
-                      }
-                    }}
-                  >
-                    <Trash2 className="size-4" />
-                    Desvincular
-                  </Button>
-                </div>
-              </CardContent>
-            </Card>
-          ))}
+                  <div className="space-y-3 rounded-lg border border-lime-500/30 bg-lime-500/5 p-4">
+                    <p className="text-sm font-medium">Funções habilitadas</p>
+                    {(isAndroid ? MODES : MODES.slice(0, 1)).map(([mode, label, description]) => (
+                      <div key={mode} className="flex items-start justify-between gap-3">
+                        <div>
+                          <p className="text-sm">{label}</p>
+                          <p className="text-xs text-muted-foreground">{description}</p>
+                        </div>
+                        <Switch
+                          checked={
+                            mode === "display" && !isAndroid
+                              ? true
+                              : terminal.enabledModes.includes(mode)
+                          }
+                          disabled={!isAndroid || modesMutation.isPending}
+                          onCheckedChange={(checked) => {
+                            const next = new Set(terminal.enabledModes);
+                            if (checked) next.add(mode);
+                            else next.delete(mode);
+                            if (next.size === 0) {
+                              toast.error("O terminal precisa ter pelo menos uma função.");
+                              return;
+                            }
+                            modesMutation.mutate({
+                              deviceId: terminal.id,
+                              enabledModes: Array.from(next),
+                            });
+                          }}
+                        />
+                      </div>
+                    ))}
+                    {!isAndroid ? (
+                      <p className="text-xs text-muted-foreground">
+                        Este tipo de terminal é dedicado à exibição de mídias.
+                      </p>
+                    ) : null}
+                  </div>
+
+                  {terminal.enabledModes.includes("display") ? (
+                    <div className="space-y-2">
+                      <Label>Playlist padrão</Label>
+                      <Select
+                        value={terminal.defaultPlaylistId ?? "none"}
+                        onValueChange={(value) =>
+                          playlistMutation.mutate({
+                            deviceId: terminal.id,
+                            playlistId: value === "none" ? null : value,
+                          })
+                        }
+                      >
+                        <SelectTrigger>
+                          <SelectValue placeholder="Selecionar playlist" />
+                        </SelectTrigger>
+                        <SelectContent>
+                          <SelectItem value="none">Nenhuma</SelectItem>
+                          {playlistItems.map((playlist) => (
+                            <SelectItem key={playlist.id} value={playlist.id}>
+                              {playlist.name} · {playlist.itemCount} itens
+                            </SelectItem>
+                          ))}
+                        </SelectContent>
+                      </Select>
+                    </div>
+                  ) : null}
+
+                  <div className="flex flex-wrap justify-end gap-2">
+                    <Button variant="outline" size="sm" asChild>
+                      <Link to="/studio/terminais/$deviceId" params={{ deviceId: terminal.id }}>
+                        <Settings2 className="size-4" />
+                        Configurar
+                      </Link>
+                    </Button>
+                    <Button
+                      variant="outline"
+                      size="sm"
+                      onClick={() => {
+                        setReplaceTarget({ id: terminal.id, name: terminal.name });
+                        setReplaceCode("");
+                      }}
+                    >
+                      <Replace className="size-4" />
+                      Substituir
+                    </Button>
+                    <Button
+                      variant="ghost"
+                      size="sm"
+                      className="text-destructive"
+                      disabled={removeMutation.isPending}
+                      onClick={() => {
+                        if (window.confirm(`Desvincular o terminal ${terminal.name}?`)) {
+                          removeMutation.mutate(terminal.id);
+                        }
+                      }}
+                    >
+                      <Trash2 className="size-4" />
+                      Desvincular
+                    </Button>
+                  </div>
+                </CardContent>
+              </Card>
+            );
+          })}
         </div>
       )}
+
+      <Dialog
+        open={Boolean(replaceTarget)}
+        onOpenChange={(open) => {
+          if (!open) setReplaceTarget(null);
+        }}
+      >
+        <DialogContent>
+          <DialogHeader>
+            <DialogTitle>Substituir terminal</DialogTitle>
+            <DialogDescription>
+              Abra o aplicativo no novo aparelho e informe o código exibido. Todas as configurações
+              de {replaceTarget?.name} serão transferidas.
+            </DialogDescription>
+          </DialogHeader>
+          <div className="space-y-2">
+            <Label htmlFor="replacement-code">Código do novo aparelho</Label>
+            <Input
+              id="replacement-code"
+              value={replaceCode}
+              onChange={(event) =>
+                setReplaceCode(
+                  event.target.value
+                    .toUpperCase()
+                    .replace(/[^A-Z0-9]/g, "")
+                    .slice(0, 6),
+                )
+              }
+              placeholder="ABC123"
+              maxLength={6}
+              className="font-display tracking-[0.3em] uppercase"
+            />
+          </div>
+          <DialogFooter>
+            <Button variant="ghost" onClick={() => setReplaceTarget(null)}>
+              Cancelar
+            </Button>
+            <Button
+              onClick={() => replaceMutation.mutate()}
+              disabled={replaceCode.length !== 6 || replaceMutation.isPending}
+            >
+              {replaceMutation.isPending ? <Loader2 className="size-4 animate-spin" /> : null}
+              Confirmar substituição
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
     </div>
   );
 }

@@ -10,7 +10,6 @@ import {
   MonitorPlay,
   BarChart3,
   Settings,
-  Tv,
   Images,
   Gauge,
   Ticket,
@@ -18,7 +17,7 @@ import {
   CreditCard,
   Smartphone,
 } from "lucide-react";
-import { useEffect } from "react";
+import { Fragment, useEffect } from "react";
 
 import { Button } from "@/components/ui/button";
 import { ImpersonationBanner } from "@/components/admin/impersonation-banner";
@@ -36,21 +35,21 @@ type NavItem = {
   label: string;
   icon: typeof LayoutDashboard;
   exact?: boolean;
+  section?: string;
 };
 
 const NAV: NavItem[] = [
-  { to: "/studio", label: "Visão geral", icon: LayoutDashboard, exact: true },
-  { to: "/studio/telas", label: "Telas", icon: Tv },
-  { to: "/studio/terminais", label: "Terminais", icon: Smartphone },
-  { to: "/studio/conteudos", label: "Conteúdos", icon: Images },
-  { to: "/studio/widgets", label: "Widgets", icon: Gauge },
-  { to: "/studio/playlists", label: "Playlists", icon: ListVideo },
-  { to: "/studio/agenda", label: "Agenda", icon: CalendarClock },
-  { to: "/studio/senhas", label: "Senhas", icon: Ticket },
-  { to: "/studio/downloads", label: "Downloads", icon: Download },
-  { to: "/studio/relatorios", label: "Relatórios", icon: BarChart3 },
-  { to: "/studio/faturamento", label: "Faturamento", icon: CreditCard },
-  { to: "/studio/configuracoes", label: "Configurações", icon: Settings },
+  { to: "/studio", label: "Visão geral", icon: LayoutDashboard, exact: true, section: "Operação" },
+  { to: "/studio/terminais", label: "Terminais", icon: Smartphone, section: "Operação" },
+  { to: "/studio/conteudos", label: "Conteúdos", icon: Images, section: "Programação" },
+  { to: "/studio/widgets", label: "Widgets", icon: Gauge, section: "Programação" },
+  { to: "/studio/playlists", label: "Playlists", icon: ListVideo, section: "Programação" },
+  { to: "/studio/agenda", label: "Agenda", icon: CalendarClock, section: "Programação" },
+  { to: "/studio/senhas", label: "Senhas e atendimento", icon: Ticket, section: "Atendimento" },
+  { to: "/studio/relatorios", label: "Relatórios", icon: BarChart3, section: "Análise" },
+  { to: "/studio/downloads", label: "Downloads", icon: Download, section: "Sistema" },
+  { to: "/studio/configuracoes", label: "Configurações", icon: Settings, section: "Sistema" },
+  { to: "/studio/faturamento", label: "Faturamento", icon: CreditCard, section: "Sistema" },
 ];
 
 function DashboardLayout() {
@@ -94,22 +93,33 @@ function DashboardLayout() {
           </Link>
 
           <nav className="flex flex-1 flex-col gap-1">
-            {NAV.map((item) => {
+            {NAV.map((item, index) => {
               const active = item.exact ? pathname === item.to : pathname.startsWith(item.to);
               return (
-                <Link
-                  key={item.to}
-                  to={item.to}
-                  className={cn(
-                    "flex items-center gap-3 rounded-lg px-3 py-2 text-sm font-medium transition-colors",
-                    active
-                      ? "bg-sidebar-accent text-sidebar-accent-foreground"
-                      : "text-muted-foreground hover:bg-sidebar-accent/60 hover:text-sidebar-foreground",
-                  )}
-                >
-                  <item.icon className="size-4" />
-                  {item.label}
-                </Link>
+                <Fragment key={item.to}>
+                  {item.section !== NAV[index - 1]?.section ? (
+                    <p
+                      className={cn(
+                        "px-3 pb-1 pt-4 text-[10px] font-semibold uppercase tracking-widest text-muted-foreground/70",
+                        index === 0 && "pt-0",
+                      )}
+                    >
+                      {item.section}
+                    </p>
+                  ) : null}
+                  <Link
+                    to={item.to}
+                    className={cn(
+                      "flex items-center gap-3 rounded-lg px-3 py-2 text-sm font-medium transition-colors",
+                      active
+                        ? "bg-sidebar-accent text-sidebar-accent-foreground"
+                        : "text-muted-foreground hover:bg-sidebar-accent/60 hover:text-sidebar-foreground",
+                    )}
+                  >
+                    <item.icon className="size-4" />
+                    {item.label}
+                  </Link>
+                </Fragment>
               );
             })}
           </nav>

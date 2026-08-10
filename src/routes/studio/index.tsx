@@ -1,7 +1,7 @@
 import { createFileRoute } from "@tanstack/react-router";
 import { useQuery } from "@tanstack/react-query";
 import { useServerFn } from "@tanstack/react-start";
-import { Tv } from "lucide-react";
+import { MonitorSmartphone } from "lucide-react";
 
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { useCurrentUser } from "@/lib/auth/useCurrentUser";
@@ -13,12 +13,12 @@ export const Route = createFileRoute("/studio/")({
       { title: "Visão geral | MDI 360" },
       {
         name: "description",
-        content: "Acompanhe o status das suas telas, conteúdos publicados e programações.",
+        content: "Acompanhe o status dos seus terminais, conteúdos publicados e programações.",
       },
       { property: "og:title", content: "Visão geral do painel MDI 360" },
       {
         property: "og:description",
-        content: "Acompanhe o status das suas telas e conteúdos publicados.",
+        content: "Acompanhe o status dos seus terminais e conteúdos publicados.",
       },
     ],
   }),
@@ -40,7 +40,7 @@ function OverviewPage() {
         <p className="text-sm text-muted-foreground">{user?.organizationName}</p>
         <h1 className="mt-1 text-3xl font-semibold">Visão geral</h1>
         <p className="mt-2 max-w-2xl text-sm text-muted-foreground">
-          Este é o centro de controle das suas telas: acompanhe aqui os aparelhos vinculados, os
+          Este é o centro de controle dos seus terminais: acompanhe aqui os aparelhos vinculados, os
           conteúdos publicados, as playlists e a programação.
         </p>
       </div>
@@ -48,17 +48,17 @@ function OverviewPage() {
       <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
         <Card>
           <CardHeader className="pb-2">
-            <CardDescription>Telas cadastradas</CardDescription>
+            <CardDescription>Terminais cadastrados</CardDescription>
             <CardTitle className="text-3xl">{stats?.devices ?? 0}</CardTitle>
           </CardHeader>
           <CardContent className="text-xs text-muted-foreground">
-            <Tv className="mr-1 inline size-3.5" />
+            <MonitorSmartphone className="mr-1 inline size-3.5" />
             {stats?.devices ? "Aparelhos no seu parque" : "Nenhum aparelho pareado ainda"}
           </CardContent>
         </Card>
         <Card>
           <CardHeader className="pb-2">
-            <CardDescription>Telas online agora</CardDescription>
+            <CardDescription>Terminais online agora</CardDescription>
             <CardTitle className="text-3xl text-signal-online">
               {stats?.devicesOnline ?? 0}
             </CardTitle>

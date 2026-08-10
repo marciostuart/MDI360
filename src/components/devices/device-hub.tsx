@@ -125,7 +125,7 @@ export function DeviceHub({ deviceId }: { deviceId: string }) {
   const refresh = () => queryClient.invalidateQueries({ queryKey: ["device-hub", deviceId] });
   const save = useMutation({
     mutationFn: () => {
-      if (!form) throw new Error("Aguarde o carregamento da TV.");
+      if (!form) throw new Error("Aguarde o carregamento do terminal.");
       return updateFn({
         data: { ...form, deviceId, defaultPlaylistId: form.defaultPlaylistId || null },
       });
@@ -174,7 +174,7 @@ export function DeviceHub({ deviceId }: { deviceId: string }) {
   const command = useMutation({
     mutationFn: (kind: "screenshot" | "restart" | "clear_cache") =>
       commandFn({ data: { deviceId, kind } }),
-    onSuccess: () => toast.success("Comando enviado para a TV."),
+    onSuccess: () => toast.success("Comando enviado para o terminal."),
   });
   const sendOtp = useMutation({
     mutationFn: () => sendOtpFn({ data: { deviceId, phone, scope: phoneScope } }),
@@ -229,17 +229,19 @@ export function DeviceHub({ deviceId }: { deviceId: string }) {
         <Loader2 className="size-6 animate-spin" />
       </div>
     );
-  if (!query.data) return <p>TV não encontrada.</p>;
+  if (!query.data) return <p>Terminal não encontrado.</p>;
   const { device, online, playlists, schedules, playback } = query.data;
   return (
     <div className="space-y-5">
       <div className="flex flex-wrap items-center gap-3">
         <Button variant="ghost" asChild>
-          <Link to="/studio/telas">← TVs</Link>
+          <Link to="/studio/terminais">← Terminais</Link>
         </Button>
         <div>
           <h1 className="text-2xl font-semibold">{device.name}</h1>
-          <p className="text-sm text-muted-foreground">Configuração e monitoramento desta TV</p>
+          <p className="text-sm text-muted-foreground">
+            Configuração e monitoramento deste terminal
+          </p>
         </div>
         <Badge className="ml-auto" variant={online ? "default" : "destructive"}>
           {online ? <Wifi className="size-3" /> : <WifiOff className="size-3" />}
@@ -252,8 +254,7 @@ export function DeviceHub({ deviceId }: { deviceId: string }) {
       </div>
       <Tabs defaultValue="status">
         <TabsList className="h-auto w-full justify-start overflow-x-auto">
-          <TabsTrigger value="status">Configurações e Status</TabsTrigger>
-          <TabsTrigger value="extras">Extras</TabsTrigger>
+          <TabsTrigger value="status">Configurações e status</TabsTrigger>
           <TabsTrigger value="schedules">Agendamentos</TabsTrigger>
           <TabsTrigger value="notifications">Notificações</TabsTrigger>
           <TabsTrigger value="reports">Relatório de Exibição</TabsTrigger>
@@ -291,6 +292,40 @@ export function DeviceHub({ deviceId }: { deviceId: string }) {
           </Card>
           <Card>
             <CardHeader>
+              <CardTitle className="flex items-center gap-2">
+                <Settings2 className="size-5" />
+                Reprodução de mídias
+              </CardTitle>
+            </CardHeader>
+            <CardContent className="grid gap-5 md:grid-cols-2">
+              <Toggle
+                label="Áudio da reprodução"
+                checked={form.audioEnabled}
+                onChange={(checked) => setForm({ ...form, audioEnabled: checked })}
+              />
+              <Field label="Transição entre conteúdos">
+                <select
+                  className="h-10 rounded-md border bg-background px-3"
+                  value={form.transitionEffect}
+                  onChange={(e) =>
+                    setForm({
+                      ...form,
+                      transitionEffect: e.target.value === "fade" ? "fade" : "none",
+                    })
+                  }
+                >
+                  <option value="none">Corte direto</option>
+                  <option value="fade">Suave (fade)</option>
+                </select>
+              </Field>
+              <p className="text-sm text-muted-foreground md:col-span-2">
+                Essas opções afetam a reprodução de mídias neste terminal. A inicialização
+                automática e a prevenção de suspensão são controladas pelo aplicativo instalado.
+              </p>
+            </CardContent>
+          </Card>
+          <Card>
+            <CardHeader>
               <CardTitle>Status e informações</CardTitle>
             </CardHeader>
             <CardContent className="grid gap-3 text-sm md:grid-cols-2">
@@ -316,42 +351,6 @@ export function DeviceHub({ deviceId }: { deviceId: string }) {
                   Limpar cache
                 </Button>
               </div>
-            </CardContent>
-          </Card>
-        </TabsContent>
-        <TabsContent value="extras">
-          <Card>
-            <CardHeader>
-              <CardTitle className="flex items-center gap-2">
-                <Settings2 className="size-5" />
-                Experiência de exibição
-              </CardTitle>
-            </CardHeader>
-            <CardContent className="space-y-5">
-              <Toggle
-                label="Áudio da TV"
-                checked={form.audioEnabled}
-                onChange={(checked) => setForm({ ...form, audioEnabled: checked })}
-              />
-              <Field label="Transição entre conteúdos">
-                <select
-                  className="h-10 rounded-md border bg-background px-3"
-                  value={form.transitionEffect}
-                  onChange={(e) =>
-                    setForm({
-                      ...form,
-                      transitionEffect: e.target.value === "fade" ? "fade" : "none",
-                    })
-                  }
-                >
-                  <option value="none">Corte direto</option>
-                  <option value="fade">Suave (fade)</option>
-                </select>
-              </Field>
-              <p className="text-sm text-muted-foreground">
-                O início automático, monitoramento do app e prevenção de suspensão são controlados
-                pelo aplicativo instalado na TV.
-              </p>
             </CardContent>
           </Card>
         </TabsContent>
@@ -502,7 +501,7 @@ export function DeviceHub({ deviceId }: { deviceId: string }) {
             </CardHeader>
             <CardContent className="space-y-5">
               <Toggle
-                label="Avisar quando esta TV ficar offline"
+                label="Avisar quando este terminal ficar offline"
                 checked={form.offlineAlertsEnabled}
                 onChange={(checked) => setForm({ ...form, offlineAlertsEnabled: checked })}
               />
@@ -531,7 +530,7 @@ export function DeviceHub({ deviceId }: { deviceId: string }) {
                     onChange={(e) => setPhoneScope(e.target.value as "organization" | "device")}
                   >
                     <option value="organization">Padrão da empresa</option>
-                    <option value="device">Somente esta TV</option>
+                    <option value="device">Somente este terminal</option>
                   </select>
                   <Input
                     className="max-w-xs"
@@ -577,7 +576,7 @@ export function DeviceHub({ deviceId }: { deviceId: string }) {
         <TabsContent value="reports">
           <Card>
             <CardHeader>
-              <CardTitle>Relatório desta TV</CardTitle>
+              <CardTitle>Relatório deste terminal</CardTitle>
             </CardHeader>
             <CardContent>
               <div className="mb-4 flex flex-wrap items-end gap-3">
@@ -688,7 +687,7 @@ function OperatingHours({
         <div>
           <Label>Horário de funcionamento</Label>
           <p className="text-xs text-muted-foreground">
-            Usado somente para não alertar quando a TV deveria estar desligada.
+            Usado somente para não alertar quando o terminal deveria estar desligado.
           </p>
         </div>
         <Button type="button" variant="outline" size="sm" onClick={add}>

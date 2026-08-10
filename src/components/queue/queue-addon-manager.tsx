@@ -64,7 +64,7 @@ function ColorField({
 }) {
   return (
     <div className="space-y-1.5">
-        <Label htmlFor={id}>{repairMojibake(label)}</Label>
+      <Label htmlFor={id}>{repairMojibake(label)}</Label>
       <div className="flex items-center gap-2">
         <input
           id={id}
@@ -173,7 +173,9 @@ export function QueueAddonManager() {
       const response = await fetch("/api/queue/kiosk-media", { method: "POST", body });
       const payload = (await response.json().catch(() => ({}))) as { error?: string };
       if (!response.ok) throw new Error(payload.error || "NÃ£o foi possÃ­vel enviar a imagem.");
-      toast.success(slot === "logo" ? "Logo do emissor atualizada." : "Fundo do emissor atualizado.");
+      toast.success(
+        slot === "logo" ? "Logo do emissor atualizada." : "Fundo do emissor atualizado.",
+      );
       await invalidate();
     } catch (error) {
       toast.error(repairMojibake((error as Error).message));
@@ -337,8 +339,8 @@ export function QueueAddonManager() {
             </CardTitle>
             <CardDescription>
               Seu plano atual é o Gratuito (1 tela e 4 GB de armazenamento). Faça o upgrade para
-              liberar o sistema de chamada de senhas, com painel exclusivo do operador, sinal
-              sonoro e locução automática nas TVs.
+              liberar o sistema de chamada de senhas, com painel exclusivo do operador, sinal sonoro
+              e locução automática nas TVs.
             </CardDescription>
           </CardHeader>
           <CardContent>
@@ -374,8 +376,8 @@ export function QueueAddonManager() {
       {panels.length === 0 ? (
         <Card>
           <CardContent className="py-10 text-center text-sm text-muted-foreground">
-            Nenhuma tela vinculada ainda. Vincule uma tela em <strong>Telas</strong> para habilitar
-            o sistema de senhas.
+            Nenhum terminal vinculado ainda. Vincule um aparelho em <strong>Terminais</strong> para
+            habilitar o sistema de senhas.
           </CardContent>
         </Card>
       ) : null}
@@ -433,11 +435,7 @@ export function QueueAddonManager() {
                 </div>
               </div>
 
-              {panel.panelId ? (
-                <QueuePanelConfig
-                  panelId={panel.panelId}
-                />
-              ) : null}
+              {panel.panelId ? <QueuePanelConfig panelId={panel.panelId} /> : null}
 
               {editing === panel.deviceId ? (
                 <form
@@ -754,9 +752,13 @@ export function QueueAddonManager() {
                             <SelectContent>
                               <SelectItem value="none">Somente cor de fundo</SelectItem>
                               {!media ? (
-                                <SelectItem value="loading" disabled>Carregando imagens...</SelectItem>
+                                <SelectItem value="loading" disabled>
+                                  Carregando imagens...
+                                </SelectItem>
                               ) : images.length === 0 ? (
-                                <SelectItem value="empty" disabled>Nenhuma imagem pronta na biblioteca</SelectItem>
+                                <SelectItem value="empty" disabled>
+                                  Nenhuma imagem pronta na biblioteca
+                                </SelectItem>
                               ) : null}
                               {images.map((image) => (
                                 <SelectItem key={image.id} value={image.id}>
@@ -779,7 +781,8 @@ export function QueueAddonManager() {
                           ...(form.themeBgMediaId
                             ? {
                                 backgroundImage: `url(${JSON.stringify(
-                                  images.find((i) => i.id === form.themeBgMediaId)?.previewUrl ?? "",
+                                  images.find((i) => i.id === form.themeBgMediaId)?.previewUrl ??
+                                    "",
                                 )})`,
                               }
                             : {}),
@@ -844,18 +847,25 @@ export function QueueAddonManager() {
                             rows={3}
                             placeholder={"Ex.: Obrigado pela prefer\u00eancia\nAguarde ser chamado"}
                             onChange={(event) =>
-                              setForm((prev) => ({ ...prev, printerFooterText: event.target.value }))
+                              setForm((prev) => ({
+                                ...prev,
+                                printerFooterText: event.target.value,
+                              }))
                             }
                           />
                           <p className="text-xs text-muted-foreground">
-                            {"O texto ser\u00e1 impresso abaixo da data e hora. Use Enter para quebrar linhas."}
+                            {
+                              "O texto ser\u00e1 impresso abaixo da data e hora. Use Enter para quebrar linhas."
+                            }
                           </p>
                         </div>
                         <ColorField
                           id={`kbg-${panel.deviceId}`}
                           label="Cor de fundo"
                           value={form.kioskBgColor}
-                          onChange={(value) => setForm((prev) => ({ ...prev, kioskBgColor: value }))}
+                          onChange={(value) =>
+                            setForm((prev) => ({ ...prev, kioskBgColor: value }))
+                          }
                         />
                         <ColorField
                           id={`kcard-${panel.deviceId}`}
@@ -939,7 +949,9 @@ export function QueueAddonManager() {
                             ) : null}
                           </div>
                           <p className="text-xs text-muted-foreground">
-                            {"Esta imagem \u00e9 exclusiva deste emissor e ser\u00e1 convertida para WebP automaticamente."}
+                            {
+                              "Esta imagem \u00e9 exclusiva deste emissor e ser\u00e1 convertida para WebP automaticamente."
+                            }
                           </p>
                           {panel.kioskBgImagePreviewUrl ? (
                             <img
@@ -988,7 +1000,9 @@ export function QueueAddonManager() {
                               ) : null}
                             </div>
                             <p className="text-xs text-muted-foreground">
-                              {"Substitui a logo padr\u00e3o apenas neste emissor. A imagem \u00e9 otimizada para WebP."}
+                              {
+                                "Substitui a logo padr\u00e3o apenas neste emissor. A imagem \u00e9 otimizada para WebP."
+                              }
                             </p>
                             {panel.kioskLogoPreviewUrl ? (
                               <img
@@ -1027,62 +1041,63 @@ export function QueueAddonManager() {
                             ? {
                                 backgroundImage: `url(${JSON.stringify(
                                   panel.kioskBgImagePreviewUrl ??
-                                    images.find((i) => i.id === form.kioskBgMediaId)?.previewUrl ?? "",
+                                    images.find((i) => i.id === form.kioskBgMediaId)?.previewUrl ??
+                                    "",
                                 )})`,
                               }
                             : {}),
                         }}
                       >
                         <div className="flex w-[40%] min-w-[280px] flex-col justify-center gap-6">
-                        {form.kioskShowLogo ? (
-                          panel.kioskLogoPreviewUrl ? (
-                            <img
-                              src={panel.kioskLogoPreviewUrl}
-                              alt="Logo do emissor"
-                              className="mx-auto object-contain"
-                              style={{ height: Math.round(form.kioskLogoHeight / 3) }}
-                            />
-                          ) : (
-                            <div
-                              className="mx-auto rounded bg-foreground/10"
-                              style={{
-                                height: Math.round(form.kioskLogoHeight / 3),
-                                width: Math.round((form.kioskLogoHeight / 3) * 2.5),
-                              }}
-                            />
-                          )
-                        ) : null}
-                        <p
-                          className="text-3xl font-semibold"
-                          style={{ color: form.kioskTitleColor }}
-                        >
-                          {form.kioskTitle.trim() || "Retire sua senha"}
-                        </p>
-                        <div
-                          className="space-y-2 rounded-md p-3"
-                          style={{ backgroundColor: form.kioskCardColor }}
-                        >
-                          <div className="grid gap-2 sm:grid-cols-2">
-                            <span
-                              className="h-24 rounded-md py-3 text-lg font-semibold"
-                              style={{
-                                backgroundColor: form.kioskNormalButtonColor,
-                                color: form.kioskNormalButtonTextColor,
-                              }}
-                            >
-                              Senha normal
-                            </span>
-                            <span
-                              className="h-24 rounded-md py-3 text-lg font-semibold"
-                              style={{
-                                backgroundColor: form.kioskPriorityButtonColor,
-                                color: form.kioskPriorityButtonTextColor,
-                              }}
-                            >
-                              Preferencial
-                            </span>
+                          {form.kioskShowLogo ? (
+                            panel.kioskLogoPreviewUrl ? (
+                              <img
+                                src={panel.kioskLogoPreviewUrl}
+                                alt="Logo do emissor"
+                                className="mx-auto object-contain"
+                                style={{ height: Math.round(form.kioskLogoHeight / 3) }}
+                              />
+                            ) : (
+                              <div
+                                className="mx-auto rounded bg-foreground/10"
+                                style={{
+                                  height: Math.round(form.kioskLogoHeight / 3),
+                                  width: Math.round((form.kioskLogoHeight / 3) * 2.5),
+                                }}
+                              />
+                            )
+                          ) : null}
+                          <p
+                            className="text-3xl font-semibold"
+                            style={{ color: form.kioskTitleColor }}
+                          >
+                            {form.kioskTitle.trim() || "Retire sua senha"}
+                          </p>
+                          <div
+                            className="space-y-2 rounded-md p-3"
+                            style={{ backgroundColor: form.kioskCardColor }}
+                          >
+                            <div className="grid gap-2 sm:grid-cols-2">
+                              <span
+                                className="h-24 rounded-md py-3 text-lg font-semibold"
+                                style={{
+                                  backgroundColor: form.kioskNormalButtonColor,
+                                  color: form.kioskNormalButtonTextColor,
+                                }}
+                              >
+                                Senha normal
+                              </span>
+                              <span
+                                className="h-24 rounded-md py-3 text-lg font-semibold"
+                                style={{
+                                  backgroundColor: form.kioskPriorityButtonColor,
+                                  color: form.kioskPriorityButtonTextColor,
+                                }}
+                              >
+                                Preferencial
+                              </span>
+                            </div>
                           </div>
-                        </div>
                         </div>
                       </div>
                     </div>

@@ -105,7 +105,7 @@ export const linkDevice = createServerFn({ method: "POST" })
           .refine((value) => value.length === 6, "Informe o código de 6 caracteres"),
         name: nameSchema,
         canvasPreset: presetSchema,
-        deviceClass: z.enum(["screen", "terminal"]).optional(),
+        deviceClass: z.enum(["screen", "terminal", "universal"]).optional(),
         enabledModes: z
           .array(z.enum(["display", "issuer", "caller"]))
           .min(1)
@@ -151,7 +151,7 @@ export const linkDevice = createServerFn({ method: "POST" })
     }
     if (limits.usedDevices >= limits.maxDevices) {
       throw new Error(
-        `Seu plano permite ${limits.maxDevices} tela(s). Remova uma tela ou faça upgrade para vincular outra.`,
+        `Seu plano permite ${limits.maxDevices} terminal(is). Remova um terminal ou faça upgrade para vincular outro.`,
       );
     }
 
@@ -163,7 +163,9 @@ export const linkDevice = createServerFn({ method: "POST" })
         canvasPreset: data.canvasPreset,
         ...(data.deviceClass === "terminal"
           ? { enabledModes: data.enabledModes ?? ["display"] }
-          : {}),
+          : data.deviceClass === "universal"
+            ? { enabledModes: ["display"] }
+            : {}),
         status: "active",
         pairingExpiresAt: null,
       })
@@ -299,10 +301,10 @@ export const replaceDevice = createServerFn({ method: "POST" })
       )
       .limit(1);
     const old = current[0];
-    if (!old) throw new Error("Tela não encontrada.");
+    if (!old) throw new Error("Terminal não encontrado.");
 
     const target = await db
-      .select({ id: schema.devices.id })
+      .select({ id: schema.devices.id, appVersion: schema.devices.appVersion })
       .from(schema.devices)
       .where(and(eq(schema.devices.pairingCode, data.code), isNull(schema.devices.organizationId)))
       .limit(1);
@@ -317,11 +319,11 @@ export const replaceDevice = createServerFn({ method: "POST" })
         .limit(1);
       throw new Error(
         claimed[0]
-          ? "Essa tela já está vinculada. Remova-a antes de usar o código, ou informe o código exibido em uma tela nova."
+          ? "Esse terminal já está vinculado. Remova-o antes de usar o código, ou informe o código exibido em um aparelho novo."
           : "Código inválido ou já utilizado.",
       );
     }
-    if (next.id === old.id) throw new Error("Informe o código de outra tela.");
+    if (next.id === old.id) throw new Error("Informe o código de outro terminal.");
 
     // The new device inherits everything the customer had configured.
     await db
@@ -333,7 +335,9 @@ export const replaceDevice = createServerFn({ method: "POST" })
         defaultPlaylistId: old.defaultPlaylistId,
         audioEnabled: old.audioEnabled,
         transitionEffect: old.transitionEffect,
-        enabledModes: old.enabledModes,
+        enabledModes: next.appVersion?.toLowerCase().startsWith("android")
+          ? old.enabledModes
+          : ["display"],
         operatingHours: old.operatingHours,
         offlineAlertsEnabled: old.offlineAlertsEnabled,
         recoveryAlertsEnabled: old.recoveryAlertsEnabled,
