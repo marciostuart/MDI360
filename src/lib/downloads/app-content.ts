@@ -13,6 +13,8 @@ export type AppDownloadContent = {
   cardDetail: string;
   pageDescription: string;
   downloadDescription: string;
+  /** Legacy/default links are ignored until the platform owner edits this list in Tower. */
+  downloadsManaged: boolean;
   downloads: AppDownloadLink[];
   steps: string[];
   notes: string[];
@@ -24,8 +26,6 @@ export type AppDownloadsContent = {
   footer: string;
   apps: Record<AppDownloadId, AppDownloadContent>;
 };
-
-const RELEASES = "https://github.com/marciostuart/MDI360/releases/download";
 
 export const APP_DOWNLOAD_IDS: readonly AppDownloadId[] = ["android", "roku", "windows", "linux"];
 
@@ -45,12 +45,8 @@ export const DEFAULT_APP_DOWNLOADS_CONTENT: AppDownloadsContent = {
       pageDescription:
         "Aplicativo híbrido para terminais Android com reprodução de mídias, emissão e chamada de senhas.",
       downloadDescription: "Baixe o APK e instale diretamente no aparelho Android.",
-      downloads: [
-        {
-          label: "Baixar APK Android",
-          href: `${RELEASES}/android-hybrid-latest/mdi360-terminal-android.apk`,
-        },
-      ],
+      downloadsManaged: false,
+      downloads: [],
       steps: [
         "Baixe o APK pelo botão acima e copie o arquivo para o aparelho Android.",
         "No aparelho, abra Configurações > Segurança e permita a instalação de aplicativos desconhecidos para o gerenciador de arquivos utilizado.",
@@ -75,7 +71,8 @@ export const DEFAULT_APP_DOWNLOADS_CONTENT: AppDownloadsContent = {
       cardDetail: "Canal instalado pelo modo desenvolvedor, com player e ativação nativos.",
       pageDescription: "Instalação manual pelo modo desenvolvedor da TV ou aparelho Roku.",
       downloadDescription: "Baixe o pacote ZIP sem descompactar.",
-      downloads: [{ label: "Baixar canal Roku (.zip)", href: "/mdi360-roku.zip" }],
+      downloadsManaged: false,
+      downloads: [],
       steps: [
         "Na Roku, abra Configurações > Sistema > Sobre e anote o endereço IP.",
         "No controle, pressione: Home 3 vezes, Cima 2 vezes, Direita, Esquerda, Direita, Esquerda, Direita.",
@@ -98,12 +95,8 @@ export const DEFAULT_APP_DOWNLOADS_CONTENT: AppDownloadsContent = {
       cardDetail: "Tela cheia, impressão automática e inicialização junto com o computador.",
       pageDescription: "Emissão em tela cheia e impressão térmica automática no mesmo aplicativo.",
       downloadDescription: "Baixe o instalador compatível com Windows x64.",
-      downloads: [
-        {
-          label: "Baixar instalador Windows",
-          href: `${RELEASES}/desktop-latest/MDI360-Emissor-Windows-x64.exe`,
-        },
-      ],
+      downloadsManaged: false,
+      downloads: [],
       steps: [
         "Baixe o instalador MDI360-Emissor-Windows-x64.exe.",
         "Abra o arquivo. Se o Windows SmartScreen aparecer, clique em Mais informações > Executar assim mesmo.",
@@ -129,17 +122,8 @@ export const DEFAULT_APP_DOWNLOADS_CONTENT: AppDownloadsContent = {
       pageDescription:
         "Guia testado no MiniOS x64 com impressora térmica EPSON TM-T20. Faça uma etapa por vez.",
       downloadDescription: "Use o pacote DEB como primeira opção no MiniOS.",
-      downloads: [
-        {
-          label: "Baixar instalador MiniOS (.deb)",
-          href: `${RELEASES}/desktop-latest/MDI360-Emissor-MiniOS-x64.deb`,
-        },
-        {
-          label: "Baixar versão portátil (.AppImage)",
-          href: `${RELEASES}/desktop-latest/MDI360-Emissor-MiniOS-x64.AppImage`,
-          secondary: true,
-        },
-      ],
+      downloadsManaged: false,
+      downloads: [],
       steps: [
         "Abra o Terminal e execute uname -m. O resultado deve ser x86_64.",
         "Confirme a persistência criando o arquivo com touch ~/teste-persistencia-minios, reinicie e verifique com ls ~/teste-persistencia-minios.",
@@ -183,16 +167,18 @@ function isSafeDownloadHref(value: string) {
 function normalizeApp(value: unknown, fallback: AppDownloadContent): AppDownloadContent {
   if (!value || typeof value !== "object") return fallback;
   const source = value as Partial<AppDownloadContent>;
-  const downloads = Array.isArray(source.downloads)
-    ? source.downloads
-        .filter((item): item is AppDownloadLink => Boolean(item && typeof item === "object"))
-        .map((item) => ({
-          label: text(item.label, "Download"),
-          href: text(item.href, ""),
-          secondary: Boolean(item.secondary),
-        }))
-        .filter((item) => item.label.trim() && item.href.trim() && isSafeDownloadHref(item.href))
-    : fallback.downloads;
+  const downloadsManaged = source.downloadsManaged === true;
+  const downloads =
+    downloadsManaged && Array.isArray(source.downloads)
+      ? source.downloads
+          .filter((item): item is AppDownloadLink => Boolean(item && typeof item === "object"))
+          .map((item) => ({
+            label: text(item.label, "Download"),
+            href: text(item.href, ""),
+            secondary: Boolean(item.secondary),
+          }))
+          .filter((item) => item.label.trim() && item.href.trim() && isSafeDownloadHref(item.href))
+      : fallback.downloads;
 
   return {
     enabled: typeof source.enabled === "boolean" ? source.enabled : fallback.enabled,
@@ -201,6 +187,7 @@ function normalizeApp(value: unknown, fallback: AppDownloadContent): AppDownload
     cardDetail: text(source.cardDetail, fallback.cardDetail),
     pageDescription: text(source.pageDescription, fallback.pageDescription),
     downloadDescription: text(source.downloadDescription, fallback.downloadDescription),
+    downloadsManaged,
     downloads,
     steps: textList(source.steps, fallback.steps),
     notes: textList(source.notes, fallback.notes),

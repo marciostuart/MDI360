@@ -246,7 +246,10 @@ function AppEditor({
         >
           <DownloadLinksEditor
             links={app.downloads}
-            onChange={(links) => onChange("downloads", links)}
+            onChange={(links) => {
+              onChange("downloads", links);
+              onChange("downloadsManaged", true);
+            }}
           />
         </Field>
         <Field

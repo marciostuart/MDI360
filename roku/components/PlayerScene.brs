@@ -42,7 +42,6 @@ sub init()
     ' The remote is irrelevant on signage, and trick play only wastes memory.
     m.video.enableTrickPlay = false
     m.video.enableUI = false
-    m.video.enableCC = false
 
     ' Stall watchdog: a video that stops advancing (weak Wi-Fi, slow upstream,
     ' heavy bitrate for this Roku) is resumed once and then skipped, so the
@@ -439,9 +438,6 @@ sub advanceItem()
         ' No title / no description: Roku would flash the file name on screen.
         content.title = ""
         m.video.content = content
-        content.StreamBitrate = 0
-        content.StreamQualities = ["HD"]
-        content.StreamContentIDs = [item.id]
         m.video.mute = (item.isMuted = true) or (m.audioEnabled = false)
         m.slide.opacity = 0
         m.widget.visible = false
