@@ -1,0 +1,43 @@
+name: Publicar canal Roku
+
+on:
+  workflow_dispatch:
+  push:
+    branches: [main]
+    paths:
+      - "roku/**"
+      - "scripts/build-roku.ps1"
+      - ".github/workflows/roku-channel.yml"
+
+permissions:
+  contents: write
+
+jobs:
+  package:
+    runs-on: windows-latest
+    steps:
+      - name: Baixar codigo
+        uses: actions/checkout@v5
+
+      - name: Gerar pacote Roku
+        shell: pwsh
+        run: ./scripts/build-roku.ps1
+
+      - name: Publicar artefato do workflow
+        uses: actions/upload-artifact@v5
+        with:
+          name: mdi360-roku
+          path: mdi360-roku.zip
+          if-no-files-found: error
+          retention-days: 90
+
+      - name: Criar ou atualizar download permanente
+        shell: pwsh
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          gh release view roku-latest --repo "$env:GITHUB_REPOSITORY" 2>$null
+          if ($LASTEXITCODE -ne 0) {
+            gh release create roku-latest --repo "$env:GITHUB_REPOSITORY" --target "$env:GITHUB_SHA" --title "MDI360 Canal Roku" --notes "Versao atual do canal MDI360 para instalacao pelo modo desenvolvedor."
+          }
+          gh release upload roku-latest mdi360-roku.zip --repo "$env:GITHUB_REPOSITORY" --clobber
