@@ -71,7 +71,13 @@ async function fetchOfficial(path: string): Promise<Record<string, unknown>> {
   try {
     const response = await fetch(url, {
       signal: controller.signal,
-      headers: { accept: "application/json", "user-agent": "MDI360-Loterias/1.0" },
+      headers: {
+        accept: "application/json, text/plain, */*",
+        "accept-language": "pt-BR,pt;q=0.9,en;q=0.7",
+        referer: "https://loterias.caixa.gov.br/",
+        "user-agent":
+          "Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/140.0.0.0 Safari/537.36",
+      },
     });
     if (!response.ok) throw new Error(`CAIXA HTTP ${response.status}`);
     const declaredLength = Number(response.headers.get("content-length") ?? 0);
