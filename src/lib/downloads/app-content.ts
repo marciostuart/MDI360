@@ -48,7 +48,7 @@ export const DEFAULT_APP_DOWNLOADS_CONTENT: AppDownloadsContent = {
       downloads: [
         {
           label: "Baixar APK Android",
-          href: "https://github.com/marciostuart/totem-tvbox/releases/download/android-latest/mdi360-terminal-android.apk",
+          href: `${RELEASES}/android-hybrid-latest/mdi360-terminal-android.apk`,
         },
       ],
       steps: [
