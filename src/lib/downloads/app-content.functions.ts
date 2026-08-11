@@ -28,7 +28,7 @@ const appSchema = z.object({
   cardDetail: z.string().min(1).max(500),
   pageDescription: z.string().min(1).max(500),
   downloadDescription: z.string().min(1).max(300),
-  downloads: z.array(downloadSchema).min(1).max(5),
+  downloads: z.array(downloadSchema).max(5),
   steps: z.array(z.string().min(1).max(1200)).min(1).max(30),
   notes: z.array(z.string().min(1).max(800)).max(20),
 });

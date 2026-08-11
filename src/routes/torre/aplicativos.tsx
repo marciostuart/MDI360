@@ -1,7 +1,7 @@
 import { useEffect, useState, type ComponentProps, type ReactNode } from "react";
 import { createFileRoute } from "@tanstack/react-router";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
-import { ExternalLink, Loader2, Save } from "lucide-react";
+import { ExternalLink, Loader2, Plus, Save, Trash2 } from "lucide-react";
 import { toast } from "sonner";
 
 import { Button } from "@/components/ui/button";
@@ -39,26 +39,6 @@ const APP_LABELS: Record<AppDownloadId, string> = {
   windows: "Windows",
   linux: "MiniOS / Linux",
 };
-
-const linksToText = (links: AppDownloadLink[]) =>
-  links
-    .map((link) => `${link.label} | ${link.href}${link.secondary ? " | secundário" : ""}`)
-    .join("\n");
-
-const textToLinks = (value: string): AppDownloadLink[] =>
-  value
-    .split("\n")
-    .map((line) => line.trim())
-    .filter(Boolean)
-    .map((line) => {
-      const [label = "", href = "", style = ""] = line.split("|").map((part) => part.trim());
-      return {
-        label,
-        href,
-        secondary: ["secundário", "secundario", "secondary"].includes(style.toLowerCase()),
-      };
-    })
-    .filter((link) => link.label && link.href);
 
 const listToText = (items: string[]) => items.join("\n");
 const textToList = (value: string) =>
@@ -260,15 +240,13 @@ function AppEditor({
           />
         </Field>
         <Field
-          label="Botões de download — Rótulo | URL | secundário (opcional)"
-          hint="Use uma linha para cada botão. Links relativos, como /mdi360-roku.zip, também são aceitos."
+          label="Links de download"
+          hint="Você define os endereços publicados para este aplicativo. Pode cadastrar até 5 botões."
           wide
         >
-          <BufferedTextarea
-            rows={4}
-            value={linksToText(app.downloads)}
-            onCommit={(value) => onChange("downloads", textToLinks(value))}
-            className="font-mono text-xs"
+          <DownloadLinksEditor
+            links={app.downloads}
+            onChange={(links) => onChange("downloads", links)}
           />
         </Field>
         <Field
@@ -291,6 +269,79 @@ function AppEditor({
         </Field>
       </CardContent>
     </Card>
+  );
+}
+
+function DownloadLinksEditor({
+  links,
+  onChange,
+}: {
+  links: AppDownloadLink[];
+  onChange: (links: AppDownloadLink[]) => void;
+}) {
+  const update = (index: number, patch: Partial<AppDownloadLink>) =>
+    onChange(links.map((link, position) => (position === index ? { ...link, ...patch } : link)));
+
+  return (
+    <div className="space-y-3">
+      {links.map((link, index) => (
+        <div key={index} className="grid gap-3 rounded-lg border p-3 md:grid-cols-[1fr_2fr_auto]">
+          <div className="space-y-2">
+            <Label htmlFor={`download-label-${index}`}>Texto do botão</Label>
+            <Input
+              id={`download-label-${index}`}
+              value={link.label}
+              placeholder="Ex.: Baixar APK Android"
+              onChange={(event) => update(index, { label: event.target.value })}
+            />
+          </div>
+          <div className="space-y-2">
+            <Label htmlFor={`download-url-${index}`}>Link do arquivo</Label>
+            <Input
+              id={`download-url-${index}`}
+              type="url"
+              value={link.href}
+              placeholder="https://..."
+              onChange={(event) => update(index, { href: event.target.value })}
+            />
+          </div>
+          <div className="flex items-end gap-3">
+            <div className="flex h-10 items-center gap-2">
+              <Switch
+                id={`download-secondary-${index}`}
+                checked={Boolean(link.secondary)}
+                onCheckedChange={(checked) => update(index, { secondary: checked })}
+              />
+              <Label htmlFor={`download-secondary-${index}`}>Secundário</Label>
+            </div>
+            <Button
+              type="button"
+              size="icon"
+              variant="ghost"
+              aria-label={`Remover link ${index + 1}`}
+              onClick={() => onChange(links.filter((_, position) => position !== index))}
+            >
+              <Trash2 className="size-4" />
+            </Button>
+          </div>
+        </div>
+      ))}
+      {links.length === 0 ? (
+        <p className="rounded-lg border border-dashed p-3 text-sm text-muted-foreground">
+          Nenhum link cadastrado. A página informará que o download está temporariamente
+          indisponível.
+        </p>
+      ) : null}
+      <Button
+        type="button"
+        variant="outline"
+        disabled={links.length >= 5}
+        onClick={() => onChange([...links, { label: "Baixar aplicativo", href: "" }])}
+      >
+        <Plus className="mr-2 size-4" />
+        Adicionar link
+      </Button>
+    </div>
   );
 }
 

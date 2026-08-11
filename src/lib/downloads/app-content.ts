@@ -201,7 +201,7 @@ function normalizeApp(value: unknown, fallback: AppDownloadContent): AppDownload
     cardDetail: text(source.cardDetail, fallback.cardDetail),
     pageDescription: text(source.pageDescription, fallback.pageDescription),
     downloadDescription: text(source.downloadDescription, fallback.downloadDescription),
-    downloads: downloads.length ? downloads : fallback.downloads,
+    downloads,
     steps: textList(source.steps, fallback.steps),
     notes: textList(source.notes, fallback.notes),
   };

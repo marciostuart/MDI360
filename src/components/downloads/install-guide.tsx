@@ -74,6 +74,11 @@ export function InstallGuide({
               </a>
             </Button>
           ))}
+          {downloads.length === 0 ? (
+            <p className="text-sm text-muted-foreground">
+              Download temporariamente indisponível. Entre em contato com o suporte.
+            </p>
+          ) : null}
         </CardContent>
       </Card>
 
