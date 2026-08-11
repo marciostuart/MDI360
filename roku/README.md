@@ -31,10 +31,8 @@ verificação na sincronização seguinte.
 ## Como testar em uma TV Roku
 
 1. Na TV: Configurações → Sistema → Avançado → **Modo desenvolvedor**. Anote o IP e a senha.
-2. Gere o pacote:
-   ```
-   cd roku && zip -r ../mdi360-roku.zip . -x "*.DS_Store"
-   ```
+2. No Windows, gere e valide o pacote executando `powershell -File scripts/build-roku.ps1`
+   na raiz do projeto.
 3. Abra `http://IP-DA-TV` no navegador, faça login com a senha e envie o zip em **Upload**.
 4. O canal abre mostrando o código de ativação. Vincule pelo painel em **Telas**.
 
@@ -53,7 +51,7 @@ Para revenda whitelabel, basta trocar `title` no `manifest` e as imagens em `ima
 
 Coloque em `images/` antes de empacotar:
 
+- `icon_focus_fhd.png` (540x405)
 - `icon_focus_hd.png` (290x218)
-- `icon_focus_sd.png` (248x140)
 - `splash_hd.png` (1280x720)
 - `splash_fhd.png` (1920x1080)
