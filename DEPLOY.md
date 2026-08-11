@@ -1,139 +1,65 @@
-# Como colocar o sistema no ar — SEM SSH, só pelo Portainer
+# Publicação pelo Portainer
 
-Você não precisa de terminal nem de programar. É clicar, copiar e colar.
-Faça um passo por vez.
+O ambiente de produção usa Docker Swarm, Traefik, PostgreSQL e armazenamento
+compatível com S3. Migrações são aplicadas automaticamente antes do servidor
+iniciar.
 
-O que já existe na sua VPS (e **não** vamos duplicar): `traefik_traefik`,
-`postgres_postgres`, `minio_minio`, `redis_redis`.
-Rede overlay compartilhada: **`360Network`**.
+## Atualização segura
 
----
+1. Confirme que a branch `main` está publicada e copie os sete primeiros
+   caracteres do commit: `git rev-parse --short HEAD`.
+2. No Portainer, abra **Images > Build a new image**.
+3. Use o nome `signage:<commit>`, por exemplo `signage:0a23b80`.
+4. Em **URL**, use
+   `https://github.com/marciostuart/MDI360.git#<commit>`.
+5. Mantenha **Dockerfile path** como `Dockerfile` e conclua o build.
+6. Na stack `mdi360`, altere somente a imagem do serviço:
 
-## Passo 1 — Criar o banco de dados (pelo Portainer)
-
-1. Portainer → **Containers** → clique no container do **postgres**.
-2. No topo, clique em **Console** → **Connect** (comando `/bin/sh`).
-3. Cole a linha abaixo (troque `SENHA_FORTE` por uma senha sua) e dê Enter:
-
+```yaml
+services:
+  signage:
+    image: signage:<commit>
 ```
-psql -U postgres -c "CREATE USER signage WITH PASSWORD 'SENHA_FORTE';" -c "CREATE DATABASE signage OWNER signage;"
+
+7. Clique em **Update the stack**. Para imagem local com tag imutável, não é
+   necessário marcar **Re-pull image**.
+8. Aguarde uma task ficar `running` e confira os logs:
+
+```text
+[signage] applying database migrations...
+[signage] starting server on port 3000...
+Listening on: http://localhost:3000/
 ```
 
-Guarde a senha, ela entra no Passo 5.
+9. Valide `/`, `/studio`, `/studio/terminais`, `/studio/senhas` e
+   `/torre`. Preserve a imagem anterior para rollback imediato.
 
-> Se pedir usuário diferente de `postgres`, troque `-U postgres` pelo usuário do seu banco.
+Nunca reutilize `latest` em produção. A tag pelo commit evita dúvida sobre a
+versão em execução e reduz problemas de cache.
 
----
+## Variáveis
 
-## Passo 2 — Criar o "cofre" das mídias no MinIO
+As credenciais ficam somente nas variáveis/segredos da stack. Não as grave no
+Git, em screenshots ou documentação.
 
-1. Abra o painel do MinIO no navegador.
-2. Crie um bucket chamado **signage-media**.
-3. Deixe **privado** (é o padrão — não marque como público).
-4. **Access Keys → Create access key** e guarde as duas chaves.
+- `DATABASE_URL`
+- `S3_ENDPOINT`, `S3_INTERNAL_ENDPOINT`, `S3_BUCKET`
+- `S3_ACCESS_KEY_ID`, `S3_SECRET_ACCESS_KEY`
+- `SESSION_SECRET`
+- `APP_HOST`, `APP_URL`
+- `PLATFORM_ADMIN_EMAILS`
 
----
+Links de aplicativos e fontes externas são administrados pela Torre. O token do
+relay da CAIXA deve permanecer secreto e nunca aparecer em APIs públicas.
 
-## Passo 3 — Gerar a senha secreta da aplicação
+## Diagnóstico
 
-Sem terminal: abra https://generate-secret.vercel.app/32 (ou qualquer gerador de
-string aleatória) e copie um valor longo (32+ caracteres). Ele será o `SESSION_SECRET`.
+- `No such image`: a tag da stack não existe no mesmo nó do Swarm.
+- Falha de migração: não force uma versão nova; restaure a imagem anterior e
+  confira `DATABASE_URL`.
+- Serviço reiniciando: abra **Services > mdi360_signage > Tasks** e veja a task
+  rejeitada ou encerrada.
+- Widget indisponível: use **Torre > Fontes de dados > Testar fonte**.
 
----
-
-## Passo 4 — Construir a imagem no Portainer (substitui o SSH)
-
-O Swarm não constrói imagem sozinho, mas o Portainer constrói:
-
-1. Portainer → **Images** → **Build a new image**.
-2. **Names**: `signage:latest`
-3. **Build method**: **URL** e cole a URL do repositório Git do projeto
-   (ex.: `https://github.com/SEU_USUARIO/signage`), deixando
-   **Dockerfile path** = `Dockerfile`.
-   - Sem Git? Escolha **Upload** e envie um `.zip`/`.tar.gz` do projeto
-     (o `Dockerfile` deve estar na raiz).
-4. Clique em **Build the image** e aguarde terminar (alguns minutos).
-
-> Para atualizar depois: repita este passo (mesmo nome `signage:latest`) e então
-> **Services → signage_signage → Update → Force update**.
-
----
-
-## Passo 5 — Subir a stack no Portainer (Swarm)
-
-1. Portainer → **Stacks** → **Add stack** → nome: `signage`.
-2. **Web editor** → cole o conteúdo do arquivo **`docker-stack.yml`** deste projeto.
-3. Em **Environment variables** (botão *Advanced mode* permite colar tudo de uma vez):
-
-| Nome | Valor |
-|---|---|
-| `DATABASE_URL` | `postgresql://signage:SENHA_FORTE@postgres_postgres:5432/signage` |
-| `S3_ENDPOINT` | URL **pública** do MinIO, ex.: `s3.360bh.com.br` ou `https://s3.360bh.com.br` (sem protocolo assumimos `https`). É ela que assina os links que o navegador e as TVs abrem |
-| `S3_INTERNAL_ENDPOINT` | *(opcional)* URL interna, ex.: `http://minio:9000` — só use se o host interno **não** tiver `_` no nome |
-| `S3_BUCKET` | `signage-media` |
-| `S3_ACCESS_KEY_ID` | a access key do MinIO |
-| `S3_SECRET_ACCESS_KEY` | a secret key do MinIO |
-| `SESSION_SECRET` | o valor do Passo 3 |
-| `APP_HOST` | `mdi.360bh.com.br` |
-| `APP_URL` | `https://mdi.360bh.com.br` |
-| `PLATFORM_ADMIN_EMAILS` | seu e-mail, ex.: `voce@360bh.com.br` |
-| `STACK_NETWORK` | `360Network` |
-| `SIGNAGE_IMAGE` | `signage:latest` |
-
-4. **Deploy the stack**.
-
-> Se o seu Traefik usar outro nome de entrypoint ou de certresolver (ex.: `https`
-> em vez de `websecure`, `le` em vez de `letsencrypt`), ajuste essas duas linhas
-> no editor antes de deployar. Para conferir: **Services → traefik_traefik →
-> Environment/Command**.
-
----
-
-## Passo 6 — Confirmar que funcionou
-
-1. Abra `https://mdi.360bh.com.br`.
-2. Clique em **Entrar no Studio** → aba **Criar conta**. O primeiro usuário vira o dono.
-3. O painel do cliente fica em `/studio`; o seu painel interno em `/torre`
-   (só abre para os e-mails de `PLATFORM_ADMIN_EMAILS`).
-4. No painel, o bloco **Status da infraestrutura** deve mostrar "Conectado"
-   para banco e armazenamento.
-
-As tabelas do banco são criadas automaticamente no primeiro start — nenhum SQL manual.
-
----
-
-## Passo 7 — Ligar a primeira TV
-
-1. No aparelho da TV (TV Box, Fire Stick, Smart TV ou celular Android), abra o
-   navegador em `https://mdi.360bh.com.br/tela` (ou o APK, quando pronto). A
-   própria tela exibe um **código de ativação alfanumérico de 6 caracteres**.
-2. No Studio: **Telas**, digite esse código, dê um nome à tela, escolha o formato
-   (TV horizontal, totem vertical etc.) e clique em **Vincular tela**.
-3. Em poucos segundos a TV sai da tela de código e começa a exibir. Ao remover a
-   tela no Studio, o aparelho apaga o cache local, se desvincula e mostra um novo
-   código — e o código antigo volta a ficar disponível.
-4. Em **Conteúdos**, envie imagens/vídeos. Em **Playlists**, monte a sequência e
-   **Publicar**. Em **Agenda**, defina dias e horários.
-5. A TV sincroniza sozinha a cada 1 minuto. O botão **Atualizar** no card força a
-   atualização na próxima checagem.
-
-> Para virar APK depois, empacotamos essa mesma URL `/tela` num WebView
-> (Capacitor) — sem mudar nada no servidor.
-
-> O subdomínio do sistema está `noindex` e o `robots.txt` bloqueia buscadores,
-> para não competir com a sua página orgânica. Nos botões "Entrar" da sua landing,
-> aponte para `https://mdi.360bh.com.br/entrar`.
-
----
-
-## Se algo der errado
-
-Portainer → **Services → signage_signage → Logs** (ou Containers → Logs).
-As mensagens começam com `[signage]`. Erros mais comuns:
-
-- `No such image: signage:latest` → faltou o Passo 4 (build da imagem).
-- `ENOTFOUND` / `ECONNREFUSED` no banco → nome do serviço errado no
-  `DATABASE_URL`, ou o postgres não está na rede `360Network`.
-- `password authentication failed` → a senha do `DATABASE_URL` difere do Passo 1.
-- Página não abre / erro de SSL → confira `APP_HOST`, o DNS na Cloudflare e o
-  nome do entrypoint/certresolver do Traefik.
+O primeiro provisionamento completo está documentado no histórico do projeto;
+este arquivo descreve o fluxo atual de atualização sem perda de dados.

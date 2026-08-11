@@ -2,10 +2,7 @@ $ErrorActionPreference = "Stop"
 
 $projectRoot = Split-Path -Parent $PSScriptRoot
 $sourceRoot = Join-Path $projectRoot "roku"
-$outputFiles = @(
-    (Join-Path $projectRoot "mdi360-roku.zip"),
-    (Join-Path $projectRoot "public\mdi360-roku.zip")
-)
+$outputFile = Join-Path $projectRoot "mdi360-roku.zip"
 $requiredFiles = @(
     "manifest",
     "source\main.brs",
@@ -104,14 +101,12 @@ try {
         $archive.Dispose()
     }
 
-    foreach ($outputFile in $outputFiles) {
-        Copy-Item -LiteralPath $temporaryZip -Destination $outputFile -Force
-    }
+    Copy-Item -LiteralPath $temporaryZip -Destination $outputFile -Force
 }
 finally {
     Remove-Item -LiteralPath $temporaryZip -Force -ErrorAction SilentlyContinue
 }
 
-$hash = (Get-FileHash -LiteralPath $outputFiles[0] -Algorithm SHA256).Hash
+$hash = (Get-FileHash -LiteralPath $outputFile -Algorithm SHA256).Hash
 Write-Output "Pacote Roku criado e validado."
 Write-Output "SHA256: $hash"

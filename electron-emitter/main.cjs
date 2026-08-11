@@ -336,10 +336,14 @@ async function poll() {
 
     const url = new URL(`${base}/api/public/queue/print-spool`);
 
-    url.searchParams.set("token", cfg.token);
     if (sinceAt) url.searchParams.set("since", sinceAt);
 
-    const response = await fetch(url, { headers: { accept: "application/json" } });
+    const response = await fetch(url, {
+      headers: {
+        accept: "application/json",
+        authorization: `Bearer ${cfg.token}`,
+      },
+    });
     if (!response.ok) {
       pushStatus({
         connected: false,

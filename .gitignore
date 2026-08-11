@@ -1,6 +1,7 @@
 # Logs
 logs
 *.log
+eslint-*.json
 npm-debug.log*
 yarn-debug.log*
 yarn-error.log*
@@ -16,6 +17,7 @@ electron-emitter/release/
 .tanstack/**
 .nitro
 *.local
+mdi360-roku.zip
 
 # Wrangler / Cloudflare
 .wrangler/

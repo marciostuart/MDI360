@@ -28,8 +28,8 @@ export const Route = createFileRoute("/api/public/queue/print-spool")({
           const { and, asc, eq, gt, or } = await import("drizzle-orm");
           const { bearerToken, hashEmitterToken } = await import("@/lib/queue/emitter-auth.server");
           const { hashDeviceToken } = await import("@/lib/player/player-auth.server");
-          // Authorization is preferred. The query fallback is temporary for
-          // already-installed desktop emitters during this rollout.
+          // Keep the query fallback only for emitters already installed before
+          // Bearer authentication. New desktop builds send Authorization.
           const token = bearerToken(request) ?? url.searchParams.get("token")?.trim() ?? "";
           if (token.length < 8 || token.length > 128)
             return new Response("NÃ£o autorizado", { status: 401 });

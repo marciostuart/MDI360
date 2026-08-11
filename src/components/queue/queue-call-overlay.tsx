@@ -236,8 +236,9 @@ export function QueueCallOverlay({
         // ignore
       }
     };
-  // The same call may receive updated colors/background from Studio. Its id
-  // stays stable so the visual refresh does not replay the chime or speech.
+    // The same call may receive updated colors/background from Studio. Its id
+    // stays stable so the visual refresh does not replay the chime or speech.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [call.id]);
 
   // Cores personalizadas pelo cliente; os padrões repetem o canal Roku.
@@ -294,7 +295,9 @@ export function QueueCallOverlay({
               style={{ color: historyColor }}
             >
               {history
-                .map((item) => (item.sectorName ? `${item.label} - ${item.sectorName}` : item.label))
+                .map((item) =>
+                  item.sectorName ? `${item.label} - ${item.sectorName}` : item.label,
+                )
                 .join("     ")}
             </p>
           </div>
