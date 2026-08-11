@@ -25,6 +25,7 @@ export function InstallGuide({
   description,
   icon,
   downloads,
+  downloadDescription = "O download começa imediatamente.",
   steps,
   notes,
 }: {
@@ -32,6 +33,7 @@ export function InstallGuide({
   description: string;
   icon: ReactNode;
   downloads: { label: string; href: string; secondary?: boolean }[];
+  downloadDescription?: string;
   steps: readonly ReactNode[];
   notes: readonly ReactNode[];
 }) {
@@ -57,11 +59,15 @@ export function InstallGuide({
       <Card className="border-primary/30">
         <CardHeader>
           <CardTitle className="text-lg">Download</CardTitle>
-          <CardDescription>O download começa imediatamente.</CardDescription>
+          <CardDescription>{downloadDescription}</CardDescription>
         </CardHeader>
         <CardContent className="flex flex-col gap-2 sm:flex-row">
           {downloads.map((download) => (
-            <Button key={download.href} variant={download.secondary ? "outline" : "default"} asChild>
+            <Button
+              key={download.href}
+              variant={download.secondary ? "outline" : "default"}
+              asChild
+            >
               <a href={download.href} download>
                 <Download className="size-4" />
                 {download.label}
@@ -74,10 +80,22 @@ export function InstallGuide({
       <Card>
         <CardHeader>
           <CardTitle className="text-lg">Instalação passo a passo</CardTitle>
-          <CardDescription>Faça uma etapa por vez e só avance quando ela estiver concluída.</CardDescription>
+          <CardDescription>
+            Faça uma etapa por vez e só avance quando ela estiver concluída.
+          </CardDescription>
         </CardHeader>
         <CardContent>
-          <StepList steps={steps} />
+          <StepList
+            steps={steps.map((step, index) =>
+              typeof step === "string" ? (
+                <span key={index} className="whitespace-pre-line">
+                  {step}
+                </span>
+              ) : (
+                step
+              ),
+            )}
+          />
         </CardContent>
       </Card>
 

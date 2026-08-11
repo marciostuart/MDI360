@@ -29,6 +29,7 @@ import { Route as StudioSenhasRouteImport } from './routes/studio/senhas'
 import { Route as StudioTerminaisRouteImport } from './routes/studio/terminais'
 import { Route as StudioWidgetsRouteImport } from './routes/studio/widgets'
 import { Route as TorreIndexRouteImport } from './routes/torre/index'
+import { Route as TorreAplicativosRouteImport } from './routes/torre/aplicativos'
 import { Route as TorrePlanosRouteImport } from './routes/torre/planos'
 import { Route as TorreSiteRouteImport } from './routes/torre/site'
 import { Route as ApiBrandingLogoRouteImport } from './routes/api/branding/logo'
@@ -158,6 +159,11 @@ const StudioWidgetsRoute = StudioWidgetsRouteImport.update({
 const TorreIndexRoute = TorreIndexRouteImport.update({
   id: '/',
   path: '/',
+  getParentRoute: () => TorreRouteRoute,
+} as any)
+const TorreAplicativosRoute = TorreAplicativosRouteImport.update({
+  id: '/aplicativos',
+  path: '/aplicativos',
   getParentRoute: () => TorreRouteRoute,
 } as any)
 const TorrePlanosRoute = TorrePlanosRouteImport.update({
@@ -337,6 +343,7 @@ export interface FileRoutesByFullPath {
   '/studio/senhas': typeof StudioSenhasRoute
   '/studio/terminais': typeof StudioTerminaisRoute
   '/studio/widgets': typeof StudioWidgetsRoute
+  '/torre/aplicativos': typeof TorreAplicativosRoute
   '/torre/planos': typeof TorrePlanosRoute
   '/torre/site': typeof TorreSiteRoute
   '/emitir/': typeof EmitirIndexRoute
@@ -387,6 +394,7 @@ export interface FileRoutesByTo {
   '/studio/senhas': typeof StudioSenhasRoute
   '/studio/terminais': typeof StudioTerminaisRoute
   '/studio/widgets': typeof StudioWidgetsRoute
+  '/torre/aplicativos': typeof TorreAplicativosRoute
   '/torre/planos': typeof TorrePlanosRoute
   '/torre/site': typeof TorreSiteRoute
   '/emitir': typeof EmitirIndexRoute
@@ -440,6 +448,7 @@ export interface FileRoutesById {
   '/studio/senhas': typeof StudioSenhasRoute
   '/studio/terminais': typeof StudioTerminaisRoute
   '/studio/widgets': typeof StudioWidgetsRoute
+  '/torre/aplicativos': typeof TorreAplicativosRoute
   '/torre/planos': typeof TorrePlanosRoute
   '/torre/site': typeof TorreSiteRoute
   '/emitir/': typeof EmitirIndexRoute
@@ -494,6 +503,7 @@ export interface FileRouteTypes {
     | '/studio/senhas'
     | '/studio/terminais'
     | '/studio/widgets'
+    | '/torre/aplicativos'
     | '/torre/planos'
     | '/torre/site'
     | '/emitir/'
@@ -544,6 +554,7 @@ export interface FileRouteTypes {
     | '/studio/senhas'
     | '/studio/terminais'
     | '/studio/widgets'
+    | '/torre/aplicativos'
     | '/torre/planos'
     | '/torre/site'
     | '/emitir'
@@ -596,6 +607,7 @@ export interface FileRouteTypes {
     | '/studio/senhas'
     | '/studio/terminais'
     | '/studio/widgets'
+    | '/torre/aplicativos'
     | '/torre/planos'
     | '/torre/site'
     | '/emitir/'
@@ -803,6 +815,13 @@ declare module '@tanstack/react-router' {
       path: '/'
       fullPath: '/torre/'
       preLoaderRoute: typeof TorreIndexRouteImport
+      parentRoute: typeof TorreRouteRoute
+    }
+    '/torre/aplicativos': {
+      id: '/torre/aplicativos'
+      path: '/aplicativos'
+      fullPath: '/torre/aplicativos'
+      preLoaderRoute: typeof TorreAplicativosRouteImport
       parentRoute: typeof TorreRouteRoute
     }
     '/torre/planos': {
@@ -1061,6 +1080,7 @@ const StudioRouteRouteWithChildren = StudioRouteRoute._addFileChildren(
 )
 
 interface TorreRouteRouteChildren {
+  TorreAplicativosRoute: typeof TorreAplicativosRoute
   TorrePlanosRoute: typeof TorrePlanosRoute
   TorreSiteRoute: typeof TorreSiteRoute
   TorreIndexRoute: typeof TorreIndexRoute
@@ -1069,6 +1089,7 @@ interface TorreRouteRouteChildren {
 }
 
 const TorreRouteRouteChildren: TorreRouteRouteChildren = {
+  TorreAplicativosRoute: TorreAplicativosRoute,
   TorrePlanosRoute: TorrePlanosRoute,
   TorreSiteRoute: TorreSiteRoute,
   TorreIndexRoute: TorreIndexRoute,
