@@ -5,7 +5,6 @@ import {
   CURRENCY_IDS,
   NEWS_FEED_IDS,
   WEATHER_CITY_IDS,
-  getNewsFeed,
   getWeatherCity,
 } from "@/lib/widgets/catalog";
 import { LOTTERY_GAME_IDS, lotteryGameIdSchema } from "@/lib/widgets/lottery";
@@ -284,7 +283,11 @@ export const Route = createFileRoute("/api/public/widget-data")({
             );
           }
 
-          const feed = getNewsFeed(parsed.data.feedId);
+          const { getConfiguredNewsFeed } = await import("@/lib/widgets/data-sources.server");
+          const feed = await getConfiguredNewsFeed(parsed.data.feedId);
+          if (!feed.enabled) {
+            return Response.json({ error: "Fonte de notícias desativada." }, { status: 404 });
+          }
           const response = await fetch(feed.url, {
             headers: { "user-agent": "MDI360-Player/1.0" },
           });

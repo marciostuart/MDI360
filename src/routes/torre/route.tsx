@@ -5,6 +5,7 @@ import {
   Globe2,
   LayoutDashboard,
   MonitorPlay,
+  PlugZap,
   ShieldCheck,
   Tags,
 } from "lucide-react";
@@ -20,6 +21,7 @@ const NAV = [
   { to: "/torre/planos", label: "Planos", icon: Tags, exact: false },
   { to: "/torre/site", label: "Site", icon: Globe2, exact: false },
   { to: "/torre/aplicativos", label: "Aplicativos", icon: Download, exact: false },
+  { to: "/torre/fontes", label: "Fontes", icon: PlugZap, exact: false },
 ] as const;
 
 function TowerLayout() {

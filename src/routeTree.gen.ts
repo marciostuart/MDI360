@@ -30,6 +30,7 @@ import { Route as StudioTerminaisRouteImport } from './routes/studio/terminais'
 import { Route as StudioWidgetsRouteImport } from './routes/studio/widgets'
 import { Route as TorreIndexRouteImport } from './routes/torre/index'
 import { Route as TorreAplicativosRouteImport } from './routes/torre/aplicativos'
+import { Route as TorreFontesRouteImport } from './routes/torre/fontes'
 import { Route as TorrePlanosRouteImport } from './routes/torre/planos'
 import { Route as TorreSiteRouteImport } from './routes/torre/site'
 import { Route as ApiBrandingLogoRouteImport } from './routes/api/branding/logo'
@@ -38,6 +39,7 @@ import { Route as ApiMediaReplaceRouteImport } from './routes/api/media/replace'
 import { Route as ApiMediaUploadRouteImport } from './routes/api/media/upload'
 import { Route as ApiPublicEmissorManifestRouteImport } from './routes/api/public/emissor-manifest'
 import { Route as ApiPublicWidgetDataRouteImport } from './routes/api/public/widget-data'
+import { Route as ApiPublicWidgetSourcesRouteImport } from './routes/api/public/widget-sources'
 import { Route as ApiQueueChimeRouteImport } from './routes/api/queue/chime'
 import { Route as ApiQueueKioskMediaRouteImport } from './routes/api/queue/kiosk-media'
 import { Route as StudioInstalarAndroidRouteImport } from './routes/studio/instalar/android'
@@ -166,6 +168,11 @@ const TorreAplicativosRoute = TorreAplicativosRouteImport.update({
   path: '/aplicativos',
   getParentRoute: () => TorreRouteRoute,
 } as any)
+const TorreFontesRoute = TorreFontesRouteImport.update({
+  id: '/fontes',
+  path: '/fontes',
+  getParentRoute: () => TorreRouteRoute,
+} as any)
 const TorrePlanosRoute = TorrePlanosRouteImport.update({
   id: '/planos',
   path: '/planos',
@@ -206,6 +213,11 @@ const ApiPublicEmissorManifestRoute =
 const ApiPublicWidgetDataRoute = ApiPublicWidgetDataRouteImport.update({
   id: '/api/public/widget-data',
   path: '/api/public/widget-data',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const ApiPublicWidgetSourcesRoute = ApiPublicWidgetSourcesRouteImport.update({
+  id: '/api/public/widget-sources',
+  path: '/api/public/widget-sources',
   getParentRoute: () => rootRouteImport,
 } as any)
 const ApiQueueChimeRoute = ApiQueueChimeRouteImport.update({
@@ -344,6 +356,7 @@ export interface FileRoutesByFullPath {
   '/studio/terminais': typeof StudioTerminaisRoute
   '/studio/widgets': typeof StudioWidgetsRoute
   '/torre/aplicativos': typeof TorreAplicativosRoute
+  '/torre/fontes': typeof TorreFontesRoute
   '/torre/planos': typeof TorrePlanosRoute
   '/torre/site': typeof TorreSiteRoute
   '/emitir/': typeof EmitirIndexRoute
@@ -355,6 +368,7 @@ export interface FileRoutesByFullPath {
   '/api/media/upload': typeof ApiMediaUploadRoute
   '/api/public/emissor-manifest': typeof ApiPublicEmissorManifestRoute
   '/api/public/widget-data': typeof ApiPublicWidgetDataRoute
+  '/api/public/widget-sources': typeof ApiPublicWidgetSourcesRoute
   '/api/queue/chime': typeof ApiQueueChimeRoute
   '/api/queue/kiosk-media': typeof ApiQueueKioskMediaRoute
   '/studio/instalar/android': typeof StudioInstalarAndroidRoute
@@ -395,6 +409,7 @@ export interface FileRoutesByTo {
   '/studio/terminais': typeof StudioTerminaisRoute
   '/studio/widgets': typeof StudioWidgetsRoute
   '/torre/aplicativos': typeof TorreAplicativosRoute
+  '/torre/fontes': typeof TorreFontesRoute
   '/torre/planos': typeof TorrePlanosRoute
   '/torre/site': typeof TorreSiteRoute
   '/emitir': typeof EmitirIndexRoute
@@ -406,6 +421,7 @@ export interface FileRoutesByTo {
   '/api/media/upload': typeof ApiMediaUploadRoute
   '/api/public/emissor-manifest': typeof ApiPublicEmissorManifestRoute
   '/api/public/widget-data': typeof ApiPublicWidgetDataRoute
+  '/api/public/widget-sources': typeof ApiPublicWidgetSourcesRoute
   '/api/queue/chime': typeof ApiQueueChimeRoute
   '/api/queue/kiosk-media': typeof ApiQueueKioskMediaRoute
   '/studio/instalar/android': typeof StudioInstalarAndroidRoute
@@ -449,6 +465,7 @@ export interface FileRoutesById {
   '/studio/terminais': typeof StudioTerminaisRoute
   '/studio/widgets': typeof StudioWidgetsRoute
   '/torre/aplicativos': typeof TorreAplicativosRoute
+  '/torre/fontes': typeof TorreFontesRoute
   '/torre/planos': typeof TorrePlanosRoute
   '/torre/site': typeof TorreSiteRoute
   '/emitir/': typeof EmitirIndexRoute
@@ -460,6 +477,7 @@ export interface FileRoutesById {
   '/api/media/upload': typeof ApiMediaUploadRoute
   '/api/public/emissor-manifest': typeof ApiPublicEmissorManifestRoute
   '/api/public/widget-data': typeof ApiPublicWidgetDataRoute
+  '/api/public/widget-sources': typeof ApiPublicWidgetSourcesRoute
   '/api/queue/chime': typeof ApiQueueChimeRoute
   '/api/queue/kiosk-media': typeof ApiQueueKioskMediaRoute
   '/studio/instalar/android': typeof StudioInstalarAndroidRoute
@@ -504,6 +522,7 @@ export interface FileRouteTypes {
     | '/studio/terminais'
     | '/studio/widgets'
     | '/torre/aplicativos'
+    | '/torre/fontes'
     | '/torre/planos'
     | '/torre/site'
     | '/emitir/'
@@ -515,6 +534,7 @@ export interface FileRouteTypes {
     | '/api/media/upload'
     | '/api/public/emissor-manifest'
     | '/api/public/widget-data'
+    | '/api/public/widget-sources'
     | '/api/queue/chime'
     | '/api/queue/kiosk-media'
     | '/studio/instalar/android'
@@ -555,6 +575,7 @@ export interface FileRouteTypes {
     | '/studio/terminais'
     | '/studio/widgets'
     | '/torre/aplicativos'
+    | '/torre/fontes'
     | '/torre/planos'
     | '/torre/site'
     | '/emitir'
@@ -566,6 +587,7 @@ export interface FileRouteTypes {
     | '/api/media/upload'
     | '/api/public/emissor-manifest'
     | '/api/public/widget-data'
+    | '/api/public/widget-sources'
     | '/api/queue/chime'
     | '/api/queue/kiosk-media'
     | '/studio/instalar/android'
@@ -608,6 +630,7 @@ export interface FileRouteTypes {
     | '/studio/terminais'
     | '/studio/widgets'
     | '/torre/aplicativos'
+    | '/torre/fontes'
     | '/torre/planos'
     | '/torre/site'
     | '/emitir/'
@@ -619,6 +642,7 @@ export interface FileRouteTypes {
     | '/api/media/upload'
     | '/api/public/emissor-manifest'
     | '/api/public/widget-data'
+    | '/api/public/widget-sources'
     | '/api/queue/chime'
     | '/api/queue/kiosk-media'
     | '/studio/instalar/android'
@@ -658,6 +682,7 @@ export interface RootRouteChildren {
   ApiMediaUploadRoute: typeof ApiMediaUploadRoute
   ApiPublicEmissorManifestRoute: typeof ApiPublicEmissorManifestRoute
   ApiPublicWidgetDataRoute: typeof ApiPublicWidgetDataRoute
+  ApiPublicWidgetSourcesRoute: typeof ApiPublicWidgetSourcesRoute
   ApiQueueChimeRoute: typeof ApiQueueChimeRoute
   ApiQueueKioskMediaRoute: typeof ApiQueueKioskMediaRoute
   ApiPublicEmitterRegisterRoute: typeof ApiPublicEmitterRegisterRoute
@@ -824,6 +849,13 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof TorreAplicativosRouteImport
       parentRoute: typeof TorreRouteRoute
     }
+    '/torre/fontes': {
+      id: '/torre/fontes'
+      path: '/fontes'
+      fullPath: '/torre/fontes'
+      preLoaderRoute: typeof TorreFontesRouteImport
+      parentRoute: typeof TorreRouteRoute
+    }
     '/torre/planos': {
       id: '/torre/planos'
       path: '/planos'
@@ -878,6 +910,13 @@ declare module '@tanstack/react-router' {
       path: '/api/public/widget-data'
       fullPath: '/api/public/widget-data'
       preLoaderRoute: typeof ApiPublicWidgetDataRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/api/public/widget-sources': {
+      id: '/api/public/widget-sources'
+      path: '/api/public/widget-sources'
+      fullPath: '/api/public/widget-sources'
+      preLoaderRoute: typeof ApiPublicWidgetSourcesRouteImport
       parentRoute: typeof rootRouteImport
     }
     '/api/queue/chime': {
@@ -1081,6 +1120,7 @@ const StudioRouteRouteWithChildren = StudioRouteRoute._addFileChildren(
 
 interface TorreRouteRouteChildren {
   TorreAplicativosRoute: typeof TorreAplicativosRoute
+  TorreFontesRoute: typeof TorreFontesRoute
   TorrePlanosRoute: typeof TorrePlanosRoute
   TorreSiteRoute: typeof TorreSiteRoute
   TorreIndexRoute: typeof TorreIndexRoute
@@ -1090,6 +1130,7 @@ interface TorreRouteRouteChildren {
 
 const TorreRouteRouteChildren: TorreRouteRouteChildren = {
   TorreAplicativosRoute: TorreAplicativosRoute,
+  TorreFontesRoute: TorreFontesRoute,
   TorrePlanosRoute: TorrePlanosRoute,
   TorreSiteRoute: TorreSiteRoute,
   TorreIndexRoute: TorreIndexRoute,
@@ -1116,6 +1157,7 @@ const rootRouteChildren: RootRouteChildren = {
   ApiMediaUploadRoute: ApiMediaUploadRoute,
   ApiPublicEmissorManifestRoute: ApiPublicEmissorManifestRoute,
   ApiPublicWidgetDataRoute: ApiPublicWidgetDataRoute,
+  ApiPublicWidgetSourcesRoute: ApiPublicWidgetSourcesRoute,
   ApiQueueChimeRoute: ApiQueueChimeRoute,
   ApiQueueKioskMediaRoute: ApiQueueKioskMediaRoute,
   ApiPublicEmitterRegisterRoute: ApiPublicEmitterRegisterRoute,

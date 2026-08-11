@@ -1,4 +1,4 @@
-import { useMutation, useQueryClient } from "@tanstack/react-query";
+import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { useServerFn } from "@tanstack/react-start";
 import { ArrowDown, ArrowUp, Loader2, MapPin, Plus, RotateCcw, Save, X } from "lucide-react";
 import { useEffect, useState } from "react";
@@ -59,6 +59,18 @@ export function WidgetComposer({
 } = {}) {
   const queryClient = useQueryClient();
   const saveFn = useServerFn(saveWidgetAsset);
+  const { data: publicSources } = useQuery({
+    queryKey: ["widget-public-sources"],
+    queryFn: async () => {
+      const response = await fetch("/api/public/widget-sources");
+      if (!response.ok) throw new Error("sources");
+      return (await response.json()) as {
+        news: { id: string; label: string; credit: string }[];
+      };
+    },
+    staleTime: 60_000,
+  });
+  const availableNewsFeeds = publicSources?.news?.length ? publicSources.news : NEWS_FEEDS;
 
   const [type, setType] = useState<WidgetType>("clock");
   const [name, setName] = useState("Relógio e data");
@@ -330,7 +342,7 @@ export function WidgetComposer({
                     <SelectValue />
                   </SelectTrigger>
                   <SelectContent>
-                    {NEWS_FEEDS.map((feed) => (
+                    {availableNewsFeeds.map((feed) => (
                       <SelectItem key={feed.id} value={feed.id}>
                         {feed.label}
                       </SelectItem>

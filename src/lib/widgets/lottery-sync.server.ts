@@ -15,6 +15,32 @@ const MAX_RESPONSE_BYTES = 2_000_000;
 const REQUEST_TIMEOUT_MS = 8_000;
 const LEASE_MS = 4 * 60_000;
 
+async function readLotteryRelaySettings() {
+  const db = getDb();
+  const [row] = await db
+    .select({ value: schema.platformSettings.value })
+    .from(schema.platformSettings)
+    .where(eq(schema.platformSettings.key, "data-sources"))
+    .limit(1);
+  const root = row?.value;
+  if (!root || typeof root !== "object" || Array.isArray(root)) return null;
+  const relay = (root as Record<string, unknown>).lotteryRelay;
+  if (!relay || typeof relay !== "object" || Array.isArray(relay)) return null;
+  const values = relay as Record<string, unknown>;
+  if (values.enabled === false) return null;
+  const url = String(values.url ?? "").trim();
+  const token = String(values.token ?? "").trim();
+  if (!url || !token) return null;
+  const parsed = new URL(url);
+  if (
+    parsed.protocol !== "https:" ||
+    !(parsed.hostname.endsWith(".workers.dev") || parsed.hostname === "mdi.360bh.com.br")
+  ) {
+    throw new Error("Relay de loterias fora da infraestrutura permitida");
+  }
+  return { url: parsed.toString(), token };
+}
+
 const aggregateKeys: Record<LotteryGameId, string> = {
   megasena: "megasena",
   lotofacil: "lotofacil",
@@ -61,10 +87,17 @@ function sourceArray(value: unknown): Record<string, unknown>[] {
 }
 
 async function fetchOfficial(path: string): Promise<Record<string, unknown>> {
-  const url = new URL(path, CAIXA_ORIGIN);
-  if (url.origin !== CAIXA_ORIGIN || !url.pathname.startsWith("/portaldeloterias/api/")) {
+  const officialUrl = new URL(path, CAIXA_ORIGIN);
+  if (
+    officialUrl.origin !== CAIXA_ORIGIN ||
+    !officialUrl.pathname.startsWith("/portaldeloterias/api/")
+  ) {
     throw new Error("Fonte não permitida");
   }
+
+  const relay = await readLotteryRelaySettings();
+  const url = relay ? new URL(relay.url) : officialUrl;
+  if (relay) url.searchParams.set("path", officialUrl.pathname);
 
   const controller = new AbortController();
   const timer = setTimeout(() => controller.abort(), REQUEST_TIMEOUT_MS);
@@ -77,6 +110,7 @@ async function fetchOfficial(path: string): Promise<Record<string, unknown>> {
         referer: "https://loterias.caixa.gov.br/",
         "user-agent":
           "Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/140.0.0.0 Safari/537.36",
+        ...(relay ? { authorization: `Bearer ${relay.token}` } : {}),
       },
     });
     if (!response.ok) throw new Error(`CAIXA HTTP ${response.status}`);
