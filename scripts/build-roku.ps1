@@ -52,11 +52,37 @@ foreach ($entry in $requiredImageSizes.GetEnumerator()) {
 
 $temporaryZip = Join-Path ([System.IO.Path]::GetTempPath()) "mdi360-roku-$([guid]::NewGuid().ToString('N')).zip"
 try {
-    $packageItems = @("audio", "components", "images", "source", "manifest") |
-        ForEach-Object { Join-Path $sourceRoot $_ }
-    Compress-Archive -Path $packageItems -DestinationPath $temporaryZip -CompressionLevel Optimal
-
+    Add-Type -AssemblyName System.IO.Compression
     Add-Type -AssemblyName System.IO.Compression.FileSystem
+    $archive = [System.IO.Compression.ZipFile]::Open(
+        $temporaryZip,
+        [System.IO.Compression.ZipArchiveMode]::Create
+    )
+    try {
+        foreach ($directoryName in @("audio", "components", "images", "source")) {
+            [void]$archive.CreateEntry("$directoryName/")
+            $directoryPath = Join-Path $sourceRoot $directoryName
+            foreach ($file in Get-ChildItem -LiteralPath $directoryPath -File -Recurse) {
+                $relativePath = $file.FullName.Substring($sourceRoot.Length + 1).Replace("\", "/")
+                [void][System.IO.Compression.ZipFileExtensions]::CreateEntryFromFile(
+                    $archive,
+                    $file.FullName,
+                    $relativePath,
+                    [System.IO.Compression.CompressionLevel]::Optimal
+                )
+            }
+        }
+        [void][System.IO.Compression.ZipFileExtensions]::CreateEntryFromFile(
+            $archive,
+            $manifestPath,
+            "manifest",
+            [System.IO.Compression.CompressionLevel]::Optimal
+        )
+    }
+    finally {
+        $archive.Dispose()
+    }
+
     $archive = [System.IO.Compression.ZipFile]::OpenRead($temporaryZip)
     try {
         $entries = @($archive.Entries | ForEach-Object { $_.FullName.Replace("/", "\") })
@@ -67,6 +93,11 @@ try {
         }
         if ($entries -contains "roku\manifest") {
             throw "Estrutura invalida: a pasta roku foi incluida dentro do ZIP."
+        }
+        foreach ($requiredDirectory in @("audio\", "components\", "images\", "source\")) {
+            if ($entries -notcontains $requiredDirectory) {
+                throw "O pacote nao contem o registro de diretorio exigido pela Roku: $requiredDirectory"
+            }
         }
     }
     finally {
