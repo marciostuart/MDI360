@@ -32,6 +32,15 @@ sub init()
     m.newsList = []
     m.newsIndex = 0
 
+    ' Rotates official lottery results without rebuilding the background.
+    m.lotteryTimer = CreateObject("roSGNode", "Timer")
+    m.lotteryTimer.repeat = true
+    m.lotteryTimer.duration = 10
+    m.lotteryTimer.observeField("fire", "onLotteryTick")
+    m.top.appendChild(m.lotteryTimer)
+    m.lotteryList = []
+    m.lotteryIndex = 0
+
     m.config = {}
     m.kind = ""
 end sub
@@ -50,11 +59,22 @@ sub onItem()
     item = m.top.item
     m.clockTimer.control = "stop"
     if m.newsTimer <> invalid then m.newsTimer.control = "stop"
+    if m.lotteryTimer <> invalid then m.lotteryTimer.control = "stop"
     m.headline.text = ""
     m.hero.text = ""
     m.sub.text = ""
     m.lines.text = ""
     m.credit.text = ""
+    m.hero.translation = [120, 210]
+    m.hero.font.size = 190
+    m.hero.width = 1680
+    m.hero.height = 220
+    m.hero.horizAlign = "left"
+    m.lines.translation = [120, 540]
+    m.lines.width = 1680
+    m.lines.height = 420
+    m.lines.font.size = 46
+    m.lines.horizAlign = "left"
 
     if item = invalid or item.widgetType = invalid then return
     m.kind = item.widgetType
@@ -88,6 +108,16 @@ sub onItem()
         url = m.top.baseUrl + "/api/public/widget-data?type=currency&pairs=" + pairs
     else if m.kind = "news"
         url = m.top.baseUrl + "/api/public/widget-data?type=news&feedId=" + cfgString("feedId", "agencia-brasil")
+    else if m.kind = "lottery"
+        games = "megasena"
+        if m.config.gameIds <> invalid and type(m.config.gameIds) = "roArray"
+            games = ""
+            for each game in m.config.gameIds
+                if games <> "" then games = games + ","
+                games = games + game
+            end for
+        end if
+        url = m.top.baseUrl + "/api/public/widget-data?type=lottery&games=" + games
     else
         m.sub.text = ""
         return
@@ -275,7 +305,108 @@ sub onData()
             m.lines.height = 700
             m.lines.text = text
         end if
+    else if m.kind = "lottery"
+        m.lotteryList = []
+        if result.results <> invalid
+            for each contest in result.results
+                m.lotteryList.Push(contest)
+            end for
+        end if
+        m.lotteryIndex = 0
+        seconds = 10
+        if m.config.rotateSeconds <> invalid then seconds = Int(m.config.rotateSeconds)
+        if seconds < 5 then seconds = 5
+        if seconds > 30 then seconds = 30
+        m.lotteryTimer.duration = seconds
+        showLottery()
+        if m.lotteryList.Count() > 1 then m.lotteryTimer.control = "start"
     end if
+end sub
+
+' ---------- official CAIXA lottery rotation ----------
+
+function joinValues(values as object, separator as string) as string
+    if values = invalid then return ""
+    output = ""
+    for each value in values
+        if output <> "" then output = output + separator
+        output = output + value.ToStr()
+    end for
+    return output
+end function
+
+sub showLottery()
+    if m.lotteryList = invalid or m.lotteryList.Count() = 0
+        m.title.text = "Loterias CAIXA"
+        m.sub.text = "Resultados temporariamente indisponiveis."
+        m.hero.text = ""
+        m.lines.text = ""
+        return
+    end if
+
+    position = m.lotteryIndex mod m.lotteryList.Count()
+    contest = m.lotteryList[position]
+    m.title.text = contest.gameName
+    m.sub.text = "Concurso " + contest.contestNumber.ToStr() + "  -  " + contest.drawDate
+    m.hero.translation = [120, 250]
+    m.hero.font.size = 96
+    m.hero.width = 1680
+    m.hero.height = 180
+    m.hero.horizAlign = "center"
+    m.lines.translation = [120, 470]
+    m.lines.width = 1680
+    m.lines.height = 430
+    m.lines.font.size = 40
+    m.lines.horizAlign = "center"
+
+    m.hero.text = joinValues(contest.numbers, "   ")
+    details = ""
+    if contest.gameId = "duplasena"
+        m.hero.text = "1o sorteio: " + joinValues(contest.numbers, "  ")
+        details = "2o sorteio: " + joinValues(contest.secondDraw, "  ")
+    else if contest.gameId = "maismilionaria"
+        details = "Trevos: " + joinValues(contest.clovers, "  ")
+    else if contest.gameId = "diadesorte" and contest.luckyMonth <> invalid
+        details = "Mes da Sorte: " + contest.luckyMonth
+    else if contest.gameId = "timemania" and contest.heartTeam <> invalid
+        details = "Time do Coracao: " + contest.heartTeam
+    else if contest.gameId = "supersete"
+        columns = ""
+        column = 1
+        for each value in contest.numbers
+            columns = columns + "Col. " + column.ToStr() + ": " + value.ToStr() + "    "
+            column = column + 1
+        end for
+        m.hero.text = columns
+    else if contest.gameId = "federal"
+        m.hero.text = ""
+        for each prize in contest.federalPrizes
+            details = details + prize.label + "   " + prize.ticket + "   R$ " + money(prize.value) + Chr(10)
+        end for
+    else if contest.gameId = "loteca"
+        m.hero.text = ""
+        m.lines.font.size = 28
+        m.lines.horizAlign = "left"
+        for each match in contest.matches
+            details = details + match.order.ToStr() + ". " + match.home + "  " + match.homeScore.ToStr() + " x " + match.awayScore.ToStr() + "  " + match.away + Chr(10)
+        end for
+    end if
+
+    if contest.accumulated = true
+        if details <> "" then details = details + Chr(10)
+        details = details + "ACUMULOU"
+    end if
+    if contest.nextEstimate <> invalid and contest.nextEstimate > 0
+        if details <> "" then details = details + Chr(10)
+        details = details + "Proximo premio estimado: R$ " + money(contest.nextEstimate)
+    end if
+    m.lines.text = details
+    m.credit.text = "Resultados oficiais - fonte: Loterias CAIXA"
+end sub
+
+sub onLotteryTick()
+    m.lotteryIndex = m.lotteryIndex + 1
+    showLottery()
 end sub
 ' ---------- news rotation ----------
 

@@ -47,6 +47,7 @@ type DraftItem = {
   scheduleRules: ScheduleRule[];
   name: string;
   kind: MediaListItem["kind"] | "playlist";
+  widgetType: string | null;
   durationMs: number;
   isMuted: boolean;
 };
@@ -55,7 +56,7 @@ const DRAG_ASSET = "application/x-mdi-asset";
 const DRAG_ROW = "application/x-mdi-row";
 
 /** Entretenimento = conteúdo editorial; Ferramentas = utilidades da tela. */
-const ENTERTAINMENT_WIDGETS = new Set(["news"]);
+const ENTERTAINMENT_WIDGETS = new Set(["news", "lottery"]);
 
 function bucketOf(item: MediaListItem): "files" | "fun" | "tools" {
   if (item.kind !== "widget") return "files";
@@ -139,6 +140,7 @@ export function PlaylistEditorDialog({
         scheduleRules: item.scheduleRules,
         name: item.name,
         kind: item.kind,
+        widgetType: item.widgetType,
         durationMs: item.durationMs,
         isMuted: item.isMuted,
       })),
@@ -194,8 +196,11 @@ export function PlaylistEditorDialog({
       scheduleRules: [],
       name: asset.name,
       kind: asset.kind,
+      widgetType: asset.widgetType,
       durationMs:
-        asset.kind === "video" || asset.kind === "stream" ? (asset.durationMs ?? 15000) : 10000,
+        asset.kind === "video" || asset.kind === "stream" || asset.kind === "widget"
+          ? (asset.durationMs ?? (asset.kind === "widget" ? 10000 : 15000))
+          : 10000,
       isMuted: true,
     };
     setDraft((items) => {
@@ -217,6 +222,7 @@ export function PlaylistEditorDialog({
         scheduleRules: [],
         name: item.name,
         kind: "playlist",
+        widgetType: null,
         durationMs: Math.max(item.totalDurationMs, 1000),
         isMuted: true,
       },
@@ -426,7 +432,7 @@ export function PlaylistEditorDialog({
                           <span className="w-5 shrink-0 text-xs text-muted-foreground">
                             {position + 1}
                           </span>
-                          {kindIcon(item.kind, null)}
+                          {kindIcon(item.kind, item.widgetType)}
                           <span className="min-w-24 flex-1 truncate text-sm">{item.name}</span>
                           {item.kind === "playlist" ? (
                             <SublistRuleEditor
@@ -443,30 +449,36 @@ export function PlaylistEditorDialog({
                               }
                             />
                           ) : null}
-                          <div className="flex items-center gap-1">
-                            <Input
-                              type="number"
-                              min={1}
-                              max={600}
-                              value={Math.round(item.durationMs / 1000)}
-                              onChange={(event) =>
-                                setDraft((items) =>
-                                  items.map((entry) =>
-                                    entry.rowId === item.rowId
-                                      ? {
-                                          ...entry,
-                                          durationMs:
-                                            Math.max(1, Number(event.target.value) || 1) * 1000,
-                                        }
-                                      : entry,
-                                  ),
-                                )
-                              }
-                              className="h-8 w-16"
-                              aria-label={`Duração de ${item.name}`}
-                            />
-                            <span className="text-xs text-muted-foreground">seg</span>
-                          </div>
+                          {item.widgetType === "lottery" ? (
+                            <Badge variant="secondary" className="shrink-0">
+                              ciclo completo · {formatDuration(item.durationMs)}
+                            </Badge>
+                          ) : (
+                            <div className="flex items-center gap-1">
+                              <Input
+                                type="number"
+                                min={1}
+                                max={600}
+                                value={Math.round(item.durationMs / 1000)}
+                                onChange={(event) =>
+                                  setDraft((items) =>
+                                    items.map((entry) =>
+                                      entry.rowId === item.rowId
+                                        ? {
+                                            ...entry,
+                                            durationMs:
+                                              Math.max(1, Number(event.target.value) || 1) * 1000,
+                                          }
+                                        : entry,
+                                    ),
+                                  )
+                                }
+                                className="h-8 w-16"
+                                aria-label={`Duração de ${item.name}`}
+                              />
+                              <span className="text-xs text-muted-foreground">seg</span>
+                            </div>
+                          )}
                           {item.kind === "video" ? (
                             <Button
                               size="icon"

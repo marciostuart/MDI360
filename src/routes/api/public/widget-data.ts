@@ -8,6 +8,7 @@ import {
   getNewsFeed,
   getWeatherCity,
 } from "@/lib/widgets/catalog";
+import { LOTTERY_GAME_IDS, lotteryGameIdSchema } from "@/lib/widgets/lottery";
 
 /**
  * Read-only proxy the TVs use to fetch open data (weather, quotes, headlines).
@@ -24,9 +25,16 @@ const querySchema = z.discriminatedUnion("type", [
     lon: z.coerce.number().min(-180).max(180).optional(),
     label: z.string().trim().max(80).optional(),
   }),
-  z.object({ type: z.literal("cep"), cep: z.string().trim().regex(/^\d{5}-?\d{3}$/) }),
+  z.object({
+    type: z.literal("cep"),
+    cep: z
+      .string()
+      .trim()
+      .regex(/^\d{5}-?\d{3}$/),
+  }),
   z.object({ type: z.literal("currency"), pairs: z.string().trim().max(60) }),
   z.object({ type: z.literal("news"), feedId: z.enum(NEWS_FEED_IDS as [string, ...string[]]) }),
+  z.object({ type: z.literal("lottery"), games: z.string().trim().max(180) }),
 ]);
 
 function decodeEntities(value: string) {
@@ -128,6 +136,36 @@ export const Route = createFileRoute("/api/public/widget-data")({
         const cacheHeaders = { "cache-control": "public, max-age=120" };
 
         try {
+          if (parsed.data.type === "lottery") {
+            const gameIds = parsed.data.games
+              .split(",")
+              .map((game) => game.trim())
+              .filter(Boolean)
+              .flatMap((game) => {
+                const valid = lotteryGameIdSchema.safeParse(game);
+                return valid.success ? [valid.data] : [];
+              });
+            const uniqueGameIds = [...new Set(gameIds)].slice(0, LOTTERY_GAME_IDS.length);
+            if (uniqueGameIds.length === 0) {
+              return Response.json({ error: "Nenhuma modalidade válida." }, { status: 400 });
+            }
+            const { readLotteryResults, syncOfficialLotteryResults } =
+              await import("@/lib/widgets/lottery-sync.server");
+            let payload = await readLotteryResults(uniqueGameIds);
+            if (payload.results.length === 0) {
+              await syncOfficialLotteryResults();
+              payload = await readLotteryResults(uniqueGameIds);
+            } else {
+              void syncOfficialLotteryResults().catch((error) =>
+                console.error("[lottery-sync] falha na revalidação", error),
+              );
+            }
+            return Response.json(payload, {
+              status: payload.results.length > 0 ? 200 : 503,
+              headers: { "cache-control": "public, max-age=60, stale-while-revalidate=300" },
+            });
+          }
+
           if (parsed.data.type === "cep") {
             const cep = parsed.data.cep.replace(/\D/g, "");
             const viaCep = await fetch(`https://viacep.com.br/ws/${cep}/json/`);
@@ -151,10 +189,7 @@ export const Route = createFileRoute("/api/public/widget-data")({
               }
             ).results?.[0];
             if (!place) {
-              return Response.json(
-                { error: "Não achamos a cidade deste CEP." },
-                { status: 404 },
-              );
+              return Response.json({ error: "Não achamos a cidade deste CEP." }, { status: 404 });
             }
             return Response.json(
               {

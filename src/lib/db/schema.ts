@@ -341,6 +341,35 @@ export const playlistItems = pgTable(
   (t) => [index("playlist_items_playlist_idx").on(t.playlistId, t.position)],
 );
 
+/** Last official CAIXA contests confirmed by the central synchronizer. */
+export const lotteryResults = pgTable(
+  "lottery_results",
+  {
+    id: uuid("id").primaryKey().defaultRandom(),
+    gameId: text("game_id").notNull(),
+    contestNumber: integer("contest_number").notNull(),
+    drawDate: text("draw_date").notNull(),
+    payload: jsonb("payload").notNull(),
+    sourceUrl: text("source_url").notNull(),
+    confirmedAt: timestamp("confirmed_at", { withTimezone: true }).notNull().defaultNow(),
+    updatedAt: timestamp("updated_at", { withTimezone: true }).notNull().defaultNow(),
+  },
+  (t) => [
+    uniqueIndex("lottery_results_game_contest_unique").on(t.gameId, t.contestNumber),
+    index("lottery_results_game_confirmed_idx").on(t.gameId, t.confirmedAt),
+  ],
+);
+
+/** Singleton state and distributed lease for the official CAIXA poller. */
+export const lotterySyncState = pgTable("lottery_sync_state", {
+  id: text("id").primaryKey().default("caixa"),
+  lastAttemptAt: timestamp("last_attempt_at", { withTimezone: true }),
+  lastSuccessAt: timestamp("last_success_at", { withTimezone: true }),
+  lastError: text("last_error"),
+  leaseUntil: timestamp("lease_until", { withTimezone: true }),
+  updatedAt: timestamp("updated_at", { withTimezone: true }).notNull().defaultNow(),
+});
+
 /* ------------------------------------------------------------------ */
 /* Scheduling                                                           */
 /* ------------------------------------------------------------------ */

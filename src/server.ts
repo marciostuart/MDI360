@@ -29,6 +29,20 @@ if (!monitorState.__mdiDeviceMonitorStarted) {
   interval.unref?.();
 }
 
+const lotteryState = globalThis as typeof globalThis & { __mdiLotterySyncStarted?: boolean };
+if (!lotteryState.__mdiLotterySyncStarted) {
+  lotteryState.__mdiLotterySyncStarted = true;
+  const runLotterySync = () => {
+    void import("./lib/widgets/lottery-sync.server")
+      .then(({ syncOfficialLotteryResults }) => syncOfficialLotteryResults())
+      .catch((error) => console.error("[lottery-sync] falha no ciclo", error));
+  };
+  const firstRun = setTimeout(runLotterySync, 12_000);
+  const interval = setInterval(runLotterySync, 5 * 60_000);
+  firstRun.unref?.();
+  interval.unref?.();
+}
+
 async function getServerEntry(): Promise<ServerEntry> {
   if (!serverEntryPromise) {
     serverEntryPromise = import("@tanstack/react-start/server-entry").then(

@@ -2,6 +2,7 @@ import { useEffect, useMemo, useState } from "react";
 
 import type { WidgetBlock, WidgetConfig, WidgetLayout, WidgetTheme } from "@/lib/widgets/catalog";
 import { getWeatherCity, resolveWidgetLayout, resolveWidgetTheme } from "@/lib/widgets/catalog";
+import type { NormalizedLotteryResult } from "@/lib/widgets/lottery";
 
 /**
  * Renders an information widget full screen. All data comes from the public
@@ -27,6 +28,8 @@ export function WidgetView({
     return <WeatherWidget config={config} theme={theme} accent={accent} />;
   if (config.type === "currency")
     return <CurrencyWidget config={config} theme={theme} accent={accent} />;
+  if (config.type === "lottery")
+    return <LotteryWidget config={config} theme={theme} accent={accent} />;
   return <NewsWidget config={config} theme={theme} accent={accent} />;
 }
 
@@ -570,6 +573,206 @@ function CurrencyWidget({
             ))}
           </div>
         </Block>
+      )}
+    </Shell>
+  );
+}
+
+/* --------------------------------------------------------------- lottery */
+
+type LotteryPayload = {
+  source: string;
+  sourceUrl: string;
+  lastCheckedAt: string | null;
+  stale: boolean;
+  results: NormalizedLotteryResult[];
+};
+
+function money(value: number | null) {
+  if (value == null || value <= 0) return null;
+  return value.toLocaleString("pt-BR", { style: "currency", currency: "BRL" });
+}
+
+function LotteryBalls({ values, accent }: { values: string[]; accent: string }) {
+  return (
+    <div className="flex flex-wrap items-center justify-center gap-[0.35em]">
+      {values.map((value, index) => (
+        <span
+          key={`${value}-${index}`}
+          className="flex aspect-square min-w-[1.55em] items-center justify-center rounded-full bg-white px-[0.28em] font-display font-bold text-slate-950 shadow-lg"
+          style={{ boxShadow: `0 0.15em 0.65em ${accent}44` }}
+        >
+          {value}
+        </span>
+      ))}
+    </div>
+  );
+}
+
+function LotteryResultBody({
+  result,
+  accent,
+}: {
+  result: NormalizedLotteryResult;
+  accent: string;
+}) {
+  if (result.gameId === "federal") {
+    return (
+      <div className="mx-auto grid max-w-[90%] grid-cols-5 gap-[0.45em] text-[0.66em]">
+        {result.federalPrizes.map((prize) => (
+          <div key={prize.ticket} className="rounded-[0.35em] bg-white/10 px-[0.35em] py-[0.45em]">
+            <div className="text-[0.52em] uppercase opacity-65">{prize.label}</div>
+            <div className="font-display text-[1.25em] font-bold">{prize.ticket}</div>
+            <div className="text-[0.48em]" style={{ color: accent }}>
+              {money(prize.value)}
+            </div>
+          </div>
+        ))}
+      </div>
+    );
+  }
+  if (result.gameId === "loteca") {
+    return (
+      <div className="grid grid-cols-2 gap-x-[1em] gap-y-[0.18em] text-left text-[0.34em] leading-tight">
+        {result.matches.map((match) => (
+          <div
+            key={match.order}
+            className="flex items-center gap-[0.35em] border-b border-white/10 py-[0.18em]"
+          >
+            <strong className="w-[1.6em]" style={{ color: accent }}>
+              {match.order}
+            </strong>
+            <span className="min-w-0 flex-1 truncate text-right">{match.home}</span>
+            <strong>
+              {match.homeScore} × {match.awayScore}
+            </strong>
+            <span className="min-w-0 flex-1 truncate">{match.away}</span>
+          </div>
+        ))}
+      </div>
+    );
+  }
+  if (result.gameId === "duplasena") {
+    return (
+      <div className="space-y-[0.55em] text-[0.75em]">
+        <div>
+          <span className="mb-[0.25em] block text-[0.35em] uppercase tracking-[0.2em] opacity-65">
+            1º sorteio
+          </span>
+          <LotteryBalls values={result.numbers} accent={accent} />
+        </div>
+        <div>
+          <span className="mb-[0.25em] block text-[0.35em] uppercase tracking-[0.2em] opacity-65">
+            2º sorteio
+          </span>
+          <LotteryBalls values={result.secondDraw} accent={accent} />
+        </div>
+      </div>
+    );
+  }
+  if (result.gameId === "supersete") {
+    return (
+      <div className="flex justify-center gap-[0.25em]">
+        {result.numbers.map((value, index) => (
+          <div key={index} className="rounded-[0.3em] bg-white/10 px-[0.34em] py-[0.25em]">
+            <span className="block text-[0.25em] uppercase opacity-55">Col. {index + 1}</span>
+            <strong>{value}</strong>
+          </div>
+        ))}
+      </div>
+    );
+  }
+  return <LotteryBalls values={result.numbers} accent={accent} />;
+}
+
+function LotteryWidget({
+  config,
+  theme,
+  accent,
+}: {
+  config: Extract<WidgetConfig, { type: "lottery" }>;
+  theme: WidgetTheme;
+  accent: string;
+}) {
+  const query = useMemo(
+    () => `type=lottery&games=${encodeURIComponent(config.gameIds.join(","))}`,
+    [config.gameIds],
+  );
+  const { data, failed } = useWidgetData<LotteryPayload>(query);
+  const [index, setIndex] = useState(0);
+  const results = data?.results ?? [];
+  const layout = resolveWidgetLayout("lottery", config.layout as WidgetLayout | undefined);
+
+  useEffect(() => setIndex(0), [query]);
+  useEffect(() => {
+    if (results.length <= 1) return;
+    const interval = window.setInterval(
+      () => setIndex((current) => (current + 1) % results.length),
+      config.rotateSeconds * 1000,
+    );
+    return () => window.clearInterval(interval);
+  }, [config.rotateSeconds, results.length]);
+
+  const result = results[Math.min(index, Math.max(0, results.length - 1))];
+  const specialDetails = result
+    ? [
+        result.luckyMonth ? `Mês da Sorte: ${result.luckyMonth}` : null,
+        result.heartTeam ? `Time do Coração: ${result.heartTeam}` : null,
+        result.clovers.length ? `Trevos: ${result.clovers.join(" • ")}` : null,
+      ].filter(Boolean)
+    : [];
+  const estimate = result ? money(result.nextEstimate) : null;
+  const lastCheckedLabel = data?.lastCheckedAt
+    ? new Intl.DateTimeFormat("pt-BR", { dateStyle: "short", timeStyle: "short" }).format(
+        new Date(data.lastCheckedAt),
+      )
+    : result?.drawDate;
+
+  return (
+    <Shell accent={accent} theme={theme} scene={<ClearScene accent={accent} theme={theme} />}>
+      {!result ? (
+        <p className="absolute inset-x-[8%] top-[45%] text-center text-[4cqh] opacity-65">
+          {failed ? "Resultados temporariamente indisponíveis." : "Carregando resultados oficiais…"}
+        </p>
+      ) : (
+        <>
+          <Block block={layout.game} className="font-display font-bold" style={{ color: accent }}>
+            {result.gameName}
+          </Block>
+          <Block block={layout.contest} className="uppercase tracking-[0.18em] opacity-70">
+            Concurso {result.contestNumber} • {result.drawDate}
+          </Block>
+          <Block block={layout.result} className="font-display leading-tight">
+            <LotteryResultBody result={result} accent={accent} />
+          </Block>
+          <Block block={layout.details}>
+            {specialDetails.length ? specialDetails.join("  •  ") : null}
+          </Block>
+          <Block block={layout.status}>
+            <div className="flex flex-wrap items-center justify-center gap-[0.7em]">
+              {result.accumulated ? (
+                <strong style={{ color: accent }}>ACUMULOU</strong>
+              ) : (
+                <span>Resultado confirmado</span>
+              )}
+              {estimate ? (
+                <span>
+                  Próximo prêmio estimado: <strong>{estimate}</strong>
+                </span>
+              ) : null}
+              {result.nextDate ? <span>Próximo concurso: {result.nextDate}</span> : null}
+            </div>
+          </Block>
+          <Block block={layout.source} className="uppercase tracking-[0.18em] opacity-55">
+            Resultados oficiais — fonte: Loterias CAIXA
+            {data?.stale ? (
+              <span className="ml-[1em] normal-case tracking-normal">
+                Atualização temporariamente indisponível — último resultado confirmado em{" "}
+                {lastCheckedLabel}.
+              </span>
+            ) : null}
+          </Block>
+        </>
       )}
     </Shell>
   );

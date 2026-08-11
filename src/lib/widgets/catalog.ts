@@ -1,14 +1,16 @@
 import { z } from "zod";
 
+import { LOTTERY_GAME_IDS } from "./lottery";
+
 /**
  * Information widgets. They are stored as regular library items (kind "widget")
  * so playlists, schedules and the player treat them like any other content.
- * Nothing is downloaded or re-hosted: the player reads open data at runtime,
- * which keeps us clear of any licence issue.
+ * External providers are always accessed through the server-side proxy. Data
+ * that needs resilience (such as official lottery results) is centrally cached.
  */
-export type WidgetType = "clock" | "weather" | "currency" | "news";
+export type WidgetType = "clock" | "weather" | "currency" | "news" | "lottery";
 
-export const WIDGET_TYPES = ["clock", "weather", "currency", "news"] as const;
+export const WIDGET_TYPES = ["clock", "weather", "currency", "news", "lottery"] as const;
 
 export const CURRENCY_OPTIONS = [
   { id: "USD-BRL", label: "Dólar (USD)" },
@@ -169,6 +171,14 @@ export const WIDGET_BLOCKS: Record<WidgetType, { id: string; label: string }[]> 
     { id: "summary", label: "Resumo" },
     { id: "progress", label: "Barra de tempo" },
   ],
+  lottery: [
+    { id: "game", label: "Modalidade" },
+    { id: "contest", label: "Concurso e data" },
+    { id: "result", label: "Resultado" },
+    { id: "details", label: "Informações complementares" },
+    { id: "status", label: "Situação e próximo prêmio" },
+    { id: "source", label: "Fonte oficial" },
+  ],
 };
 
 export const LAYOUT_PRESETS: Record<WidgetType, WidgetLayout> = {
@@ -193,6 +203,14 @@ export const LAYOUT_PRESETS: Record<WidgetType, WidgetLayout> = {
     headline: { x: 6, y: 22, w: 84, size: 7.4, align: "left", hidden: false },
     summary: { x: 6, y: 58, w: 72, size: 3.6, align: "left", hidden: false },
     progress: { x: 6, y: 84, w: 36, size: 2, align: "left", hidden: false },
+  },
+  lottery: {
+    game: { x: 6, y: 8, w: 60, size: 5.8, align: "left", hidden: false },
+    contest: { x: 6, y: 18, w: 60, size: 2.4, align: "left", hidden: false },
+    result: { x: 6, y: 29, w: 88, size: 6, align: "center", hidden: false },
+    details: { x: 8, y: 55, w: 84, size: 2.7, align: "center", hidden: false },
+    status: { x: 8, y: 75, w: 84, size: 2.5, align: "center", hidden: false },
+    source: { x: 6, y: 89, w: 88, size: 1.6, align: "left", hidden: false },
   },
 };
 
@@ -251,6 +269,17 @@ export const widgetConfigSchema = z.discriminatedUnion("type", [
     theme: widgetThemeSchema.optional(),
     layout: widgetLayoutSchema.optional(),
   }),
+  z.object({
+    type: z.literal("lottery"),
+    gameIds: z
+      .array(z.enum(LOTTERY_GAME_IDS as [string, ...string[]]))
+      .min(1)
+      .max(11)
+      .refine((items) => new Set(items).size === items.length, "Não repita modalidades"),
+    rotateSeconds: z.number().int().min(5).max(30).default(10),
+    theme: widgetThemeSchema.optional(),
+    layout: widgetLayoutSchema.optional(),
+  }),
 ]);
 
 export type WidgetConfig = z.infer<typeof widgetConfigSchema>;
@@ -301,6 +330,17 @@ export const WIDGET_CATALOG: {
       rotateSeconds: 7,
       showSummary: true,
       showImage: true,
+    },
+  },
+  {
+    type: "lottery",
+    label: "Resultados das Loterias CAIXA",
+    description: "Últimos resultados oficiais confirmados, com atualização automática.",
+    defaultDurationMs: LOTTERY_GAME_IDS.length * 10_000,
+    defaultConfig: {
+      type: "lottery",
+      gameIds: [...LOTTERY_GAME_IDS],
+      rotateSeconds: 10,
     },
   },
 ];

@@ -1,6 +1,6 @@
 import { useMutation, useQueryClient } from "@tanstack/react-query";
 import { useServerFn } from "@tanstack/react-start";
-import { Loader2, MapPin, Plus, RotateCcw, Save, X } from "lucide-react";
+import { ArrowDown, ArrowUp, Loader2, MapPin, Plus, RotateCcw, Save, X } from "lucide-react";
 import { useEffect, useState } from "react";
 import { toast } from "sonner";
 
@@ -34,6 +34,7 @@ import {
   type WidgetType,
 } from "@/lib/widgets/catalog";
 import { saveWidgetAsset } from "@/lib/widgets/widgets.functions";
+import { LOTTERY_GAMES, lotteryDurationMs, type LotteryGameId } from "@/lib/widgets/lottery";
 
 const BACKGROUND_LABELS: { id: BackgroundMode; label: string; hint: string }[] = [
   {
@@ -407,6 +408,120 @@ export function WidgetComposer({
             </div>
           ) : null}
 
+          {config.type === "lottery" ? (
+            <div className="max-w-2xl space-y-4">
+              <div className="space-y-2">
+                <Label>Modalidades e ordem de exibição</Label>
+                <div className="space-y-2">
+                  {[
+                    ...config.gameIds.flatMap((id) => {
+                      const game = LOTTERY_GAMES.find((entry) => entry.id === id);
+                      return game ? [game] : [];
+                    }),
+                    ...LOTTERY_GAMES.filter((game) => !config.gameIds.includes(game.id)),
+                  ].map((game) => {
+                    const index = config.gameIds.indexOf(game.id);
+                    const active = index >= 0;
+                    return (
+                      <div
+                        key={game.id}
+                        draggable={active}
+                        onDragStart={(event) => {
+                          event.dataTransfer.setData("text/lottery-game", game.id);
+                          event.dataTransfer.effectAllowed = "move";
+                        }}
+                        onDragOver={(event) => {
+                          if (active) event.preventDefault();
+                        }}
+                        onDrop={(event) => {
+                          event.preventDefault();
+                          const sourceId = event.dataTransfer.getData(
+                            "text/lottery-game",
+                          ) as LotteryGameId;
+                          const from = config.gameIds.indexOf(sourceId);
+                          if (!active || from < 0 || from === index) return;
+                          const next = [...config.gameIds];
+                          const [moved] = next.splice(from, 1);
+                          next.splice(index, 0, moved!);
+                          setConfig({ ...config, gameIds: next as LotteryGameId[] });
+                        }}
+                        className="flex items-center justify-between gap-3 rounded-lg border border-border px-3 py-2"
+                      >
+                        <label className="flex min-w-0 flex-1 items-center gap-3 text-sm">
+                          <Switch
+                            checked={active}
+                            onCheckedChange={(checked) =>
+                              setConfig({
+                                ...config,
+                                gameIds: checked
+                                  ? [...config.gameIds, game.id]
+                                  : config.gameIds.filter((id) => id !== game.id),
+                              })
+                            }
+                          />
+                          <span className="font-medium">{game.label}</span>
+                          {active ? (
+                            <span className="text-xs text-muted-foreground">{index + 1}ª</span>
+                          ) : null}
+                        </label>
+                        {active ? (
+                          <div className="flex gap-1">
+                            <Button
+                              type="button"
+                              size="icon"
+                              variant="ghost"
+                              disabled={index === 0}
+                              aria-label={`Mover ${game.label} para cima`}
+                              onClick={() => {
+                                const next = [...config.gameIds];
+                                [next[index - 1], next[index]] = [next[index]!, next[index - 1]!];
+                                setConfig({ ...config, gameIds: next as LotteryGameId[] });
+                              }}
+                            >
+                              <ArrowUp className="size-4" />
+                            </Button>
+                            <Button
+                              type="button"
+                              size="icon"
+                              variant="ghost"
+                              disabled={index === config.gameIds.length - 1}
+                              aria-label={`Mover ${game.label} para baixo`}
+                              onClick={() => {
+                                const next = [...config.gameIds];
+                                [next[index], next[index + 1]] = [next[index + 1]!, next[index]!];
+                                setConfig({ ...config, gameIds: next as LotteryGameId[] });
+                              }}
+                            >
+                              <ArrowDown className="size-4" />
+                            </Button>
+                          </div>
+                        ) : null}
+                      </div>
+                    );
+                  })}
+                </div>
+              </div>
+              <div className="space-y-2 rounded-lg border border-border p-4">
+                <Label>Tempo de cada resultado: {config.rotateSeconds}s</Label>
+                <Slider
+                  min={5}
+                  max={30}
+                  step={1}
+                  value={[config.rotateSeconds]}
+                  onValueChange={([value]) => setConfig({ ...config, rotateSeconds: value ?? 10 })}
+                />
+                <p className="text-sm font-medium">
+                  {config.gameIds.length} resultados × {config.rotateSeconds} segundos ={" "}
+                  {Math.round(lotteryDurationMs(config) / 1000)} segundos por ciclo
+                </p>
+                <p className="text-xs text-muted-foreground">
+                  Essa duração será aplicada automaticamente às playlists e não poderá cortar o
+                  ciclo.
+                </p>
+              </div>
+            </div>
+          ) : null}
+
           {/* ---------- appearance, shared by every widget ---------- */}
           <div className="space-y-4 rounded-lg border border-border p-4">
             <div className="flex items-center justify-between gap-2">
@@ -567,7 +682,8 @@ export function WidgetComposer({
               disabled={
                 saveMutation.isPending ||
                 name.trim().length === 0 ||
-                (config.type === "currency" && config.pairs.length === 0)
+                (config.type === "currency" && config.pairs.length === 0) ||
+                (config.type === "lottery" && config.gameIds.length === 0)
               }
             >
               {saveMutation.isPending ? (

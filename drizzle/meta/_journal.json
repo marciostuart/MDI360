@@ -232,6 +232,13 @@
       "when": 1786400000000,
       "tag": "0032_queue_call_media",
       "breakpoints": true
+    },
+    {
+      "idx": 33,
+      "version": "7",
+      "when": 1786480000000,
+      "tag": "0033_lottery_results",
+      "breakpoints": true
     }
   ]
 }
