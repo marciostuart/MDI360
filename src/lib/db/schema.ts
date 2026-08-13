@@ -909,6 +909,41 @@ export const billingPaymentAttemptInvoices = pgTable(
   (t) => [primaryKey({ columns: [t.attemptId, t.invoiceId] })],
 );
 
+/** Isolated Mercado Pago sandbox checks created by the platform administrator. */
+export const billingSandboxTests = pgTable(
+  "billing_sandbox_tests",
+  {
+    id: uuid("id").primaryKey().defaultRandom(),
+    method: text("method").notNull(),
+    amountCents: integer("amount_cents").notNull(),
+    status: text("status").notNull().default("creating"),
+    statusDetail: text("status_detail"),
+    providerOrderId: text("provider_order_id"),
+    providerPaymentId: text("provider_payment_id"),
+    externalReference: text("external_reference").notNull(),
+    idempotencyKey: text("idempotency_key").notNull(),
+    qrCode: text("qr_code"),
+    qrCodeBase64: text("qr_code_base64"),
+    ticketUrl: text("ticket_url"),
+    digitableLine: text("digitable_line"),
+    redirectUrl: text("redirect_url"),
+    expiresAt: timestamp("expires_at", { withTimezone: true }),
+    webhookReceivedAt: timestamp("webhook_received_at", { withTimezone: true }),
+    providerLastUpdatedAt: timestamp("provider_last_updated_at", { withTimezone: true }),
+    createdByUserId: uuid("created_by_user_id").references(() => users.id, {
+      onDelete: "set null",
+    }),
+    createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
+    updatedAt: timestamp("updated_at", { withTimezone: true }).notNull().defaultNow(),
+  },
+  (t) => [
+    uniqueIndex("billing_sandbox_tests_order_unique").on(t.providerOrderId),
+    uniqueIndex("billing_sandbox_tests_reference_unique").on(t.externalReference),
+    uniqueIndex("billing_sandbox_tests_idempotency_unique").on(t.idempotencyKey),
+    index("billing_sandbox_tests_created_idx").on(t.createdAt),
+  ],
+);
+
 export const billingProfiles = pgTable("billing_profiles", {
   organizationId: uuid("organization_id")
     .primaryKey()

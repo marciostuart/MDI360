@@ -2,16 +2,7 @@ import { createServerFn } from "@tanstack/react-start";
 import { z } from "zod";
 
 import type { MercadoPagoEnvironment } from "@/lib/billing/mercado-pago-config.server";
-
-async function requirePlatformAdmin() {
-  const { getSessionUser } = await import("@/lib/auth/session.server");
-  const user = await getSessionUser();
-  const allowed = (process.env.PLATFORM_ADMIN_EMAILS ?? "")
-    .split(",")
-    .map((value) => value.trim().toLowerCase())
-    .filter(Boolean);
-  if (!user || !allowed.includes(user.email.toLowerCase())) throw new Error("FORBIDDEN");
-}
+import { requirePlatformAdmin } from "@/lib/admin/admin-auth.server";
 
 const environmentSchema = z.enum(["test", "production"]);
 const profileSchema = z.object({

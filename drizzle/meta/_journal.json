@@ -253,6 +253,13 @@
       "when": 1786665600000,
       "tag": "0035_mercado_pago_profiles",
       "breakpoints": true
+    },
+    {
+      "idx": 36,
+      "version": "7",
+      "when": 1786752000000,
+      "tag": "0036_sandbox_payments",
+      "breakpoints": true
     }
   ]
 }

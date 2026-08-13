@@ -20,11 +20,14 @@ export const Route = createFileRoute("/api/public/mercado-pago/webhook")({
           if (body.type && !["order", "topic_merchant_order_wh"].includes(body.type)) {
             return new Response("Evento ignorado", { status: 200 });
           }
-          const { reconcileMercadoPagoOrder } = await import("@/lib/billing/payments.server");
-          await reconcileMercadoPagoOrder(
-            await getMercadoPagoOrder(dataId, credentials),
-            credentials,
-          );
+          const order = await getMercadoPagoOrder(dataId, credentials);
+          if (order.external_reference?.startsWith("mdi360-sandbox:")) {
+            const { reconcileSandboxOrder } = await import("@/lib/billing/sandbox-payments.server");
+            await reconcileSandboxOrder(order, "webhook");
+          } else {
+            const { reconcileMercadoPagoOrder } = await import("@/lib/billing/payments.server");
+            await reconcileMercadoPagoOrder(order, credentials);
+          }
           return new Response("OK", { status: 200 });
         } catch (error) {
           console.error(

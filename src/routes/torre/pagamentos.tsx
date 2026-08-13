@@ -1,5 +1,6 @@
 import { useEffect, useState, type ReactNode } from "react";
 import { createFileRoute } from "@tanstack/react-router";
+import { Link } from "@tanstack/react-router";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { CheckCircle2, Copy, CreditCard, Loader2, Save, TestTube2 } from "lucide-react";
 import { toast } from "sonner";
@@ -124,6 +125,24 @@ function MercadoPagoPage() {
           <Badge variant="outline">
             Ativo: {draft.activeEnvironment === "production" ? "Produção" : "Teste"}
           </Badge>
+        </CardContent>
+      </Card>
+
+      <Card className="border-primary/30">
+        <CardHeader>
+          <CardTitle>Homologação Sandbox</CardTitle>
+          <CardDescription>
+            Simule Pix, cartão aprovado ou recusado, boleto e recebimento do webhook sem afetar
+            clientes.
+          </CardDescription>
+        </CardHeader>
+        <CardContent>
+          <Button asChild variant="outline">
+            <Link to="/torre/pagamentos-testes">
+              <TestTube2 className="mr-2 size-4" />
+              Abrir laboratório de pagamentos
+            </Link>
+          </Button>
         </CardContent>
       </Card>
 

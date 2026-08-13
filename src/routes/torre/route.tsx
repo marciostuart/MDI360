@@ -6,6 +6,7 @@ import {
   LayoutDashboard,
   MonitorPlay,
   CreditCard,
+  Mail,
   PlugZap,
   ShieldCheck,
   Tags,
@@ -24,6 +25,7 @@ const NAV = [
   { to: "/torre/aplicativos", label: "Aplicativos", icon: Download, exact: false },
   { to: "/torre/fontes", label: "Fontes", icon: PlugZap, exact: false },
   { to: "/torre/pagamentos", label: "Pagamentos", icon: CreditCard, exact: false },
+  { to: "/torre/email", label: "E-mail", icon: Mail, exact: false },
 ] as const;
 
 function TowerLayout() {

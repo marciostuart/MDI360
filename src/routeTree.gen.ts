@@ -30,8 +30,10 @@ import { Route as StudioTerminaisRouteImport } from './routes/studio/terminais'
 import { Route as StudioWidgetsRouteImport } from './routes/studio/widgets'
 import { Route as TorreIndexRouteImport } from './routes/torre/index'
 import { Route as TorreAplicativosRouteImport } from './routes/torre/aplicativos'
+import { Route as TorreEmailRouteImport } from './routes/torre/email'
 import { Route as TorreFontesRouteImport } from './routes/torre/fontes'
 import { Route as TorrePagamentosRouteImport } from './routes/torre/pagamentos'
+import { Route as TorrePagamentosTestesRouteImport } from './routes/torre/pagamentos-testes'
 import { Route as TorrePlanosRouteImport } from './routes/torre/planos'
 import { Route as TorreSiteRouteImport } from './routes/torre/site'
 import { Route as ApiBrandingLogoRouteImport } from './routes/api/branding/logo'
@@ -172,6 +174,11 @@ const TorreAplicativosRoute = TorreAplicativosRouteImport.update({
   path: '/aplicativos',
   getParentRoute: () => TorreRouteRoute,
 } as any)
+const TorreEmailRoute = TorreEmailRouteImport.update({
+  id: '/email',
+  path: '/email',
+  getParentRoute: () => TorreRouteRoute,
+} as any)
 const TorreFontesRoute = TorreFontesRouteImport.update({
   id: '/fontes',
   path: '/fontes',
@@ -180,6 +187,11 @@ const TorreFontesRoute = TorreFontesRouteImport.update({
 const TorrePagamentosRoute = TorrePagamentosRouteImport.update({
   id: '/pagamentos',
   path: '/pagamentos',
+  getParentRoute: () => TorreRouteRoute,
+} as any)
+const TorrePagamentosTestesRoute = TorrePagamentosTestesRouteImport.update({
+  id: '/pagamentos-testes',
+  path: '/pagamentos-testes',
   getParentRoute: () => TorreRouteRoute,
 } as any)
 const TorrePlanosRoute = TorrePlanosRouteImport.update({
@@ -383,8 +395,10 @@ export interface FileRoutesByFullPath {
   '/studio/terminais': typeof StudioTerminaisRoute
   '/studio/widgets': typeof StudioWidgetsRoute
   '/torre/aplicativos': typeof TorreAplicativosRoute
+  '/torre/email': typeof TorreEmailRoute
   '/torre/fontes': typeof TorreFontesRoute
   '/torre/pagamentos': typeof TorrePagamentosRoute
+  '/torre/pagamentos-testes': typeof TorrePagamentosTestesRoute
   '/torre/planos': typeof TorrePlanosRoute
   '/torre/site': typeof TorreSiteRoute
   '/emitir/': typeof EmitirIndexRoute
@@ -440,8 +454,10 @@ export interface FileRoutesByTo {
   '/studio/terminais': typeof StudioTerminaisRoute
   '/studio/widgets': typeof StudioWidgetsRoute
   '/torre/aplicativos': typeof TorreAplicativosRoute
+  '/torre/email': typeof TorreEmailRoute
   '/torre/fontes': typeof TorreFontesRoute
   '/torre/pagamentos': typeof TorrePagamentosRoute
+  '/torre/pagamentos-testes': typeof TorrePagamentosTestesRoute
   '/torre/planos': typeof TorrePlanosRoute
   '/torre/site': typeof TorreSiteRoute
   '/emitir': typeof EmitirIndexRoute
@@ -500,8 +516,10 @@ export interface FileRoutesById {
   '/studio/terminais': typeof StudioTerminaisRoute
   '/studio/widgets': typeof StudioWidgetsRoute
   '/torre/aplicativos': typeof TorreAplicativosRoute
+  '/torre/email': typeof TorreEmailRoute
   '/torre/fontes': typeof TorreFontesRoute
   '/torre/pagamentos': typeof TorrePagamentosRoute
+  '/torre/pagamentos-testes': typeof TorrePagamentosTestesRoute
   '/torre/planos': typeof TorrePlanosRoute
   '/torre/site': typeof TorreSiteRoute
   '/emitir/': typeof EmitirIndexRoute
@@ -561,8 +579,10 @@ export interface FileRouteTypes {
     | '/studio/terminais'
     | '/studio/widgets'
     | '/torre/aplicativos'
+    | '/torre/email'
     | '/torre/fontes'
     | '/torre/pagamentos'
+    | '/torre/pagamentos-testes'
     | '/torre/planos'
     | '/torre/site'
     | '/emitir/'
@@ -618,8 +638,10 @@ export interface FileRouteTypes {
     | '/studio/terminais'
     | '/studio/widgets'
     | '/torre/aplicativos'
+    | '/torre/email'
     | '/torre/fontes'
     | '/torre/pagamentos'
+    | '/torre/pagamentos-testes'
     | '/torre/planos'
     | '/torre/site'
     | '/emitir'
@@ -677,8 +699,10 @@ export interface FileRouteTypes {
     | '/studio/terminais'
     | '/studio/widgets'
     | '/torre/aplicativos'
+    | '/torre/email'
     | '/torre/fontes'
     | '/torre/pagamentos'
+    | '/torre/pagamentos-testes'
     | '/torre/planos'
     | '/torre/site'
     | '/emitir/'
@@ -901,6 +925,13 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof TorreAplicativosRouteImport
       parentRoute: typeof TorreRouteRoute
     }
+    '/torre/email': {
+      id: '/torre/email'
+      path: '/email'
+      fullPath: '/torre/email'
+      preLoaderRoute: typeof TorreEmailRouteImport
+      parentRoute: typeof TorreRouteRoute
+    }
     '/torre/fontes': {
       id: '/torre/fontes'
       path: '/fontes'
@@ -913,6 +944,13 @@ declare module '@tanstack/react-router' {
       path: '/pagamentos'
       fullPath: '/torre/pagamentos'
       preLoaderRoute: typeof TorrePagamentosRouteImport
+      parentRoute: typeof TorreRouteRoute
+    }
+    '/torre/pagamentos-testes': {
+      id: '/torre/pagamentos-testes'
+      path: '/pagamentos-testes'
+      fullPath: '/torre/pagamentos-testes'
+      preLoaderRoute: typeof TorrePagamentosTestesRouteImport
       parentRoute: typeof TorreRouteRoute
     }
     '/torre/planos': {
@@ -1213,8 +1251,10 @@ const StudioRouteRouteWithChildren = StudioRouteRoute._addFileChildren(
 
 interface TorreRouteRouteChildren {
   TorreAplicativosRoute: typeof TorreAplicativosRoute
+  TorreEmailRoute: typeof TorreEmailRoute
   TorreFontesRoute: typeof TorreFontesRoute
   TorrePagamentosRoute: typeof TorrePagamentosRoute
+  TorrePagamentosTestesRoute: typeof TorrePagamentosTestesRoute
   TorrePlanosRoute: typeof TorrePlanosRoute
   TorreSiteRoute: typeof TorreSiteRoute
   TorreIndexRoute: typeof TorreIndexRoute
@@ -1224,8 +1264,10 @@ interface TorreRouteRouteChildren {
 
 const TorreRouteRouteChildren: TorreRouteRouteChildren = {
   TorreAplicativosRoute: TorreAplicativosRoute,
+  TorreEmailRoute: TorreEmailRoute,
   TorreFontesRoute: TorreFontesRoute,
   TorrePagamentosRoute: TorrePagamentosRoute,
+  TorrePagamentosTestesRoute: TorrePagamentosTestesRoute,
   TorrePlanosRoute: TorrePlanosRoute,
   TorreSiteRoute: TorreSiteRoute,
   TorreIndexRoute: TorreIndexRoute,
