@@ -8,13 +8,16 @@ export const Route = createFileRoute("/api/public/mercado-pago/webhook")({
           const body = (await request.json()) as { type?: string; data?: { id?: string | number } };
           const url = new URL(request.url);
           const eventType = body.type ?? url.searchParams.get("type") ?? "";
-          if (eventType && !["order", "topic_merchant_order_wh"].includes(eventType)) {
+          if (eventType !== "order") {
             return new Response("Evento ignorado", { status: 200 });
           }
           const dataId = String(
             url.searchParams.get("data.id") ?? body.data?.id ?? url.searchParams.get("id") ?? "",
           );
-          if (!dataId) return new Response("Evento ignorado", { status: 200 });
+          if (!/^ORD[0-9A-Z]{20,64}$/.test(dataId)) {
+            console.warn("[mercado-pago-webhook] order id invalido ignorado", { dataId });
+            return new Response("Evento ignorado", { status: 200 });
+          }
           const { validateMercadoPagoWebhook, getMercadoPagoOrder } =
             await import("@/lib/billing/mercado-pago.server");
           const credentials = await validateMercadoPagoWebhook(request, dataId);
