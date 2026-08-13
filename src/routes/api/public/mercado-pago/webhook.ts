@@ -7,6 +7,10 @@ export const Route = createFileRoute("/api/public/mercado-pago/webhook")({
         try {
           const body = (await request.json()) as { type?: string; data?: { id?: string | number } };
           const url = new URL(request.url);
+          const eventType = body.type ?? url.searchParams.get("type") ?? "";
+          if (eventType && !["order", "topic_merchant_order_wh"].includes(eventType)) {
+            return new Response("Evento ignorado", { status: 200 });
+          }
           const dataId = String(
             url.searchParams.get("data.id") ?? body.data?.id ?? url.searchParams.get("id") ?? "",
           );
@@ -15,10 +19,8 @@ export const Route = createFileRoute("/api/public/mercado-pago/webhook")({
             await import("@/lib/billing/mercado-pago.server");
           const credentials = await validateMercadoPagoWebhook(request, dataId);
           if (!credentials) {
+            console.warn("[mercado-pago-webhook] assinatura invalida", { dataId, eventType });
             return new Response("Assinatura inválida", { status: 401 });
-          }
-          if (body.type && !["order", "topic_merchant_order_wh"].includes(body.type)) {
-            return new Response("Evento ignorado", { status: 200 });
           }
           const order = await getMercadoPagoOrder(dataId, credentials);
           if (
@@ -31,6 +33,10 @@ export const Route = createFileRoute("/api/public/mercado-pago/webhook")({
             const { reconcileMercadoPagoOrder } = await import("@/lib/billing/payments.server");
             await reconcileMercadoPagoOrder(order, credentials);
           }
+          console.info("[mercado-pago-webhook] order conciliada", {
+            dataId,
+            environment: credentials.environment,
+          });
           return new Response("OK", { status: 200 });
         } catch (error) {
           console.error(

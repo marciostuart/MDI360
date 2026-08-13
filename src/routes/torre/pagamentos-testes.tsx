@@ -325,6 +325,14 @@ function TestResult({
             {test.webhookReceivedAt ? "recebido e validado" : "ainda não recebido"}
           </p>
         </div>
+        {test.providerOrderId ? (
+          <div className="space-y-2">
+            <CopyField value={test.providerOrderId} label="ID da Order no Mercado Pago" />
+            <p className="text-xs text-muted-foreground">
+              Use este ID como Data ID ao simular uma notificação do evento Order no Mercado Pago.
+            </p>
+          </div>
+        ) : null}
         {test.qrCodeBase64 ? (
           <img
             className="mx-auto size-56 rounded bg-white p-2"
