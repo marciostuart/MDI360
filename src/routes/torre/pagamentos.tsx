@@ -157,7 +157,9 @@ function MercadoPagoPage() {
                 {saved.ready && <CheckCircle2 className="size-5 text-primary" />}
               </CardTitle>
               <CardDescription>
-                Os segredos são criptografados e nunca voltam a ser exibidos após salvar.
+                Informe somente a Public Key, o Access Token e o segredo do webhook. A conta é
+                identificada e validada automaticamente. Client ID e Client Secret não são
+                necessários para este Checkout Transparente.
               </CardDescription>
             </CardHeader>
             <CardContent className="grid gap-5 md:grid-cols-2">
@@ -165,20 +167,6 @@ function MercadoPagoPage() {
                 <Input
                   value={profile.publicKey}
                   onChange={(e) => update(environment, "publicKey", e.target.value)}
-                />
-              </Field>
-              <Field label="Nº da aplicação">
-                <Input
-                  inputMode="numeric"
-                  value={profile.applicationId}
-                  onChange={(e) => update(environment, "applicationId", e.target.value)}
-                />
-              </Field>
-              <Field label="User ID">
-                <Input
-                  inputMode="numeric"
-                  value={profile.accountId}
-                  onChange={(e) => update(environment, "accountId", e.target.value)}
                 />
               </Field>
               <Field

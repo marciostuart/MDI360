@@ -88,14 +88,31 @@ export const saveMercadoPagoAdmin = createServerFn({ method: "POST" })
     const { eq } = await import("drizzle-orm");
     const { encryptCredential, MERCADO_PAGO_SETTINGS_KEY, readStoredMercadoPagoSettings } =
       await import("@/lib/billing/mercado-pago-config.server");
+    const { getMercadoPagoAccountId } = await import("@/lib/billing/mercado-pago.server");
     const previous = await readStoredMercadoPagoSettings();
-    const buildProfile = (environment: MercadoPagoEnvironment) => {
+    const buildProfile = async (environment: MercadoPagoEnvironment) => {
       const input = data[environment];
       const old = rootObject(previous[environment]);
+      const previousAccountId = String(old.accountId ?? "");
+      const accountId = input.accessToken
+        ? await getMercadoPagoAccountId({
+            environment,
+            publicKey: input.publicKey,
+            accessToken: input.accessToken,
+            applicationId: "",
+            accountId: "",
+            webhookSecret: "",
+            liveMode: environment === "production",
+          })
+        : previousAccountId;
       return {
         publicKey: input.publicKey,
-        applicationId: input.applicationId,
-        accountId: input.accountId,
+        // Mantidos apenas para compatibilidade com configurações antigas. A API
+        // Orders não exige o número da aplicação no processamento dos pagamentos.
+        applicationId: String(old.applicationId ?? ""),
+        // Identificado pela própria API a partir do Access Token. Não deve ser
+        // digitado manualmente, pois também protege a conciliação contra outra conta.
+        accountId,
         accessToken: input.clearAccessToken
           ? ""
           : input.accessToken
@@ -108,10 +125,14 @@ export const saveMercadoPagoAdmin = createServerFn({ method: "POST" })
             : String(old.webhookSecret ?? ""),
       };
     };
+    const [test, production] = await Promise.all([
+      buildProfile("test"),
+      buildProfile("production"),
+    ]);
     const value = {
       activeEnvironment: data.activeEnvironment,
-      test: buildProfile("test"),
-      production: buildProfile("production"),
+      test,
+      production,
     };
     await getDb()
       .insert(schema.platformSettings)
