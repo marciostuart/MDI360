@@ -40,6 +40,7 @@ function DataSourcesPage() {
     setDraft({
       lotteryRelay: {
         enabled: data.lotteryRelay.enabled,
+        refreshMinutes: data.lotteryRelay.refreshMinutes,
         url: data.lotteryRelay.url,
         token: "",
         clearToken: false,
@@ -128,6 +129,24 @@ function DataSourcesPage() {
             />
             <Label>Ativar relay oficial</Label>
           </div>
+          <Field label="Frequência de atualização">
+            <select
+              className="h-10 w-full rounded-md border border-input bg-background px-3 text-sm"
+              value={draft.lotteryRelay.refreshMinutes}
+              onChange={(event) => setRelay("refreshMinutes", Number(event.target.value))}
+            >
+              <option value={5}>A cada 5 minutos</option>
+              <option value={15}>A cada 15 minutos</option>
+              <option value={30}>A cada 30 minutos (recomendado)</option>
+              <option value={60}>A cada 1 hora</option>
+              <option value={180}>A cada 3 horas</option>
+              <option value={360}>A cada 6 horas</option>
+            </select>
+          </Field>
+          <div className="flex items-end text-xs text-muted-foreground">
+            Falhas 401/403 entram automaticamente em espera por 6 horas. O teste manual ignora essa
+            espera.
+          </div>
           <Field label="URL HTTPS do Cloudflare Worker">
             <Input
               placeholder="https://mdi360-loterias.seu-usuario.workers.dev"
@@ -153,6 +172,9 @@ function DataSourcesPage() {
           <div className="rounded-lg border border-border p-4 text-sm md:col-span-2">
             <p>Última tentativa: {formatDate(data.lotteryStatus.lastAttemptAt)}</p>
             <p>Último sucesso: {formatDate(data.lotteryStatus.lastSuccessAt)}</p>
+            {data.lotteryStatus.nextAttemptAt && (
+              <p>Bloqueio/retentativa até: {formatDate(data.lotteryStatus.nextAttemptAt)}</p>
+            )}
             {data.lotteryStatus.lastError && (
               <p className="mt-2 text-destructive">{data.lotteryStatus.lastError}</p>
             )}
@@ -184,7 +206,7 @@ function DataSourcesPage() {
           {Object.entries(draft.news).map(([id, source]) => (
             <div
               key={id}
-              className="grid gap-4 rounded-xl border border-border p-4 md:grid-cols-[auto_1fr_1fr_auto] md:items-end"
+              className="grid gap-4 rounded-xl border border-border p-4 md:grid-cols-[auto_1fr_1fr_11rem_auto] md:items-end"
             >
               <Switch
                 checked={source.enabled}
@@ -232,10 +254,35 @@ function DataSourcesPage() {
                   }
                 />
               </Field>
+              <Field label="Atualizar a cada">
+                <select
+                  className="h-10 w-full rounded-md border border-input bg-background px-3 text-sm"
+                  value={source.refreshMinutes}
+                  onChange={(event) =>
+                    setDraft((current) =>
+                      current
+                        ? {
+                            ...current,
+                            news: {
+                              ...current.news,
+                              [id]: { ...source, refreshMinutes: Number(event.target.value) },
+                            },
+                          }
+                        : current,
+                    )
+                  }
+                >
+                  <option value={5}>5 minutos</option>
+                  <option value={15}>15 minutos</option>
+                  <option value={30}>30 minutos</option>
+                  <option value={60}>1 hora</option>
+                  <option value={180}>3 horas</option>
+                </select>
+              </Field>
               <Button variant="outline" onClick={() => testNews.mutate(id)}>
                 Testar
               </Button>
-              <div className="md:col-start-2 md:col-span-3">
+              <div className="md:col-start-2 md:col-span-4">
                 <Field label="URL HTTPS do feed RSS">
                   <Input
                     value={source.url}

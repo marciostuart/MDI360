@@ -56,6 +56,24 @@ type NewsItem = {
   publishedAt: string | null;
 };
 
+type NewsPayload = {
+  source: string;
+  credit: string;
+  items: NewsItem[];
+  headlines: string[];
+};
+
+type NewsCacheEntry = {
+  payload?: NewsPayload;
+  expiresAt: number;
+  pending?: Promise<NewsPayload>;
+};
+
+const newsCacheState = globalThis as typeof globalThis & {
+  __mdiNewsCache?: Map<string, NewsCacheEntry>;
+};
+const newsCache = (newsCacheState.__mdiNewsCache ??= new Map());
+
 /** Pulls title, summary and (when present) the item image out of an RSS feed. */
 function parseRssItems(xml: string, limit: number): NewsItem[] {
   const blocks = xml.split(/<item[\s>]/i).slice(1);
@@ -84,6 +102,57 @@ function parseRssItems(xml: string, limit: number): NewsItem[] {
     if (items.length >= limit) break;
   }
   return items;
+}
+
+async function readCachedNews(feed: {
+  id: string;
+  label: string;
+  credit: string;
+  url: string;
+  refreshMinutes: number;
+}) {
+  const cacheKey = `${feed.id}:${feed.url}:${feed.label}:${feed.credit}`;
+  const current = newsCache.get(cacheKey) ?? { expiresAt: 0 };
+  if (current.payload && current.expiresAt > Date.now()) return current.payload;
+  if (current.pending) return current.pending;
+
+  const pending = (async () => {
+    const controller = new AbortController();
+    const timer = setTimeout(() => controller.abort(), 8_000);
+    try {
+      const response = await fetch(feed.url, {
+        signal: controller.signal,
+        headers: { "user-agent": "MDI360-Player/1.0" },
+      });
+      if (!response.ok) throw new Error(`RSS HTTP ${response.status}`);
+      const items = parseRssItems(await response.text(), 10);
+      if (items.length === 0) throw new Error("RSS sem notícias válidas");
+      const payload = {
+        source: feed.label,
+        credit: feed.credit,
+        items,
+        headlines: items.map((item) => item.title),
+      } satisfies NewsPayload;
+      newsCache.set(cacheKey, {
+        payload,
+        expiresAt: Date.now() + feed.refreshMinutes * 60_000,
+      });
+      return payload;
+    } catch (error) {
+      if (current.payload) {
+        current.expiresAt = Date.now() + Math.min(feed.refreshMinutes, 15) * 60_000;
+        newsCache.set(cacheKey, current);
+        return current.payload;
+      }
+      throw error;
+    } finally {
+      clearTimeout(timer);
+      const latest = newsCache.get(cacheKey);
+      if (latest?.pending) newsCache.delete(cacheKey);
+    }
+  })();
+  newsCache.set(cacheKey, { ...current, pending });
+  return pending;
 }
 
 /** Fallback quotes when AwesomeAPI is rate limited: open FX rates + Coinbase. */
@@ -148,17 +217,8 @@ export const Route = createFileRoute("/api/public/widget-data")({
             if (uniqueGameIds.length === 0) {
               return Response.json({ error: "Nenhuma modalidade válida." }, { status: 400 });
             }
-            const { readLotteryResults, syncOfficialLotteryResults } =
-              await import("@/lib/widgets/lottery-sync.server");
-            let payload = await readLotteryResults(uniqueGameIds);
-            if (payload.results.length === 0) {
-              await syncOfficialLotteryResults();
-              payload = await readLotteryResults(uniqueGameIds);
-            } else {
-              void syncOfficialLotteryResults().catch((error) =>
-                console.error("[lottery-sync] falha na revalidação", error),
-              );
-            }
+            const { readLotteryResults } = await import("@/lib/widgets/lottery-sync.server");
+            const payload = await readLotteryResults(uniqueGameIds);
             return Response.json(payload, {
               status: payload.results.length > 0 ? 200 : 503,
               headers: { "cache-control": "public, max-age=60, stale-while-revalidate=300" },
@@ -288,22 +348,13 @@ export const Route = createFileRoute("/api/public/widget-data")({
           if (!feed.enabled) {
             return Response.json({ error: "Fonte de notícias desativada." }, { status: 404 });
           }
-          const response = await fetch(feed.url, {
-            headers: { "user-agent": "MDI360-Player/1.0" },
-          });
-          if (!response.ok) throw new Error("news");
-          const xml = await response.text();
-          const items = parseRssItems(xml, 10);
-          return Response.json(
-            {
-              source: feed.label,
-              credit: feed.credit,
-              items,
-              // Kept for the Roku channel, which reads plain headlines.
-              headlines: items.map((item) => item.title),
+          const payload = await readCachedNews(feed);
+          const maxAge = Math.max(300, feed.refreshMinutes * 60);
+          return Response.json(payload, {
+            headers: {
+              "cache-control": `public, max-age=${maxAge}, stale-while-revalidate=${maxAge}`,
             },
-            { headers: cacheHeaders },
-          );
+          });
         } catch {
           return Response.json({ error: "Fonte indisponível no momento." }, { status: 502 });
         }

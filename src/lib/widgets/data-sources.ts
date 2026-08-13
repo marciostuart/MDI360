@@ -6,6 +6,7 @@ export type NewsFeedId = (typeof NEWS_FEED_IDS)[number];
 
 export const newsSourceSchema = z.object({
   enabled: z.boolean(),
+  refreshMinutes: z.number().int().min(5).max(1440).default(30),
   label: z.string().trim().min(1).max(120),
   url: z
     .string()
@@ -18,6 +19,7 @@ export const newsSourceSchema = z.object({
 export const dataSourcesInputSchema = z.object({
   lotteryRelay: z.object({
     enabled: z.boolean(),
+    refreshMinutes: z.number().int().min(5).max(1440).default(30),
     url: z
       .string()
       .trim()
@@ -32,10 +34,17 @@ export const dataSourcesInputSchema = z.object({
 export type DataSourcesInput = z.infer<typeof dataSourcesInputSchema>;
 
 export const DEFAULT_NEWS_SOURCES = Object.fromEntries(
-  NEWS_FEEDS.map((feed) => [feed.id, { enabled: true, ...feed }]),
+  NEWS_FEEDS.map((feed) => [feed.id, { enabled: true, refreshMinutes: 30, ...feed }]),
 ) as Record<
   NewsFeedId,
-  { enabled: boolean; id: NewsFeedId; label: string; url: string; credit: string }
+  {
+    enabled: boolean;
+    refreshMinutes: number;
+    id: NewsFeedId;
+    label: string;
+    url: string;
+    credit: string;
+  }
 >;
 
 export function isSafeNewsUrl(value: string) {

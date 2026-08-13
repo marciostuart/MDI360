@@ -2,20 +2,30 @@ import { and, desc, eq, isNull, lt, or } from "drizzle-orm";
 import { z } from "zod";
 
 import { getDb, isDatabaseConfigured, schema } from "@/lib/db/index.server";
+import { decryptCredential } from "@/lib/billing/mercado-pago-config.server";
 import {
   LOTTERY_GAMES,
   type LotteryGameId,
   type NormalizedLotteryResult,
   normalizedLotteryResultSchema,
 } from "@/lib/widgets/lottery";
+import {
+  AUTH_ERROR_BACKOFF_MS,
+  lotteryRetryDelayMs,
+  normalizeRefreshMinutes,
+} from "@/lib/widgets/lottery-polling";
 
 const CAIXA_ORIGIN = "https://servicebus2.caixa.gov.br";
 const AGGREGATE_PATH = "/portaldeloterias/api/home/ultimos-resultados";
 const MAX_RESPONSE_BYTES = 2_000_000;
 const REQUEST_TIMEOUT_MS = 8_000;
 const LEASE_MS = 4 * 60_000;
+type LotterySourceSettings = {
+  refreshMinutes: number;
+  relay: { url: string; token: string } | null;
+};
 
-async function readLotteryRelaySettings() {
+async function readLotterySourceSettings(): Promise<LotterySourceSettings> {
   const db = getDb();
   const [row] = await db
     .select({ value: schema.platformSettings.value })
@@ -23,14 +33,19 @@ async function readLotteryRelaySettings() {
     .where(eq(schema.platformSettings.key, "data-sources"))
     .limit(1);
   const root = row?.value;
-  if (!root || typeof root !== "object" || Array.isArray(root)) return null;
+  if (!root || typeof root !== "object" || Array.isArray(root)) {
+    return { refreshMinutes: 30, relay: null };
+  }
   const relay = (root as Record<string, unknown>).lotteryRelay;
-  if (!relay || typeof relay !== "object" || Array.isArray(relay)) return null;
+  if (!relay || typeof relay !== "object" || Array.isArray(relay)) {
+    return { refreshMinutes: 30, relay: null };
+  }
   const values = relay as Record<string, unknown>;
-  if (values.enabled === false) return null;
+  const refreshMinutes = normalizeRefreshMinutes(values.refreshMinutes);
+  if (values.enabled === false) return { refreshMinutes, relay: null };
   const url = String(values.url ?? "").trim();
-  const token = String(values.token ?? "").trim();
-  if (!url || !token) return null;
+  const token = decryptCredential(String(values.token ?? "")).trim();
+  if (!url || !token) throw new Error("Relay de loterias incompleto");
   const parsed = new URL(url);
   if (
     parsed.protocol !== "https:" ||
@@ -38,7 +53,7 @@ async function readLotteryRelaySettings() {
   ) {
     throw new Error("Relay de loterias fora da infraestrutura permitida");
   }
-  return { url: parsed.toString(), token };
+  return { refreshMinutes, relay: { url: parsed.toString(), token } };
 }
 
 const aggregateKeys: Record<LotteryGameId, string> = {
@@ -86,7 +101,10 @@ function sourceArray(value: unknown): Record<string, unknown>[] {
   });
 }
 
-async function fetchOfficial(path: string): Promise<Record<string, unknown>> {
+async function fetchOfficial(
+  path: string,
+  settings: LotterySourceSettings,
+): Promise<Record<string, unknown>> {
   const officialUrl = new URL(path, CAIXA_ORIGIN);
   if (
     officialUrl.origin !== CAIXA_ORIGIN ||
@@ -95,7 +113,7 @@ async function fetchOfficial(path: string): Promise<Record<string, unknown>> {
     throw new Error("Fonte não permitida");
   }
 
-  const relay = await readLotteryRelaySettings();
+  const relay = settings.relay;
   const url = relay ? new URL(relay.url) : officialUrl;
   if (relay) url.searchParams.set("path", officialUrl.pathname);
 
@@ -113,7 +131,9 @@ async function fetchOfficial(path: string): Promise<Record<string, unknown>> {
         ...(relay ? { authorization: `Bearer ${relay.token}` } : {}),
       },
     });
-    if (!response.ok) throw new Error(`CAIXA HTTP ${response.status}`);
+    if (!response.ok) {
+      throw new Error(`${relay ? "Relay" : "CAIXA"} HTTP ${response.status}`);
+    }
     const declaredLength = Number(response.headers.get("content-length") ?? 0);
     if (declaredLength > MAX_RESPONSE_BYTES) throw new Error("Resposta CAIXA excedeu o limite");
     const bytes = new Uint8Array(await response.arrayBuffer());
@@ -249,10 +269,19 @@ export function verifyAgainstAggregate(
   }
 }
 
-async function acquireLease() {
+async function acquireLease(refreshMinutes: number, force: boolean) {
   const db = getDb();
   await db.insert(schema.lotterySyncState).values({ id: "caixa" }).onConflictDoNothing();
   const now = new Date();
+  const leaseAvailable = or(
+    isNull(schema.lotterySyncState.leaseUntil),
+    lt(schema.lotterySyncState.leaseUntil, now),
+  );
+  const dueBefore = new Date(now.getTime() - refreshMinutes * 60_000);
+  const due = or(
+    isNull(schema.lotterySyncState.lastAttemptAt),
+    lt(schema.lotterySyncState.lastAttemptAt, dueBefore),
+  );
   const rows = await db
     .update(schema.lotterySyncState)
     .set({
@@ -261,22 +290,45 @@ async function acquireLease() {
       updatedAt: now,
     })
     .where(
-      and(
-        eq(schema.lotterySyncState.id, "caixa"),
-        or(isNull(schema.lotterySyncState.leaseUntil), lt(schema.lotterySyncState.leaseUntil, now)),
-      ),
+      force
+        ? and(eq(schema.lotterySyncState.id, "caixa"), leaseAvailable)
+        : and(eq(schema.lotterySyncState.id, "caixa"), leaseAvailable, due),
     )
     .returning({ id: schema.lotterySyncState.id });
   return rows.length > 0;
 }
 
-export async function syncOfficialLotteryResults(): Promise<{ updated: number; skipped: boolean }> {
+export async function syncOfficialLotteryResults(
+  options: { force?: boolean } = {},
+): Promise<{ updated: number; skipped: boolean }> {
   if (!isDatabaseConfigured()) return { updated: 0, skipped: true };
-  if (!(await acquireLease())) return { updated: 0, skipped: true };
+  let settings: LotterySourceSettings;
+  try {
+    settings = await readLotterySourceSettings();
+  } catch (error) {
+    const message = error instanceof Error ? error.message : "Fonte de loterias inválida";
+    if (!(await acquireLease(30, options.force === true))) {
+      return { updated: 0, skipped: true };
+    }
+    const now = new Date();
+    await getDb()
+      .update(schema.lotterySyncState)
+      .set({
+        lastError: message,
+        leaseUntil: new Date(now.getTime() + AUTH_ERROR_BACKOFF_MS),
+        updatedAt: now,
+      })
+      .where(eq(schema.lotterySyncState.id, "caixa"));
+    console.error(`[lottery-sync] ${message}`);
+    return { updated: 0, skipped: false };
+  }
+  if (!(await acquireLease(settings.refreshMinutes, options.force === true))) {
+    return { updated: 0, skipped: true };
+  }
 
   const db = getDb();
   try {
-    const aggregate = await fetchOfficial(AGGREGATE_PATH);
+    const aggregate = await fetchOfficial(AGGREGATE_PATH, settings);
     const stored = await db
       .selectDistinctOn([schema.lotteryResults.gameId], {
         gameId: schema.lotteryResults.gameId,
@@ -296,7 +348,7 @@ export async function syncOfficialLotteryResults(): Promise<{ updated: number; s
         if ((latest.get(game.id) ?? 0) >= aggregateEntry.numeroDoConcurso) continue;
 
         const sourcePath = `/portaldeloterias/api/${game.id}`;
-        const individual = await fetchOfficial(sourcePath);
+        const individual = await fetchOfficial(sourcePath, settings);
         const normalized = normalizeIndividual(game.id, individual);
         verifyAgainstAggregate(normalized, aggregateEntry);
         const now = new Date();
@@ -341,9 +393,15 @@ export async function syncOfficialLotteryResults(): Promise<{ updated: number; s
     return { updated, skipped: false };
   } catch (error) {
     const message = error instanceof Error ? error.message.slice(0, 300) : "Falha desconhecida";
+    const retryMs = lotteryRetryDelayMs(message, settings.refreshMinutes);
+    const now = new Date();
     await db
       .update(schema.lotterySyncState)
-      .set({ lastError: message, leaseUntil: null, updatedAt: new Date() })
+      .set({
+        lastError: message,
+        leaseUntil: new Date(now.getTime() + retryMs),
+        updatedAt: now,
+      })
       .where(eq(schema.lotterySyncState.id, "caixa"));
     console.error(`[lottery-sync] ${message}`);
     return { updated: 0, skipped: false };

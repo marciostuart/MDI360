@@ -27,6 +27,7 @@ export type DataSourcesAdminView = Omit<DataSourcesInput, "lotteryRelay"> & {
     lastAttemptAt: string | null;
     lastSuccessAt: string | null;
     lastError: string | null;
+    nextAttemptAt: string | null;
   };
 };
 
@@ -74,6 +75,7 @@ export const fetchDataSourcesAdmin = createServerFn({ method: "GET" }).handler(
     return {
       lotteryRelay: {
         enabled: relay.enabled !== false,
+        refreshMinutes: Math.min(1440, Math.max(5, Number(relay.refreshMinutes ?? 30) || 30)),
         url: String(relay.url ?? ""),
         tokenConfigured: Boolean(String(relay.token ?? "").trim()),
       },
@@ -82,6 +84,7 @@ export const fetchDataSourcesAdmin = createServerFn({ method: "GET" }).handler(
         lastAttemptAt: state?.lastAttemptAt?.toISOString() ?? null,
         lastSuccessAt: state?.lastSuccessAt?.toISOString() ?? null,
         lastError: state?.lastError ?? null,
+        nextAttemptAt: state?.leaseUntil?.toISOString() ?? null,
       },
     };
   },
@@ -122,14 +125,17 @@ export const saveDataSourcesAdmin = createServerFn({ method: "POST" })
       !Array.isArray(root.lotteryRelay)
         ? (root.lotteryRelay as Record<string, unknown>)
         : {};
-    const token = data.lotteryRelay.clearToken
+    const { decryptCredential, encryptCredential } =
+      await import("@/lib/billing/mercado-pago-config.server");
+    const plainToken = data.lotteryRelay.clearToken
       ? ""
-      : data.lotteryRelay.token.trim() || String(previousRelay.token ?? "");
+      : data.lotteryRelay.token.trim() || decryptCredential(String(previousRelay.token ?? ""));
     const value = {
       lotteryRelay: {
         enabled: data.lotteryRelay.enabled,
+        refreshMinutes: data.lotteryRelay.refreshMinutes,
         url: data.lotteryRelay.url.trim(),
-        token,
+        token: plainToken ? encryptCredential(plainToken) : "",
       },
       news: data.news,
     };
@@ -153,7 +159,7 @@ export const testLotteryDataSource = createServerFn({ method: "POST" }).handler(
     .where(eq(schema.lotterySyncState.id, "caixa"));
   const { syncOfficialLotteryResults, readLotteryResults } =
     await import("@/lib/widgets/lottery-sync.server");
-  const result = await syncOfficialLotteryResults();
+  const result = await syncOfficialLotteryResults({ force: true });
   const payload = await readLotteryResults(["megasena"]);
   const [state] = await getDb()
     .select()

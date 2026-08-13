@@ -30,6 +30,7 @@ export async function getConfiguredNewsFeed(id: string) {
   return {
     id: fallback.id,
     enabled: source.enabled !== false,
+    refreshMinutes: Math.min(1440, Math.max(5, Number(source.refreshMinutes ?? 30) || 30)),
     label: String(source.label ?? fallback.label).trim() || fallback.label,
     url: isSafeNewsUrl(url) ? url : fallback.url,
     credit: String(source.credit ?? fallback.credit).trim() || fallback.credit,
