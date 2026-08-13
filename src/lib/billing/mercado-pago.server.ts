@@ -1,4 +1,11 @@
-import { createHmac, timingSafeEqual } from "node:crypto";
+import { createHash } from "node:crypto";
+
+import {
+  getConfiguredMercadoPagoCredentials,
+  getMercadoPagoCredentials,
+  type MercadoPagoCredentials,
+} from "@/lib/billing/mercado-pago-config.server";
+import { validateMercadoPagoWebhookSignature } from "@/lib/billing/mercado-pago-signature";
 
 const API_URL = "https://api.mercadopago.com";
 
@@ -35,13 +42,13 @@ export type MercadoPagoOrder = {
   };
 };
 
-function accessToken() {
-  const value = process.env.MERCADO_PAGO_ACCESS_TOKEN;
-  if (!value) throw new Error("MERCADO_PAGO_NOT_CONFIGURED");
-  return value;
-}
-
-async function request(path: string, init: RequestInit, idempotencyKey?: string) {
+async function request(
+  path: string,
+  init: RequestInit,
+  idempotencyKey?: string,
+  suppliedCredentials?: MercadoPagoCredentials,
+) {
+  const credentials = suppliedCredentials ?? (await getMercadoPagoCredentials());
   let response: Response | null = null;
   let lastError: unknown;
   for (let attempt = 0; attempt < 3 && !response; attempt += 1) {
@@ -49,7 +56,7 @@ async function request(path: string, init: RequestInit, idempotencyKey?: string)
       response = await fetch(`${API_URL}${path}`, {
         ...init,
         headers: {
-          authorization: `Bearer ${accessToken()}`,
+          authorization: `Bearer ${credentials.accessToken}`,
           "content-type": "application/json",
           ...(idempotencyKey ? { "x-idempotency-key": idempotencyKey } : {}),
           ...init.headers,
@@ -74,28 +81,50 @@ async function request(path: string, init: RequestInit, idempotencyKey?: string)
   return payload;
 }
 
-let accountIdPromise: Promise<string> | null = null;
-export function getMercadoPagoAccountId() {
-  accountIdPromise ??= request("/users/me", { method: "GET" }).then((account) => {
+const accountIdPromises = new Map<string, Promise<string>>();
+export function getMercadoPagoAccountId(credentials: MercadoPagoCredentials) {
+  const cacheKey = `${credentials.environment}:${createHash("sha256").update(credentials.accessToken).digest("hex")}`;
+  let promise = accountIdPromises.get(cacheKey);
+  promise ??= request("/users/me", { method: "GET" }, undefined, credentials).then((account) => {
     if (!account.id) throw new Error("MERCADO_PAGO_ACCOUNT_UNKNOWN");
     return String(account.id);
   });
-  return accountIdPromise;
+  accountIdPromises.set(cacheKey, promise);
+  return promise;
 }
 
-export function createMercadoPagoOrder(body: unknown, idempotencyKey: string) {
-  return request("/v1/orders", { method: "POST", body: JSON.stringify(body) }, idempotencyKey);
+export function createMercadoPagoOrder(
+  body: unknown,
+  idempotencyKey: string,
+  credentials: MercadoPagoCredentials,
+) {
+  return request(
+    "/v1/orders",
+    { method: "POST", body: JSON.stringify(body) },
+    idempotencyKey,
+    credentials,
+  );
 }
 
-export function getMercadoPagoOrder(orderId: string) {
-  return request(`/v1/orders/${encodeURIComponent(orderId)}`, { method: "GET" });
+export function getMercadoPagoOrder(orderId: string, credentials: MercadoPagoCredentials) {
+  return request(
+    `/v1/orders/${encodeURIComponent(orderId)}`,
+    { method: "GET" },
+    undefined,
+    credentials,
+  );
 }
 
-export function cancelMercadoPagoOrder(orderId: string, idempotencyKey: string) {
+export function cancelMercadoPagoOrder(
+  orderId: string,
+  idempotencyKey: string,
+  credentials: MercadoPagoCredentials,
+) {
   return request(
     `/v1/orders/${encodeURIComponent(orderId)}/cancel`,
     { method: "POST", body: "{}" },
     idempotencyKey,
+    credentials,
   );
 }
 
@@ -103,28 +132,15 @@ export function paymentFromOrder(order: MercadoPagoOrder) {
   return order.transactions?.payments?.[0] ?? null;
 }
 
-export function validateMercadoPagoWebhook(request: Request, dataId: string) {
-  const secret = process.env.MERCADO_PAGO_WEBHOOK_SECRET;
-  if (!secret) throw new Error("MERCADO_PAGO_WEBHOOK_NOT_CONFIGURED");
-  const signature = request.headers.get("x-signature") ?? "";
-  const requestId = request.headers.get("x-request-id") ?? "";
-  const values = Object.fromEntries(
-    signature.split(",").map((part) => {
-      const [key, ...rest] = part.trim().split("=");
-      return [key, rest.join("=")];
-    }),
-  );
-  const ts = values.ts;
-  const received = values.v1;
-  if (!ts || !received || !requestId) return false;
-  const timestamp = Number(ts);
-  const timestampMs = timestamp > 10_000_000_000 ? timestamp : timestamp * 1000;
-  if (!Number.isFinite(timestamp) || Math.abs(Date.now() - timestampMs) > 10 * 60_000) {
-    return false;
+export async function validateMercadoPagoWebhook(request: Request, dataId: string) {
+  const profiles = await getConfiguredMercadoPagoCredentials();
+  for (const credentials of profiles) {
+    if (
+      credentials.webhookSecret &&
+      validateMercadoPagoWebhookSignature(request, dataId, credentials.webhookSecret)
+    ) {
+      return credentials;
+    }
   }
-  const manifest = `id:${dataId.toLowerCase()};request-id:${requestId};ts:${ts};`;
-  const expected = createHmac("sha256", secret).update(manifest).digest("hex");
-  const expectedBuffer = Buffer.from(expected, "utf8");
-  const receivedBuffer = Buffer.from(received, "utf8");
-  return expectedBuffer.length === receivedBuffer.length && timingSafeEqual(expectedBuffer, receivedBuffer);
+  return null;
 }

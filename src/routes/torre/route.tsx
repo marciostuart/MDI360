@@ -5,6 +5,7 @@ import {
   Globe2,
   LayoutDashboard,
   MonitorPlay,
+  CreditCard,
   PlugZap,
   ShieldCheck,
   Tags,
@@ -22,6 +23,7 @@ const NAV = [
   { to: "/torre/site", label: "Site", icon: Globe2, exact: false },
   { to: "/torre/aplicativos", label: "Aplicativos", icon: Download, exact: false },
   { to: "/torre/fontes", label: "Fontes", icon: PlugZap, exact: false },
+  { to: "/torre/pagamentos", label: "Pagamentos", icon: CreditCard, exact: false },
 ] as const;
 
 function TowerLayout() {

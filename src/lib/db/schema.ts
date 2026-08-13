@@ -864,6 +864,8 @@ export const billingPaymentAttempts = pgTable(
       .notNull()
       .references(() => organizations.id, { onDelete: "cascade" }),
     method: text("method").notNull(),
+    /** Mercado Pago credential profile used to create and reconcile this order. */
+    providerEnvironment: text("provider_environment").notNull().default("test"),
     status: text("status").notNull().default("creating"),
     amountCents: integer("amount_cents").notNull(),
     providerOrderId: text("provider_order_id"),

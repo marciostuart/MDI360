@@ -11,6 +11,11 @@ import {
   paymentFromOrder,
   type MercadoPagoOrder,
 } from "@/lib/billing/mercado-pago.server";
+import {
+  getMercadoPagoCredentials,
+  type MercadoPagoEnvironment,
+  type MercadoPagoCredentials,
+} from "@/lib/billing/mercado-pago-config.server";
 import { listOutstandingInvoices } from "@/lib/billing/postpaid.server";
 import { getDb, schema } from "@/lib/db/index.server";
 
@@ -37,6 +42,13 @@ export type CreateAttemptInput = {
 
 function amount(value: number) {
   return (value / 100).toFixed(2);
+}
+
+function paymentEnvironment(value: string): MercadoPagoEnvironment {
+  if (value !== "test" && value !== "production") {
+    throw new Error("INVALID_PAYMENT_ENVIRONMENT");
+  }
+  return value;
 }
 
 function orderStatus(order: MercadoPagoOrder) {
@@ -68,7 +80,10 @@ async function cancelActiveAttempt(organizationId: string) {
   if (!active.providerOrderId) throw new Error("PAYMENT_CREATION_IN_PROGRESS");
   if (active.providerOrderId) {
     try {
-      await cancelMercadoPagoOrder(active.providerOrderId, `cancel-${active.id}`);
+      const credentials = await getMercadoPagoCredentials(
+        paymentEnvironment(active.providerEnvironment),
+      );
+      await cancelMercadoPagoOrder(active.providerOrderId, `cancel-${active.id}`, credentials);
     } catch (error) {
       // Never create a second charge while the previous one may still be payable.
       throw new Error(
@@ -83,6 +98,7 @@ async function cancelActiveAttempt(organizationId: string) {
 }
 
 export async function createBillingAttempt(input: CreateAttemptInput) {
+  const credentials = await getMercadoPagoCredentials();
   const invoices = await listOutstandingInvoices(input.organizationId);
   const totalCents = invoices.reduce((sum, invoice) => sum + invoice.totalCents, 0);
   if (!invoices.length || totalCents <= 0) throw new Error("NO_OUTSTANDING_INVOICES");
@@ -102,6 +118,7 @@ export async function createBillingAttempt(input: CreateAttemptInput) {
       id: attemptId,
       organizationId: input.organizationId,
       method: input.method,
+      providerEnvironment: credentials.environment,
       amountCents: totalCents,
       externalReference,
       idempotencyKey,
@@ -198,13 +215,14 @@ export async function createBillingAttempt(input: CreateAttemptInput) {
         transactions: { payments: [payment] },
       },
       idempotencyKey,
+      credentials,
     );
     // Card orders may be approved synchronously. Run the exact same strict
     // reconciliation used by the webhook instead of waiting for a notification.
     // Persist the provider ID first so an interrupted validation can be recovered
     // by the periodic reconciler without creating a second charge.
     await updateAttemptFromOrder(attemptId, order);
-    return reconcileMercadoPagoOrder(order);
+    return reconcileMercadoPagoOrder(order, credentials);
   } catch (error) {
     const definitiveFailure = error instanceof MercadoPagoHttpError;
     await db
@@ -254,13 +272,22 @@ export async function getAttempt(attemptId: string) {
   return attempt ?? null;
 }
 
-export async function reconcileMercadoPagoOrder(order: MercadoPagoOrder) {
+export async function reconcileMercadoPagoOrder(
+  order: MercadoPagoOrder,
+  suppliedCredentials?: MercadoPagoCredentials,
+) {
   const reference = order.external_reference;
   if (!reference?.startsWith("mdi360:")) throw new Error("UNKNOWN_EXTERNAL_REFERENCE");
   const attemptId = reference.slice("mdi360:".length);
   const db = getDb();
   const attempt = await getAttempt(attemptId);
   if (!attempt) throw new Error("UNKNOWN_PAYMENT_ATTEMPT");
+  const credentials =
+    suppliedCredentials ??
+    (await getMercadoPagoCredentials(paymentEnvironment(attempt.providerEnvironment)));
+  if (credentials.environment !== attempt.providerEnvironment) {
+    throw new Error("PAYMENT_CREDENTIAL_PROFILE_MISMATCH");
+  }
   if (attempt.providerOrderId && order.id && attempt.providerOrderId !== order.id) {
     throw new Error("PAYMENT_ORDER_MISMATCH");
   }
@@ -282,26 +309,21 @@ export async function reconcileMercadoPagoOrder(order: MercadoPagoOrder) {
   ) {
     throw new Error("PAYMENT_INVOICE_ALLOCATION_MISMATCH");
   }
-  const actualCents = Math.round(Number(order.total_amount ?? paymentFromOrder(order)?.amount ?? 0) * 100);
-  if (actualCents !== attempt.amountCents || order.currency_id && order.currency_id !== "BRL") {
+  const actualCents = Math.round(
+    Number(order.total_amount ?? paymentFromOrder(order)?.amount ?? 0) * 100,
+  );
+  if (actualCents !== attempt.amountCents || (order.currency_id && order.currency_id !== "BRL")) {
     throw new Error("PAYMENT_RECONCILIATION_MISMATCH");
   }
-  const expectedAccount = process.env.MERCADO_PAGO_ACCOUNT_ID;
-  if (!expectedAccount) throw new Error("MERCADO_PAGO_ACCOUNT_ID_NOT_CONFIGURED");
+  const expectedAccount = credentials.accountId;
   const actualAccount =
-    order.collector?.id != null ? String(order.collector.id) : await getMercadoPagoAccountId();
+    order.collector?.id != null
+      ? String(order.collector.id)
+      : await getMercadoPagoAccountId(credentials);
   if (actualAccount !== expectedAccount) {
     throw new Error("PAYMENT_RECEIVER_MISMATCH");
   }
-  const expectedLiveMode = process.env.MERCADO_PAGO_LIVE_MODE;
-  if (expectedLiveMode !== "true" && expectedLiveMode !== "false") {
-    throw new Error("MERCADO_PAGO_LIVE_MODE_NOT_CONFIGURED");
-  }
-  if (
-    expectedLiveMode != null &&
-    order.live_mode != null &&
-    order.live_mode !== (expectedLiveMode === "true")
-  ) {
+  if (order.live_mode != null && order.live_mode !== credentials.liveMode) {
     throw new Error("PAYMENT_ENVIRONMENT_MISMATCH");
   }
 
@@ -315,7 +337,15 @@ export async function reconcileMercadoPagoOrder(order: MercadoPagoOrder) {
         .where(eq(schema.billingPaymentAttemptInvoices.attemptId, attemptId));
       const invoiceIds = links.map((link) => link.invoiceId);
       const unpaid = invoiceIds.length
-        ? await tx.select({ id: schema.billingInvoices.id }).from(schema.billingInvoices).where(and(inArray(schema.billingInvoices.id, invoiceIds), ne(schema.billingInvoices.status, "paid")))
+        ? await tx
+            .select({ id: schema.billingInvoices.id })
+            .from(schema.billingInvoices)
+            .where(
+              and(
+                inArray(schema.billingInvoices.id, invoiceIds),
+                ne(schema.billingInvoices.status, "paid"),
+              ),
+            )
         : [];
       if (unpaid.length === 0 && attempt.status !== "approved") {
         await tx.insert(schema.billingCredits).values({
@@ -326,26 +356,61 @@ export async function reconcileMercadoPagoOrder(order: MercadoPagoOrder) {
           reason: "Pagamento aprovado após substituição ou quitação da cobrança",
         });
       } else if (invoiceIds.length) {
-        await tx.update(schema.billingInvoices).set({ status: "paid", paidAt: new Date() }).where(inArray(schema.billingInvoices.id, invoiceIds));
+        await tx
+          .update(schema.billingInvoices)
+          .set({ status: "paid", paidAt: new Date() })
+          .where(inArray(schema.billingInvoices.id, invoiceIds));
       }
-      await tx.update(schema.billingPaymentAttempts).set({ status: "approved", approvedAt: new Date(), activeKey: null }).where(eq(schema.billingPaymentAttempts.id, attemptId));
-      const remaining = await tx.select({ id: schema.billingInvoices.id }).from(schema.billingInvoices).where(and(eq(schema.billingInvoices.organizationId, attempt.organizationId), eq(schema.billingInvoices.status, "overdue"))).limit(1);
+      await tx
+        .update(schema.billingPaymentAttempts)
+        .set({ status: "approved", approvedAt: new Date(), activeKey: null })
+        .where(eq(schema.billingPaymentAttempts.id, attemptId));
+      const remaining = await tx
+        .select({ id: schema.billingInvoices.id })
+        .from(schema.billingInvoices)
+        .where(
+          and(
+            eq(schema.billingInvoices.organizationId, attempt.organizationId),
+            eq(schema.billingInvoices.status, "overdue"),
+          ),
+        )
+        .limit(1);
       if (!remaining[0]) {
-        await tx.update(schema.organizations).set({ subscriptionStatus: "active", billingSuspendedAt: null }).where(eq(schema.organizations.id, attempt.organizationId));
+        await tx
+          .update(schema.organizations)
+          .set({ subscriptionStatus: "active", billingSuspendedAt: null })
+          .where(eq(schema.organizations.id, attempt.organizationId));
       }
     });
   } else if (["refunded", "charged_back"].includes(normalized)) {
-    const [credit] = await db.select().from(schema.billingCredits).where(eq(schema.billingCredits.attemptId, attemptId)).limit(1);
+    const [credit] = await db
+      .select()
+      .from(schema.billingCredits)
+      .where(eq(schema.billingCredits.attemptId, attemptId))
+      .limit(1);
     if (credit) {
       // A duplicated/late payment created credit rather than settling the linked
       // invoices. Reversing it must remove that credit, not reopen valid invoices.
-      await db.update(schema.billingCredits).set({ remainingCents: 0 }).where(eq(schema.billingCredits.id, credit.id));
+      await db
+        .update(schema.billingCredits)
+        .set({ remainingCents: 0 })
+        .where(eq(schema.billingCredits.id, credit.id));
       return getAttempt(attemptId);
     }
-    const links = await db.select({ invoiceId: schema.billingPaymentAttemptInvoices.invoiceId }).from(schema.billingPaymentAttemptInvoices).where(eq(schema.billingPaymentAttemptInvoices.attemptId, attemptId));
+    const links = await db
+      .select({ invoiceId: schema.billingPaymentAttemptInvoices.invoiceId })
+      .from(schema.billingPaymentAttemptInvoices)
+      .where(eq(schema.billingPaymentAttemptInvoices.attemptId, attemptId));
     const ids = links.map((link) => link.invoiceId);
-    if (ids.length) await db.update(schema.billingInvoices).set({ status: "overdue", paidAt: null }).where(inArray(schema.billingInvoices.id, ids));
-    await db.update(schema.organizations).set({ subscriptionStatus: "suspended", billingSuspendedAt: new Date() }).where(eq(schema.organizations.id, attempt.organizationId));
+    if (ids.length)
+      await db
+        .update(schema.billingInvoices)
+        .set({ status: "overdue", paidAt: null })
+        .where(inArray(schema.billingInvoices.id, ids));
+    await db
+      .update(schema.organizations)
+      .set({ subscriptionStatus: "suspended", billingSuspendedAt: new Date() })
+      .where(eq(schema.organizations.id, attempt.organizationId));
   }
   return getAttempt(attemptId);
 }
@@ -353,7 +418,13 @@ export async function reconcileMercadoPagoOrder(order: MercadoPagoOrder) {
 export async function reconcileAttempt(attemptId: string) {
   const attempt = await getAttempt(attemptId);
   if (!attempt?.providerOrderId) return attempt;
-  return reconcileMercadoPagoOrder(await getMercadoPagoOrder(attempt.providerOrderId));
+  const credentials = await getMercadoPagoCredentials(
+    paymentEnvironment(attempt.providerEnvironment),
+  );
+  return reconcileMercadoPagoOrder(
+    await getMercadoPagoOrder(attempt.providerOrderId, credentials),
+    credentials,
+  );
 }
 
 export async function reconcilePendingAttempts() {
@@ -361,14 +432,23 @@ export async function reconcilePendingAttempts() {
   const attempts = await getDb()
     .select({ id: schema.billingPaymentAttempts.id })
     .from(schema.billingPaymentAttempts)
-    .where(and(inArray(schema.billingPaymentAttempts.status, ["creating", "pending", "canceled"]), gt(schema.billingPaymentAttempts.createdAt, cutoff)))
+    .where(
+      and(
+        inArray(schema.billingPaymentAttempts.status, ["creating", "pending", "canceled"]),
+        gt(schema.billingPaymentAttempts.createdAt, cutoff),
+      ),
+    )
     .orderBy(desc(schema.billingPaymentAttempts.createdAt))
     .limit(50);
   for (const attempt of attempts) {
     try {
       await reconcileAttempt(attempt.id);
     } catch (error) {
-      console.error("[billing-reconcile] falha", attempt.id, error instanceof Error ? error.message : "erro");
+      console.error(
+        "[billing-reconcile] falha",
+        attempt.id,
+        error instanceof Error ? error.message : "erro",
+      );
     }
   }
 }
