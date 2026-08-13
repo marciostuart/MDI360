@@ -6,6 +6,7 @@ import {
   type MercadoPagoCredentials,
 } from "@/lib/billing/mercado-pago-config.server";
 import { validateMercadoPagoWebhookSignature } from "@/lib/billing/mercado-pago-signature";
+import { inspectMercadoPagoWebhookSignature } from "@/lib/billing/mercado-pago-signature";
 
 const API_URL = "https://api.mercadopago.com";
 
@@ -164,4 +165,12 @@ export async function validateMercadoPagoWebhook(request: Request, dataId: strin
     }
   }
   return null;
+}
+
+export async function diagnoseMercadoPagoWebhook(request: Request, dataId: string) {
+  const profiles = await getConfiguredMercadoPagoCredentials();
+  return profiles.map((credentials) => ({
+    environment: credentials.environment,
+    reason: inspectMercadoPagoWebhookSignature(request, dataId, credentials.webhookSecret).reason,
+  }));
 }

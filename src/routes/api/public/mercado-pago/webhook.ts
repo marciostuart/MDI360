@@ -18,11 +18,15 @@ export const Route = createFileRoute("/api/public/mercado-pago/webhook")({
             console.warn("[mercado-pago-webhook] order id invalido ignorado", { dataId });
             return new Response("Evento ignorado", { status: 200 });
           }
-          const { validateMercadoPagoWebhook, getMercadoPagoOrder } =
+          const { validateMercadoPagoWebhook, diagnoseMercadoPagoWebhook, getMercadoPagoOrder } =
             await import("@/lib/billing/mercado-pago.server");
           const credentials = await validateMercadoPagoWebhook(request, dataId);
           if (!credentials) {
-            console.warn("[mercado-pago-webhook] assinatura invalida", { dataId, eventType });
+            console.warn("[mercado-pago-webhook] assinatura invalida", {
+              dataId,
+              eventType,
+              diagnostics: await diagnoseMercadoPagoWebhook(request, dataId),
+            });
             return new Response("Assinatura inválida", { status: 401 });
           }
           const order = await getMercadoPagoOrder(dataId, credentials);
