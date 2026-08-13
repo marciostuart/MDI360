@@ -39,6 +39,24 @@ versão em execução e reduz problemas de cache.
 
 ## Variáveis
 
+### Mercado Pago (faturamento pós-pago)
+
+```env
+MERCADO_PAGO_PUBLIC_KEY=APP_USR-...
+MERCADO_PAGO_ACCESS_TOKEN=APP_USR-...
+MERCADO_PAGO_WEBHOOK_SECRET=...
+MERCADO_PAGO_ACCOUNT_ID=...
+MERCADO_PAGO_LIVE_MODE=true
+```
+
+Use credenciais separadas em homologação e produção. O webhook público é
+`https://mdi.360bh.com.br/api/public/mercado-pago/webhook`. Nunca exponha Access Token ou
+segredo do webhook no navegador, Git ou logs.
+
+No primeiro deploy: faça backup do PostgreSQL, publique uma imagem imutável
+`signage:<short-sha>`, confirme as migrações no log e mantenha o faturamento desativado nas contas
+existentes. Ative primeiro uma organização interna e homologue todos os meios de pagamento.
+
 As credenciais ficam somente nas variáveis/segredos da stack. Não as grave no
 Git, em screenshots ou documentação.
 

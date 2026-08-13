@@ -13,6 +13,18 @@
          stream buffers and provides the optional fade between items. -->
     <Rectangle id="cover" width="1920" height="1080" color="0x000000FF" opacity="0" />
 
+    <Group id="suspended" visible="false">
+      <Rectangle width="1920" height="1080" color="0x000000FF" />
+      <Label text="Servico temporariamente suspenso" translation="[0,455]" width="1920"
+             horizAlign="center" color="0xFFFFFFFF">
+        <Font role="font" uri="font:BoldSystemFontFile" size="58" />
+      </Label>
+      <Label text="Entre em contato com o responsavel pela conta MDI 360." translation="[0,535]" width="1920"
+             horizAlign="center" color="0xA0A0A0FF">
+        <Font role="font" uri="font:SystemFontFile" size="30" />
+      </Label>
+    </Group>
+
     <!-- Add-on de senhas: chamada em tela cheia, acima de qualquer conteudo. -->
     <Group id="queue" visible="false">
       <Rectangle id="queueBg" width="1920" height="1080" color="0x000000FF" />

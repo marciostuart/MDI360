@@ -28,7 +28,10 @@ export const Route = createFileRoute("/api/public/queue/issue")({
         const { hashDeviceToken } = await import("@/lib/player/player-auth.server");
         const db = getDb();
         const rows = await db
-          .select({ panelId: schema.queuePanels.id })
+          .select({
+            panelId: schema.queuePanels.id,
+            organizationId: schema.queuePanels.organizationId,
+          })
           .from(schema.queuePanels)
           .innerJoin(
             schema.queuePanelDevices,
@@ -48,6 +51,12 @@ export const Route = createFileRoute("/api/public/queue/issue")({
           )
           .limit(1);
         const panelId = rows[0]?.panelId;
+        const { isOrganizationServiceSuspended, suspendedServiceResponse } = await import(
+          "@/lib/billing/access.server"
+        );
+        if (await isOrganizationServiceSuspended(rows[0]?.organizationId ?? null)) {
+          return suspendedServiceResponse();
+        }
         const panel = panelId
           ? await db.query.queuePanels.findFirst({ where: eq(schema.queuePanels.id, panelId) })
           : null;

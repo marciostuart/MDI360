@@ -1,7 +1,7 @@
 import { useEffect, useState } from "react";
 import { createFileRoute, Link, useNavigate } from "@tanstack/react-router";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
-import { ArrowLeft, HardDrive, Loader2, LogIn, Save, Trash2, Tv, Users } from "lucide-react";
+import { ArrowLeft, HardDrive, Loader2, LogIn, RefreshCw, Save, Send, Trash2, Tv, Users } from "lucide-react";
 import { toast } from "sonner";
 
 import { Button } from "@/components/ui/button";
@@ -10,6 +10,7 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
 import { Badge } from "@/components/ui/badge";
+import { Switch } from "@/components/ui/switch";
 import {
   Select,
   SelectContent,
@@ -34,6 +35,8 @@ import {
   fetchPlans,
   impersonateOrganization,
   renameOrganization,
+  reconcileOrganizationPayments,
+  resendBillingNotice,
   updateOrganizationSubscription,
 } from "@/lib/admin/platform.functions";
 import { STATUS_LABEL, formatBytes, formatDate } from "@/lib/admin/format";
@@ -74,6 +77,8 @@ function ClientDetail() {
     deviceLimitOverride: "",
     storageLimitMbOverride: "",
     notes: "",
+    billingEnabled: false,
+    billingClosingDay: "5",
   });
 
   useEffect(() => {
@@ -94,6 +99,8 @@ function ClientDetail() {
           ? String(data.organization.storageLimitMbOverride)
           : "",
       notes: data.notes ?? "",
+      billingEnabled: data.organization.billingEnabled,
+      billingClosingDay: String(data.organization.billingClosingDay ?? 5),
     });
   }, [data]);
 
@@ -111,6 +118,10 @@ function ClientDetail() {
             ? Number(form.storageLimitMbOverride)
             : null,
           notes: form.notes || null,
+          billingEnabled: form.billingEnabled,
+          billingClosingDay: form.billingEnabled
+            ? (Number(form.billingClosingDay) as 1 | 5 | 10 | 15 | 20)
+            : null,
         },
       });
     },
@@ -140,6 +151,22 @@ function ClientDetail() {
       }
       void navigate({ to: "/studio" });
     },
+  });
+
+  const reconcile = useMutation({
+    mutationFn: () => reconcileOrganizationPayments({ data: { organizationId } }),
+    onSuccess: (result) => {
+      toast.success(`${result.reconciled} tentativa(s) conciliada(s).`);
+      void queryClient.invalidateQueries({ queryKey: ["platform-org", organizationId] });
+    },
+    onError: () => toast.error("Não foi possível conciliar os pagamentos."),
+  });
+
+  const resendNotice = useMutation({
+    mutationFn: (invoiceId: string) =>
+      resendBillingNotice({ data: { invoiceId, kind: "due" } }),
+    onSuccess: () => toast.success("Aviso colocado na fila de envio."),
+    onError: () => toast.error("Não foi possível reenviar o aviso."),
   });
 
   if (isPending) {
@@ -304,6 +331,49 @@ function ClientDetail() {
               />
             </div>
 
+            <div className="rounded-lg border border-border p-4">
+              <div className="flex items-center justify-between gap-4">
+                <div>
+                  <Label htmlFor="billing-enabled">Faturamento pós-pago automático</Label>
+                  <p className="text-xs text-muted-foreground">
+                    A ativação inicia um ciclo novo. Nenhum período anterior será cobrado.
+                  </p>
+                </div>
+                <Switch
+                  id="billing-enabled"
+                  checked={form.billingEnabled}
+                  onCheckedChange={(checked) =>
+                    setForm((prev) => ({ ...prev, billingEnabled: checked }))
+                  }
+                />
+              </div>
+              {form.billingEnabled ? (
+                <div className="mt-4 space-y-2">
+                  <Label>Dia de fechamento</Label>
+                  <Select
+                    value={form.billingClosingDay}
+                    onValueChange={(value) =>
+                      setForm((prev) => ({ ...prev, billingClosingDay: value }))
+                    }
+                  >
+                    <SelectTrigger><SelectValue /></SelectTrigger>
+                    <SelectContent>
+                      {[1, 5, 10, 15, 20].map((day) => (
+                        <SelectItem key={day} value={String(day)}>Dia {String(day).padStart(2, "0")}</SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
+                  <p className="text-xs text-muted-foreground">Vencimento cinco dias após o fechamento.</p>
+                </div>
+              ) : null}
+            </div>
+
+            <div className="grid grid-cols-3 gap-2 rounded-lg border border-border p-4 text-center text-sm">
+              <div><p className="font-semibold">{data.billing.openInvoices}</p><p className="text-xs text-muted-foreground">Abertas</p></div>
+              <div><p className="font-semibold">{data.billing.overdueInvoices}</p><p className="text-xs text-muted-foreground">Vencidas</p></div>
+              <div><p className="font-semibold">{new Intl.NumberFormat("pt-BR", { style: "currency", currency: "BRL" }).format(data.billing.outstandingCents / 100)}</p><p className="text-xs text-muted-foreground">Saldo</p></div>
+            </div>
+
             <div className="grid gap-4 sm:grid-cols-2">
               <div className="space-y-2">
                 <Label>Limite de telas (personalizado)</Label>
@@ -353,6 +423,91 @@ function ClientDetail() {
         </Card>
 
         <div className="space-y-4">
+          <Card>
+            <CardHeader className="flex-row items-start justify-between gap-4 space-y-0">
+              <div>
+                <CardTitle>Faturas e pagamentos</CardTitle>
+                <CardDescription>Histórico financeiro e conciliação desta conta.</CardDescription>
+              </div>
+              <Button
+                size="sm"
+                variant="outline"
+                disabled={reconcile.isPending}
+                onClick={() => reconcile.mutate()}
+              >
+                <RefreshCw className={`mr-2 size-4 ${reconcile.isPending ? "animate-spin" : ""}`} />
+                Conciliar
+              </Button>
+            </CardHeader>
+            <CardContent className="space-y-4">
+              <div className="space-y-2">
+                {data.billing.invoices.length === 0 ? (
+                  <p className="text-sm text-muted-foreground">Nenhuma fatura emitida.</p>
+                ) : (
+                  data.billing.invoices.map((invoice) => (
+                    <div key={invoice.id} className="flex flex-wrap items-center justify-between gap-3 rounded-lg border border-border p-3 text-sm">
+                      <div>
+                        <p className="font-medium">{invoice.number}</p>
+                        <p className="text-xs text-muted-foreground">
+                          Vence em {formatDate(invoice.dueAt)} · {new Intl.NumberFormat("pt-BR", { style: "currency", currency: "BRL" }).format(invoice.totalCents / 100)}
+                        </p>
+                        {data.billing.items.filter((item) => item.invoiceId === invoice.id).map((item) => (
+                          <p key={item.id} className="text-xs text-muted-foreground">
+                            {item.description}: {new Intl.NumberFormat("pt-BR", { style: "currency", currency: "BRL" }).format(item.amountCents / 100)}
+                          </p>
+                        ))}
+                      </div>
+                      <div className="flex items-center gap-2">
+                        <Badge variant={invoice.status === "paid" ? "default" : invoice.status === "overdue" ? "destructive" : "secondary"}>{invoice.status}</Badge>
+                        {invoice.status === "open" || invoice.status === "overdue" ? (
+                          <Button size="sm" variant="outline" disabled={resendNotice.isPending} onClick={() => resendNotice.mutate(invoice.id)}>
+                            <Send className="mr-2 size-3.5" /> Reenviar aviso
+                          </Button>
+                        ) : null}
+                      </div>
+                    </div>
+                  ))
+                )}
+              </div>
+              {data.billing.attempts.length ? (
+                <div className="space-y-2 border-t border-border pt-4">
+                  <p className="text-sm font-medium">Tentativas recentes</p>
+                  {data.billing.attempts.slice(0, 6).map((attempt) => (
+                    <div key={attempt.id} className="flex items-center justify-between text-sm text-muted-foreground">
+                      <span>{attempt.method.toUpperCase()} · {formatDate(attempt.createdAt)}</span>
+                      <span>{attempt.status} · {new Intl.NumberFormat("pt-BR", { style: "currency", currency: "BRL" }).format(attempt.amountCents / 100)}</span>
+                    </div>
+                  ))}
+                </div>
+              ) : null}
+              {data.billing.notifications.length ? (
+                <div className="space-y-2 border-t border-border pt-4">
+                  <p className="text-sm font-medium">Avisos financeiros</p>
+                  {data.billing.notifications.slice(0, 8).map((notice) => (
+                    <div key={notice.id} className="rounded-lg border border-border p-3 text-sm">
+                      <div className="flex items-center justify-between gap-2">
+                        <span>{notice.kind === "closing" ? "Fechamento" : "Vencimento"} · {formatDate(notice.createdAt)}</span>
+                        <Badge variant={notice.status === "sent" ? "default" : notice.status === "failed" ? "destructive" : "secondary"}>{notice.status}</Badge>
+                      </div>
+                      {notice.error ? <p className="mt-1 text-xs text-destructive">{notice.error}</p> : null}
+                    </div>
+                  ))}
+                </div>
+              ) : null}
+              {data.billing.credits.length ? (
+                <div className="space-y-2 border-t border-border pt-4">
+                  <p className="text-sm font-medium">Créditos do cliente</p>
+                  {data.billing.credits.map((credit) => (
+                    <div key={credit.id} className="flex items-center justify-between text-sm text-muted-foreground">
+                      <span>{credit.reason} · {formatDate(credit.createdAt)}</span>
+                      <span>{new Intl.NumberFormat("pt-BR", { style: "currency", currency: "BRL" }).format(credit.remainingCents / 100)} disponível</span>
+                    </div>
+                  ))}
+                </div>
+              ) : null}
+            </CardContent>
+          </Card>
+
           <Card>
             <CardHeader>
               <CardTitle>Telas</CardTitle>

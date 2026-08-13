@@ -10,6 +10,7 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/com
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Tabs, TabsList, TabsTrigger, TabsContent } from "@/components/ui/tabs";
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { signIn, signUp } from "@/lib/auth/auth.functions";
 import { useSetupState } from "@/lib/auth/useCurrentUser";
 
@@ -50,6 +51,7 @@ function AuthPage() {
     organizationName: "",
     email: "",
     password: "",
+    billingClosingDay: 5 as 1 | 5 | 10 | 15 | 20,
   });
 
   async function onSuccess() {
@@ -226,6 +228,30 @@ function AuthPage() {
                       }
                     />
                     <p className="text-xs text-muted-foreground">Use no mínimo 8 caracteres.</p>
+                  </div>
+                  <div className="space-y-2">
+                    <Label>Melhor dia de fechamento</Label>
+                    <Select
+                      value={String(signupForm.billingClosingDay)}
+                      onValueChange={(value) =>
+                        setSignupForm((form) => ({
+                          ...form,
+                          billingClosingDay: Number(value) as 1 | 5 | 10 | 15 | 20,
+                        }))
+                      }
+                    >
+                      <SelectTrigger><SelectValue /></SelectTrigger>
+                      <SelectContent>
+                        {[1, 5, 10, 15, 20].map((day) => (
+                          <SelectItem key={day} value={String(day)}>
+                            Dia {String(day).padStart(2, "0")}
+                          </SelectItem>
+                        ))}
+                      </SelectContent>
+                    </Select>
+                    <p className="text-xs text-muted-foreground">
+                      A cobrança só será ativada após a contratação de um plano pago.
+                    </p>
                   </div>
                   <Button type="submit" className="w-full" disabled={signupMutation.isPending}>
                     {signupMutation.isPending ? (

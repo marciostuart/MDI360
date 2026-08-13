@@ -16,6 +16,12 @@ export const Route = createFileRoute("/api/public/queue/call")({
 
         const { authenticateDevice } = await import("@/lib/player/player-auth.server");
         const device = await authenticateDevice(request);
+        const { isOrganizationServiceSuspended, suspendedServiceResponse } = await import(
+          "@/lib/billing/access.server"
+        );
+        if (device && (await isOrganizationServiceSuspended(device.organizationId))) {
+          return suspendedServiceResponse();
+        }
         if (!device) return Response.json({ error: "Não autorizado." }, { status: 401 });
         const modes = Array.isArray(device.enabledModes) ? device.enabledModes : ["display"];
         if (!modes.includes("caller")) {

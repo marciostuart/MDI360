@@ -197,7 +197,8 @@ function normalizeApp(value: unknown, fallback: AppDownloadContent): AppDownload
 export function normalizeAppDownloadsContent(value: unknown): AppDownloadsContent {
   if (!value || typeof value !== "object") return DEFAULT_APP_DOWNLOADS_CONTENT;
   const source = value as Partial<AppDownloadsContent>;
-  const apps = source.apps && typeof source.apps === "object" ? source.apps : {};
+  const apps: Partial<AppDownloadsContent["apps"]> =
+    source.apps && typeof source.apps === "object" ? source.apps : {};
   return {
     heading: text(source.heading, DEFAULT_APP_DOWNLOADS_CONTENT.heading),
     introduction: text(source.introduction, DEFAULT_APP_DOWNLOADS_CONTENT.introduction),

@@ -108,6 +108,12 @@ export const organizations = pgTable("organizations", {
   pricePerDeviceOverride: integer("price_per_device_override"),
   /** Day the billing cycle started; every cycle runs anchor + N months. */
   billingAnchorAt: timestamp("billing_anchor_at", { withTimezone: true }),
+  /** Postpaid invoicing is opt-in and starts only after platform activation. */
+  billingEnabled: boolean("billing_enabled").notNull().default(false),
+  billingClosingDay: smallint("billing_closing_day"),
+  billingPendingClosingDay: smallint("billing_pending_closing_day"),
+  billingActivatedAt: timestamp("billing_activated_at", { withTimezone: true }),
+  billingSuspendedAt: timestamp("billing_suspended_at", { withTimezone: true }),
   adminNotes: text("admin_notes"),
   /** Default WhatsApp recipient for device alerts; usable only after OTP verification. */
   alertWhatsapp: text("alert_whatsapp"),
@@ -798,6 +804,184 @@ export const billingEntries = pgTable(
       t.kind,
     ),
   ],
+);
+
+/** Frozen monthly invoices. Their monetary fields never change after closing. */
+export const billingInvoices = pgTable(
+  "billing_invoices",
+  {
+    id: uuid("id").primaryKey().defaultRandom(),
+    organizationId: uuid("organization_id")
+      .notNull()
+      .references(() => organizations.id, { onDelete: "cascade" }),
+    number: text("number").notNull(),
+    periodStart: timestamp("period_start", { withTimezone: true }).notNull(),
+    periodEnd: timestamp("period_end", { withTimezone: true }).notNull(),
+    dueAt: timestamp("due_at", { withTimezone: true }).notNull(),
+    status: text("status").notNull().default("open"),
+    subtotalCents: integer("subtotal_cents").notNull().default(0),
+    creditsCents: integer("credits_cents").notNull().default(0),
+    totalCents: integer("total_cents").notNull().default(0),
+    closedAt: timestamp("closed_at", { withTimezone: true }).notNull().defaultNow(),
+    paidAt: timestamp("paid_at", { withTimezone: true }),
+    voidedAt: timestamp("voided_at", { withTimezone: true }),
+    createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
+  },
+  (t) => [
+    uniqueIndex("billing_invoices_number_unique").on(t.number),
+    uniqueIndex("billing_invoices_org_period_unique").on(t.organizationId, t.periodEnd),
+    index("billing_invoices_org_status_due_idx").on(t.organizationId, t.status, t.dueAt),
+  ],
+);
+
+export const billingInvoiceItems = pgTable(
+  "billing_invoice_items",
+  {
+    id: uuid("id").primaryKey().defaultRandom(),
+    invoiceId: uuid("invoice_id")
+      .notNull()
+      .references(() => billingInvoices.id, { onDelete: "cascade" }),
+    billingEntryId: uuid("billing_entry_id").references(() => billingEntries.id, {
+      onDelete: "set null",
+    }),
+    description: text("description").notNull(),
+    quantity: integer("quantity").notNull().default(1),
+    unitAmountCents: integer("unit_amount_cents").notNull().default(0),
+    amountCents: integer("amount_cents").notNull().default(0),
+    metadata: jsonb("metadata")
+      .notNull()
+      .default(sql`'{}'::jsonb`),
+    createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
+  },
+  (t) => [index("billing_invoice_items_invoice_idx").on(t.invoiceId)],
+);
+
+export const billingPaymentAttempts = pgTable(
+  "billing_payment_attempts",
+  {
+    id: uuid("id").primaryKey().defaultRandom(),
+    organizationId: uuid("organization_id")
+      .notNull()
+      .references(() => organizations.id, { onDelete: "cascade" }),
+    method: text("method").notNull(),
+    status: text("status").notNull().default("creating"),
+    amountCents: integer("amount_cents").notNull(),
+    providerOrderId: text("provider_order_id"),
+    providerPaymentId: text("provider_payment_id"),
+    externalReference: text("external_reference").notNull(),
+    idempotencyKey: text("idempotency_key").notNull(),
+    /** Non-null only while this is the organization's single active attempt. */
+    activeKey: text("active_key"),
+    qrCode: text("qr_code"),
+    qrCodeBase64: text("qr_code_base64"),
+    ticketUrl: text("ticket_url"),
+    redirectUrl: text("redirect_url"),
+    digitableLine: text("digitable_line"),
+    statusDetail: text("status_detail"),
+    expiresAt: timestamp("expires_at", { withTimezone: true }),
+    approvedAt: timestamp("approved_at", { withTimezone: true }),
+    canceledAt: timestamp("canceled_at", { withTimezone: true }),
+    providerLastUpdatedAt: timestamp("provider_last_updated_at", { withTimezone: true }),
+    createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
+  },
+  (t) => [
+    uniqueIndex("billing_payment_attempts_provider_order_unique").on(t.providerOrderId),
+    uniqueIndex("billing_payment_attempts_external_ref_unique").on(t.externalReference),
+    uniqueIndex("billing_payment_attempts_idempotency_unique").on(t.idempotencyKey),
+    uniqueIndex("billing_payment_attempts_active_unique").on(t.activeKey),
+    index("billing_payment_attempts_org_created_idx").on(t.organizationId, t.createdAt),
+  ],
+);
+
+export const billingPaymentAttemptInvoices = pgTable(
+  "billing_payment_attempt_invoices",
+  {
+    attemptId: uuid("attempt_id")
+      .notNull()
+      .references(() => billingPaymentAttempts.id, { onDelete: "cascade" }),
+    invoiceId: uuid("invoice_id")
+      .notNull()
+      .references(() => billingInvoices.id, { onDelete: "restrict" }),
+    allocatedCents: integer("allocated_cents").notNull(),
+  },
+  (t) => [primaryKey({ columns: [t.attemptId, t.invoiceId] })],
+);
+
+export const billingProfiles = pgTable("billing_profiles", {
+  organizationId: uuid("organization_id")
+    .primaryKey()
+    .references(() => organizations.id, { onDelete: "cascade" }),
+  legalName: text("legal_name").notNull(),
+  documentType: text("document_type").notNull(),
+  documentNumber: text("document_number").notNull(),
+  zipCode: text("zip_code").notNull(),
+  street: text("street").notNull(),
+  number: text("number").notNull(),
+  neighborhood: text("neighborhood").notNull(),
+  city: text("city").notNull(),
+  state: text("state").notNull(),
+  updatedAt: timestamp("updated_at", { withTimezone: true }).notNull().defaultNow(),
+});
+
+export const billingNotifications = pgTable(
+  "billing_notifications",
+  {
+    id: uuid("id").primaryKey().defaultRandom(),
+    organizationId: uuid("organization_id")
+      .notNull()
+      .references(() => organizations.id, { onDelete: "cascade" }),
+    invoiceId: uuid("invoice_id")
+      .notNull()
+      .references(() => billingInvoices.id, { onDelete: "cascade" }),
+    kind: text("kind").notNull(),
+    recipient: text("recipient"),
+    status: text("status").notNull().default("pending"),
+    attempts: integer("attempts").notNull().default(0),
+    nextAttemptAt: timestamp("next_attempt_at", { withTimezone: true }).notNull().defaultNow(),
+    processingAt: timestamp("processing_at", { withTimezone: true }),
+    error: text("error"),
+    sentAt: timestamp("sent_at", { withTimezone: true }),
+    createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
+  },
+  (t) => [
+    uniqueIndex("billing_notifications_invoice_kind_unique").on(t.invoiceId, t.kind),
+    index("billing_notifications_status_idx").on(t.status, t.createdAt),
+  ],
+);
+
+export const billingCredits = pgTable(
+  "billing_credits",
+  {
+    id: uuid("id").primaryKey().defaultRandom(),
+    organizationId: uuid("organization_id")
+      .notNull()
+      .references(() => organizations.id, { onDelete: "cascade" }),
+    attemptId: uuid("attempt_id").references(() => billingPaymentAttempts.id, {
+      onDelete: "set null",
+    }),
+    amountCents: integer("amount_cents").notNull(),
+    remainingCents: integer("remaining_cents").notNull(),
+    reason: text("reason").notNull(),
+    createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
+  },
+  (t) => [index("billing_credits_org_remaining_idx").on(t.organizationId, t.remainingCents)],
+);
+
+export const billingAuditLogs = pgTable(
+  "billing_audit_logs",
+  {
+    id: uuid("id").primaryKey().defaultRandom(),
+    organizationId: uuid("organization_id")
+      .notNull()
+      .references(() => organizations.id, { onDelete: "cascade" }),
+    actorUserId: uuid("actor_user_id").references(() => users.id, { onDelete: "set null" }),
+    action: text("action").notNull(),
+    details: jsonb("details")
+      .notNull()
+      .default(sql`'{}'::jsonb`),
+    createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
+  },
+  (t) => [index("billing_audit_logs_org_created_idx").on(t.organizationId, t.createdAt)],
 );
 
 export const organizationsRelations = relations(organizations, ({ many }) => ({

@@ -9,6 +9,9 @@ const credentialsSchema = z.object({
 const signUpSchema = credentialsSchema.extend({
   name: z.string().trim().min(2, "Informe seu nome").max(120),
   organizationName: z.string().trim().min(2, "Informe o nome da empresa").max(160),
+  billingClosingDay: z
+    .union([z.literal(1), z.literal(5), z.literal(10), z.literal(15), z.literal(20)])
+    .default(5),
 });
 
 export type AuthResult = { ok: true } | { ok: false; message: string };
@@ -102,6 +105,7 @@ export const signUp = createServerFn({ method: "POST" })
             name: data.organizationName,
             slug: `${slugBase}-${Date.now().toString(36)}`,
             planId: freePlanId,
+            billingClosingDay: data.billingClosingDay,
           })
           .returning({ id: schema.organizations.id });
 

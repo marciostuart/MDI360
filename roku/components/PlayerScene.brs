@@ -21,6 +21,7 @@ sub init()
     m.brandLabel = m.top.findNode("brandLabel")
     m.pairingTitle = m.top.findNode("pairingTitle")
     m.statusLabel = m.top.findNode("statusLabel")
+    m.suspended = m.top.findNode("suspended")
 
     m.items = []
     ' All playable items of the current playlist, in order, including the ones
@@ -168,6 +169,17 @@ end sub
 sub onPayload()
     payload = m.sync.payload
     if payload = invalid then return
+    if payload.suspended = true
+        m.suspended.visible = true
+        m.video.control = "stop"
+        m.video.visible = false
+        m.slide.visible = false
+        m.widget.visible = false
+        m.queue.visible = false
+        m.pairing.visible = false
+        return
+    end if
+    m.suspended.visible = false
     beat()
 
     ' Rede de seguranca: se uma chamada passou do seu tempo (timer perdido),

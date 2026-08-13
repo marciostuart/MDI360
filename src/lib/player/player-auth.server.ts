@@ -57,7 +57,10 @@ export async function resolveDeviceByToken(request: Request): Promise<
     )
     .limit(1);
 
-  return rows[0] ?? null;
+  const row = rows[0];
+  return row
+    ? { ...row, enabledModes: Array.isArray(row.enabledModes) ? (row.enabledModes as string[]) : ["display"] }
+    : null;
 }
 
 /**
@@ -93,5 +96,8 @@ export async function authenticateDevice(request: Request): Promise<PlayerDevice
 
   const device = rows[0];
   if (!device || device.status !== "active" || !device.organizationId) return null;
-  return device;
+  return {
+    ...device,
+    enabledModes: Array.isArray(device.enabledModes) ? (device.enabledModes as string[]) : ["display"],
+  };
 }

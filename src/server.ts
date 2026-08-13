@@ -43,6 +43,36 @@ if (!lotteryState.__mdiLotterySyncStarted) {
   interval.unref?.();
 }
 
+const billingState = globalThis as typeof globalThis & { __mdiBillingStarted?: boolean };
+if (!billingState.__mdiBillingStarted) {
+  billingState.__mdiBillingStarted = true;
+  const runBilling = () => {
+    void Promise.all([
+      import("./lib/billing/postpaid.server").then(async ({
+        closeElapsedBillingCycles,
+        enforceBillingSuspensions,
+        queueDueDateNotifications,
+      }) => {
+        await closeElapsedBillingCycles();
+        await queueDueDateNotifications();
+        await enforceBillingSuspensions();
+      }),
+      import("./lib/billing/notifications.server").then(({ sendPendingBillingNotifications }) =>
+        sendPendingBillingNotifications(),
+      ),
+      import("./lib/billing/payments.server").then(({ reconcilePendingAttempts }) =>
+        reconcilePendingAttempts(),
+      ),
+    ]).catch((error) =>
+      console.error("[billing] falha no ciclo", error instanceof Error ? error.message : error),
+    );
+  };
+  const firstRun = setTimeout(runBilling, 20_000);
+  const interval = setInterval(runBilling, 5 * 60_000);
+  firstRun.unref?.();
+  interval.unref?.();
+}
+
 async function getServerEntry(): Promise<ServerEntry> {
   if (!serverEntryPromise) {
     serverEntryPromise = import("@tanstack/react-start/server-entry").then(

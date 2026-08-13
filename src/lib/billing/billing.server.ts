@@ -12,6 +12,7 @@
 import { and, eq, gte, sql } from "drizzle-orm";
 
 import { getDb, schema } from "@/lib/db/index.server";
+import { currentPostpaidCycle, isBillingClosingDay } from "@/lib/billing/cycles";
 
 export type BillingCycle = {
   start: Date;
@@ -108,6 +109,8 @@ type BillingContext = {
   organizationId: string;
   planName: string | null;
   unitPriceCents: number;
+  flatPriceCents: number;
+  billingEnabled: boolean;
   cycle: BillingCycle;
 };
 
@@ -120,8 +123,12 @@ export async function getBillingContext(
     .select({
       planName: schema.plans.name,
       planUnit: schema.plans.pricePerDeviceCents,
+      planFlat: schema.plans.priceCents,
       unitOverride: schema.organizations.pricePerDeviceOverride,
       anchor: schema.organizations.billingAnchorAt,
+      billingEnabled: schema.organizations.billingEnabled,
+      billingClosingDay: schema.organizations.billingClosingDay,
+      billingActivatedAt: schema.organizations.billingActivatedAt,
       createdAt: schema.organizations.createdAt,
     })
     .from(schema.organizations)
@@ -130,7 +137,13 @@ export async function getBillingContext(
     .limit(1);
 
   const row = rows[0];
-  const anchor = row?.anchor ?? row?.createdAt ?? now;
+  const anchor = row?.billingActivatedAt ?? row?.anchor ?? row?.createdAt ?? now;
+  const cycle =
+    row?.billingEnabled &&
+    row.billingClosingDay != null &&
+    isBillingClosingDay(row.billingClosingDay)
+      ? currentPostpaidCycle(anchor, row.billingClosingDay, now)
+      : resolveCycle(anchor, now);
 
   // Backfills the anchor once, so the cycle stays stable from then on.
   if (row && !row.anchor) {
@@ -144,7 +157,9 @@ export async function getBillingContext(
     organizationId,
     planName: row?.planName ?? null,
     unitPriceCents: row?.unitOverride ?? row?.planUnit ?? 0,
-    cycle: resolveCycle(anchor, now),
+    flatPriceCents: row?.planFlat ?? 0,
+    billingEnabled: row?.billingEnabled ?? false,
+    cycle,
   };
 }
 
@@ -154,7 +169,7 @@ export async function getBillingContext(
  */
 export async function accrueCycleCharges(organizationId: string, now = new Date()) {
   const ctx = await getBillingContext(organizationId, now);
-  if (ctx.unitPriceCents <= 0) return ctx;
+  if (!ctx.billingEnabled || ctx.unitPriceCents <= 0) return ctx;
 
   const db = getDb();
   const devices = await db
@@ -209,7 +224,7 @@ export async function chargeDeviceActivation(
   now = new Date(),
 ) {
   const ctx = await getBillingContext(organizationId, now);
-  if (ctx.unitPriceCents <= 0) return;
+  if (!ctx.billingEnabled || ctx.unitPriceCents <= 0) return;
 
   const from = startOfDay(now) > ctx.cycle.start ? startOfDay(now) : ctx.cycle.start;
   const days = wholeDays(from, ctx.cycle.end);
@@ -243,7 +258,7 @@ export async function creditDeviceRemoval(
   now = new Date(),
 ) {
   const ctx = await getBillingContext(organizationId, now);
-  if (ctx.unitPriceCents <= 0) return;
+  if (!ctx.billingEnabled || ctx.unitPriceCents <= 0) return;
 
   const db = getDb();
   const charges = await db

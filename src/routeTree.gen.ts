@@ -51,6 +51,7 @@ import { Route as TorreClientesIndexRouteImport } from './routes/torre/clientes/
 import { Route as TorreClientesOrganizationIdRouteImport } from './routes/torre/clientes/$organizationId'
 import { Route as ApiPublicEmitterRegisterRouteImport } from './routes/api/public/emitter/register'
 import { Route as ApiPublicEmitterStatusRouteImport } from './routes/api/public/emitter/status'
+import { Route as ApiPublicMercadoPagoWebhookRouteImport } from './routes/api/public/mercado-pago/webhook'
 import { Route as ApiPublicPlayerAnnounceRouteImport } from './routes/api/public/player/announce'
 import { Route as ApiPublicPlayerChimeRouteImport } from './routes/api/public/player/chime'
 import { Route as ApiPublicPlayerEventsRouteImport } from './routes/api/public/player/events'
@@ -62,6 +63,8 @@ import { Route as ApiPublicPlayerSyncRouteImport } from './routes/api/public/pla
 import { Route as ApiPublicQueueCallRouteImport } from './routes/api/public/queue/call'
 import { Route as ApiPublicQueueIssueRouteImport } from './routes/api/public/queue/issue'
 import { Route as ApiPublicQueuePrintSpoolRouteImport } from './routes/api/public/queue/print-spool'
+import { Route as StudioFaturamentoBoletoAttemptIdRouteImport } from './routes/studio/faturamento/boleto/$attemptId'
+import { Route as StudioFaturamentoFaturaInvoiceIdRouteImport } from './routes/studio/faturamento/fatura/$invoiceId'
 
 const IndexRoute = IndexRouteImport.update({
   id: '/',
@@ -279,6 +282,12 @@ const ApiPublicEmitterStatusRoute = ApiPublicEmitterStatusRouteImport.update({
   path: '/api/public/emitter/status',
   getParentRoute: () => rootRouteImport,
 } as any)
+const ApiPublicMercadoPagoWebhookRoute =
+  ApiPublicMercadoPagoWebhookRouteImport.update({
+    id: '/api/public/mercado-pago/webhook',
+    path: '/api/public/mercado-pago/webhook',
+    getParentRoute: () => rootRouteImport,
+  } as any)
 const ApiPublicPlayerAnnounceRoute = ApiPublicPlayerAnnounceRouteImport.update({
   id: '/api/public/player/announce',
   path: '/api/public/player/announce',
@@ -336,6 +345,18 @@ const ApiPublicQueuePrintSpoolRoute =
     path: '/api/public/queue/print-spool',
     getParentRoute: () => rootRouteImport,
   } as any)
+const StudioFaturamentoBoletoAttemptIdRoute =
+  StudioFaturamentoBoletoAttemptIdRouteImport.update({
+    id: '/boleto/$attemptId',
+    path: '/boleto/$attemptId',
+    getParentRoute: () => StudioFaturamentoRoute,
+  } as any)
+const StudioFaturamentoFaturaInvoiceIdRoute =
+  StudioFaturamentoFaturaInvoiceIdRouteImport.update({
+    id: '/fatura/$invoiceId',
+    path: '/fatura/$invoiceId',
+    getParentRoute: () => StudioFaturamentoRoute,
+  } as any)
 
 export interface FileRoutesByFullPath {
   '/': typeof IndexRoute
@@ -349,7 +370,7 @@ export interface FileRoutesByFullPath {
   '/studio/configuracoes': typeof StudioConfiguracoesRoute
   '/studio/conteudos': typeof StudioConteudosRoute
   '/studio/downloads': typeof StudioDownloadsRoute
-  '/studio/faturamento': typeof StudioFaturamentoRoute
+  '/studio/faturamento': typeof StudioFaturamentoRouteWithChildren
   '/studio/playlists': typeof StudioPlaylistsRoute
   '/studio/relatorios': typeof StudioRelatoriosRoute
   '/studio/senhas': typeof StudioSenhasRoute
@@ -380,6 +401,7 @@ export interface FileRoutesByFullPath {
   '/torre/clientes/': typeof TorreClientesIndexRoute
   '/api/public/emitter/register': typeof ApiPublicEmitterRegisterRoute
   '/api/public/emitter/status': typeof ApiPublicEmitterStatusRoute
+  '/api/public/mercado-pago/webhook': typeof ApiPublicMercadoPagoWebhookRoute
   '/api/public/player/announce': typeof ApiPublicPlayerAnnounceRoute
   '/api/public/player/chime': typeof ApiPublicPlayerChimeRoute
   '/api/public/player/events': typeof ApiPublicPlayerEventsRoute
@@ -391,6 +413,8 @@ export interface FileRoutesByFullPath {
   '/api/public/queue/call': typeof ApiPublicQueueCallRoute
   '/api/public/queue/issue': typeof ApiPublicQueueIssueRoute
   '/api/public/queue/print-spool': typeof ApiPublicQueuePrintSpoolRoute
+  '/studio/faturamento/boleto/$attemptId': typeof StudioFaturamentoBoletoAttemptIdRoute
+  '/studio/faturamento/fatura/$invoiceId': typeof StudioFaturamentoFaturaInvoiceIdRoute
 }
 export interface FileRoutesByTo {
   '/': typeof IndexRoute
@@ -402,7 +426,7 @@ export interface FileRoutesByTo {
   '/studio/configuracoes': typeof StudioConfiguracoesRoute
   '/studio/conteudos': typeof StudioConteudosRoute
   '/studio/downloads': typeof StudioDownloadsRoute
-  '/studio/faturamento': typeof StudioFaturamentoRoute
+  '/studio/faturamento': typeof StudioFaturamentoRouteWithChildren
   '/studio/playlists': typeof StudioPlaylistsRoute
   '/studio/relatorios': typeof StudioRelatoriosRoute
   '/studio/senhas': typeof StudioSenhasRoute
@@ -433,6 +457,7 @@ export interface FileRoutesByTo {
   '/torre/clientes': typeof TorreClientesIndexRoute
   '/api/public/emitter/register': typeof ApiPublicEmitterRegisterRoute
   '/api/public/emitter/status': typeof ApiPublicEmitterStatusRoute
+  '/api/public/mercado-pago/webhook': typeof ApiPublicMercadoPagoWebhookRoute
   '/api/public/player/announce': typeof ApiPublicPlayerAnnounceRoute
   '/api/public/player/chime': typeof ApiPublicPlayerChimeRoute
   '/api/public/player/events': typeof ApiPublicPlayerEventsRoute
@@ -444,6 +469,8 @@ export interface FileRoutesByTo {
   '/api/public/queue/call': typeof ApiPublicQueueCallRoute
   '/api/public/queue/issue': typeof ApiPublicQueueIssueRoute
   '/api/public/queue/print-spool': typeof ApiPublicQueuePrintSpoolRoute
+  '/studio/faturamento/boleto/$attemptId': typeof StudioFaturamentoBoletoAttemptIdRoute
+  '/studio/faturamento/fatura/$invoiceId': typeof StudioFaturamentoFaturaInvoiceIdRoute
 }
 export interface FileRoutesById {
   __root__: typeof rootRouteImport
@@ -458,7 +485,7 @@ export interface FileRoutesById {
   '/studio/configuracoes': typeof StudioConfiguracoesRoute
   '/studio/conteudos': typeof StudioConteudosRoute
   '/studio/downloads': typeof StudioDownloadsRoute
-  '/studio/faturamento': typeof StudioFaturamentoRoute
+  '/studio/faturamento': typeof StudioFaturamentoRouteWithChildren
   '/studio/playlists': typeof StudioPlaylistsRoute
   '/studio/relatorios': typeof StudioRelatoriosRoute
   '/studio/senhas': typeof StudioSenhasRoute
@@ -489,6 +516,7 @@ export interface FileRoutesById {
   '/torre/clientes/': typeof TorreClientesIndexRoute
   '/api/public/emitter/register': typeof ApiPublicEmitterRegisterRoute
   '/api/public/emitter/status': typeof ApiPublicEmitterStatusRoute
+  '/api/public/mercado-pago/webhook': typeof ApiPublicMercadoPagoWebhookRoute
   '/api/public/player/announce': typeof ApiPublicPlayerAnnounceRoute
   '/api/public/player/chime': typeof ApiPublicPlayerChimeRoute
   '/api/public/player/events': typeof ApiPublicPlayerEventsRoute
@@ -500,6 +528,8 @@ export interface FileRoutesById {
   '/api/public/queue/call': typeof ApiPublicQueueCallRoute
   '/api/public/queue/issue': typeof ApiPublicQueueIssueRoute
   '/api/public/queue/print-spool': typeof ApiPublicQueuePrintSpoolRoute
+  '/studio/faturamento/boleto/$attemptId': typeof StudioFaturamentoBoletoAttemptIdRoute
+  '/studio/faturamento/fatura/$invoiceId': typeof StudioFaturamentoFaturaInvoiceIdRoute
 }
 export interface FileRouteTypes {
   fileRoutesByFullPath: FileRoutesByFullPath
@@ -546,6 +576,7 @@ export interface FileRouteTypes {
     | '/torre/clientes/'
     | '/api/public/emitter/register'
     | '/api/public/emitter/status'
+    | '/api/public/mercado-pago/webhook'
     | '/api/public/player/announce'
     | '/api/public/player/chime'
     | '/api/public/player/events'
@@ -557,6 +588,8 @@ export interface FileRouteTypes {
     | '/api/public/queue/call'
     | '/api/public/queue/issue'
     | '/api/public/queue/print-spool'
+    | '/studio/faturamento/boleto/$attemptId'
+    | '/studio/faturamento/fatura/$invoiceId'
   fileRoutesByTo: FileRoutesByTo
   to:
     | '/'
@@ -599,6 +632,7 @@ export interface FileRouteTypes {
     | '/torre/clientes'
     | '/api/public/emitter/register'
     | '/api/public/emitter/status'
+    | '/api/public/mercado-pago/webhook'
     | '/api/public/player/announce'
     | '/api/public/player/chime'
     | '/api/public/player/events'
@@ -610,6 +644,8 @@ export interface FileRouteTypes {
     | '/api/public/queue/call'
     | '/api/public/queue/issue'
     | '/api/public/queue/print-spool'
+    | '/studio/faturamento/boleto/$attemptId'
+    | '/studio/faturamento/fatura/$invoiceId'
   id:
     | '__root__'
     | '/'
@@ -654,6 +690,7 @@ export interface FileRouteTypes {
     | '/torre/clientes/'
     | '/api/public/emitter/register'
     | '/api/public/emitter/status'
+    | '/api/public/mercado-pago/webhook'
     | '/api/public/player/announce'
     | '/api/public/player/chime'
     | '/api/public/player/events'
@@ -665,6 +702,8 @@ export interface FileRouteTypes {
     | '/api/public/queue/call'
     | '/api/public/queue/issue'
     | '/api/public/queue/print-spool'
+    | '/studio/faturamento/boleto/$attemptId'
+    | '/studio/faturamento/fatura/$invoiceId'
   fileRoutesById: FileRoutesById
 }
 export interface RootRouteChildren {
@@ -687,6 +726,7 @@ export interface RootRouteChildren {
   ApiQueueKioskMediaRoute: typeof ApiQueueKioskMediaRoute
   ApiPublicEmitterRegisterRoute: typeof ApiPublicEmitterRegisterRoute
   ApiPublicEmitterStatusRoute: typeof ApiPublicEmitterStatusRoute
+  ApiPublicMercadoPagoWebhookRoute: typeof ApiPublicMercadoPagoWebhookRoute
   ApiPublicPlayerAnnounceRoute: typeof ApiPublicPlayerAnnounceRoute
   ApiPublicPlayerChimeRoute: typeof ApiPublicPlayerChimeRoute
   ApiPublicPlayerEventsRoute: typeof ApiPublicPlayerEventsRoute
@@ -996,6 +1036,13 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof ApiPublicEmitterStatusRouteImport
       parentRoute: typeof rootRouteImport
     }
+    '/api/public/mercado-pago/webhook': {
+      id: '/api/public/mercado-pago/webhook'
+      path: '/api/public/mercado-pago/webhook'
+      fullPath: '/api/public/mercado-pago/webhook'
+      preLoaderRoute: typeof ApiPublicMercadoPagoWebhookRouteImport
+      parentRoute: typeof rootRouteImport
+    }
     '/api/public/player/announce': {
       id: '/api/public/player/announce'
       path: '/api/public/player/announce'
@@ -1073,15 +1120,42 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof ApiPublicQueuePrintSpoolRouteImport
       parentRoute: typeof rootRouteImport
     }
+    '/studio/faturamento/boleto/$attemptId': {
+      id: '/studio/faturamento/boleto/$attemptId'
+      path: '/boleto/$attemptId'
+      fullPath: '/studio/faturamento/boleto/$attemptId'
+      preLoaderRoute: typeof StudioFaturamentoBoletoAttemptIdRouteImport
+      parentRoute: typeof StudioFaturamentoRoute
+    }
+    '/studio/faturamento/fatura/$invoiceId': {
+      id: '/studio/faturamento/fatura/$invoiceId'
+      path: '/fatura/$invoiceId'
+      fullPath: '/studio/faturamento/fatura/$invoiceId'
+      preLoaderRoute: typeof StudioFaturamentoFaturaInvoiceIdRouteImport
+      parentRoute: typeof StudioFaturamentoRoute
+    }
   }
 }
+
+interface StudioFaturamentoRouteChildren {
+  StudioFaturamentoBoletoAttemptIdRoute: typeof StudioFaturamentoBoletoAttemptIdRoute
+  StudioFaturamentoFaturaInvoiceIdRoute: typeof StudioFaturamentoFaturaInvoiceIdRoute
+}
+
+const StudioFaturamentoRouteChildren: StudioFaturamentoRouteChildren = {
+  StudioFaturamentoBoletoAttemptIdRoute: StudioFaturamentoBoletoAttemptIdRoute,
+  StudioFaturamentoFaturaInvoiceIdRoute: StudioFaturamentoFaturaInvoiceIdRoute,
+}
+
+const StudioFaturamentoRouteWithChildren =
+  StudioFaturamentoRoute._addFileChildren(StudioFaturamentoRouteChildren)
 
 interface StudioRouteRouteChildren {
   StudioAgendaRoute: typeof StudioAgendaRoute
   StudioConfiguracoesRoute: typeof StudioConfiguracoesRoute
   StudioConteudosRoute: typeof StudioConteudosRoute
   StudioDownloadsRoute: typeof StudioDownloadsRoute
-  StudioFaturamentoRoute: typeof StudioFaturamentoRoute
+  StudioFaturamentoRoute: typeof StudioFaturamentoRouteWithChildren
   StudioPlaylistsRoute: typeof StudioPlaylistsRoute
   StudioRelatoriosRoute: typeof StudioRelatoriosRoute
   StudioSenhasRoute: typeof StudioSenhasRoute
@@ -1100,7 +1174,7 @@ const StudioRouteRouteChildren: StudioRouteRouteChildren = {
   StudioConfiguracoesRoute: StudioConfiguracoesRoute,
   StudioConteudosRoute: StudioConteudosRoute,
   StudioDownloadsRoute: StudioDownloadsRoute,
-  StudioFaturamentoRoute: StudioFaturamentoRoute,
+  StudioFaturamentoRoute: StudioFaturamentoRouteWithChildren,
   StudioPlaylistsRoute: StudioPlaylistsRoute,
   StudioRelatoriosRoute: StudioRelatoriosRoute,
   StudioSenhasRoute: StudioSenhasRoute,
@@ -1162,6 +1236,7 @@ const rootRouteChildren: RootRouteChildren = {
   ApiQueueKioskMediaRoute: ApiQueueKioskMediaRoute,
   ApiPublicEmitterRegisterRoute: ApiPublicEmitterRegisterRoute,
   ApiPublicEmitterStatusRoute: ApiPublicEmitterStatusRoute,
+  ApiPublicMercadoPagoWebhookRoute: ApiPublicMercadoPagoWebhookRoute,
   ApiPublicPlayerAnnounceRoute: ApiPublicPlayerAnnounceRoute,
   ApiPublicPlayerChimeRoute: ApiPublicPlayerChimeRoute,
   ApiPublicPlayerEventsRoute: ApiPublicPlayerEventsRoute,

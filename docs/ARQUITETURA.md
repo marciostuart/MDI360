@@ -45,3 +45,13 @@ CAIXA diretamente e continuam usando o último resultado confirmado.
 - `electron-emitter/`: Electron para Windows e Debian/MiniOS, CUPS ou ESC/POS.
 
 Os binários são produtos de build e não pertencem ao histórico Git.
+### Faturamento pós-pago
+
+O extrato proporcional existente continua sendo a origem contábil. No fechamento, o servidor
+congela o período e seus itens em `billing_invoices` e `billing_invoice_items`. Tentativas de
+pagamento, rateios, notificações, créditos e auditoria ficam em tabelas próprias. O navegador
+recebe somente a Public Key; criação, valor, conciliação e reconhecimento de pagamentos são
+exclusivamente server-side.
+
+O agendador fecha ciclos, gera avisos, suspende inadimplentes e reconcilia ordens. Locks
+transacionais e chaves de idempotência impedem faturas ou cobranças duplicadas.

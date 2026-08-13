@@ -82,6 +82,7 @@ export const Route = createFileRoute("/api/public/player/sync")({
           color: string | null;
           logoUrl: string | null;
         } | null = null;
+        let suspended = false;
         if (device.organizationId) {
           const orgRows = await db
             .select({
@@ -89,12 +90,15 @@ export const Route = createFileRoute("/api/public/player/sync")({
               splashText: schema.organizations.brandSplashText,
               color: schema.organizations.brandColor,
               logoKey: schema.organizations.brandLogoKey,
+              billingEnabled: schema.organizations.billingEnabled,
+              subscriptionStatus: schema.organizations.subscriptionStatus,
             })
             .from(schema.organizations)
             .where(eq(schema.organizations.id, device.organizationId))
             .limit(1);
           const org = orgRows[0];
           if (org) {
+            suspended = org.billingEnabled && org.subscriptionStatus === "suspended";
             let logoUrl: string | null = null;
             if (org.logoKey) {
               try {
@@ -159,6 +163,7 @@ export const Route = createFileRoute("/api/public/player/sync")({
             syncIntervalMs: 60_000,
             // Seed for the long-poll channel (/api/public/player/events).
             revision,
+            suspended,
           },
           { headers: { "cache-control": "no-store" } },
         );

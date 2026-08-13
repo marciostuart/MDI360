@@ -17,6 +17,7 @@
     "lint": "eslint .",
     "format": "prettier --write .",
     "format:check": "prettier --check .",
+    "test:billing": "node --test --experimental-strip-types tests/*.test.ts",
     "check": "npm run lint && npm run build"
   },
   "dependencies": {

@@ -38,6 +38,7 @@ export const Route = createFileRoute("/api/public/queue/print-spool")({
           const panels = await db
             .select({
               panelId: schema.queuePanels.id,
+              organizationId: schema.queuePanels.organizationId,
               deviceName: schema.devices.name,
               emitterId: schema.queueEmitters.id,
               printerFooterText: schema.queuePanels.printerFooterText,
@@ -62,6 +63,12 @@ export const Route = createFileRoute("/api/public/queue/print-spool")({
             .limit(1);
 
           const panel = panels[0];
+          const { isOrganizationServiceSuspended, suspendedServiceResponse } = await import(
+            "@/lib/billing/access.server"
+          );
+          if (panel && (await isOrganizationServiceSuspended(panel.organizationId))) {
+            return suspendedServiceResponse();
+          }
           if (!panel) return new Response("Token inválido", { status: 404 });
           if (panel.emitterId) {
             await db

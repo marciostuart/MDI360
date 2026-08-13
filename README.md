@@ -6,6 +6,8 @@ para Windows e MiniOS/Linux.
 
 ## Recursos principais
 
+- Faturamento mensal pós-pago com faturas imutáveis, Pix, cartão e boleto pelo Checkout Transparente do Mercado Pago.
+
 - Terminais vinculados por código único, com mídia, emissão e chamada de senhas.
 - Conteúdos, playlists, agenda, widgets e atualização em segundo plano.
 - Filas, operadores, impressão ESC/POS e chamadas personalizadas.
@@ -29,6 +31,12 @@ Detalhes técnicos estão em [Arquitetura](docs/ARQUITETURA.md), procedimentos e
 [Operação](docs/OPERACAO.md) e controles em [Segurança](SECURITY.md).
 
 ## Desenvolvimento
+
+O motor de ciclos financeiros possui testes próprios:
+
+```bash
+npm run test:billing
+```
 
 Requisitos: Node.js 22 e Bun 1.3.3.
 

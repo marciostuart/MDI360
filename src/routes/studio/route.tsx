@@ -1,5 +1,5 @@
 import { createFileRoute, Link, Outlet, useNavigate, useRouterState } from "@tanstack/react-router";
-import { useMutation, useQueryClient } from "@tanstack/react-query";
+import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { useServerFn } from "@tanstack/react-start";
 import {
   CalendarClock,
@@ -23,6 +23,7 @@ import { Button } from "@/components/ui/button";
 import { ImpersonationBanner } from "@/components/admin/impersonation-banner";
 import { signOut } from "@/lib/auth/auth.functions";
 import { useCurrentUser } from "@/lib/auth/useCurrentUser";
+import { fetchPostpaidBilling } from "@/lib/billing/billing.functions";
 import { cn } from "@/lib/utils";
 
 export const Route = createFileRoute("/studio")({
@@ -58,17 +59,30 @@ function DashboardLayout() {
   const { data: user, isPending } = useCurrentUser();
   const pathname = useRouterState({ select: (state) => state.location.pathname });
   const signOutFn = useServerFn(signOut);
+  const suspended = Boolean(user?.billingEnabled && user.subscriptionStatus === "suspended");
+  const billing = useQuery({
+    queryKey: ["postpaid-billing-header"],
+    queryFn: () => fetchPostpaidBilling(),
+    enabled: Boolean(user?.billingEnabled),
+    refetchInterval: 60_000,
+  });
 
   // Server functions enforce access on their own; this is just UX routing.
   useEffect(() => {
-    if (!isPending && !user) navigate({ to: "/entrar" });
+    if (!isPending && !user) navigate({ to: "/entrar", search: { mode: "login" } });
   }, [isPending, user, navigate]);
+
+  useEffect(() => {
+    if (suspended && pathname !== "/studio/faturamento") navigate({ to: "/studio/faturamento" });
+  }, [navigate, pathname, suspended]);
+
+  const visibleNav = suspended ? NAV.filter((item) => item.to === "/studio/faturamento") : NAV;
 
   const signOutMutation = useMutation({
     mutationFn: () => signOutFn({}),
     onSuccess: async () => {
       await queryClient.invalidateQueries();
-      navigate({ to: "/entrar" });
+      navigate({ to: "/entrar", search: { mode: "login" } });
     },
   });
 
@@ -93,11 +107,11 @@ function DashboardLayout() {
           </Link>
 
           <nav className="flex flex-1 flex-col gap-1">
-            {NAV.map((item, index) => {
+            {visibleNav.map((item, index) => {
               const active = item.exact ? pathname === item.to : pathname.startsWith(item.to);
               return (
                 <Fragment key={item.to}>
-                  {item.section !== NAV[index - 1]?.section ? (
+                  {item.section !== visibleNav[index - 1]?.section ? (
                     <p
                       className={cn(
                         "px-3 pb-1 pt-4 text-[10px] font-semibold uppercase tracking-widest text-muted-foreground/70",
@@ -142,7 +156,7 @@ function DashboardLayout() {
 
         <div className="flex min-w-0 flex-1 flex-col">
           <header className="flex items-center gap-2 overflow-x-auto border-b border-border p-3 md:hidden">
-            {NAV.map((item) => (
+            {visibleNav.map((item) => (
               <Link
                 key={item.to}
                 to={item.to}
@@ -152,6 +166,15 @@ function DashboardLayout() {
               </Link>
             ))}
           </header>
+          {billing.data && billing.data.outstandingCents > 0 ? (
+            <div className="flex flex-wrap items-center justify-between gap-3 border-b border-amber-500/30 bg-amber-500/10 px-6 py-3 text-sm">
+              <span>
+                {suspended ? "Serviço suspenso por fatura vencida." : "Você possui uma fatura disponível."}{" "}
+                Saldo: {new Intl.NumberFormat("pt-BR", { style: "currency", currency: "BRL" }).format(billing.data.outstandingCents / 100)}
+              </span>
+              <Button asChild size="sm"><Link to="/studio/faturamento">Pagar agora</Link></Button>
+            </div>
+          ) : null}
           <main className="min-w-0 flex-1 p-6 lg:p-10">
             {/* Nested dashboard pages render here. */}
             <Outlet />

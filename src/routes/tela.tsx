@@ -20,6 +20,7 @@ type PlayerItem = {
 };
 
 type SyncResponse = {
+  suspended?: boolean;
   device: {
     id: string;
     name: string;
@@ -670,7 +671,11 @@ function PlayerScreen() {
 
   return (
     <div className="relative min-h-screen overflow-hidden bg-black">
-      {showHybridIssuer ? (
+      {sync.suspended ? (
+        <div className="grid h-screen w-screen place-items-center bg-black px-6 text-center text-white">
+          <div><h1 className="text-4xl font-semibold">Serviço temporariamente suspenso</h1><p className="mt-3 text-lg text-white/70">Entre em contato com o responsável pela conta MDI 360.</p></div>
+        </div>
+      ) : showHybridIssuer ? (
         <iframe
           src="/emitir/dispositivo?desktop=1"
           title="Emissor de senhas"

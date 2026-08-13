@@ -17,6 +17,8 @@ export type SessionUser = {
   name: string;
   organizationId: string;
   organizationName: string;
+  billingEnabled: boolean;
+  subscriptionStatus: string;
   roles: AppRole[];
 };
 
@@ -123,6 +125,8 @@ export async function getSessionUser(): Promise<SessionUser | null> {
       isActive: schema.users.isActive,
       organizationId: schema.organizations.id,
       organizationName: schema.organizations.name,
+      billingEnabled: schema.organizations.billingEnabled,
+      subscriptionStatus: schema.organizations.subscriptionStatus,
     })
     .from(schema.sessions)
     .innerJoin(schema.users, eq(schema.users.id, schema.sessions.userId))
@@ -146,14 +150,23 @@ export async function getSessionUser(): Promise<SessionUser | null> {
     name: row.name,
     organizationId: row.organizationId,
     organizationName: row.organizationName,
+    billingEnabled: row.billingEnabled,
+    subscriptionStatus: row.subscriptionStatus,
     roles: roleRows.map((r) => r.role),
   };
 }
 
 /** Use in any handler that must not run for anonymous visitors. */
-export async function requireUser(): Promise<SessionUser> {
+export async function requireUser(options: { allowSuspended?: boolean } = {}): Promise<SessionUser> {
   const user = await getSessionUser();
   if (!user) throw new Error("UNAUTHORIZED");
+  if (
+    !options.allowSuspended &&
+    user.billingEnabled &&
+    user.subscriptionStatus === "suspended"
+  ) {
+    throw new Error("SUBSCRIPTION_SUSPENDED");
+  }
   return user;
 }
 

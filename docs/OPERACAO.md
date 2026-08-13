@@ -22,6 +22,14 @@ configurado.
 
 ## Verificações periódicas
 
+### Faturamento
+
+- Acompanhe na Torre faturas, itens, tentativas, créditos e falhas de WhatsApp.
+- Use **Conciliar** quando um webhook parecer atrasado; a Order será consultada no Mercado Pago.
+- Falha no WhatsApp não impede vencimento nem suspensão.
+- Se o Mercado Pago estiver indisponível, preserve a tentativa e use a conciliação.
+
+
 - Testar vínculo e persistência após reinício.
 - Conferir atualização silenciosa de playlists.
 - Conferir relatório de exibição por plataforma.

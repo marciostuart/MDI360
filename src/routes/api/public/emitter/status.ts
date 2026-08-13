@@ -33,6 +33,18 @@ export const Route = createFileRoute("/api/public/emitter/status")({
             );
           }
 
+          const panel = await getDb().query.queuePanels.findFirst({
+            columns: { organizationId: true },
+            where: eq(schema.queuePanels.id, emitter.panelId),
+          });
+          const { isOrganizationServiceSuspended } = await import("@/lib/billing/access.server");
+          if (await isOrganizationServiceSuspended(panel?.organizationId ?? null)) {
+            return Response.json(
+              { state: "suspended" },
+              { headers: { "cache-control": "no-store" } },
+            );
+          }
+
           await getDb()
             .update(schema.queueEmitters)
             .set({ lastSeenAt: new Date() })
