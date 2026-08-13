@@ -26,6 +26,7 @@
         "jspdf": "^4.2.1",
         "jspdf-autotable": "^5.0.8",
         "lucide-react": "^0.575.0",
+        "nodemailer": "^9.0.5",
         "pg": "^8.22.0",
         "react": "^19.2.0",
         "react-dom": "^19.2.0",
@@ -40,6 +41,7 @@
       "devDependencies": {
         "@eslint/js": "^9.32.0",
         "@types/node": "^22.16.5",
+        "@types/nodemailer": "^7.0.12",
         "@types/pg": "^8.20.0",
         "@types/react": "^19.2.0",
         "@types/react-dom": "^19.2.0",
@@ -462,6 +464,8 @@
 
     "@types/node": ["@types/node@22.20.1", "", { "dependencies": { "undici-types": "~6.21.0" } }, ""],
 
+    "@types/nodemailer": ["@types/nodemailer@7.0.12", "", { "dependencies": { "@types/node": "*" } }, "sha512-80vKwiIsVSyFA1rRovH59jNPLBOuc6dRZIHEu40gXTkBkZnQv8vog1xSGEb9j5q/tdMAs5ivvDR2pLTU0hGHXA=="],
+
     "@types/pako": ["@types/pako@2.0.4", "", {}, ""],
 
     "@types/pg": ["@types/pg@8.20.3", "", { "dependencies": { "@types/node": "*", "pg-protocol": "*", "pg-types": "^2.2.0" } }, ""],
@@ -789,6 +793,8 @@
     "nitro": ["nitro@3.0.260603-beta", "", { "dependencies": { "consola": "^3.4.2", "crossws": "^0.4.5", "db0": "^0.3.4", "env-runner": "^0.1.9", "h3": "^2.0.1-rc.22", "hookable": "^6.1.1", "nf3": "^0.3.17", "ocache": "^0.1.4", "ofetch": "^2.0.0-alpha.3", "ohash": "^2.0.11", "rolldown": "^1.0.3", "srvx": "^0.11.16", "unenv": "^2.0.0-rc.24", "unstorage": "^2.0.0-alpha.7" }, "peerDependencies": { "@vercel/queue": "^0.2.0", "dotenv": "*", "giget": "*", "jiti": "^2.7.0", "rollup": "^4.60.4", "vite": "^7 || ^8", "xml2js": "^0.6.2", "zephyr-agent": "^0.2.0" }, "optionalPeers": ["@vercel/queue", "dotenv", "giget", "rollup", "xml2js", "zephyr-agent"], "bin": "dist/cli/index.mjs" }, ""],
 
     "node-releases": ["node-releases@2.0.51", "", {}, ""],
+
+    "nodemailer": ["nodemailer@9.0.5", "", {}, "sha512-wvjiKvjczmsN7U/8006JOdXubgBk2XFAbioDMbT+sM7cPs0QrhJTa6KBRX7P5REGGkDcLUz/EarWidb8G8C1jQ=="],
 
     "object-assign": ["object-assign@4.1.1", "", {}, ""],
 
