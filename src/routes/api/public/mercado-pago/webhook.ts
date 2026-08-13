@@ -29,6 +29,13 @@ export const Route = createFileRoute("/api/public/mercado-pago/webhook")({
             });
             return new Response("Assinatura inválida", { status: 401 });
           }
+          if (dataId.startsWith("ORDTST")) {
+            console.info("[mercado-pago-webhook] simulacao validada", {
+              dataId,
+              environment: credentials.environment,
+            });
+            return new Response("OK", { status: 200 });
+          }
           const order = await getMercadoPagoOrder(dataId, credentials);
           if (
             order.external_reference?.startsWith("mdi360_sandbox_") ||
