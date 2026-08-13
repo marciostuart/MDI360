@@ -11,6 +11,29 @@ const API_URL = "https://api.mercadopago.com";
 
 export class MercadoPagoHttpError extends Error {}
 
+type MercadoPagoErrorDetail = {
+  code?: string;
+  message?: string;
+  detail?: string;
+};
+
+type MercadoPagoErrorPayload = {
+  message?: string;
+  error?: string;
+  code?: string;
+  errors?: MercadoPagoErrorDetail[];
+  cause?: MercadoPagoErrorDetail[];
+};
+
+function describeMercadoPagoError(payload: MercadoPagoErrorPayload) {
+  const details = [...(payload.errors ?? []), ...(payload.cause ?? [])]
+    .flatMap((item) => [item.code, item.message, item.detail])
+    .filter((value): value is string => Boolean(value));
+  return [...new Set([payload.code, payload.error, payload.message, ...details].filter(Boolean))]
+    .join(" | ")
+    .slice(0, 600);
+}
+
 export type MercadoPagoOrder = {
   id?: string;
   status?: string;
@@ -70,13 +93,11 @@ async function request(
   if (!response) {
     throw lastError instanceof Error ? lastError : new Error("MERCADO_PAGO_NETWORK_ERROR");
   }
-  const payload = (await response.json().catch(() => ({}))) as MercadoPagoOrder & {
-    message?: string;
-  };
+  const payload = (await response.json().catch(() => ({}))) as MercadoPagoOrder &
+    MercadoPagoErrorPayload;
   if (!response.ok) {
-    throw new MercadoPagoHttpError(
-      `MERCADO_PAGO_HTTP_${response.status}:${payload.message ?? "erro"}`,
-    );
+    const description = describeMercadoPagoError(payload) || "erro sem detalhes";
+    throw new MercadoPagoHttpError(`MERCADO_PAGO_HTTP_${response.status}:${description}`);
   }
   return payload;
 }

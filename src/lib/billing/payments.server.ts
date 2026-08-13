@@ -20,6 +20,8 @@ import { listOutstandingInvoices } from "@/lib/billing/postpaid.server";
 import { getDb, schema } from "@/lib/db/index.server";
 
 export type BillingMethod = "pix" | "card" | "boleto";
+const BILLING_REFERENCE_PREFIX = "mdi360_";
+const LEGACY_BILLING_REFERENCE_PREFIX = "mdi360:";
 export type BoletoProfileInput = {
   legalName: string;
   documentType: "CPF" | "CNPJ";
@@ -111,7 +113,7 @@ export async function createBillingAttempt(input: CreateAttemptInput) {
 
   const db = getDb();
   const attemptId = randomUUID();
-  const externalReference = `mdi360:${attemptId}`;
+  const externalReference = `${BILLING_REFERENCE_PREFIX}${attemptId}`;
   const idempotencyKey = randomUUID();
   await db.transaction(async (tx) => {
     await tx.insert(schema.billingPaymentAttempts).values({
@@ -186,7 +188,7 @@ export async function createBillingAttempt(input: CreateAttemptInput) {
         street_number: profile.number,
         neighborhood: profile.neighborhood,
         city: profile.city,
-        federal_unit: profile.state,
+        state: profile.state,
       },
     };
   }
@@ -277,8 +279,13 @@ export async function reconcileMercadoPagoOrder(
   suppliedCredentials?: MercadoPagoCredentials,
 ) {
   const reference = order.external_reference;
-  if (!reference?.startsWith("mdi360:")) throw new Error("UNKNOWN_EXTERNAL_REFERENCE");
-  const attemptId = reference.slice("mdi360:".length);
+  const prefix = reference?.startsWith(BILLING_REFERENCE_PREFIX)
+    ? BILLING_REFERENCE_PREFIX
+    : reference?.startsWith(LEGACY_BILLING_REFERENCE_PREFIX)
+      ? LEGACY_BILLING_REFERENCE_PREFIX
+      : null;
+  if (!reference || !prefix) throw new Error("UNKNOWN_EXTERNAL_REFERENCE");
+  const attemptId = reference.slice(prefix.length);
   const db = getDb();
   const attempt = await getAttempt(attemptId);
   if (!attempt) throw new Error("UNKNOWN_PAYMENT_ATTEMPT");

@@ -21,7 +21,10 @@ export const Route = createFileRoute("/api/public/mercado-pago/webhook")({
             return new Response("Evento ignorado", { status: 200 });
           }
           const order = await getMercadoPagoOrder(dataId, credentials);
-          if (order.external_reference?.startsWith("mdi360-sandbox:")) {
+          if (
+            order.external_reference?.startsWith("mdi360_sandbox_") ||
+            order.external_reference?.startsWith("mdi360-sandbox:")
+          ) {
             const { reconcileSandboxOrder } = await import("@/lib/billing/sandbox-payments.server");
             await reconcileSandboxOrder(order, "webhook");
           } else {

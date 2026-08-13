@@ -15,6 +15,9 @@ import { getDb, schema } from "@/lib/db/index.server";
 
 export type SandboxMethod = "pix" | "card" | "boleto";
 
+const SANDBOX_REFERENCE_PREFIX = "mdi360_sandbox_";
+const LEGACY_SANDBOX_REFERENCE_PREFIX = "mdi360-sandbox:";
+
 type SandboxCard = {
   token: string;
   paymentMethodId: string;
@@ -70,8 +73,13 @@ export async function reconcileSandboxOrder(
   source: "create" | "poll" | "webhook" = "poll",
 ) {
   const reference = order.external_reference ?? "";
-  if (!reference.startsWith("mdi360-sandbox:")) throw new Error("UNKNOWN_SANDBOX_REFERENCE");
-  const id = reference.slice("mdi360-sandbox:".length);
+  const prefix = reference.startsWith(SANDBOX_REFERENCE_PREFIX)
+    ? SANDBOX_REFERENCE_PREFIX
+    : reference.startsWith(LEGACY_SANDBOX_REFERENCE_PREFIX)
+      ? LEGACY_SANDBOX_REFERENCE_PREFIX
+      : null;
+  if (!prefix) throw new Error("UNKNOWN_SANDBOX_REFERENCE");
+  const id = reference.slice(prefix.length);
   const db = getDb();
   const [test] = await db
     .select()
@@ -120,7 +128,7 @@ export async function createSandboxTest(input: {
   if (credentials.liveMode) throw new Error("SANDBOX_CREDENTIALS_REQUIRED");
   const id = randomUUID();
   const idempotencyKey = randomUUID();
-  const externalReference = `mdi360-sandbox:${id}`;
+  const externalReference = `${SANDBOX_REFERENCE_PREFIX}${id}`;
   const db = getDb();
   await db.insert(schema.billingSandboxTests).values({
     id,
