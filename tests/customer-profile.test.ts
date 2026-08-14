@@ -39,3 +39,21 @@ test("normaliza e valida um cadastro completo", () => {
   assert.equal(result.zipCode, "30110028");
   assert.equal(result.state, "MG");
 });
+
+test("aceita telefone brasileiro colado com código do país", () => {
+  const result = customerProfileSchema.parse({
+    legalName: "Cliente Teste",
+    documentType: "CPF",
+    documentNumber: "529.982.247-25",
+    phone: "+55 (31) 99999-9999",
+    zipCode: "30110-028",
+    street: "Avenida Afonso Pena",
+    number: "1000",
+    complement: "",
+    neighborhood: "Centro",
+    city: "Belo Horizonte",
+    state: "MG",
+  });
+
+  assert.equal(result.phone, "31999999999");
+});

@@ -22,7 +22,11 @@ import {
   lookupAddressByCep,
   saveCustomerProfile,
 } from "@/lib/billing/customer-profile.functions";
-import { customerProfileSchema, isValidDocument } from "@/lib/billing/customer-profile";
+import {
+  customerProfileSchema,
+  isValidDocument,
+  normalizeBrazilPhone,
+} from "@/lib/billing/customer-profile";
 
 export const Route = createFileRoute("/studio/cadastro")({
   head: () => ({ meta: [{ title: "Meu cadastro | MDI 360" }] }),
@@ -58,7 +62,7 @@ function maskDocument(value: string, type: "CPF" | "CNPJ") {
 }
 
 function maskPhone(value: string) {
-  const digits = value.replace(/\D/g, "").slice(0, 11);
+  const digits = normalizeBrazilPhone(value).slice(0, 11);
   return digits.replace(/^(\d{2})(\d)/, "($1) $2").replace(/(\d{4,5})(\d{4})$/, "$1-$2");
 }
 
@@ -186,7 +190,9 @@ function CustomerProfilePage() {
           <Field label="Telefone com DDD">
             <Input
               value={maskPhone(form.phone)}
-              onChange={(event) => setForm({ ...form, phone: event.target.value })}
+              onChange={(event) =>
+                setForm({ ...form, phone: normalizeBrazilPhone(event.target.value).slice(0, 11) })
+              }
               inputMode="tel"
               autoComplete="tel"
             />

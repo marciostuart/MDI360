@@ -4,6 +4,13 @@ export function digits(value: string) {
   return value.replace(/\D/g, "");
 }
 
+export function normalizeBrazilPhone(value: string) {
+  const phone = digits(value);
+  return phone.startsWith("55") && (phone.length === 12 || phone.length === 13)
+    ? phone.slice(2)
+    : phone;
+}
+
 export function isValidCpf(value: string) {
   const cpf = digits(value);
   if (cpf.length !== 11 || /^(\d)\1+$/.test(cpf)) return false;
@@ -42,7 +49,15 @@ export const customerProfileSchema = z
     legalName: z.string().trim().min(3, "Informe o nome completo ou razão social.").max(160),
     documentType: z.enum(["CPF", "CNPJ"]),
     documentNumber: z.string().transform(digits),
-    phone: z.string().transform(digits).pipe(z.string().min(10).max(11)),
+    phone: z
+      .string()
+      .transform(normalizeBrazilPhone)
+      .pipe(
+        z
+          .string()
+          .min(10, "Informe o telefone com DDD.")
+          .max(11, "Informe um telefone brasileiro válido com DDD."),
+      ),
     zipCode: z.string().transform(digits).pipe(z.string().length(8)),
     street: z.string().trim().min(2).max(160),
     number: z.string().trim().min(1).max(30),
