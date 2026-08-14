@@ -24,7 +24,7 @@ export async function getConfiguredNewsFeed(id: string) {
       ? (news as Record<string, unknown>)[id]
       : null;
   if (!saved || typeof saved !== "object" || Array.isArray(saved))
-    return { enabled: true, ...fallback };
+    return { enabled: true, refreshMinutes: 30, ...fallback };
   const source = saved as Record<string, unknown>;
   const url = String(source.url ?? fallback.url).trim();
   return {

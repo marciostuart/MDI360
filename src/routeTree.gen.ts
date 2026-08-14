@@ -19,6 +19,7 @@ import { Route as EmitirIndexRouteImport } from './routes/emitir/index'
 import { Route as EmitirTokenRouteImport } from './routes/emitir.$token'
 import { Route as StudioIndexRouteImport } from './routes/studio/index'
 import { Route as StudioAgendaRouteImport } from './routes/studio/agenda'
+import { Route as StudioCadastroRouteImport } from './routes/studio/cadastro'
 import { Route as StudioConfiguracoesRouteImport } from './routes/studio/configuracoes'
 import { Route as StudioConteudosRouteImport } from './routes/studio/conteudos'
 import { Route as StudioDownloadsRouteImport } from './routes/studio/downloads'
@@ -117,6 +118,11 @@ const StudioIndexRoute = StudioIndexRouteImport.update({
 const StudioAgendaRoute = StudioAgendaRouteImport.update({
   id: '/agenda',
   path: '/agenda',
+  getParentRoute: () => StudioRouteRoute,
+} as any)
+const StudioCadastroRoute = StudioCadastroRouteImport.update({
+  id: '/cadastro',
+  path: '/cadastro',
   getParentRoute: () => StudioRouteRoute,
 } as any)
 const StudioConfiguracoesRoute = StudioConfiguracoesRouteImport.update({
@@ -385,6 +391,7 @@ export interface FileRoutesByFullPath {
   '/tela': typeof TelaRoute
   '/emitir/$token': typeof EmitirTokenRoute
   '/studio/agenda': typeof StudioAgendaRoute
+  '/studio/cadastro': typeof StudioCadastroRoute
   '/studio/configuracoes': typeof StudioConfiguracoesRoute
   '/studio/conteudos': typeof StudioConteudosRoute
   '/studio/downloads': typeof StudioDownloadsRoute
@@ -444,6 +451,7 @@ export interface FileRoutesByTo {
   '/tela': typeof TelaRoute
   '/emitir/$token': typeof EmitirTokenRoute
   '/studio/agenda': typeof StudioAgendaRoute
+  '/studio/cadastro': typeof StudioCadastroRoute
   '/studio/configuracoes': typeof StudioConfiguracoesRoute
   '/studio/conteudos': typeof StudioConteudosRoute
   '/studio/downloads': typeof StudioDownloadsRoute
@@ -506,6 +514,7 @@ export interface FileRoutesById {
   '/tela': typeof TelaRoute
   '/emitir/$token': typeof EmitirTokenRoute
   '/studio/agenda': typeof StudioAgendaRoute
+  '/studio/cadastro': typeof StudioCadastroRoute
   '/studio/configuracoes': typeof StudioConfiguracoesRoute
   '/studio/conteudos': typeof StudioConteudosRoute
   '/studio/downloads': typeof StudioDownloadsRoute
@@ -569,6 +578,7 @@ export interface FileRouteTypes {
     | '/tela'
     | '/emitir/$token'
     | '/studio/agenda'
+    | '/studio/cadastro'
     | '/studio/configuracoes'
     | '/studio/conteudos'
     | '/studio/downloads'
@@ -628,6 +638,7 @@ export interface FileRouteTypes {
     | '/tela'
     | '/emitir/$token'
     | '/studio/agenda'
+    | '/studio/cadastro'
     | '/studio/configuracoes'
     | '/studio/conteudos'
     | '/studio/downloads'
@@ -689,6 +700,7 @@ export interface FileRouteTypes {
     | '/tela'
     | '/emitir/$token'
     | '/studio/agenda'
+    | '/studio/cadastro'
     | '/studio/configuracoes'
     | '/studio/conteudos'
     | '/studio/downloads'
@@ -846,6 +858,13 @@ declare module '@tanstack/react-router' {
       path: '/agenda'
       fullPath: '/studio/agenda'
       preLoaderRoute: typeof StudioAgendaRouteImport
+      parentRoute: typeof StudioRouteRoute
+    }
+    '/studio/cadastro': {
+      id: '/studio/cadastro'
+      path: '/cadastro'
+      fullPath: '/studio/cadastro'
+      preLoaderRoute: typeof StudioCadastroRouteImport
       parentRoute: typeof StudioRouteRoute
     }
     '/studio/configuracoes': {
@@ -1209,6 +1228,7 @@ const StudioFaturamentoRouteWithChildren =
 
 interface StudioRouteRouteChildren {
   StudioAgendaRoute: typeof StudioAgendaRoute
+  StudioCadastroRoute: typeof StudioCadastroRoute
   StudioConfiguracoesRoute: typeof StudioConfiguracoesRoute
   StudioConteudosRoute: typeof StudioConteudosRoute
   StudioDownloadsRoute: typeof StudioDownloadsRoute
@@ -1228,6 +1248,7 @@ interface StudioRouteRouteChildren {
 
 const StudioRouteRouteChildren: StudioRouteRouteChildren = {
   StudioAgendaRoute: StudioAgendaRoute,
+  StudioCadastroRoute: StudioCadastroRoute,
   StudioConfiguracoesRoute: StudioConfiguracoesRoute,
   StudioConteudosRoute: StudioConteudosRoute,
   StudioDownloadsRoute: StudioDownloadsRoute,

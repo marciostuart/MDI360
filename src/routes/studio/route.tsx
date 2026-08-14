@@ -16,6 +16,7 @@ import {
   Download,
   CreditCard,
   Smartphone,
+  UserRound,
 } from "lucide-react";
 import { Fragment, useEffect } from "react";
 
@@ -24,6 +25,7 @@ import { ImpersonationBanner } from "@/components/admin/impersonation-banner";
 import { signOut } from "@/lib/auth/auth.functions";
 import { useCurrentUser } from "@/lib/auth/useCurrentUser";
 import { fetchPostpaidBilling } from "@/lib/billing/billing.functions";
+import { fetchCustomerProfile } from "@/lib/billing/customer-profile.functions";
 import { cn } from "@/lib/utils";
 
 export const Route = createFileRoute("/studio")({
@@ -49,6 +51,7 @@ const NAV: NavItem[] = [
   { to: "/studio/senhas", label: "Senhas e atendimento", icon: Ticket, section: "Atendimento" },
   { to: "/studio/relatorios", label: "Relatórios", icon: BarChart3, section: "Análise" },
   { to: "/studio/downloads", label: "Downloads", icon: Download, section: "Sistema" },
+  { to: "/studio/cadastro", label: "Meu cadastro", icon: UserRound, section: "Sistema" },
   { to: "/studio/configuracoes", label: "Configurações", icon: Settings, section: "Sistema" },
   { to: "/studio/faturamento", label: "Faturamento", icon: CreditCard, section: "Sistema" },
 ];
@@ -66,6 +69,12 @@ function DashboardLayout() {
     enabled: Boolean(user?.billingEnabled),
     refetchInterval: 60_000,
   });
+  const customerProfile = useQuery({
+    queryKey: ["customer-profile"],
+    queryFn: () => fetchCustomerProfile(),
+    enabled: Boolean(user),
+    staleTime: 60_000,
+  });
 
   // Server functions enforce access on their own; this is just UX routing.
   useEffect(() => {
@@ -73,10 +82,14 @@ function DashboardLayout() {
   }, [isPending, user, navigate]);
 
   useEffect(() => {
-    if (suspended && pathname !== "/studio/faturamento") navigate({ to: "/studio/faturamento" });
+    if (suspended && !["/studio/faturamento", "/studio/cadastro"].includes(pathname)) {
+      navigate({ to: "/studio/faturamento" });
+    }
   }, [navigate, pathname, suspended]);
 
-  const visibleNav = suspended ? NAV.filter((item) => item.to === "/studio/faturamento") : NAV;
+  const visibleNav = suspended
+    ? NAV.filter((item) => ["/studio/faturamento", "/studio/cadastro"].includes(item.to))
+    : NAV;
 
   const signOutMutation = useMutation({
     mutationFn: () => signOutFn({}),
@@ -169,10 +182,30 @@ function DashboardLayout() {
           {billing.data && billing.data.outstandingCents > 0 ? (
             <div className="flex flex-wrap items-center justify-between gap-3 border-b border-amber-500/30 bg-amber-500/10 px-6 py-3 text-sm">
               <span>
-                {suspended ? "Serviço suspenso por fatura vencida." : "Você possui uma fatura disponível."}{" "}
-                Saldo: {new Intl.NumberFormat("pt-BR", { style: "currency", currency: "BRL" }).format(billing.data.outstandingCents / 100)}
+                {suspended
+                  ? "Serviço suspenso por fatura vencida."
+                  : "Você possui uma fatura disponível."}{" "}
+                Saldo:{" "}
+                {new Intl.NumberFormat("pt-BR", { style: "currency", currency: "BRL" }).format(
+                  billing.data.outstandingCents / 100,
+                )}
               </span>
-              <Button asChild size="sm"><Link to="/studio/faturamento">Pagar agora</Link></Button>
+              <Button asChild size="sm">
+                <Link to="/studio/faturamento">Pagar agora</Link>
+              </Button>
+            </div>
+          ) : null}
+          {customerProfile.data &&
+          !customerProfile.data.complete &&
+          pathname !== "/studio/cadastro" ? (
+            <div className="flex flex-wrap items-center justify-between gap-3 border-b border-amber-400/30 bg-amber-400/10 px-6 py-2.5 text-sm">
+              <span>
+                Seu cadastro está incompleto. Complete seus dados para pagamentos mais seguros e com
+                maior chance de aprovação.
+              </span>
+              <Button asChild size="sm" variant="outline">
+                <Link to="/studio/cadastro">Completar cadastro</Link>
+              </Button>
             </div>
           ) : null}
           <main className="min-w-0 flex-1 p-6 lg:p-10">

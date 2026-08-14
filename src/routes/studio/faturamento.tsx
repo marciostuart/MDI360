@@ -1,5 +1,5 @@
 import { useEffect, useState } from "react";
-import { createFileRoute } from "@tanstack/react-router";
+import { createFileRoute, Link } from "@tanstack/react-router";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { useServerFn } from "@tanstack/react-start";
 import { CheckCircle2, Copy, CreditCard, FileText, Loader2, QrCode } from "lucide-react";
@@ -25,6 +25,13 @@ import {
   fetchPostpaidBilling,
   refreshPaymentAttempt,
 } from "@/lib/billing/billing.functions";
+import { fetchCustomerProfile } from "@/lib/billing/customer-profile.functions";
+
+declare global {
+  interface Window {
+    MP_DEVICE_SESSION_ID?: string;
+  }
+}
 
 export const Route = createFileRoute("/studio/faturamento")({
   head: () => ({
@@ -50,9 +57,10 @@ const STATUS: Record<string, string> = {
 
 type Attempt = Awaited<ReturnType<typeof createPaymentAttempt>>;
 type CreateAttemptData =
-  | { method: "pix" }
+  | { method: "pix"; deviceSessionId?: string }
   | {
       method: "card";
+      deviceSessionId?: string;
       card: {
         token: string;
         paymentMethodId: string;
@@ -60,20 +68,7 @@ type CreateAttemptData =
         documentNumber?: string;
       };
     }
-  | {
-      method: "boleto";
-      boleto: {
-        legalName: string;
-        documentType: "CPF" | "CNPJ";
-        documentNumber: string;
-        zipCode: string;
-        street: string;
-        number: string;
-        neighborhood: string;
-        city: string;
-        state: string;
-      };
-    };
+  | { method: "boleto"; deviceSessionId?: string };
 
 function BillingPage() {
   const queryClient = useQueryClient();
@@ -85,19 +80,22 @@ function BillingPage() {
     queryFn: () => fetchPostpaidBilling(),
     refetchInterval: 30_000,
   });
+  const customerProfile = useQuery({
+    queryKey: ["customer-profile"],
+    queryFn: () => fetchCustomerProfile(),
+  });
   const [attempt, setAttempt] = useState<Attempt | null>(null);
   const [closingDay, setClosingDay] = useState("5");
-  const [boleto, setBoleto] = useState({
-    legalName: "",
-    documentType: "CPF" as "CPF" | "CNPJ",
-    documentNumber: "",
-    zipCode: "",
-    street: "",
-    number: "",
-    neighborhood: "",
-    city: "",
-    state: "",
-  });
+
+  useEffect(() => {
+    if (document.querySelector('script[data-mdi-mp-security="true"]')) return;
+    const script = document.createElement("script");
+    script.src = "https://www.mercadopago.com/v2/security.js";
+    script.dataset.mdiMpSecurity = "true";
+    script.setAttribute("view", "checkout");
+    script.async = true;
+    document.head.appendChild(script);
+  }, []);
 
   const create = useMutation({
     mutationFn: (input: CreateAttemptData) => createAttemptFn({ data: input }),
@@ -256,7 +254,28 @@ function BillingPage() {
               O pagamento quitará todas as faturas abertas e vencidas listadas abaixo.
             </p>
           </div>
-          {attempt?.status === "approved" ? (
+          {customerProfile.isPending ? (
+            <Card>
+              <CardContent className="flex items-center gap-2 py-6 text-sm text-muted-foreground">
+                <Loader2 className="size-4 animate-spin" /> Verificando cadastro financeiro...
+              </CardContent>
+            </Card>
+          ) : !customerProfile.data?.complete ? (
+            <Card className="border-amber-500/40 bg-amber-500/5">
+              <CardHeader>
+                <CardTitle>Complete seu cadastro para pagar</CardTitle>
+                <CardDescription>
+                  Precisamos dos dados do responsável financeiro para enviar a cobrança com
+                  segurança e aumentar a chance de aprovação.
+                </CardDescription>
+              </CardHeader>
+              <CardContent>
+                <Button asChild>
+                  <Link to="/studio/cadastro">Completar cadastro</Link>
+                </Button>
+              </CardContent>
+            </Card>
+          ) : attempt?.status === "approved" ? (
             <Card className="border-primary/40">
               <CardContent className="flex items-center gap-3 pt-6">
                 <CheckCircle2 className="size-6 text-primary" />
@@ -297,7 +316,12 @@ function BillingPage() {
                       <PixAttempt attempt={attempt} />
                     ) : (
                       <Button
-                        onClick={() => create.mutate({ method: "pix" })}
+                        onClick={() =>
+                          create.mutate({
+                            method: "pix",
+                            deviceSessionId: window.MP_DEVICE_SESSION_ID,
+                          })
+                        }
                         disabled={create.isPending}
                       >
                         {create.isPending ? <Loader2 className="mr-2 size-4 animate-spin" /> : null}
@@ -329,7 +353,11 @@ function BillingPage() {
                     publicKey={data.publicKey}
                     amountCents={outstanding}
                     onTokenized={async (card) => {
-                      await create.mutateAsync({ method: "card", card });
+                      await create.mutateAsync({
+                        method: "card",
+                        card,
+                        deviceSessionId: window.MP_DEVICE_SESSION_ID,
+                      });
                     }}
                   />
                 ) : (
@@ -348,87 +376,25 @@ function BillingPage() {
                   <CardHeader>
                     <CardTitle>Boleto bancário</CardTitle>
                     <CardDescription>
-                      Informe os dados fiscais exigidos para a emissão.
+                      O boleto será emitido com os dados do seu cadastro financeiro.
                     </CardDescription>
                   </CardHeader>
-                  <CardContent>
+                  <CardContent className="space-y-4">
                     {attempt?.method === "boleto" && attempt.ticketUrl ? (
                       <BoletoAttempt attempt={attempt} />
                     ) : (
-                      <form
-                        className="grid gap-4 sm:grid-cols-2"
-                        onSubmit={(event) => {
-                          event.preventDefault();
-                          create.mutate({ method: "boleto", boleto });
-                        }}
+                      <Button
+                        onClick={() =>
+                          create.mutate({
+                            method: "boleto",
+                            deviceSessionId: window.MP_DEVICE_SESSION_ID,
+                          })
+                        }
+                        disabled={create.isPending}
                       >
-                        <Field
-                          label="Nome/Razão social"
-                          value={boleto.legalName}
-                          onChange={(value) => setBoleto((old) => ({ ...old, legalName: value }))}
-                          className="sm:col-span-2"
-                        />
-                        <div className="space-y-2">
-                          <Label>Documento</Label>
-                          <select
-                            className="h-10 w-full rounded-md border border-input bg-background px-3"
-                            value={boleto.documentType}
-                            onChange={(e) =>
-                              setBoleto((old) => ({
-                                ...old,
-                                documentType: e.target.value as "CPF" | "CNPJ",
-                              }))
-                            }
-                          >
-                            <option>CPF</option>
-                            <option>CNPJ</option>
-                          </select>
-                        </div>
-                        <Field
-                          label="Número do documento"
-                          value={boleto.documentNumber}
-                          onChange={(value) =>
-                            setBoleto((old) => ({ ...old, documentNumber: value }))
-                          }
-                        />
-                        <Field
-                          label="CEP"
-                          value={boleto.zipCode}
-                          onChange={(value) => setBoleto((old) => ({ ...old, zipCode: value }))}
-                        />
-                        <Field
-                          label="Endereço"
-                          value={boleto.street}
-                          onChange={(value) => setBoleto((old) => ({ ...old, street: value }))}
-                        />
-                        <Field
-                          label="Número"
-                          value={boleto.number}
-                          onChange={(value) => setBoleto((old) => ({ ...old, number: value }))}
-                        />
-                        <Field
-                          label="Bairro"
-                          value={boleto.neighborhood}
-                          onChange={(value) =>
-                            setBoleto((old) => ({ ...old, neighborhood: value }))
-                          }
-                        />
-                        <Field
-                          label="Cidade"
-                          value={boleto.city}
-                          onChange={(value) => setBoleto((old) => ({ ...old, city: value }))}
-                        />
-                        <Field
-                          label="UF"
-                          value={boleto.state}
-                          onChange={(value) =>
-                            setBoleto((old) => ({ ...old, state: value.toUpperCase() }))
-                          }
-                        />
-                        <Button type="submit" className="sm:col-span-2" disabled={create.isPending}>
-                          Gerar boleto
-                        </Button>
-                      </form>
+                        {create.isPending ? <Loader2 className="mr-2 size-4 animate-spin" /> : null}
+                        Gerar boleto
+                      </Button>
                     )}
                   </CardContent>
                 </Card>
@@ -503,24 +469,6 @@ function Summary({ label, value }: { label: string; value: string }) {
         <p className="font-display text-xl font-semibold">{value}</p>
       </CardContent>
     </Card>
-  );
-}
-function Field({
-  label,
-  value,
-  onChange,
-  className,
-}: {
-  label: string;
-  value: string;
-  onChange: (value: string) => void;
-  className?: string;
-}) {
-  return (
-    <div className={`space-y-2 ${className ?? ""}`}>
-      <Label>{label}</Label>
-      <Input required value={value} onChange={(event) => onChange(event.target.value)} />
-    </div>
   );
 }
 function PixAttempt({ attempt }: { attempt: NonNullable<Attempt> }) {

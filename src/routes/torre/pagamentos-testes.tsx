@@ -24,6 +24,7 @@ import {
   createSandboxPayment,
   fetchSandboxPayments,
   refreshSandboxPayment,
+  type CreateSandboxPaymentInput,
 } from "@/lib/admin/sandbox-payments.functions";
 
 export const Route = createFileRoute("/torre/pagamentos-testes")({
@@ -49,8 +50,7 @@ function SandboxPaymentsPage() {
   }, [amountValue]);
 
   const create = useMutation({
-    mutationFn: (input: Parameters<typeof createSandboxPayment>[0]["data"]) =>
-      createSandboxPayment({ data: input }),
+    mutationFn: (input: CreateSandboxPaymentInput) => createSandboxPayment({ data: input }),
     onSuccess: (result) => {
       setCurrent(result);
       void queryClient.invalidateQueries({ queryKey: ["sandbox-payments"] });

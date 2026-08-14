@@ -18,28 +18,17 @@ import {
 } from "@/lib/billing/mercado-pago-config.server";
 import { listOutstandingInvoices } from "@/lib/billing/postpaid.server";
 import { getDb, schema } from "@/lib/db/index.server";
+import { profileIsComplete } from "@/lib/billing/customer-profile";
 
 export type BillingMethod = "pix" | "card" | "boleto";
 const BILLING_REFERENCE_PREFIX = "mdi360_";
 const LEGACY_BILLING_REFERENCE_PREFIX = "mdi360:";
-export type BoletoProfileInput = {
-  legalName: string;
-  documentType: "CPF" | "CNPJ";
-  documentNumber: string;
-  zipCode: string;
-  street: string;
-  number: string;
-  neighborhood: string;
-  city: string;
-  state: string;
-};
-
 export type CreateAttemptInput = {
   organizationId: string;
   payerEmail: string;
+  deviceSessionId?: string;
   method: BillingMethod;
   card?: { token: string; paymentMethodId: string; documentType?: string; documentNumber?: string };
-  boleto?: BoletoProfileInput;
 };
 
 function amount(value: number) {
@@ -107,11 +96,34 @@ export async function createBillingAttempt(input: CreateAttemptInput) {
   if (input.method === "card" && (!input.card?.token || !input.card.paymentMethodId)) {
     throw new Error("INVALID_CARD_DATA");
   }
-  if (input.method === "boleto" && !input.boleto) throw new Error("INVALID_BOLETO_PROFILE");
+  const db = getDb();
+  const [[profile], [organization], [lastApprovedAttempt]] = await Promise.all([
+    db
+      .select()
+      .from(schema.billingProfiles)
+      .where(eq(schema.billingProfiles.organizationId, input.organizationId))
+      .limit(1),
+    db
+      .select({ createdAt: schema.organizations.createdAt })
+      .from(schema.organizations)
+      .where(eq(schema.organizations.id, input.organizationId))
+      .limit(1),
+    db
+      .select({ approvedAt: schema.billingPaymentAttempts.approvedAt })
+      .from(schema.billingPaymentAttempts)
+      .where(
+        and(
+          eq(schema.billingPaymentAttempts.organizationId, input.organizationId),
+          eq(schema.billingPaymentAttempts.status, "approved"),
+        ),
+      )
+      .orderBy(desc(schema.billingPaymentAttempts.approvedAt))
+      .limit(1),
+  ]);
+  if (!profileIsComplete(profile)) throw new Error("INCOMPLETE_CUSTOMER_PROFILE");
 
   await cancelActiveAttempt(input.organizationId);
 
-  const db = getDb();
   const attemptId = randomUUID();
   const externalReference = `${BILLING_REFERENCE_PREFIX}${attemptId}`;
   const idempotencyKey = randomUUID();
@@ -133,24 +145,32 @@ export async function createBillingAttempt(input: CreateAttemptInput) {
         allocatedCents: invoice.totalCents,
       })),
     );
-    if (input.boleto) {
-      await tx
-        .insert(schema.billingProfiles)
-        .values({ organizationId: input.organizationId, ...input.boleto })
-        .onConflictDoUpdate({
-          target: schema.billingProfiles.organizationId,
-          set: { ...input.boleto, updatedAt: new Date() },
-        });
-    }
   });
 
   const basePayment = { amount: amount(totalCents) };
   let payment: Record<string, unknown>;
-  let payer: Record<string, unknown> = { email: input.payerEmail };
+  const [firstName, ...lastNameParts] = profile.legalName.trim().split(/\s+/);
+  const phone = profile.phone.replace(/\D/g, "");
+  const payer: Record<string, unknown> = {
+    email: input.payerEmail,
+    first_name: firstName,
+    last_name: lastNameParts.join(" ") || firstName,
+    identification: { type: profile.documentType, number: profile.documentNumber },
+    phone: { area_code: phone.slice(0, 2), number: phone.slice(2) },
+    address: {
+      zip_code: profile.zipCode,
+      street_name: profile.street,
+      street_number: profile.number,
+      neighborhood: profile.neighborhood,
+      city: profile.city,
+      state: profile.state,
+      ...(profile.complement ? { complement: profile.complement } : {}),
+    },
+  };
   if (input.method === "pix") {
     payment = {
       ...basePayment,
-      payment_method: { id: "pix", type: "bank_transfer" },
+      payment_method: { id: "pix", type: "bank_transfer", statement_descriptor: "MDI360" },
       expiration_time: "P1D",
     };
   } else if (input.method === "card") {
@@ -161,35 +181,14 @@ export async function createBillingAttempt(input: CreateAttemptInput) {
         type: "credit_card",
         token: input.card!.token,
         installments: 1,
+        statement_descriptor: "MDI360",
       },
     };
-    if (input.card!.documentNumber) {
-      payer.identification = {
-        type: input.card!.documentType ?? "CPF",
-        number: input.card!.documentNumber,
-      };
-    }
   } else {
-    const profile = input.boleto!;
-    const [firstName, ...lastNameParts] = profile.legalName.trim().split(/\s+/);
     payment = {
       ...basePayment,
-      payment_method: { id: "boleto", type: "ticket" },
+      payment_method: { id: "boleto", type: "ticket", statement_descriptor: "MDI360" },
       expiration_time: "P3D",
-    };
-    payer = {
-      email: input.payerEmail,
-      first_name: firstName,
-      last_name: lastNameParts.join(" ") || firstName,
-      identification: { type: profile.documentType, number: profile.documentNumber },
-      address: {
-        zip_code: profile.zipCode,
-        street_name: profile.street,
-        street_number: profile.number,
-        neighborhood: profile.neighborhood,
-        city: profile.city,
-        state: profile.state,
-      },
     };
   }
 
@@ -198,11 +197,28 @@ export async function createBillingAttempt(input: CreateAttemptInput) {
       {
         type: "online",
         processing_mode: "automatic",
+        capture_mode: "automatic",
         external_reference: externalReference,
         total_amount: amount(totalCents),
+        description: "Assinatura MDI 360",
+        items: invoices.map((invoice) => ({
+          external_code: `invoice_${invoice.id}`,
+          title: `Fatura MDI 360 ${invoice.number}`,
+          description: "Serviços de sinalização digital e atendimento",
+          category_id: "services",
+          quantity: 1,
+          unit_price: amount(invoice.totalCents),
+        })),
+        additional_info: {
+          "payer.registration_date": organization?.createdAt?.toISOString(),
+          "payer.authentication_type": "WEB",
+          "payer.is_first_purchase_online": !lastApprovedAttempt,
+          ...(lastApprovedAttempt?.approvedAt
+            ? { "payer.last_purchase": lastApprovedAttempt.approvedAt.toISOString() }
+            : {}),
+        },
         ...(input.method === "card"
           ? {
-              capture_mode: "automatic",
               config: {
                 online: {
                   transaction_security: {
@@ -218,6 +234,7 @@ export async function createBillingAttempt(input: CreateAttemptInput) {
       },
       idempotencyKey,
       credentials,
+      input.deviceSessionId,
     );
     // Card orders may be approved synchronously. Run the exact same strict
     // reconciliation used by the webhook instead of waiting for a notification.

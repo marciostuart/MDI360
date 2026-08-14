@@ -951,12 +951,15 @@ export const billingProfiles = pgTable("billing_profiles", {
   legalName: text("legal_name").notNull(),
   documentType: text("document_type").notNull(),
   documentNumber: text("document_number").notNull(),
+  phone: text("phone").notNull().default(""),
   zipCode: text("zip_code").notNull(),
   street: text("street").notNull(),
   number: text("number").notNull(),
+  complement: text("complement").notNull().default(""),
   neighborhood: text("neighborhood").notNull(),
   city: text("city").notNull(),
   state: text("state").notNull(),
+  completedAt: timestamp("completed_at", { withTimezone: true }),
   updatedAt: timestamp("updated_at", { withTimezone: true }).notNull().defaultNow(),
 });
 

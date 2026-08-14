@@ -22,28 +22,11 @@ export const fetchBilling = createServerFn({ method: "GET" }).handler(
   },
 );
 
-const boletoSchema = z.object({
-  legalName: z.string().trim().min(2).max(160),
-  documentType: z.enum(["CPF", "CNPJ"]),
-  documentNumber: z
-    .string()
-    .transform((value) => value.replace(/\D/g, ""))
-    .pipe(z.string().min(11).max(14)),
-  zipCode: z
-    .string()
-    .transform((value) => value.replace(/\D/g, ""))
-    .pipe(z.string().length(8)),
-  street: z.string().trim().min(2).max(160),
-  number: z.string().trim().min(1).max(30),
-  neighborhood: z.string().trim().min(2).max(100),
-  city: z.string().trim().min(2).max(100),
-  state: z.string().trim().toUpperCase().length(2),
-});
-
 const attemptSchema = z.discriminatedUnion("method", [
-  z.object({ method: z.literal("pix") }),
+  z.object({ method: z.literal("pix"), deviceSessionId: z.string().max(200).optional() }),
   z.object({
     method: z.literal("card"),
+    deviceSessionId: z.string().max(200).optional(),
     card: z.object({
       token: z.string().min(10).max(500),
       paymentMethodId: z.string().min(1).max(60),
@@ -55,7 +38,7 @@ const attemptSchema = z.discriminatedUnion("method", [
         .optional(),
     }),
   }),
-  z.object({ method: z.literal("boleto"), boleto: boletoSchema }),
+  z.object({ method: z.literal("boleto"), deviceSessionId: z.string().max(200).optional() }),
 ]);
 
 export const fetchPostpaidBilling = createServerFn({ method: "GET" }).handler(async () => {
@@ -79,9 +62,9 @@ export const createPaymentAttempt = createServerFn({ method: "POST" })
     return createBillingAttempt({
       organizationId: user.organizationId,
       payerEmail: user.email,
+      deviceSessionId: data.deviceSessionId,
       method: data.method,
       card: data.method === "card" ? data.card : undefined,
-      boleto: data.method === "boleto" ? data.boleto : undefined,
     });
   });
 

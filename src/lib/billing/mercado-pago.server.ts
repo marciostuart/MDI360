@@ -119,10 +119,15 @@ export function createMercadoPagoOrder(
   body: unknown,
   idempotencyKey: string,
   credentials: MercadoPagoCredentials,
+  deviceSessionId?: string,
 ) {
   return request(
     "/v1/orders",
-    { method: "POST", body: JSON.stringify(body) },
+    {
+      method: "POST",
+      body: JSON.stringify(body),
+      headers: deviceSessionId ? { "x-meli-session-id": deviceSessionId } : undefined,
+    },
     idempotencyKey,
     credentials,
   );

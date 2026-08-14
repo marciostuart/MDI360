@@ -20,6 +20,8 @@ const createSchema = z.discriminatedUnion("method", [
   }),
 ]);
 
+export type CreateSandboxPaymentInput = z.infer<typeof createSchema>;
+
 export const fetchSandboxPayments = createServerFn({ method: "GET" }).handler(async () => {
   await requirePlatformAdmin();
   const { getMercadoPagoCredentials } = await import("@/lib/billing/mercado-pago-config.server");
