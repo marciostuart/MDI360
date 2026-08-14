@@ -22,11 +22,16 @@ export const Route = createFileRoute("/api/public/mercado-pago/webhook")({
             await import("@/lib/billing/mercado-pago.server");
           const credentials = await validateMercadoPagoWebhook(request, dataId);
           if (!credentials) {
-            console.warn("[mercado-pago-webhook] assinatura invalida", {
-              dataId,
-              eventType,
-              diagnostics: await diagnoseMercadoPagoWebhook(request, dataId),
-            });
+            const diagnostics = await diagnoseMercadoPagoWebhook(request, dataId);
+            console.warn(
+              `[mercado-pago-webhook] assinatura invalida ${JSON.stringify({ dataId, eventType, diagnostics })}`,
+            );
+            if (dataId.startsWith("ORDTST")) {
+              console.info(
+                `[mercado-pago-webhook] simulacao de conectividade aceita ${JSON.stringify({ dataId })}`,
+              );
+              return new Response("OK", { status: 200 });
+            }
             return new Response("Assinatura inválida", { status: 401 });
           }
           if (dataId.startsWith("ORDTST")) {
