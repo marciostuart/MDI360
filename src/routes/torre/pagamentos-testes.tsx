@@ -110,7 +110,7 @@ function SandboxPaymentsPage() {
       done: data.tests.some((test) => test.method === "boleto" && Boolean(test.ticketUrl)),
     },
     {
-      label: "Webhook validado",
+      label: "Webhook recebido",
       done: data.tests.some((test) => Boolean(test.webhookReceivedAt)),
     },
   ];
@@ -322,7 +322,7 @@ function TestResult({
           </p>
           <p>
             <span className="text-muted-foreground">Webhook:</span>{" "}
-            {test.webhookReceivedAt ? "recebido e validado" : "ainda não recebido"}
+            {test.webhookReceivedAt ? "recebido pelo endpoint" : "ainda não recebido"}
           </p>
         </div>
         {test.providerOrderId ? (

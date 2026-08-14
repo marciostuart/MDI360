@@ -27,17 +27,24 @@ export const Route = createFileRoute("/api/public/mercado-pago/webhook")({
               `[mercado-pago-webhook] assinatura invalida ${JSON.stringify({ dataId, eventType, diagnostics })}`,
             );
             if (dataId.startsWith("ORDTST")) {
+              const { markSandboxWebhookReceived } =
+                await import("@/lib/billing/sandbox-payments.server");
+              const sandboxTest = await markSandboxWebhookReceived(dataId);
               console.info(
-                `[mercado-pago-webhook] simulacao de conectividade aceita ${JSON.stringify({ dataId })}`,
+                `[mercado-pago-webhook] simulacao de conectividade aceita ${JSON.stringify({ dataId, sandboxTestMatched: Boolean(sandboxTest) })}`,
               );
               return new Response("OK", { status: 200 });
             }
             return new Response("Assinatura inválida", { status: 401 });
           }
           if (dataId.startsWith("ORDTST")) {
+            const { markSandboxWebhookReceived } =
+              await import("@/lib/billing/sandbox-payments.server");
+            const sandboxTest = await markSandboxWebhookReceived(dataId);
             console.info("[mercado-pago-webhook] simulacao validada", {
               dataId,
               environment: credentials.environment,
+              sandboxTestMatched: Boolean(sandboxTest),
             });
             return new Response("OK", { status: 200 });
           }

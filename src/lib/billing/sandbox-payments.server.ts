@@ -217,6 +217,16 @@ export async function getSandboxTest(id: string) {
   return row ?? null;
 }
 
+export async function markSandboxWebhookReceived(providerOrderId: string) {
+  const now = new Date();
+  const [test] = await getDb()
+    .update(schema.billingSandboxTests)
+    .set({ webhookReceivedAt: now, updatedAt: now })
+    .where(eq(schema.billingSandboxTests.providerOrderId, providerOrderId))
+    .returning({ id: schema.billingSandboxTests.id });
+  return test ?? null;
+}
+
 export async function refreshSandboxTest(id: string) {
   const test = await getSandboxTest(id);
   if (!test?.providerOrderId) return test;
