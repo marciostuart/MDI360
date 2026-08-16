@@ -182,7 +182,11 @@ function ClientsPage() {
                       {STATUS_LABEL[org.subscriptionStatus] ?? org.subscriptionStatus}
                     </Badge>
                     <Badge variant="secondary">{org.planName ?? "Sem plano"}</Badge>
-                    <Badge variant="outline">Vence {formatDate(org.subscriptionExpiresAt)}</Badge>
+                    <Badge variant="outline">
+                      {org.billingEnabled
+                        ? `Pós-pago · fecha dia ${org.billingClosingDay ?? "—"}`
+                        : `Vence ${formatDate(org.subscriptionExpiresAt)}`}
+                    </Badge>
                     <Badge variant="outline">
                       {org.linkedDevices}/{org.maxDevices} telas
                     </Badge>

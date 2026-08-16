@@ -5,6 +5,7 @@
 import { eq, sql } from "drizzle-orm";
 
 import { getDb, schema } from "@/lib/db/index.server";
+import { isSubscriptionExpired } from "@/lib/admin/subscription-rules";
 
 export type OrgLimits = {
   planName: string | null;
@@ -36,6 +37,7 @@ export async function getOrgLimits(organizationId: string): Promise<OrgLimits> {
       queueOverride: schema.organizations.queueEnabledOverride,
       status: schema.organizations.subscriptionStatus,
       expiresAt: schema.organizations.subscriptionExpiresAt,
+      billingEnabled: schema.organizations.billingEnabled,
     })
     .from(schema.organizations)
     .leftJoin(schema.plans, eq(schema.plans.id, schema.organizations.planId))
@@ -67,6 +69,11 @@ export async function getOrgLimits(organizationId: string): Promise<OrgLimits> {
     queueEnabled: row?.queueOverride ?? row?.planQueue ?? true,
     subscriptionStatus: row?.status ?? "trial",
     subscriptionExpiresAt: expiresAt,
-    expired: Boolean(expiresAt && expiresAt.getTime() < Date.now()),
+    // Postpaid accounts are suspended by the billing state after an overdue
+    // invoice. Their old/manual expiration date must not block new devices.
+    expired: isSubscriptionExpired({
+      billingEnabled: row?.billingEnabled ?? false,
+      expiresAt,
+    }),
   };
 }

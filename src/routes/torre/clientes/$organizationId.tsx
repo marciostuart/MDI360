@@ -321,14 +321,20 @@ function ClientDetail() {
             </div>
 
             <div className="space-y-2">
-              <Label>Vencimento</Label>
+              <Label>Vencimento da assinatura manual</Label>
               <Input
                 type="date"
                 value={form.subscriptionExpiresAt}
+                disabled={form.billingEnabled}
                 onChange={(event) =>
                   setForm((prev) => ({ ...prev, subscriptionExpiresAt: event.target.value }))
                 }
               />
+              {form.billingEnabled ? (
+                <p className="text-xs text-muted-foreground">
+                  No pós-pago, o acesso é controlado pelas faturas e não por esta data.
+                </p>
+              ) : null}
             </div>
 
             <div className="rounded-lg border border-border p-4">
