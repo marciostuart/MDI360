@@ -21,6 +21,12 @@ workflow **Publicar canal Roku**.
 3. Envie `mdi360-roku.zip` e instale.
 4. Vincule o código em **Studio > Terminais**.
 5. Confirme playlist, widgets e **Relatório de Exibição**.
+6. Na Roku, desative **Configurações > Rede > Economia de largura de banda**.
+7. Se disponível, desative **Configurações > Sistema > Energia > Economia automática de energia**.
+
+As duas configurações finais são obrigatórias para sinalização contínua. A
+Economia de largura de banda pode encerrar o canal após quatro horas sem uso do
+controle, e essa preferência do sistema não pode ser alterada pelo aplicativo.
 
 ## Imagens obrigatórias
 

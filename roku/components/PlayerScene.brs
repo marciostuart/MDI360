@@ -43,6 +43,11 @@ sub init()
     ' The remote is irrelevant on signage, and trick play only wastes memory.
     m.video.enableTrickPlay = false
     m.video.enableUI = false
+    ' Keep signage awake even while an image/widget is visible and the Video
+    ' node is hidden. These are Roku's supported SceneGraph controls for
+    ' suppressing the screen saver during continuous exhibition.
+    m.video.disableScreenSaver = true
+    m.video.enableScreenSaverWhilePlaying = false
 
     ' Stall watchdog: a video that stops advancing (weak Wi-Fi, slow upstream,
     ' heavy bitrate for this Roku) is resumed once and then skipped, so the

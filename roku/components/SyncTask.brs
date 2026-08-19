@@ -70,7 +70,7 @@ sub runLoop()
             linked = false
             m.top.activationCode = ""
             m.top.statusText = "Gerando codigo de ativacao..."
-            res = postJson(baseUrl + "/api/public/player/register", "", FormatJson({ appVersion: "roku-1.0.0" }))
+            res = postJson(baseUrl + "/api/public/player/register", "", FormatJson({ appVersion: "roku-1.1.21" }))
             if res.code = 200 and res.body <> invalid and res.body.deviceToken <> invalid and res.body.activationCode <> invalid
                 registryWrite("deviceToken", res.body.deviceToken)
                 m.top.activationCode = res.body.activationCode
@@ -122,7 +122,7 @@ sub runLoop()
                 sleep(10000)
             end if
         else
-            res = postJson(baseUrl + "/api/public/player/sync", token, FormatJson({ appVersion: "roku-1.0.0" }))
+            res = postJson(baseUrl + "/api/public/player/sync", token, FormatJson({ appVersion: "roku-1.1.21" }))
 
             if res.code = 401
                 ' Unlinked or removed in the Studio: go back to the waiting loop,
