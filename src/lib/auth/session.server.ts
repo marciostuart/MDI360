@@ -58,6 +58,7 @@ export async function createSession(userId: string) {
 export async function destroySession() {
   const token = getCookie(COOKIE_NAME);
   deleteCookie(COOKIE_NAME, { path: "/" });
+  deleteCookie(IMPERSONATOR_COOKIE, { path: "/" });
   if (!token) return;
   const db = getDb();
   await db.delete(schema.sessions).where(eq(schema.sessions.id, hashToken(token)));
@@ -74,7 +75,8 @@ export async function destroySession() {
  */
 export async function startImpersonation(userId: string) {
   const current = getCookie(COOKIE_NAME);
-  if (current) {
+  const originalAlreadyParked = getCookie(IMPERSONATOR_COOKIE);
+  if (current && !originalAlreadyParked) {
     setCookie(IMPERSONATOR_COOKIE, current, {
       httpOnly: true,
       secure: process.env.NODE_ENV === "production",
@@ -96,7 +98,7 @@ export async function stopImpersonation(): Promise<boolean> {
   if (!original) return false;
 
   const current = getCookie(COOKIE_NAME);
-  if (current) {
+  if (current && current !== original) {
     await getDb()
       .delete(schema.sessions)
       .where(eq(schema.sessions.id, hashToken(current)));

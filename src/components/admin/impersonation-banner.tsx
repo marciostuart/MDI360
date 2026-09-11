@@ -1,6 +1,6 @@
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
-import { useNavigate } from "@tanstack/react-router";
 import { LogOut, ShieldAlert } from "lucide-react";
+import { toast } from "sonner";
 
 import { Button } from "@/components/ui/button";
 import { endImpersonation, fetchImpersonationState } from "@/lib/admin/platform.functions";
@@ -10,7 +10,6 @@ import { endImpersonation, fetchImpersonationState } from "@/lib/admin/platform.
  * sessions are never mistaken for the customer's own session.
  */
 export function ImpersonationBanner() {
-  const navigate = useNavigate();
   const queryClient = useQueryClient();
   const { data } = useQuery({
     queryKey: ["impersonation-state"],
@@ -19,10 +18,15 @@ export function ImpersonationBanner() {
 
   const exit = useMutation({
     mutationFn: () => endImpersonation(),
-    onSuccess: async () => {
-      await queryClient.invalidateQueries();
-      void navigate({ to: "/torre/clientes" });
+    onSuccess: (result) => {
+      if (!result.ok) {
+        toast.error("A sessão administrativa expirou. Saia e entre novamente na Torre.");
+        return;
+      }
+      queryClient.clear();
+      window.location.assign("/torre/clientes");
     },
+    onError: () => toast.error("Não foi possível restaurar a sessão administrativa."),
   });
 
   if (!data?.impersonating) return null;

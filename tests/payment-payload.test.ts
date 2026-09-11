@@ -64,3 +64,56 @@ test("order Pix segue o payload minimo oficial", () => {
     },
   );
 });
+
+test("order de boleto envia apenas os dados obrigatorios do pagador", () => {
+  const payment = buildBillingPayment("boleto", "43.42");
+  assert.deepEqual(
+    buildBillingOrderPayload({
+      method: "boleto",
+      totalAmount: "43.42",
+      externalReference: "mdi360_attempt",
+      payerEmail: "Cliente@Example.com",
+      payer: {
+        email: "Cliente@Example.com",
+        first_name: "Maria",
+        last_name: "Silva",
+        identification: { type: "CPF", number: "19119119100" },
+        phone: { area_code: "11", number: "999999999" },
+        address: {
+          street_name: "Rua Teste",
+          street_number: "54",
+          zip_code: "39890000",
+          neighborhood: "Centro",
+          state: "MG",
+          city: "Joáima",
+          complement: "Fundos",
+        },
+      },
+      payment,
+      items: [{ title: "Fatura" }],
+      additionalInfo: { "payer.authentication_type": "WEB" },
+    }),
+    {
+      type: "online",
+      processing_mode: "automatic",
+      external_reference: "mdi360_attempt",
+      total_amount: "43.42",
+      description: "Assinatura MDI 360",
+      payer: {
+        email: "cliente@example.com",
+        first_name: "Maria",
+        last_name: "Silva",
+        identification: { type: "CPF", number: "19119119100" },
+        address: {
+          street_name: "Rua Teste",
+          street_number: "54",
+          zip_code: "39890000",
+          neighborhood: "Centro",
+          state: "MG",
+          city: "Joáima",
+        },
+      },
+      transactions: { payments: [payment] },
+    },
+  );
+});

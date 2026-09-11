@@ -903,7 +903,9 @@ export const impersonateOrganization = createServerFn({ method: "POST" })
   });
 
 export const endImpersonation = createServerFn({ method: "POST" }).handler(async () => {
-  const { stopImpersonation } = await import("@/lib/auth/session.server");
+  const { getImpersonatorUser, stopImpersonation } = await import("@/lib/auth/session.server");
+  const original = await getImpersonatorUser();
+  if (!original || !isPlatformEmail(original.email)) return { ok: false };
   return { ok: await stopImpersonation() };
 });
 

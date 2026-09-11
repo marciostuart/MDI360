@@ -51,9 +51,8 @@ export function buildBillingPayment(
 }
 
 /**
- * Pix uses the minimal payload documented by Mercado Pago. The richer payer,
- * item and risk data remains on card and boleto orders, where those fields are
- * used for approval quality and boleto issuance.
+ * Pix and boleto follow their method-specific documented payloads. Rich item
+ * and risk data remains on card orders, where it improves approval quality.
  */
 export function buildBillingOrderPayload(input: BillingOrderInput) {
   const base = {
@@ -68,24 +67,42 @@ export function buildBillingOrderPayload(input: BillingOrderInput) {
     return { ...base, payer: { email: input.payerEmail.trim().toLowerCase() } };
   }
 
+  if (input.method === "boleto") {
+    const address = input.payer.address as Record<string, unknown>;
+    return {
+      ...base,
+      description: "Assinatura MDI 360",
+      payer: {
+        email: input.payerEmail.trim().toLowerCase(),
+        first_name: input.payer.first_name,
+        last_name: input.payer.last_name,
+        identification: input.payer.identification,
+        address: {
+          street_name: address.street_name,
+          street_number: address.street_number,
+          zip_code: address.zip_code,
+          neighborhood: address.neighborhood,
+          state: address.state,
+          city: address.city,
+        },
+      },
+    };
+  }
+
   return {
     ...base,
     capture_mode: "automatic",
     description: "Assinatura MDI 360",
     items: input.items,
     additional_info: input.additionalInfo,
-    ...(input.method === "card"
-      ? {
-          config: {
-            online: {
-              transaction_security: {
-                validation: "on_fraud_risk",
-                liability_shift: "required",
-              },
-            },
-          },
-        }
-      : {}),
+    config: {
+      online: {
+        transaction_security: {
+          validation: "on_fraud_risk",
+          liability_shift: "required",
+        },
+      },
+    },
     payer: input.payer,
   };
 }
