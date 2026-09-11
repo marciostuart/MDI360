@@ -26,10 +26,12 @@ import {
   refreshPaymentAttempt,
 } from "@/lib/billing/billing.functions";
 import { fetchCustomerProfile } from "@/lib/billing/customer-profile.functions";
+import { normalizeDeviceSessionId } from "@/lib/billing/device-session";
 
 declare global {
   interface Window {
     MP_DEVICE_SESSION_ID?: string;
+    MDI_MP_DEVICE_SESSION_ID?: string;
   }
 }
 
@@ -70,6 +72,12 @@ type CreateAttemptData =
     }
   | { method: "boleto"; deviceSessionId?: string };
 
+function currentDeviceSessionId() {
+  return normalizeDeviceSessionId(
+    window.MDI_MP_DEVICE_SESSION_ID ?? window.MP_DEVICE_SESSION_ID,
+  );
+}
+
 function BillingPage() {
   const queryClient = useQueryClient();
   const createAttemptFn = useServerFn(createPaymentAttempt);
@@ -93,6 +101,7 @@ function BillingPage() {
     script.src = "https://www.mercadopago.com/v2/security.js";
     script.dataset.mdiMpSecurity = "true";
     script.setAttribute("view", "checkout");
+    script.setAttribute("output", "MDI_MP_DEVICE_SESSION_ID");
     script.async = true;
     document.head.appendChild(script);
   }, []);
@@ -247,7 +256,7 @@ function BillingPage() {
       ) : null}
 
       {outstanding > 0 ? (
-        <section className="space-y-4">
+        <section id="pagar-saldo" className="scroll-mt-6 space-y-4">
           <div>
             <h2 className="font-display text-xl font-semibold">Pagar saldo</h2>
             <p className="text-sm text-muted-foreground">
@@ -319,7 +328,7 @@ function BillingPage() {
                         onClick={() =>
                           create.mutate({
                             method: "pix",
-                            deviceSessionId: window.MP_DEVICE_SESSION_ID,
+                            deviceSessionId: currentDeviceSessionId(),
                           })
                         }
                         disabled={create.isPending}
@@ -356,7 +365,7 @@ function BillingPage() {
                       await create.mutateAsync({
                         method: "card",
                         card,
-                        deviceSessionId: window.MP_DEVICE_SESSION_ID,
+                        deviceSessionId: currentDeviceSessionId(),
                       });
                     }}
                   />
@@ -387,7 +396,7 @@ function BillingPage() {
                         onClick={() =>
                           create.mutate({
                             method: "boleto",
-                            deviceSessionId: window.MP_DEVICE_SESSION_ID,
+                            deviceSessionId: currentDeviceSessionId(),
                           })
                         }
                         disabled={create.isPending}

@@ -191,7 +191,7 @@ function DashboardLayout() {
                 )}
               </span>
               <Button asChild size="sm">
-                <Link to="/studio/faturamento">Pagar agora</Link>
+                <a href="/studio/faturamento#pagar-saldo">Pagar agora</a>
               </Button>
             </div>
           ) : null}

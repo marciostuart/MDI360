@@ -2,6 +2,7 @@ import { createServerFn } from "@tanstack/react-start";
 import { z } from "zod";
 
 import type { BillingSummary } from "@/lib/billing/billing.server";
+import { normalizeDeviceSessionId } from "@/lib/billing/device-session";
 
 export type { BillingSummary } from "@/lib/billing/billing.server";
 
@@ -22,11 +23,16 @@ export const fetchBilling = createServerFn({ method: "GET" }).handler(
   },
 );
 
+const optionalDeviceSessionId = z.preprocess(
+  normalizeDeviceSessionId,
+  z.string().max(200).optional(),
+);
+
 const attemptSchema = z.discriminatedUnion("method", [
-  z.object({ method: z.literal("pix"), deviceSessionId: z.string().max(200).optional() }),
+  z.object({ method: z.literal("pix"), deviceSessionId: optionalDeviceSessionId }),
   z.object({
     method: z.literal("card"),
-    deviceSessionId: z.string().max(200).optional(),
+    deviceSessionId: optionalDeviceSessionId,
     card: z.object({
       token: z.string().min(10).max(500),
       paymentMethodId: z.string().min(1).max(60),
@@ -38,7 +44,7 @@ const attemptSchema = z.discriminatedUnion("method", [
         .optional(),
     }),
   }),
-  z.object({ method: z.literal("boleto"), deviceSessionId: z.string().max(200).optional() }),
+  z.object({ method: z.literal("boleto"), deviceSessionId: optionalDeviceSessionId }),
 ]);
 
 export const fetchPostpaidBilling = createServerFn({ method: "GET" }).handler(async () => {

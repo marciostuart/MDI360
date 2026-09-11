@@ -5,6 +5,7 @@ import {
   getMercadoPagoCredentials,
   type MercadoPagoCredentials,
 } from "@/lib/billing/mercado-pago-config.server";
+import { normalizeDeviceSessionId } from "@/lib/billing/device-session";
 import { validateMercadoPagoWebhookSignature } from "@/lib/billing/mercado-pago-signature";
 import { inspectMercadoPagoWebhookSignature } from "@/lib/billing/mercado-pago-signature";
 
@@ -121,12 +122,13 @@ export function createMercadoPagoOrder(
   credentials: MercadoPagoCredentials,
   deviceSessionId?: string,
 ) {
+  const safeDeviceSessionId = normalizeDeviceSessionId(deviceSessionId);
   return request(
     "/v1/orders",
     {
       method: "POST",
       body: JSON.stringify(body),
-      headers: deviceSessionId ? { "x-meli-session-id": deviceSessionId } : undefined,
+      headers: safeDeviceSessionId ? { "x-meli-session-id": safeDeviceSessionId } : undefined,
     },
     idempotencyKey,
     credentials,
