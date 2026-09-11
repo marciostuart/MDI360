@@ -19,7 +19,7 @@ import {
 import { listOutstandingInvoices } from "@/lib/billing/postpaid.server";
 import { getDb, schema } from "@/lib/db/index.server";
 import { profileIsComplete } from "@/lib/billing/customer-profile";
-import { buildBillingPayment } from "@/lib/billing/payment-payload";
+import { buildBillingOrderPayload, buildBillingPayment } from "@/lib/billing/payment-payload";
 
 export type BillingMethod = "pix" | "card" | "boleto";
 const BILLING_REFERENCE_PREFIX = "mdi360_";
@@ -167,47 +167,34 @@ export async function createBillingAttempt(input: CreateAttemptInput) {
     },
   };
   const payment = buildBillingPayment(input.method, amount(totalCents), input.card);
+  const orderPayload = buildBillingOrderPayload({
+    method: input.method,
+    totalAmount: amount(totalCents),
+    externalReference,
+    payerEmail: input.payerEmail,
+    payer,
+    payment,
+    items: invoices.map((invoice) => ({
+      external_code: `invoice_${invoice.id}`,
+      title: `Fatura MDI 360 ${invoice.number}`,
+      description: "Serviços de sinalização digital e atendimento",
+      category_id: "services",
+      quantity: 1,
+      unit_price: amount(invoice.totalCents),
+    })),
+    additionalInfo: {
+      "payer.registration_date": organization?.createdAt?.toISOString(),
+      "payer.authentication_type": "WEB",
+      "payer.is_first_purchase_online": !lastApprovedAttempt,
+      ...(lastApprovedAttempt?.approvedAt
+        ? { "payer.last_purchase": lastApprovedAttempt.approvedAt.toISOString() }
+        : {}),
+    },
+  });
 
   try {
     const order = await createMercadoPagoOrder(
-      {
-        type: "online",
-        processing_mode: "automatic",
-        capture_mode: "automatic",
-        external_reference: externalReference,
-        total_amount: amount(totalCents),
-        description: "Assinatura MDI 360",
-        items: invoices.map((invoice) => ({
-          external_code: `invoice_${invoice.id}`,
-          title: `Fatura MDI 360 ${invoice.number}`,
-          description: "Serviços de sinalização digital e atendimento",
-          category_id: "services",
-          quantity: 1,
-          unit_price: amount(invoice.totalCents),
-        })),
-        additional_info: {
-          "payer.registration_date": organization?.createdAt?.toISOString(),
-          "payer.authentication_type": "WEB",
-          "payer.is_first_purchase_online": !lastApprovedAttempt,
-          ...(lastApprovedAttempt?.approvedAt
-            ? { "payer.last_purchase": lastApprovedAttempt.approvedAt.toISOString() }
-            : {}),
-        },
-        ...(input.method === "card"
-          ? {
-              config: {
-                online: {
-                  transaction_security: {
-                    validation: "on_fraud_risk",
-                    liability_shift: "required",
-                  },
-                },
-              },
-            }
-          : {}),
-        payer,
-        transactions: { payments: [payment] },
-      },
+      orderPayload,
       idempotencyKey,
       credentials,
       input.deviceSessionId,

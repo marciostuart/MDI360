@@ -153,8 +153,9 @@ export const fetchInfraStatus = createServerFn({ method: "GET" }).handler(
 /* ------------------------------------------------------------------ */
 
 async function requirePlatform() {
-  const { getSessionUser } = await import("@/lib/auth/session.server");
-  const user = await getSessionUser();
+  const { getSessionUser, getImpersonatorUser } = await import("@/lib/auth/session.server");
+  const current = await getSessionUser();
+  const user = current && isPlatformEmail(current.email) ? current : await getImpersonatorUser();
   if (!user || !isPlatformEmail(user.email)) throw new Error("FORBIDDEN");
   return user;
 }

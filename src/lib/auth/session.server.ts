@@ -97,7 +97,9 @@ export async function stopImpersonation(): Promise<boolean> {
 
   const current = getCookie(COOKIE_NAME);
   if (current) {
-    await getDb().delete(schema.sessions).where(eq(schema.sessions.id, hashToken(current)));
+    await getDb()
+      .delete(schema.sessions)
+      .where(eq(schema.sessions.id, hashToken(current)));
   }
 
   deleteCookie(IMPERSONATOR_COOKIE, { path: "/" });
@@ -111,9 +113,7 @@ export async function stopImpersonation(): Promise<boolean> {
   return true;
 }
 
-/** Resolves the signed-in user, or null. Never throws on a missing session. */
-export async function getSessionUser(): Promise<SessionUser | null> {
-  const token = getCookie(COOKIE_NAME);
+async function getSessionUserByToken(token: string | undefined): Promise<SessionUser | null> {
   if (!token) return null;
 
   const db = getDb();
@@ -131,9 +131,7 @@ export async function getSessionUser(): Promise<SessionUser | null> {
     .from(schema.sessions)
     .innerJoin(schema.users, eq(schema.users.id, schema.sessions.userId))
     .innerJoin(schema.organizations, eq(schema.organizations.id, schema.users.organizationId))
-    .where(
-      and(eq(schema.sessions.id, hashToken(token)), gt(schema.sessions.expiresAt, new Date())),
-    )
+    .where(and(eq(schema.sessions.id, hashToken(token)), gt(schema.sessions.expiresAt, new Date())))
     .limit(1);
 
   const row = rows[0];
@@ -156,15 +154,27 @@ export async function getSessionUser(): Promise<SessionUser | null> {
   };
 }
 
+/** Resolves the signed-in user, or null. Never throws on a missing session. */
+export function getSessionUser(): Promise<SessionUser | null> {
+  return getSessionUserByToken(getCookie(COOKIE_NAME));
+}
+
+/**
+ * Resolves the platform user parked while support is impersonating a customer.
+ * The opaque token remains in an httpOnly cookie and is validated against the
+ * same sessions table and expiry rules as the active session.
+ */
+export function getImpersonatorUser(): Promise<SessionUser | null> {
+  return getSessionUserByToken(getCookie(IMPERSONATOR_COOKIE));
+}
+
 /** Use in any handler that must not run for anonymous visitors. */
-export async function requireUser(options: { allowSuspended?: boolean } = {}): Promise<SessionUser> {
+export async function requireUser(
+  options: { allowSuspended?: boolean } = {},
+): Promise<SessionUser> {
   const user = await getSessionUser();
   if (!user) throw new Error("UNAUTHORIZED");
-  if (
-    !options.allowSuspended &&
-    user.billingEnabled &&
-    user.subscriptionStatus === "suspended"
-  ) {
+  if (!options.allowSuspended && user.billingEnabled && user.subscriptionStatus === "suspended") {
     throw new Error("SUBSCRIPTION_SUSPENDED");
   }
   return user;
