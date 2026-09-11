@@ -19,6 +19,7 @@ import {
 import { listOutstandingInvoices } from "@/lib/billing/postpaid.server";
 import { getDb, schema } from "@/lib/db/index.server";
 import { profileIsComplete } from "@/lib/billing/customer-profile";
+import { buildBillingPayment } from "@/lib/billing/payment-payload";
 
 export type BillingMethod = "pix" | "card" | "boleto";
 const BILLING_REFERENCE_PREFIX = "mdi360_";
@@ -147,8 +148,6 @@ export async function createBillingAttempt(input: CreateAttemptInput) {
     );
   });
 
-  const basePayment = { amount: amount(totalCents) };
-  let payment: Record<string, unknown>;
   const [firstName, ...lastNameParts] = profile.legalName.trim().split(/\s+/);
   const phone = profile.phone.replace(/\D/g, "");
   const payer: Record<string, unknown> = {
@@ -167,30 +166,7 @@ export async function createBillingAttempt(input: CreateAttemptInput) {
       ...(profile.complement ? { complement: profile.complement } : {}),
     },
   };
-  if (input.method === "pix") {
-    payment = {
-      ...basePayment,
-      payment_method: { id: "pix", type: "bank_transfer", statement_descriptor: "MDI360" },
-      expiration_time: "P1D",
-    };
-  } else if (input.method === "card") {
-    payment = {
-      ...basePayment,
-      payment_method: {
-        id: input.card!.paymentMethodId,
-        type: "credit_card",
-        token: input.card!.token,
-        installments: 1,
-        statement_descriptor: "MDI360",
-      },
-    };
-  } else {
-    payment = {
-      ...basePayment,
-      payment_method: { id: "boleto", type: "ticket", statement_descriptor: "MDI360" },
-      expiration_time: "P3D",
-    };
-  }
+  const payment = buildBillingPayment(input.method, amount(totalCents), input.card);
 
   try {
     const order = await createMercadoPagoOrder(

@@ -1,7 +1,18 @@
 import { useEffect, useState } from "react";
 import { createFileRoute, Link, useNavigate } from "@tanstack/react-router";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
-import { ArrowLeft, HardDrive, Loader2, LogIn, RefreshCw, Save, Send, Trash2, Tv, Users } from "lucide-react";
+import {
+  ArrowLeft,
+  HardDrive,
+  Loader2,
+  LogIn,
+  RefreshCw,
+  Save,
+  Send,
+  Trash2,
+  Tv,
+  Users,
+} from "lucide-react";
 import { toast } from "sonner";
 
 import { Button } from "@/components/ui/button";
@@ -34,6 +45,7 @@ import {
   fetchOrganizationDetail,
   fetchPlans,
   impersonateOrganization,
+  markInvoicePaid,
   renameOrganization,
   reconcileOrganizationPayments,
   resendBillingNotice,
@@ -163,10 +175,25 @@ function ClientDetail() {
   });
 
   const resendNotice = useMutation({
-    mutationFn: (invoiceId: string) =>
-      resendBillingNotice({ data: { invoiceId, kind: "due" } }),
+    mutationFn: (invoiceId: string) => resendBillingNotice({ data: { invoiceId, kind: "due" } }),
     onSuccess: () => toast.success("Aviso colocado na fila de envio."),
     onError: () => toast.error("Não foi possível reenviar o aviso."),
+  });
+
+  const markPaid = useMutation({
+    mutationFn: (invoiceId: string) => markInvoicePaid({ data: { invoiceId } }),
+    onSuccess: (result) => {
+      toast.success(
+        result.reactivated
+          ? "Pagamento baixado e acesso do cliente reativado."
+          : result.changed
+            ? "Pagamento baixado."
+            : "A fatura já estava baixada.",
+      );
+      void queryClient.invalidateQueries({ queryKey: ["platform-org", organizationId] });
+      void queryClient.invalidateQueries({ queryKey: ["platform-organizations"] });
+    },
+    onError: () => toast.error("Não foi possível baixar o pagamento."),
   });
 
   if (isPending) {
@@ -211,7 +238,11 @@ function ClientDetail() {
           </div>
         </div>
         <div className="flex gap-2">
-          <Button variant="outline" onClick={() => impersonate.mutate()} disabled={impersonate.isPending}>
+          <Button
+            variant="outline"
+            onClick={() => impersonate.mutate()}
+            disabled={impersonate.isPending}
+          >
             <LogIn className="mr-2 size-4" /> Entrar como cliente
           </Button>
           <AlertDialog>
@@ -362,22 +393,41 @@ function ClientDetail() {
                       setForm((prev) => ({ ...prev, billingClosingDay: value }))
                     }
                   >
-                    <SelectTrigger><SelectValue /></SelectTrigger>
+                    <SelectTrigger>
+                      <SelectValue />
+                    </SelectTrigger>
                     <SelectContent>
                       {[1, 5, 10, 15, 20].map((day) => (
-                        <SelectItem key={day} value={String(day)}>Dia {String(day).padStart(2, "0")}</SelectItem>
+                        <SelectItem key={day} value={String(day)}>
+                          Dia {String(day).padStart(2, "0")}
+                        </SelectItem>
                       ))}
                     </SelectContent>
                   </Select>
-                  <p className="text-xs text-muted-foreground">Vencimento cinco dias após o fechamento.</p>
+                  <p className="text-xs text-muted-foreground">
+                    Vencimento cinco dias após o fechamento.
+                  </p>
                 </div>
               ) : null}
             </div>
 
             <div className="grid grid-cols-3 gap-2 rounded-lg border border-border p-4 text-center text-sm">
-              <div><p className="font-semibold">{data.billing.openInvoices}</p><p className="text-xs text-muted-foreground">Abertas</p></div>
-              <div><p className="font-semibold">{data.billing.overdueInvoices}</p><p className="text-xs text-muted-foreground">Vencidas</p></div>
-              <div><p className="font-semibold">{new Intl.NumberFormat("pt-BR", { style: "currency", currency: "BRL" }).format(data.billing.outstandingCents / 100)}</p><p className="text-xs text-muted-foreground">Saldo</p></div>
+              <div>
+                <p className="font-semibold">{data.billing.openInvoices}</p>
+                <p className="text-xs text-muted-foreground">Abertas</p>
+              </div>
+              <div>
+                <p className="font-semibold">{data.billing.overdueInvoices}</p>
+                <p className="text-xs text-muted-foreground">Vencidas</p>
+              </div>
+              <div>
+                <p className="font-semibold">
+                  {new Intl.NumberFormat("pt-BR", { style: "currency", currency: "BRL" }).format(
+                    data.billing.outstandingCents / 100,
+                  )}
+                </p>
+                <p className="text-xs text-muted-foreground">Saldo</p>
+              </div>
             </div>
 
             <div className="grid gap-4 sm:grid-cols-2">
@@ -451,24 +501,77 @@ function ClientDetail() {
                   <p className="text-sm text-muted-foreground">Nenhuma fatura emitida.</p>
                 ) : (
                   data.billing.invoices.map((invoice) => (
-                    <div key={invoice.id} className="flex flex-wrap items-center justify-between gap-3 rounded-lg border border-border p-3 text-sm">
+                    <div
+                      key={invoice.id}
+                      className="flex flex-wrap items-center justify-between gap-3 rounded-lg border border-border p-3 text-sm"
+                    >
                       <div>
                         <p className="font-medium">{invoice.number}</p>
                         <p className="text-xs text-muted-foreground">
-                          Vence em {formatDate(invoice.dueAt)} · {new Intl.NumberFormat("pt-BR", { style: "currency", currency: "BRL" }).format(invoice.totalCents / 100)}
+                          Vence em {formatDate(invoice.dueAt)} ·{" "}
+                          {new Intl.NumberFormat("pt-BR", {
+                            style: "currency",
+                            currency: "BRL",
+                          }).format(invoice.totalCents / 100)}
                         </p>
-                        {data.billing.items.filter((item) => item.invoiceId === invoice.id).map((item) => (
-                          <p key={item.id} className="text-xs text-muted-foreground">
-                            {item.description}: {new Intl.NumberFormat("pt-BR", { style: "currency", currency: "BRL" }).format(item.amountCents / 100)}
-                          </p>
-                        ))}
+                        {data.billing.items
+                          .filter((item) => item.invoiceId === invoice.id)
+                          .map((item) => (
+                            <p key={item.id} className="text-xs text-muted-foreground">
+                              {item.description}:{" "}
+                              {new Intl.NumberFormat("pt-BR", {
+                                style: "currency",
+                                currency: "BRL",
+                              }).format(item.amountCents / 100)}
+                            </p>
+                          ))}
                       </div>
                       <div className="flex items-center gap-2">
-                        <Badge variant={invoice.status === "paid" ? "default" : invoice.status === "overdue" ? "destructive" : "secondary"}>{invoice.status}</Badge>
+                        <Badge
+                          variant={
+                            invoice.status === "paid"
+                              ? "default"
+                              : invoice.status === "overdue"
+                                ? "destructive"
+                                : "secondary"
+                          }
+                        >
+                          {invoice.status}
+                        </Badge>
                         {invoice.status === "open" || invoice.status === "overdue" ? (
-                          <Button size="sm" variant="outline" disabled={resendNotice.isPending} onClick={() => resendNotice.mutate(invoice.id)}>
-                            <Send className="mr-2 size-3.5" /> Reenviar aviso
-                          </Button>
+                          <>
+                            <Button
+                              size="sm"
+                              variant="outline"
+                              disabled={resendNotice.isPending}
+                              onClick={() => resendNotice.mutate(invoice.id)}
+                            >
+                              <Send className="mr-2 size-3.5" /> Reenviar aviso
+                            </Button>
+                            <AlertDialog>
+                              <AlertDialogTrigger asChild>
+                                <Button size="sm" disabled={markPaid.isPending}>
+                                  Dar baixa
+                                </Button>
+                              </AlertDialogTrigger>
+                              <AlertDialogContent>
+                                <AlertDialogHeader>
+                                  <AlertDialogTitle>Confirmar baixa manual?</AlertDialogTitle>
+                                  <AlertDialogDescription>
+                                    A fatura {invoice.number} será marcada como paga. Se não houver
+                                    outra pendência, uma suspensão financeira será removida
+                                    automaticamente.
+                                  </AlertDialogDescription>
+                                </AlertDialogHeader>
+                                <AlertDialogFooter>
+                                  <AlertDialogCancel>Cancelar</AlertDialogCancel>
+                                  <AlertDialogAction onClick={() => markPaid.mutate(invoice.id)}>
+                                    Confirmar baixa
+                                  </AlertDialogAction>
+                                </AlertDialogFooter>
+                              </AlertDialogContent>
+                            </AlertDialog>
+                          </>
                         ) : null}
                       </div>
                     </div>
@@ -479,9 +582,20 @@ function ClientDetail() {
                 <div className="space-y-2 border-t border-border pt-4">
                   <p className="text-sm font-medium">Tentativas recentes</p>
                   {data.billing.attempts.slice(0, 6).map((attempt) => (
-                    <div key={attempt.id} className="flex items-center justify-between text-sm text-muted-foreground">
-                      <span>{attempt.method.toUpperCase()} · {formatDate(attempt.createdAt)}</span>
-                      <span>{attempt.status} · {new Intl.NumberFormat("pt-BR", { style: "currency", currency: "BRL" }).format(attempt.amountCents / 100)}</span>
+                    <div
+                      key={attempt.id}
+                      className="flex items-center justify-between text-sm text-muted-foreground"
+                    >
+                      <span>
+                        {attempt.method.toUpperCase()} · {formatDate(attempt.createdAt)}
+                      </span>
+                      <span>
+                        {attempt.status} ·{" "}
+                        {new Intl.NumberFormat("pt-BR", {
+                          style: "currency",
+                          currency: "BRL",
+                        }).format(attempt.amountCents / 100)}
+                      </span>
                     </div>
                   ))}
                 </div>
@@ -492,10 +606,25 @@ function ClientDetail() {
                   {data.billing.notifications.slice(0, 8).map((notice) => (
                     <div key={notice.id} className="rounded-lg border border-border p-3 text-sm">
                       <div className="flex items-center justify-between gap-2">
-                        <span>{notice.kind === "closing" ? "Fechamento" : "Vencimento"} · {formatDate(notice.createdAt)}</span>
-                        <Badge variant={notice.status === "sent" ? "default" : notice.status === "failed" ? "destructive" : "secondary"}>{notice.status}</Badge>
+                        <span>
+                          {notice.kind === "closing" ? "Fechamento" : "Vencimento"} ·{" "}
+                          {formatDate(notice.createdAt)}
+                        </span>
+                        <Badge
+                          variant={
+                            notice.status === "sent"
+                              ? "default"
+                              : notice.status === "failed"
+                                ? "destructive"
+                                : "secondary"
+                          }
+                        >
+                          {notice.status}
+                        </Badge>
                       </div>
-                      {notice.error ? <p className="mt-1 text-xs text-destructive">{notice.error}</p> : null}
+                      {notice.error ? (
+                        <p className="mt-1 text-xs text-destructive">{notice.error}</p>
+                      ) : null}
                     </div>
                   ))}
                 </div>
@@ -504,9 +633,20 @@ function ClientDetail() {
                 <div className="space-y-2 border-t border-border pt-4">
                   <p className="text-sm font-medium">Créditos do cliente</p>
                   {data.billing.credits.map((credit) => (
-                    <div key={credit.id} className="flex items-center justify-between text-sm text-muted-foreground">
-                      <span>{credit.reason} · {formatDate(credit.createdAt)}</span>
-                      <span>{new Intl.NumberFormat("pt-BR", { style: "currency", currency: "BRL" }).format(credit.remainingCents / 100)} disponível</span>
+                    <div
+                      key={credit.id}
+                      className="flex items-center justify-between text-sm text-muted-foreground"
+                    >
+                      <span>
+                        {credit.reason} · {formatDate(credit.createdAt)}
+                      </span>
+                      <span>
+                        {new Intl.NumberFormat("pt-BR", {
+                          style: "currency",
+                          currency: "BRL",
+                        }).format(credit.remainingCents / 100)}{" "}
+                        disponível
+                      </span>
                     </div>
                   ))}
                 </div>
@@ -545,7 +685,11 @@ function ClientDetail() {
                             : ""
                       }
                     >
-                      {device.online ? "Online" : device.status === "active" ? "Offline" : "Pendente"}
+                      {device.online
+                        ? "Online"
+                        : device.status === "active"
+                          ? "Offline"
+                          : "Pendente"}
                     </Badge>
                   </div>
                 ))

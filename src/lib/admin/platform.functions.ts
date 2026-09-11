@@ -186,92 +186,95 @@ export type PlatformOrganization = {
   ownerEmail: string | null;
 };
 
+async function loadPlatformOrganizations(): Promise<PlatformOrganization[]> {
+  const { getDb, schema } = await import("@/lib/db/index.server");
+  const { sql, eq } = await import("drizzle-orm");
+  const rows = await getDb()
+    .select({
+      id: schema.organizations.id,
+      name: schema.organizations.name,
+      slug: schema.organizations.slug,
+      planId: schema.organizations.planId,
+      planName: schema.plans.name,
+      planDevices: schema.plans.maxDevices,
+      planStorage: schema.plans.maxStorageMb,
+      deviceOverride: schema.organizations.deviceLimitOverride,
+      storageOverride: schema.organizations.storageLimitMbOverride,
+      status: schema.organizations.subscriptionStatus,
+      expiresAt: schema.organizations.subscriptionExpiresAt,
+      billingEnabled: schema.organizations.billingEnabled,
+      billingClosingDay: schema.organizations.billingClosingDay,
+      billingPendingClosingDay: schema.organizations.billingPendingClosingDay,
+      billingActivatedAt: schema.organizations.billingActivatedAt,
+      createdAt: schema.organizations.createdAt,
+      linkedDevices: sql<number>`(
+        select count(*)::int from devices d
+        where d.organization_id = organizations.id and d.status = 'active'
+      )`,
+      onlineDevices: sql<number>`(
+        select count(*)::int from devices d
+        where d.organization_id = organizations.id and d.status = 'active'
+          and d.last_seen_at > now() - interval '90 seconds'
+      )`,
+      pendingDevices: sql<number>`(
+        select count(*)::int from devices d
+        where d.organization_id = organizations.id and d.status <> 'active'
+      )`,
+      users: sql<number>`(
+        select count(*)::int from users u where u.organization_id = organizations.id
+      )`,
+      mediaCount: sql<number>`(
+        select count(*)::int from media_assets m where m.organization_id = organizations.id
+      )`,
+      storageBytes: sql<number>`(
+        select coalesce(sum(m.byte_size), 0)::bigint from media_assets m
+        where m.organization_id = organizations.id
+      )`,
+      ownerEmail: sql<string | null>`(
+        select u.email from users u where u.organization_id = organizations.id
+        order by u.created_at asc limit 1
+      )`,
+    })
+    .from(schema.organizations)
+    .leftJoin(schema.plans, eq(schema.plans.id, schema.organizations.planId))
+    .orderBy(schema.organizations.createdAt);
+
+  return rows.map((row) => ({
+    id: row.id,
+    name: row.name,
+    slug: row.slug,
+    planId: row.planId,
+    planName: row.planName,
+    subscriptionStatus: row.status,
+    subscriptionExpiresAt: row.expiresAt ? row.expiresAt.toISOString() : null,
+    billingEnabled: row.billingEnabled,
+    billingClosingDay: row.billingClosingDay,
+    billingPendingClosingDay: row.billingPendingClosingDay,
+    billingActivatedAt: row.billingActivatedAt ? row.billingActivatedAt.toISOString() : null,
+    maxDevices: row.deviceOverride ?? row.planDevices ?? 3,
+    maxStorageMb: row.storageOverride ?? row.planStorage ?? 2048,
+    deviceLimitOverride: row.deviceOverride ?? null,
+    storageLimitMbOverride: row.storageOverride ?? null,
+    linkedDevices: Number(row.linkedDevices ?? 0),
+    onlineDevices: Number(row.onlineDevices ?? 0),
+    pendingDevices: Number(row.pendingDevices ?? 0),
+    users: Number(row.users ?? 0),
+    mediaCount: Number(row.mediaCount ?? 0),
+    storageBytes: Number(row.storageBytes ?? 0),
+    createdAt: row.createdAt.toISOString(),
+    ownerEmail: row.ownerEmail ?? null,
+  }));
+}
+
 /** Every customer account with the metrics the platform team bills on. */
 export const fetchPlatformOrganizations = createServerFn({ method: "GET" }).handler(
   async (): Promise<PlatformOrganization[] | null> => {
-    const { isDatabaseConfigured, getDb, schema } = await import("@/lib/db/index.server");
+    const { isDatabaseConfigured } = await import("@/lib/db/index.server");
     if (!isDatabaseConfigured()) return null;
 
     try {
       await requirePlatform();
-      const { sql, eq } = await import("drizzle-orm");
-      const db = getDb();
-
-      const rows = await db
-        .select({
-          id: schema.organizations.id,
-          name: schema.organizations.name,
-          slug: schema.organizations.slug,
-          planId: schema.organizations.planId,
-          planName: schema.plans.name,
-          planDevices: schema.plans.maxDevices,
-          planStorage: schema.plans.maxStorageMb,
-          deviceOverride: schema.organizations.deviceLimitOverride,
-          storageOverride: schema.organizations.storageLimitMbOverride,
-          status: schema.organizations.subscriptionStatus,
-          expiresAt: schema.organizations.subscriptionExpiresAt,
-          billingEnabled: schema.organizations.billingEnabled,
-          billingClosingDay: schema.organizations.billingClosingDay,
-          billingPendingClosingDay: schema.organizations.billingPendingClosingDay,
-          billingActivatedAt: schema.organizations.billingActivatedAt,
-          createdAt: schema.organizations.createdAt,
-          linkedDevices: sql<number>`(
-            select count(*)::int from devices d
-            where d.organization_id = organizations.id and d.status = 'active'
-          )`,
-          onlineDevices: sql<number>`(
-            select count(*)::int from devices d
-            where d.organization_id = organizations.id and d.status = 'active'
-              and d.last_seen_at > now() - interval '90 seconds'
-          )`,
-          pendingDevices: sql<number>`(
-            select count(*)::int from devices d
-            where d.organization_id = organizations.id and d.status <> 'active'
-          )`,
-          users: sql<number>`(
-            select count(*)::int from users u where u.organization_id = organizations.id
-          )`,
-          mediaCount: sql<number>`(
-            select count(*)::int from media_assets m where m.organization_id = organizations.id
-          )`,
-          storageBytes: sql<number>`(
-            select coalesce(sum(m.byte_size), 0)::bigint from media_assets m
-            where m.organization_id = organizations.id
-          )`,
-          ownerEmail: sql<string | null>`(
-            select u.email from users u where u.organization_id = organizations.id
-            order by u.created_at asc limit 1
-          )`,
-        })
-        .from(schema.organizations)
-        .leftJoin(schema.plans, eq(schema.plans.id, schema.organizations.planId))
-        .orderBy(schema.organizations.createdAt);
-
-      return rows.map((row) => ({
-        id: row.id,
-        name: row.name,
-        slug: row.slug,
-        planId: row.planId,
-        planName: row.planName,
-        subscriptionStatus: row.status,
-        subscriptionExpiresAt: row.expiresAt ? row.expiresAt.toISOString() : null,
-        billingEnabled: row.billingEnabled,
-        billingClosingDay: row.billingClosingDay,
-        billingPendingClosingDay: row.billingPendingClosingDay,
-        billingActivatedAt: row.billingActivatedAt ? row.billingActivatedAt.toISOString() : null,
-        maxDevices: row.deviceOverride ?? row.planDevices ?? 3,
-        maxStorageMb: row.storageOverride ?? row.planStorage ?? 2048,
-        deviceLimitOverride: row.deviceOverride ?? null,
-        storageLimitMbOverride: row.storageOverride ?? null,
-        linkedDevices: Number(row.linkedDevices ?? 0),
-        onlineDevices: Number(row.onlineDevices ?? 0),
-        pendingDevices: Number(row.pendingDevices ?? 0),
-        users: Number(row.users ?? 0),
-        mediaCount: Number(row.mediaCount ?? 0),
-        storageBytes: Number(row.storageBytes ?? 0),
-        createdAt: row.createdAt.toISOString(),
-        ownerEmail: row.ownerEmail ?? null,
-      }));
+      return await loadPlatformOrganizations();
     } catch (error) {
       console.error("fetchPlatformOrganizations failed", error);
       return null;
@@ -299,7 +302,13 @@ export type PlatformOrgDetail = {
     lastInvoiceAt: string | null;
     invoices: { id: string; number: string; status: string; totalCents: number; dueAt: string }[];
     items: { id: string; invoiceId: string; description: string; amountCents: number }[];
-    attempts: { id: string; method: string; status: string; amountCents: number; createdAt: string }[];
+    attempts: {
+      id: string;
+      method: string;
+      status: string;
+      amountCents: number;
+      createdAt: string;
+    }[];
     notifications: {
       id: string;
       invoiceId: string;
@@ -330,8 +339,8 @@ export const fetchOrganizationDetail = createServerFn({ method: "GET" })
       const { eq, desc, inArray, sql } = await import("drizzle-orm");
       const db = getDb();
 
-      const list = await fetchPlatformOrganizations();
-      const organization = list?.find((item) => item.id === data.organizationId);
+      const list = await loadPlatformOrganizations();
+      const organization = list.find((item) => item.id === data.organizationId);
       if (!organization) return null;
 
       const [notesRow] = await db
@@ -384,45 +393,69 @@ export const fetchOrganizationDetail = createServerFn({ method: "GET" })
         })
         .from(schema.billingInvoices)
         .where(eq(schema.billingInvoices.organizationId, data.organizationId));
-      const invoices = await db.select({
-        id: schema.billingInvoices.id,
-        number: schema.billingInvoices.number,
-        status: schema.billingInvoices.status,
-        totalCents: schema.billingInvoices.totalCents,
-        dueAt: schema.billingInvoices.dueAt,
-      }).from(schema.billingInvoices).where(eq(schema.billingInvoices.organizationId, data.organizationId)).orderBy(desc(schema.billingInvoices.createdAt)).limit(12);
+      const invoices = await db
+        .select({
+          id: schema.billingInvoices.id,
+          number: schema.billingInvoices.number,
+          status: schema.billingInvoices.status,
+          totalCents: schema.billingInvoices.totalCents,
+          dueAt: schema.billingInvoices.dueAt,
+        })
+        .from(schema.billingInvoices)
+        .where(eq(schema.billingInvoices.organizationId, data.organizationId))
+        .orderBy(desc(schema.billingInvoices.createdAt))
+        .limit(12);
       const invoiceIds = invoices.map((invoice) => invoice.id);
       const items = invoiceIds.length
-        ? await db.select({
-            id: schema.billingInvoiceItems.id,
-            invoiceId: schema.billingInvoiceItems.invoiceId,
-            description: schema.billingInvoiceItems.description,
-            amountCents: schema.billingInvoiceItems.amountCents,
-          }).from(schema.billingInvoiceItems).where(inArray(schema.billingInvoiceItems.invoiceId, invoiceIds)).orderBy(schema.billingInvoiceItems.createdAt)
+        ? await db
+            .select({
+              id: schema.billingInvoiceItems.id,
+              invoiceId: schema.billingInvoiceItems.invoiceId,
+              description: schema.billingInvoiceItems.description,
+              amountCents: schema.billingInvoiceItems.amountCents,
+            })
+            .from(schema.billingInvoiceItems)
+            .where(inArray(schema.billingInvoiceItems.invoiceId, invoiceIds))
+            .orderBy(schema.billingInvoiceItems.createdAt)
         : [];
-      const attempts = await db.select({
-        id: schema.billingPaymentAttempts.id,
-        method: schema.billingPaymentAttempts.method,
-        status: schema.billingPaymentAttempts.status,
-        amountCents: schema.billingPaymentAttempts.amountCents,
-        createdAt: schema.billingPaymentAttempts.createdAt,
-      }).from(schema.billingPaymentAttempts).where(eq(schema.billingPaymentAttempts.organizationId, data.organizationId)).orderBy(desc(schema.billingPaymentAttempts.createdAt)).limit(12);
-      const notifications = await db.select({
-        id: schema.billingNotifications.id,
-        invoiceId: schema.billingNotifications.invoiceId,
-        kind: schema.billingNotifications.kind,
-        status: schema.billingNotifications.status,
-        attempts: schema.billingNotifications.attempts,
-        error: schema.billingNotifications.error,
-        createdAt: schema.billingNotifications.createdAt,
-      }).from(schema.billingNotifications).where(eq(schema.billingNotifications.organizationId, data.organizationId)).orderBy(desc(schema.billingNotifications.createdAt)).limit(20);
-      const credits = await db.select({
-        id: schema.billingCredits.id,
-        amountCents: schema.billingCredits.amountCents,
-        remainingCents: schema.billingCredits.remainingCents,
-        reason: schema.billingCredits.reason,
-        createdAt: schema.billingCredits.createdAt,
-      }).from(schema.billingCredits).where(eq(schema.billingCredits.organizationId, data.organizationId)).orderBy(desc(schema.billingCredits.createdAt)).limit(20);
+      const attempts = await db
+        .select({
+          id: schema.billingPaymentAttempts.id,
+          method: schema.billingPaymentAttempts.method,
+          status: schema.billingPaymentAttempts.status,
+          amountCents: schema.billingPaymentAttempts.amountCents,
+          createdAt: schema.billingPaymentAttempts.createdAt,
+        })
+        .from(schema.billingPaymentAttempts)
+        .where(eq(schema.billingPaymentAttempts.organizationId, data.organizationId))
+        .orderBy(desc(schema.billingPaymentAttempts.createdAt))
+        .limit(12);
+      const notifications = await db
+        .select({
+          id: schema.billingNotifications.id,
+          invoiceId: schema.billingNotifications.invoiceId,
+          kind: schema.billingNotifications.kind,
+          status: schema.billingNotifications.status,
+          attempts: schema.billingNotifications.attempts,
+          error: schema.billingNotifications.error,
+          createdAt: schema.billingNotifications.createdAt,
+        })
+        .from(schema.billingNotifications)
+        .where(eq(schema.billingNotifications.organizationId, data.organizationId))
+        .orderBy(desc(schema.billingNotifications.createdAt))
+        .limit(20);
+      const credits = await db
+        .select({
+          id: schema.billingCredits.id,
+          amountCents: schema.billingCredits.amountCents,
+          remainingCents: schema.billingCredits.remainingCents,
+          reason: schema.billingCredits.reason,
+          createdAt: schema.billingCredits.createdAt,
+        })
+        .from(schema.billingCredits)
+        .where(eq(schema.billingCredits.organizationId, data.organizationId))
+        .orderBy(desc(schema.billingCredits.createdAt))
+        .limit(20);
 
       const now = Date.now();
       return {
@@ -453,9 +486,18 @@ export const fetchOrganizationDetail = createServerFn({ method: "GET" })
           lastInvoiceAt: billing?.lastInvoiceAt?.toISOString() ?? null,
           invoices: invoices.map((invoice) => ({ ...invoice, dueAt: invoice.dueAt.toISOString() })),
           items,
-          attempts: attempts.map((attempt) => ({ ...attempt, createdAt: attempt.createdAt.toISOString() })),
-          notifications: notifications.map((notification) => ({ ...notification, createdAt: notification.createdAt.toISOString() })),
-          credits: credits.map((credit) => ({ ...credit, createdAt: credit.createdAt.toISOString() })),
+          attempts: attempts.map((attempt) => ({
+            ...attempt,
+            createdAt: attempt.createdAt.toISOString(),
+          })),
+          notifications: notifications.map((notification) => ({
+            ...notification,
+            createdAt: notification.createdAt.toISOString(),
+          })),
+          credits: credits.map((credit) => ({
+            ...credit,
+            createdAt: credit.createdAt.toISOString(),
+          })),
         },
       };
     } catch (error) {
@@ -619,20 +661,23 @@ export const updateOrganizationSubscription = createServerFn({ method: "POST" })
     const activating = data.billingEnabled && !before?.billingEnabled;
 
     await db.transaction(async (tx) => {
-      await tx.update(schema.organizations).set({
-        planId: data.planId ?? null,
-        subscriptionStatus: data.subscriptionStatus,
-        subscriptionExpiresAt: data.subscriptionExpiresAt
-          ? new Date(data.subscriptionExpiresAt)
-          : null,
-        deviceLimitOverride: data.deviceLimitOverride ?? null,
-        storageLimitMbOverride: data.storageLimitMbOverride ?? null,
-        adminNotes: data.notes ?? null,
-        billingEnabled: data.billingEnabled,
-        billingClosingDay: data.billingClosingDay,
-        billingActivatedAt: activating ? new Date() : undefined,
-        billingSuspendedAt: data.billingEnabled ? undefined : null,
-      }).where(eq(schema.organizations.id, data.organizationId));
+      await tx
+        .update(schema.organizations)
+        .set({
+          planId: data.planId ?? null,
+          subscriptionStatus: data.subscriptionStatus,
+          subscriptionExpiresAt: data.subscriptionExpiresAt
+            ? new Date(data.subscriptionExpiresAt)
+            : null,
+          deviceLimitOverride: data.deviceLimitOverride ?? null,
+          storageLimitMbOverride: data.storageLimitMbOverride ?? null,
+          adminNotes: data.notes ?? null,
+          billingEnabled: data.billingEnabled,
+          billingClosingDay: data.billingClosingDay,
+          billingActivatedAt: activating ? new Date() : undefined,
+          billingSuspendedAt: data.billingEnabled ? undefined : null,
+        })
+        .where(eq(schema.organizations.id, data.organizationId));
       await tx.insert(schema.billingAuditLogs).values({
         organizationId: data.organizationId,
         actorUserId: actor.id,
@@ -660,25 +705,103 @@ export const resendBillingNotice = createServerFn({ method: "POST" })
     const { getDb, schema } = await import("@/lib/db/index.server");
     const { eq } = await import("drizzle-orm");
     const db = getDb();
-    const [invoice] = await db.select({ organizationId: schema.billingInvoices.organizationId }).from(schema.billingInvoices).where(eq(schema.billingInvoices.id, data.invoiceId)).limit(1);
+    const [invoice] = await db
+      .select({ organizationId: schema.billingInvoices.organizationId })
+      .from(schema.billingInvoices)
+      .where(eq(schema.billingInvoices.id, data.invoiceId))
+      .limit(1);
     if (!invoice) throw new Error("NOT_FOUND");
-    await db.insert(schema.billingNotifications).values({
-      organizationId: invoice.organizationId,
-      invoiceId: data.invoiceId,
-      kind: data.kind,
-      status: "pending",
-    }).onConflictDoUpdate({
-      target: [schema.billingNotifications.invoiceId, schema.billingNotifications.kind],
-      set: {
+    await db
+      .insert(schema.billingNotifications)
+      .values({
+        organizationId: invoice.organizationId,
+        invoiceId: data.invoiceId,
+        kind: data.kind,
         status: "pending",
-        attempts: 0,
-        nextAttemptAt: new Date(),
-        processingAt: null,
-        error: null,
-        sentAt: null,
-      },
-    });
+      })
+      .onConflictDoUpdate({
+        target: [schema.billingNotifications.invoiceId, schema.billingNotifications.kind],
+        set: {
+          status: "pending",
+          attempts: 0,
+          nextAttemptAt: new Date(),
+          processingAt: null,
+          error: null,
+          sentAt: null,
+        },
+      });
     return { ok: true };
+  });
+
+export const markInvoicePaid = createServerFn({ method: "POST" })
+  .inputValidator((input: unknown) => z.object({ invoiceId: z.string().uuid() }).parse(input))
+  .handler(async ({ data }) => {
+    const actor = await requirePlatform();
+    const { getDb, schema } = await import("@/lib/db/index.server");
+    const { and, eq, inArray } = await import("drizzle-orm");
+    const db = getDb();
+    const [invoice] = await db
+      .select({
+        organizationId: schema.billingInvoices.organizationId,
+        status: schema.billingInvoices.status,
+      })
+      .from(schema.billingInvoices)
+      .where(eq(schema.billingInvoices.id, data.invoiceId))
+      .limit(1);
+    if (!invoice) throw new Error("NOT_FOUND");
+    if (!(["open", "overdue"] as string[]).includes(invoice.status)) {
+      return { ok: true, changed: false, reactivated: false };
+    }
+
+    let reactivated = false;
+    await db.transaction(async (tx) => {
+      await tx
+        .update(schema.billingInvoices)
+        .set({ status: "paid", paidAt: new Date() })
+        .where(
+          and(
+            eq(schema.billingInvoices.id, data.invoiceId),
+            inArray(schema.billingInvoices.status, ["open", "overdue"]),
+          ),
+        );
+      await tx.insert(schema.billingAuditLogs).values({
+        organizationId: invoice.organizationId,
+        actorUserId: actor.id,
+        action: "invoice_manually_paid",
+        details: { invoiceId: data.invoiceId, previousStatus: invoice.status },
+      });
+
+      const [remaining] = await tx
+        .select({ id: schema.billingInvoices.id })
+        .from(schema.billingInvoices)
+        .where(
+          and(
+            eq(schema.billingInvoices.organizationId, invoice.organizationId),
+            eq(schema.billingInvoices.status, "overdue"),
+          ),
+        )
+        .limit(1);
+      const [organization] = await tx
+        .select({
+          billingEnabled: schema.organizations.billingEnabled,
+          subscriptionStatus: schema.organizations.subscriptionStatus,
+        })
+        .from(schema.organizations)
+        .where(eq(schema.organizations.id, invoice.organizationId))
+        .limit(1);
+      reactivated = Boolean(
+        !remaining &&
+        organization?.billingEnabled &&
+        organization.subscriptionStatus === "suspended",
+      );
+      if (reactivated) {
+        await tx
+          .update(schema.organizations)
+          .set({ subscriptionStatus: "active", billingSuspendedAt: null })
+          .where(eq(schema.organizations.id, invoice.organizationId));
+      }
+    });
+    return { ok: true, changed: true, reactivated };
   });
 
 export const reconcileOrganizationPayments = createServerFn({ method: "POST" })
@@ -687,11 +810,25 @@ export const reconcileOrganizationPayments = createServerFn({ method: "POST" })
     await requirePlatform();
     const { getDb, schema } = await import("@/lib/db/index.server");
     const { and, eq, inArray } = await import("drizzle-orm");
-    const attempts = await getDb().select({ id: schema.billingPaymentAttempts.id }).from(schema.billingPaymentAttempts).where(and(eq(schema.billingPaymentAttempts.organizationId, data.organizationId), inArray(schema.billingPaymentAttempts.status, ["creating", "pending", "canceled"]))).limit(50);
+    const attempts = await getDb()
+      .select({ id: schema.billingPaymentAttempts.id })
+      .from(schema.billingPaymentAttempts)
+      .where(
+        and(
+          eq(schema.billingPaymentAttempts.organizationId, data.organizationId),
+          inArray(schema.billingPaymentAttempts.status, ["creating", "pending", "canceled"]),
+        ),
+      )
+      .limit(50);
     const { reconcileAttempt } = await import("@/lib/billing/payments.server");
     let reconciled = 0;
     for (const attempt of attempts) {
-      try { await reconcileAttempt(attempt.id); reconciled += 1; } catch { /* shown in attempt history */ }
+      try {
+        await reconcileAttempt(attempt.id);
+        reconciled += 1;
+      } catch {
+        /* shown in attempt history */
+      }
     }
     return { ok: true, reconciled };
   });

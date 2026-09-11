@@ -17,6 +17,10 @@ type MercadoPagoErrorDetail = {
   code?: string;
   message?: string;
   detail?: string;
+  description?: string;
+  field?: string;
+  path?: string;
+  property?: string;
 };
 
 type MercadoPagoErrorPayload = {
@@ -25,12 +29,30 @@ type MercadoPagoErrorPayload = {
   code?: string;
   errors?: MercadoPagoErrorDetail[];
   cause?: MercadoPagoErrorDetail[];
+  details?: unknown;
 };
 
-function describeMercadoPagoError(payload: MercadoPagoErrorPayload) {
-  const details = [...(payload.errors ?? []), ...(payload.cause ?? [])]
-    .flatMap((item) => [item.code, item.message, item.detail])
-    .filter((value): value is string => Boolean(value));
+function diagnosticFields(value: unknown, depth = 0): string[] {
+  if (!value || depth > 4) return [];
+  if (Array.isArray(value)) return value.flatMap((item) => diagnosticFields(item, depth + 1));
+  if (typeof value !== "object") return [];
+
+  const record = value as Record<string, unknown>;
+  const safeKeys = ["code", "message", "detail", "description", "field", "path", "property"];
+  return [
+    ...safeKeys.flatMap((key) => (typeof record[key] === "string" ? [record[key]] : [])),
+    ...Object.entries(record)
+      .filter(([key]) => !safeKeys.includes(key) && key !== "value")
+      .flatMap(([, child]) => diagnosticFields(child, depth + 1)),
+  ];
+}
+
+export function describeMercadoPagoError(payload: MercadoPagoErrorPayload) {
+  const details = diagnosticFields([
+    ...(payload.errors ?? []),
+    ...(payload.cause ?? []),
+    payload.details,
+  ]).filter((value): value is string => Boolean(value));
   return [...new Set([payload.code, payload.error, payload.message, ...details].filter(Boolean))]
     .join(" | ")
     .slice(0, 600);
