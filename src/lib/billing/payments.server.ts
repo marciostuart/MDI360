@@ -46,7 +46,18 @@ function paymentEnvironment(value: string): MercadoPagoEnvironment {
 function orderStatus(order: MercadoPagoOrder) {
   const payment = paymentFromOrder(order);
   // Terminal order states must win over a stale nested transaction state.
-  if (["refunded", "partially_refunded", "charged_back"].includes(order.status ?? "")) {
+  if (
+    [
+      "canceled",
+      "cancelled",
+      "expired",
+      "failed",
+      "rejected",
+      "refunded",
+      "partially_refunded",
+      "charged_back",
+    ].includes(order.status ?? "")
+  ) {
     return order.status!;
   }
   return payment?.status ?? order.status ?? "pending";
@@ -414,6 +425,86 @@ export async function reconcileAttempt(attemptId: string) {
   );
 }
 
+/** Cancel at Mercado Pago before releasing the local active charge. */
+export async function cancelBillingAttemptAtProvider(attemptId: string) {
+  const attempt = await getAttempt(attemptId);
+  if (!attempt) throw new Error("PAYMENT_ATTEMPT_NOT_FOUND");
+  if (!["creating", "pending"].includes(attempt.status)) return false;
+  if (!attempt.providerOrderId) throw new Error("PAYMENT_CANCELLATION_PENDING_CREATION");
+
+  const credentials = await getMercadoPagoCredentials(
+    paymentEnvironment(attempt.providerEnvironment),
+  );
+  const current = await getMercadoPagoOrder(attempt.providerOrderId, credentials);
+  const currentStatus = normalizeStatus(orderStatus(current));
+
+  // The payment may win the race against an administrative write-off.
+  if (currentStatus === "approved") {
+    await reconcileMercadoPagoOrder(current, credentials);
+    return false;
+  }
+  if (["canceled", "cancelled", "expired", "failed", "rejected"].includes(currentStatus)) {
+    await updateAttemptFromOrder(attemptId, current);
+    return false;
+  }
+
+  const canceled = await cancelMercadoPagoOrder(
+    attempt.providerOrderId,
+    `cancel-${attempt.id}`,
+    credentials,
+  );
+  if (canceled.id && canceled.id !== attempt.providerOrderId) {
+    throw new Error("PAYMENT_CANCELLATION_ORDER_MISMATCH");
+  }
+  const canceledStatus = normalizeStatus(orderStatus(canceled));
+  if (!["canceled", "cancelled", "expired", "failed", "rejected"].includes(canceledStatus)) {
+    throw new Error(`PAYMENT_CANCELLATION_NOT_CONFIRMED:${canceledStatus}`);
+  }
+  await updateAttemptFromOrder(attemptId, canceled);
+  return true;
+}
+
+export async function cancelPayableAttemptsForInvoice(invoiceId: string) {
+  const attempts = await getDb()
+    .select({ id: schema.billingPaymentAttempts.id })
+    .from(schema.billingPaymentAttempts)
+    .innerJoin(
+      schema.billingPaymentAttemptInvoices,
+      eq(schema.billingPaymentAttemptInvoices.attemptId, schema.billingPaymentAttempts.id),
+    )
+    .where(
+      and(
+        eq(schema.billingPaymentAttemptInvoices.invoiceId, invoiceId),
+        inArray(schema.billingPaymentAttempts.status, ["creating", "pending"]),
+      ),
+    );
+
+  let canceled = 0;
+  for (const attempt of attempts) {
+    if (await cancelBillingAttemptAtProvider(attempt.id)) canceled += 1;
+  }
+  return canceled;
+}
+
+async function cancelAttemptWhenAllInvoicesAreSettled(attemptId: string) {
+  const invoices = await getDb()
+    .select({ status: schema.billingInvoices.status })
+    .from(schema.billingPaymentAttemptInvoices)
+    .innerJoin(
+      schema.billingInvoices,
+      eq(schema.billingInvoices.id, schema.billingPaymentAttemptInvoices.invoiceId),
+    )
+    .where(eq(schema.billingPaymentAttemptInvoices.attemptId, attemptId));
+  if (
+    !invoices.length ||
+    invoices.some((invoice) => ["open", "overdue"].includes(invoice.status))
+  ) {
+    return false;
+  }
+  await cancelBillingAttemptAtProvider(attemptId);
+  return true;
+}
+
 export async function reconcilePendingAttempts() {
   const cutoff = new Date(Date.now() - 30 * 86_400_000);
   const attempts = await getDb()
@@ -429,6 +520,7 @@ export async function reconcilePendingAttempts() {
     .limit(50);
   for (const attempt of attempts) {
     try {
+      if (await cancelAttemptWhenAllInvoicesAreSettled(attempt.id)) continue;
       await reconcileAttempt(attempt.id);
     } catch (error) {
       console.error(

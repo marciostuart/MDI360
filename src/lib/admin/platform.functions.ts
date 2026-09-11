@@ -766,8 +766,15 @@ export const markInvoicePaid = createServerFn({ method: "POST" })
       .where(eq(schema.billingInvoices.id, data.invoiceId))
       .limit(1);
     if (!invoice) throw new Error("NOT_FOUND");
-    if (!(["open", "overdue"] as string[]).includes(invoice.status)) {
-      return { ok: true, changed: false, reactivated: false };
+    const { cancelPayableAttemptsForInvoice } = await import("@/lib/billing/payments.server");
+    const canceledAttempts = await cancelPayableAttemptsForInvoice(data.invoiceId);
+    const [refreshedInvoice] = await db
+      .select({ status: schema.billingInvoices.status })
+      .from(schema.billingInvoices)
+      .where(eq(schema.billingInvoices.id, data.invoiceId))
+      .limit(1);
+    if (!refreshedInvoice || !(["open", "overdue"] as string[]).includes(refreshedInvoice.status)) {
+      return { ok: true, changed: false, reactivated: false, canceledAttempts };
     }
 
     let reactivated = false;
@@ -785,7 +792,11 @@ export const markInvoicePaid = createServerFn({ method: "POST" })
         organizationId: invoice.organizationId,
         actorUserId: actor.id,
         action: "invoice_manually_paid",
-        details: { invoiceId: data.invoiceId, previousStatus: invoice.status },
+        details: {
+          invoiceId: data.invoiceId,
+          previousStatus: invoice.status,
+          canceledMercadoPagoAttempts: canceledAttempts,
+        },
       });
 
       const [remaining] = await tx
@@ -818,7 +829,16 @@ export const markInvoicePaid = createServerFn({ method: "POST" })
           .where(eq(schema.organizations.id, invoice.organizationId));
       }
     });
-    return { ok: true, changed: true, reactivated };
+    return { ok: true, changed: true, reactivated, canceledAttempts };
+  });
+
+export const cancelBillingAttempt = createServerFn({ method: "POST" })
+  .inputValidator((input: unknown) => z.object({ attemptId: z.string().uuid() }).parse(input))
+  .handler(async ({ data }) => {
+    await requirePlatform();
+    const { cancelBillingAttemptAtProvider } = await import("@/lib/billing/payments.server");
+    const canceled = await cancelBillingAttemptAtProvider(data.attemptId);
+    return { ok: true, canceled };
   });
 
 export const reconcileOrganizationPayments = createServerFn({ method: "POST" })

@@ -73,9 +73,7 @@ type CreateAttemptData =
   | { method: "boleto"; deviceSessionId?: string };
 
 function currentDeviceSessionId() {
-  return normalizeDeviceSessionId(
-    window.MDI_MP_DEVICE_SESSION_ID ?? window.MP_DEVICE_SESSION_ID,
-  );
+  return normalizeDeviceSessionId(window.MDI_MP_DEVICE_SESSION_ID ?? window.MP_DEVICE_SESSION_ID);
 }
 
 function BillingPage() {
@@ -389,7 +387,7 @@ function BillingPage() {
                     </CardDescription>
                   </CardHeader>
                   <CardContent className="space-y-4">
-                    {attempt?.method === "boleto" && attempt.ticketUrl ? (
+                    {attempt?.method === "boleto" && (attempt.ticketUrl || attempt.redirectUrl) ? (
                       <BoletoAttempt attempt={attempt} />
                     ) : (
                       <Button
@@ -510,6 +508,7 @@ function PixAttempt({ attempt }: { attempt: NonNullable<Attempt> }) {
   );
 }
 function BoletoAttempt({ attempt }: { attempt: NonNullable<Attempt> }) {
+  const documentUrl = attempt.ticketUrl ?? attempt.redirectUrl;
   return (
     <div className="space-y-3">
       <div className="flex gap-2">
@@ -523,7 +522,16 @@ function BoletoAttempt({ attempt }: { attempt: NonNullable<Attempt> }) {
         </Button>
       </div>
       <Button asChild>
-        <a href={`/studio/faturamento/boleto/${attempt.id}`}>Abrir boleto para impressão</a>
+        <a
+          href={documentUrl ?? `/studio/faturamento/boleto/${attempt.id}`}
+          target="_blank"
+          rel="noreferrer"
+        >
+          Exibir boleto para impressão
+        </a>
+      </Button>
+      <Button asChild variant="outline">
+        <a href={`/studio/faturamento/boleto/${attempt.id}`}>Ver linha digitável</a>
       </Button>
     </div>
   );

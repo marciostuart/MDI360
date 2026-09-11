@@ -41,6 +41,7 @@ import {
   AlertDialogTrigger,
 } from "@/components/ui/alert-dialog";
 import {
+  cancelBillingAttempt,
   deleteOrganization,
   fetchOrganizationDetail,
   fetchPlans,
@@ -185,15 +186,32 @@ function ClientDetail() {
     onSuccess: (result) => {
       toast.success(
         result.reactivated
-          ? "Pagamento baixado e acesso do cliente reativado."
+          ? `Pagamento baixado e acesso reativado.${result.canceledAttempts ? " Cobrança do Mercado Pago cancelada." : ""}`
           : result.changed
-            ? "Pagamento baixado."
-            : "A fatura já estava baixada.",
+            ? `Pagamento baixado.${result.canceledAttempts ? " Cobrança do Mercado Pago cancelada." : ""}`
+            : result.canceledAttempts
+              ? "A fatura já estava baixada e a cobrança do Mercado Pago foi cancelada."
+              : "A fatura já estava baixada.",
       );
       void queryClient.invalidateQueries({ queryKey: ["platform-org", organizationId] });
       void queryClient.invalidateQueries({ queryKey: ["platform-organizations"] });
     },
-    onError: () => toast.error("Não foi possível baixar o pagamento."),
+    onError: (error) =>
+      toast.error(error instanceof Error ? error.message : "Não foi possível baixar o pagamento."),
+  });
+
+  const cancelAttempt = useMutation({
+    mutationFn: (attemptId: string) => cancelBillingAttempt({ data: { attemptId } }),
+    onSuccess: (result) => {
+      toast.success(
+        result.canceled
+          ? "Cobrança cancelada e confirmada no Mercado Pago."
+          : "A cobrança já não estava mais pendente.",
+      );
+      void queryClient.invalidateQueries({ queryKey: ["platform-org", organizationId] });
+    },
+    onError: (error) =>
+      toast.error(error instanceof Error ? error.message : "Não foi possível cancelar a cobrança."),
   });
 
   if (isPending) {
@@ -558,9 +576,10 @@ function ClientDetail() {
                                 <AlertDialogHeader>
                                   <AlertDialogTitle>Confirmar baixa manual?</AlertDialogTitle>
                                   <AlertDialogDescription>
-                                    A fatura {invoice.number} será marcada como paga. Se não houver
-                                    outra pendência, uma suspensão financeira será removida
-                                    automaticamente.
+                                    Antes da baixa, qualquer Pix ou boleto pendente vinculado será
+                                    cancelado e confirmado no Mercado Pago. Depois, a fatura será
+                                    marcada como paga e, se não houver outra pendência, a suspensão
+                                    financeira será removida automaticamente.
                                   </AlertDialogDescription>
                                 </AlertDialogHeader>
                                 <AlertDialogFooter>
@@ -589,13 +608,25 @@ function ClientDetail() {
                       <span>
                         {attempt.method.toUpperCase()} · {formatDate(attempt.createdAt)}
                       </span>
-                      <span>
-                        {attempt.status} ·{" "}
-                        {new Intl.NumberFormat("pt-BR", {
-                          style: "currency",
-                          currency: "BRL",
-                        }).format(attempt.amountCents / 100)}
-                      </span>
+                      <div className="flex items-center gap-2">
+                        <span>
+                          {attempt.status} ·{" "}
+                          {new Intl.NumberFormat("pt-BR", {
+                            style: "currency",
+                            currency: "BRL",
+                          }).format(attempt.amountCents / 100)}
+                        </span>
+                        {["creating", "pending"].includes(attempt.status) ? (
+                          <Button
+                            size="sm"
+                            variant="outline"
+                            disabled={cancelAttempt.isPending}
+                            onClick={() => cancelAttempt.mutate(attempt.id)}
+                          >
+                            Cancelar cobrança
+                          </Button>
+                        ) : null}
+                      </div>
                     </div>
                   ))}
                 </div>

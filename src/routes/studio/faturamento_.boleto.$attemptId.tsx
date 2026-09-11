@@ -42,6 +42,8 @@ function BoletoReceiptPage() {
     );
   }
 
+  const documentUrl = data.ticketUrl ?? data.redirectUrl;
+
   return (
     <div className="mx-auto max-w-3xl space-y-5 print:max-w-none">
       <div className="flex items-center justify-between gap-3 print:hidden">
@@ -50,9 +52,18 @@ function BoletoReceiptPage() {
             <ArrowLeft className="mr-2 size-4" /> Voltar
           </Link>
         </Button>
-        <Button onClick={() => window.print()}>
-          <Printer className="mr-2 size-4" /> Imprimir
-        </Button>
+        <div className="flex gap-2">
+          {documentUrl ? (
+            <Button asChild>
+              <a href={documentUrl} target="_blank" rel="noreferrer">
+                <Printer className="mr-2 size-4" /> Abrir boleto do Mercado Pago
+              </a>
+            </Button>
+          ) : null}
+          <Button variant="outline" onClick={() => window.print()}>
+            <Printer className="mr-2 size-4" /> Imprimir dados
+          </Button>
+        </div>
       </div>
       <Card>
         <CardHeader>

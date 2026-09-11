@@ -100,6 +100,8 @@ export const fetchBoletoReceipt = createServerFn({ method: "GET" })
         status: schema.billingPaymentAttempts.status,
         amountCents: schema.billingPaymentAttempts.amountCents,
         digitableLine: schema.billingPaymentAttempts.digitableLine,
+        ticketUrl: schema.billingPaymentAttempts.ticketUrl,
+        redirectUrl: schema.billingPaymentAttempts.redirectUrl,
         expiresAt: schema.billingPaymentAttempts.expiresAt,
         createdAt: schema.billingPaymentAttempts.createdAt,
       })
