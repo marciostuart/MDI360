@@ -13,6 +13,17 @@ function isPlatformEmail(email: string) {
   return allow.includes(email.toLowerCase());
 }
 
+function dateValue(value: unknown): Date | null {
+  if (value instanceof Date) return Number.isNaN(value.getTime()) ? null : value;
+  if (typeof value !== "string" && typeof value !== "number") return null;
+  const parsed = new Date(value);
+  return Number.isNaN(parsed.getTime()) ? null : parsed;
+}
+
+function isoDate(value: unknown) {
+  return dateValue(value)?.toISOString() ?? null;
+}
+
 export type PlatformOverview = {
   organizations: number;
   users: number;
@@ -464,14 +475,16 @@ export const fetchOrganizationDetail = createServerFn({ method: "GET" })
         notes: notesRow?.notes ?? null,
         users: users.map((u) => ({
           ...u,
-          lastLoginAt: u.lastLoginAt ? u.lastLoginAt.toISOString() : null,
+          lastLoginAt: isoDate(u.lastLoginAt),
         })),
         devices: devices.map((d) => ({
           id: d.id,
           name: d.name,
           status: d.status,
-          online: d.lastSeenAt ? now - d.lastSeenAt.getTime() < 90_000 : false,
-          lastSeenAt: d.lastSeenAt ? d.lastSeenAt.toISOString() : null,
+          online: dateValue(d.lastSeenAt)
+            ? now - dateValue(d.lastSeenAt)!.getTime() < 90_000
+            : false,
+          lastSeenAt: isoDate(d.lastSeenAt),
           appVersion: d.appVersion,
         })),
         topMedia: topMedia.map((m) => ({
@@ -484,20 +497,23 @@ export const fetchOrganizationDetail = createServerFn({ method: "GET" })
           openInvoices: Number(billing?.openInvoices ?? 0),
           overdueInvoices: Number(billing?.overdueInvoices ?? 0),
           outstandingCents: Number(billing?.outstandingCents ?? 0),
-          lastInvoiceAt: billing?.lastInvoiceAt?.toISOString() ?? null,
-          invoices: invoices.map((invoice) => ({ ...invoice, dueAt: invoice.dueAt.toISOString() })),
+          lastInvoiceAt: isoDate(billing?.lastInvoiceAt),
+          invoices: invoices.map((invoice) => ({
+            ...invoice,
+            dueAt: isoDate(invoice.dueAt) ?? "",
+          })),
           items,
           attempts: attempts.map((attempt) => ({
             ...attempt,
-            createdAt: attempt.createdAt.toISOString(),
+            createdAt: isoDate(attempt.createdAt) ?? "",
           })),
           notifications: notifications.map((notification) => ({
             ...notification,
-            createdAt: notification.createdAt.toISOString(),
+            createdAt: isoDate(notification.createdAt) ?? "",
           })),
           credits: credits.map((credit) => ({
             ...credit,
-            createdAt: credit.createdAt.toISOString(),
+            createdAt: isoDate(credit.createdAt) ?? "",
           })),
         },
       };

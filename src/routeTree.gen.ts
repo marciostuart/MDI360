@@ -67,8 +67,8 @@ import { Route as ApiPublicPlayerSyncRouteImport } from './routes/api/public/pla
 import { Route as ApiPublicQueueCallRouteImport } from './routes/api/public/queue/call'
 import { Route as ApiPublicQueueIssueRouteImport } from './routes/api/public/queue/issue'
 import { Route as ApiPublicQueuePrintSpoolRouteImport } from './routes/api/public/queue/print-spool'
-import { Route as StudioFaturamentoBoletoAttemptIdRouteImport } from './routes/studio/faturamento/boleto/$attemptId'
 import { Route as StudioFaturamentoFaturaInvoiceIdRouteImport } from './routes/studio/faturamento/fatura/$invoiceId'
+import { Route as StudioFaturamentoBoletoAttemptIdRouteImport } from './routes/studio/faturamento_.boleto.$attemptId'
 
 const IndexRoute = IndexRouteImport.update({
   id: '/',
@@ -369,17 +369,17 @@ const ApiPublicQueuePrintSpoolRoute =
     path: '/api/public/queue/print-spool',
     getParentRoute: () => rootRouteImport,
   } as any)
-const StudioFaturamentoBoletoAttemptIdRoute =
-  StudioFaturamentoBoletoAttemptIdRouteImport.update({
-    id: '/boleto/$attemptId',
-    path: '/boleto/$attemptId',
-    getParentRoute: () => StudioFaturamentoRoute,
-  } as any)
 const StudioFaturamentoFaturaInvoiceIdRoute =
   StudioFaturamentoFaturaInvoiceIdRouteImport.update({
     id: '/fatura/$invoiceId',
     path: '/fatura/$invoiceId',
     getParentRoute: () => StudioFaturamentoRoute,
+  } as any)
+const StudioFaturamentoBoletoAttemptIdRoute =
+  StudioFaturamentoBoletoAttemptIdRouteImport.update({
+    id: '/faturamento_/boleto/$attemptId',
+    path: '/faturamento/boleto/$attemptId',
+    getParentRoute: () => StudioRouteRoute,
   } as any)
 
 export interface FileRoutesByFullPath {
@@ -441,8 +441,8 @@ export interface FileRoutesByFullPath {
   '/api/public/queue/call': typeof ApiPublicQueueCallRoute
   '/api/public/queue/issue': typeof ApiPublicQueueIssueRoute
   '/api/public/queue/print-spool': typeof ApiPublicQueuePrintSpoolRoute
-  '/studio/faturamento/boleto/$attemptId': typeof StudioFaturamentoBoletoAttemptIdRoute
   '/studio/faturamento/fatura/$invoiceId': typeof StudioFaturamentoFaturaInvoiceIdRoute
+  '/studio/faturamento/boleto/$attemptId': typeof StudioFaturamentoBoletoAttemptIdRoute
 }
 export interface FileRoutesByTo {
   '/': typeof IndexRoute
@@ -501,8 +501,8 @@ export interface FileRoutesByTo {
   '/api/public/queue/call': typeof ApiPublicQueueCallRoute
   '/api/public/queue/issue': typeof ApiPublicQueueIssueRoute
   '/api/public/queue/print-spool': typeof ApiPublicQueuePrintSpoolRoute
-  '/studio/faturamento/boleto/$attemptId': typeof StudioFaturamentoBoletoAttemptIdRoute
   '/studio/faturamento/fatura/$invoiceId': typeof StudioFaturamentoFaturaInvoiceIdRoute
+  '/studio/faturamento/boleto/$attemptId': typeof StudioFaturamentoBoletoAttemptIdRoute
 }
 export interface FileRoutesById {
   __root__: typeof rootRouteImport
@@ -564,8 +564,8 @@ export interface FileRoutesById {
   '/api/public/queue/call': typeof ApiPublicQueueCallRoute
   '/api/public/queue/issue': typeof ApiPublicQueueIssueRoute
   '/api/public/queue/print-spool': typeof ApiPublicQueuePrintSpoolRoute
-  '/studio/faturamento/boleto/$attemptId': typeof StudioFaturamentoBoletoAttemptIdRoute
   '/studio/faturamento/fatura/$invoiceId': typeof StudioFaturamentoFaturaInvoiceIdRoute
+  '/studio/faturamento_/boleto/$attemptId': typeof StudioFaturamentoBoletoAttemptIdRoute
 }
 export interface FileRouteTypes {
   fileRoutesByFullPath: FileRoutesByFullPath
@@ -628,8 +628,8 @@ export interface FileRouteTypes {
     | '/api/public/queue/call'
     | '/api/public/queue/issue'
     | '/api/public/queue/print-spool'
-    | '/studio/faturamento/boleto/$attemptId'
     | '/studio/faturamento/fatura/$invoiceId'
+    | '/studio/faturamento/boleto/$attemptId'
   fileRoutesByTo: FileRoutesByTo
   to:
     | '/'
@@ -688,8 +688,8 @@ export interface FileRouteTypes {
     | '/api/public/queue/call'
     | '/api/public/queue/issue'
     | '/api/public/queue/print-spool'
-    | '/studio/faturamento/boleto/$attemptId'
     | '/studio/faturamento/fatura/$invoiceId'
+    | '/studio/faturamento/boleto/$attemptId'
   id:
     | '__root__'
     | '/'
@@ -750,8 +750,8 @@ export interface FileRouteTypes {
     | '/api/public/queue/call'
     | '/api/public/queue/issue'
     | '/api/public/queue/print-spool'
-    | '/studio/faturamento/boleto/$attemptId'
     | '/studio/faturamento/fatura/$invoiceId'
+    | '/studio/faturamento_/boleto/$attemptId'
   fileRoutesById: FileRoutesById
 }
 export interface RootRouteChildren {
@@ -1196,13 +1196,6 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof ApiPublicQueuePrintSpoolRouteImport
       parentRoute: typeof rootRouteImport
     }
-    '/studio/faturamento/boleto/$attemptId': {
-      id: '/studio/faturamento/boleto/$attemptId'
-      path: '/boleto/$attemptId'
-      fullPath: '/studio/faturamento/boleto/$attemptId'
-      preLoaderRoute: typeof StudioFaturamentoBoletoAttemptIdRouteImport
-      parentRoute: typeof StudioFaturamentoRoute
-    }
     '/studio/faturamento/fatura/$invoiceId': {
       id: '/studio/faturamento/fatura/$invoiceId'
       path: '/fatura/$invoiceId'
@@ -1210,16 +1203,21 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof StudioFaturamentoFaturaInvoiceIdRouteImport
       parentRoute: typeof StudioFaturamentoRoute
     }
+    '/studio/faturamento_/boleto/$attemptId': {
+      id: '/studio/faturamento_/boleto/$attemptId'
+      path: '/faturamento/boleto/$attemptId'
+      fullPath: '/studio/faturamento/boleto/$attemptId'
+      preLoaderRoute: typeof StudioFaturamentoBoletoAttemptIdRouteImport
+      parentRoute: typeof StudioRouteRoute
+    }
   }
 }
 
 interface StudioFaturamentoRouteChildren {
-  StudioFaturamentoBoletoAttemptIdRoute: typeof StudioFaturamentoBoletoAttemptIdRoute
   StudioFaturamentoFaturaInvoiceIdRoute: typeof StudioFaturamentoFaturaInvoiceIdRoute
 }
 
 const StudioFaturamentoRouteChildren: StudioFaturamentoRouteChildren = {
-  StudioFaturamentoBoletoAttemptIdRoute: StudioFaturamentoBoletoAttemptIdRoute,
   StudioFaturamentoFaturaInvoiceIdRoute: StudioFaturamentoFaturaInvoiceIdRoute,
 }
 
@@ -1244,6 +1242,7 @@ interface StudioRouteRouteChildren {
   StudioInstalarEmissorWindowsRoute: typeof StudioInstalarEmissorWindowsRoute
   StudioInstalarRokuRoute: typeof StudioInstalarRokuRoute
   StudioTerminaisDeviceIdRoute: typeof StudioTerminaisDeviceIdRoute
+  StudioFaturamentoBoletoAttemptIdRoute: typeof StudioFaturamentoBoletoAttemptIdRoute
 }
 
 const StudioRouteRouteChildren: StudioRouteRouteChildren = {
@@ -1264,6 +1263,7 @@ const StudioRouteRouteChildren: StudioRouteRouteChildren = {
   StudioInstalarEmissorWindowsRoute: StudioInstalarEmissorWindowsRoute,
   StudioInstalarRokuRoute: StudioInstalarRokuRoute,
   StudioTerminaisDeviceIdRoute: StudioTerminaisDeviceIdRoute,
+  StudioFaturamentoBoletoAttemptIdRoute: StudioFaturamentoBoletoAttemptIdRoute,
 }
 
 const StudioRouteRouteWithChildren = StudioRouteRoute._addFileChildren(
