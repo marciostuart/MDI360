@@ -36,13 +36,37 @@ export type ReportQueryResult = {
   rows: ReportRow[];
 };
 
+export type ReportMediaOption = {
+  id: string;
+  name: string;
+};
+
 const querySchema = z.object({
   group: z.enum(["device", "media"]).default("device"),
   from: z.string().min(1),
   to: z.string().min(1),
   page: z.number().int().default(1),
   pageSize: z.number().int().default(25),
+  mediaAssetId: z.string().uuid().nullable().optional(),
 });
+
+/** Arquivos do próprio estabelecimento disponíveis para o filtro do relatório. */
+export const listReportMediaAssets = createServerFn({ method: "GET" }).handler(
+  async (): Promise<ReportMediaOption[]> => {
+    const { isDatabaseConfigured, getDb, schema } = await import("@/lib/db/index.server");
+    if (!isDatabaseConfigured()) return [];
+
+    const { requireUser } = await import("@/lib/auth/session.server");
+    const { asc, eq } = await import("drizzle-orm");
+    const user = await requireUser();
+    return getDb()
+      .select({ id: schema.mediaAssets.id, name: schema.mediaAssets.name })
+      .from(schema.mediaAssets)
+      .where(eq(schema.mediaAssets.organizationId, user.organizationId))
+      .orderBy(asc(schema.mediaAssets.name))
+      .limit(2000);
+  },
+);
 
 /**
  * Relatório de exibição por período livre (data e hora inicial/final), agrupado
@@ -90,6 +114,9 @@ export const queryPlaybackReport = createServerFn({ method: "GET" })
       eq(schema.playbackEvents.organizationId, user.organizationId),
       gte(schema.playbackEvents.startedAt, parsedFrom),
       lte(schema.playbackEvents.startedAt, parsedTo),
+      data.group === "media" && data.mediaAssetId
+        ? eq(schema.playbackEvents.mediaAssetId, data.mediaAssetId)
+        : undefined,
     );
 
     const plays = sql<number>`count(*)::int`;

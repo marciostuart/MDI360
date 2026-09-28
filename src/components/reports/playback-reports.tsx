@@ -26,6 +26,7 @@ import {
 } from "@/components/ui/table";
 import {
   getNowPlaying,
+  listReportMediaAssets,
   queryPlaybackReport,
   type ReportGroup,
   type ReportRow,
@@ -80,6 +81,7 @@ function ReportTable({ rows, header }: { rows: ReportRow[]; header: string }) {
 export function PlaybackReports() {
   const reportFn = useServerFn(queryPlaybackReport);
   const nowFn = useServerFn(getNowPlaying);
+  const mediaOptionsFn = useServerFn(listReportMediaAssets);
 
   // Formulário: o relatório só é buscado quando o lojista clica em Buscar.
   const defaults = useMemo(() => {
@@ -90,11 +92,14 @@ export function PlaybackReports() {
   const [group, setGroup] = useState<ReportGroup>("device");
   const [from, setFrom] = useState(defaults.from);
   const [to, setTo] = useState(defaults.to);
+  const [mediaAssetId, setMediaAssetId] = useState("all");
   const [page, setPage] = useState(1);
   const [search, setSearch] = useState<{
     group: ReportGroup;
     from: string;
     to: string;
+    mediaAssetId: string | null;
+    mediaLabel: string | null;
   } | null>(null);
   const [exporting, setExporting] = useState(false);
 
@@ -109,8 +114,16 @@ export function PlaybackReports() {
           to: new Date(search!.to).toISOString(),
           page,
           pageSize: PAGE_SIZE,
+          mediaAssetId: search!.mediaAssetId,
         },
       }),
+  });
+
+  const mediaOptions = useQuery({
+    queryKey: ["report-media-options"],
+    queryFn: () => mediaOptionsFn({}),
+    enabled: group === "media",
+    staleTime: 60_000,
   });
 
   const runSearch = () => {
@@ -123,7 +136,17 @@ export function PlaybackReports() {
       return;
     }
     setPage(1);
-    setSearch({ group, from, to });
+    const selectedMedia =
+      group === "media" && mediaAssetId !== "all"
+        ? (mediaOptions.data?.find((item) => item.id === mediaAssetId) ?? null)
+        : null;
+    setSearch({
+      group,
+      from,
+      to,
+      mediaAssetId: selectedMedia?.id ?? null,
+      mediaLabel: selectedMedia?.name ?? null,
+    });
   };
 
   const groupLabel = (value: ReportGroup) => (value === "device" ? "TV" : "Arquivo");
@@ -133,18 +156,37 @@ export function PlaybackReports() {
     if (!search) return;
     setExporting(true);
     try {
-      const full = await reportFn({
+      const first = await reportFn({
         data: {
           group: search.group,
           from: new Date(search.from).toISOString(),
           to: new Date(search.to).toISOString(),
           page: 1,
           pageSize: 200,
+          mediaAssetId: search.mediaAssetId,
         },
       });
 
-      const { jsPDF } = await import("jspdf");
-      const autoTable = (await import("jspdf-autotable")).default;
+      const rows = [...first.rows];
+      const pages = Math.ceil(first.totalRows / first.pageSize);
+      for (let currentPage = 2; currentPage <= pages; currentPage += 1) {
+        const next = await reportFn({
+          data: {
+            group: search.group,
+            from: new Date(search.from).toISOString(),
+            to: new Date(search.to).toISOString(),
+            page: currentPage,
+            pageSize: 200,
+            mediaAssetId: search.mediaAssetId,
+          },
+        });
+        rows.push(...next.rows);
+      }
+
+      const [{ jsPDF }, { autoTable }] = await Promise.all([
+        import("jspdf"),
+        import("jspdf-autotable"),
+      ]);
       const doc = new jsPDF({ unit: "pt", format: "a4" });
       const period = `${new Date(search.from).toLocaleString("pt-BR")} a ${new Date(search.to).toLocaleString("pt-BR")}`;
 
@@ -154,21 +196,33 @@ export function PlaybackReports() {
       doc.text(`Agrupado por: ${groupLabel(search.group)}`, 40, 66);
       doc.text(`Período: ${period}`, 40, 82);
       doc.text(
-        `Total: ${full.totalPlays} exibições · ${formatDuration(full.totalSeconds)} em tela`,
+        `Total: ${first.totalPlays} exibições - ${formatDuration(first.totalSeconds)} em tela`,
         40,
         98,
       );
+      const tableStartY = search.mediaLabel ? 132 : 116;
+      if (search.mediaLabel) doc.text(`Arquivo: ${search.mediaLabel}`, 40, 114);
 
       autoTable(doc, {
-        startY: 116,
+        startY: tableStartY,
         head: [[groupLabel(search.group), "Exibições", "Tempo em tela"]],
-        body: full.rows.map((row) => [row.label, String(row.plays), formatDuration(row.seconds)]),
+        body: rows.map((row) => [row.label, String(row.plays), formatDuration(row.seconds)]),
         styles: { fontSize: 9, cellPadding: 5 },
         headStyles: { fillColor: [15, 23, 42] },
         columnStyles: { 1: { halign: "right" }, 2: { halign: "right" } },
       });
 
-      doc.save(`relatorio-exibicao-${search.group}.pdf`);
+      const blob = doc.output("blob");
+      const url = URL.createObjectURL(blob);
+      const link = document.createElement("a");
+      link.href = url;
+      link.download = search.mediaLabel
+        ? `relatorio-${search.mediaLabel.replace(/[^a-z0-9]+/gi, "-").toLowerCase()}.pdf`
+        : `relatorio-exibicao-${search.group}.pdf`;
+      document.body.appendChild(link);
+      link.click();
+      link.remove();
+      window.setTimeout(() => URL.revokeObjectURL(url), 1_000);
     } catch (error) {
       console.error(error);
       toast.error("Não foi possível gerar o PDF.");
@@ -193,9 +247,6 @@ export function PlaybackReports() {
             <Radio className="size-4 text-primary" />
             No ar agora
           </CardTitle>
-          {now.isFetching ? (
-            <Loader2 className="size-4 animate-spin text-muted-foreground" />
-          ) : null}
         </CardHeader>
         <CardContent>
           {(now.data?.items.length ?? 0) === 0 ? (
@@ -231,7 +282,13 @@ export function PlaybackReports() {
           <CardTitle className="text-base">Relatório de exibição</CardTitle>
         </CardHeader>
         <CardContent className="space-y-6">
-          <div className="grid gap-4 md:grid-cols-[200px_1fr_1fr_auto] md:items-end">
+          <div
+            className={
+              group === "media"
+                ? "grid gap-4 md:grid-cols-2 xl:grid-cols-[200px_280px_1fr_1fr_auto] xl:items-end"
+                : "grid gap-4 md:grid-cols-[200px_1fr_1fr_auto] md:items-end"
+            }
+          >
             <div className="space-y-2">
               <Label>Relatório</Label>
               <Select value={group} onValueChange={(value) => setGroup(value as ReportGroup)}>
@@ -244,6 +301,24 @@ export function PlaybackReports() {
                 </SelectContent>
               </Select>
             </div>
+            {group === "media" ? (
+              <div className="space-y-2">
+                <Label>Arquivo</Label>
+                <Select value={mediaAssetId} onValueChange={setMediaAssetId}>
+                  <SelectTrigger>
+                    <SelectValue placeholder="Todos os arquivos" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="all">Todos os arquivos</SelectItem>
+                    {mediaOptions.data?.map((item) => (
+                      <SelectItem key={item.id} value={item.id}>
+                        {item.name}
+                      </SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+              </div>
+            ) : null}
             <div className="space-y-2">
               <Label htmlFor="report-from">Início</Label>
               <Input
