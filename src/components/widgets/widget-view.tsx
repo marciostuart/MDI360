@@ -672,14 +672,19 @@ function LotteryResultBody({
         {result.federalPrizes.map((prize) => (
           <div
             key={prize.ticket}
-            className="grid grid-cols-[4.6em_1fr_auto] items-baseline gap-[0.3em] rounded-[0.22em] border border-white/10 bg-black/25 px-[0.35em] py-[0.2em]"
+            className="grid w-full grid-cols-[minmax(0,1.15fr)_minmax(3.8em,0.85fr)] items-center gap-[0.32em] rounded-[0.22em] border border-white/10 bg-black/25 px-[0.38em] py-[0.22em]"
           >
-            <div className="text-[0.34em] font-semibold uppercase opacity-70">{prize.label}</div>
-            <div className="font-display text-[0.92em] font-bold tracking-[0.04em]">
+            <div className="min-w-0 self-center text-center font-display text-[0.96em] font-bold tracking-[0.04em]">
               {prize.ticket}
             </div>
-            <div className="text-[0.31em] font-semibold" style={{ color: accent }}>
-              {money(prize.value)}
+            <div className="flex min-w-0 flex-col items-center justify-center gap-[0.16em] self-stretch text-center">
+              <div className="text-[0.34em] font-semibold uppercase opacity-75">{prize.label}</div>
+              <div
+                className="whitespace-nowrap text-[0.3em] font-semibold leading-none"
+                style={{ color: accent }}
+              >
+                {money(prize.value)}
+              </div>
             </div>
           </div>
         ))}
