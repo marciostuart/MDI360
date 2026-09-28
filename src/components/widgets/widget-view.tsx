@@ -16,9 +16,11 @@ import type { NormalizedLotteryResult } from "@/lib/widgets/lottery";
 export function WidgetView({
   config,
   accentColor,
+  onReady,
 }: {
   config: WidgetConfig;
   accentColor?: string | null;
+  onReady?: () => void;
 }) {
   const theme = resolveWidgetTheme(config.theme);
   const accent = theme.accentColor || accentColor || "#38BDF8";
@@ -29,7 +31,7 @@ export function WidgetView({
   if (config.type === "currency")
     return <CurrencyWidget config={config} theme={theme} accent={accent} />;
   if (config.type === "lottery")
-    return <LotteryWidget config={config} theme={theme} accent={accent} />;
+    return <LotteryWidget config={config} theme={theme} accent={accent} onReady={onReady} />;
   return <NewsWidget config={config} theme={theme} accent={accent} />;
 }
 
@@ -155,9 +157,15 @@ function useWidgetData<T>(query: string | null) {
   useEffect(() => {
     if (!query) return;
     let cancelled = false;
+    const controllers = new Set<AbortController>();
     const load = async () => {
+      const controller = new AbortController();
+      controllers.add(controller);
+      const timeout = window.setTimeout(() => controller.abort(), 12_000);
       try {
-        const response = await fetch(`/api/public/widget-data?${query}`);
+        const response = await fetch(`/api/public/widget-data?${query}`, {
+          signal: controller.signal,
+        });
         if (!response.ok) throw new Error("widget-data");
         const payload = (await response.json()) as T;
         if (!cancelled) {
@@ -166,12 +174,16 @@ function useWidgetData<T>(query: string | null) {
         }
       } catch {
         if (!cancelled) setFailed(true);
+      } finally {
+        window.clearTimeout(timeout);
+        controllers.delete(controller);
       }
     };
     void load();
     const interval = window.setInterval(() => void load(), 5 * 60 * 1000);
     return () => {
       cancelled = true;
+      for (const controller of controllers) controller.abort();
       window.clearInterval(interval);
     };
   }, [query]);
@@ -689,10 +701,12 @@ function LotteryWidget({
   config,
   theme,
   accent,
+  onReady,
 }: {
   config: Extract<WidgetConfig, { type: "lottery" }>;
   theme: WidgetTheme;
   accent: string;
+  onReady?: () => void;
 }) {
   const query = useMemo(
     () => `type=lottery&games=${encodeURIComponent(config.gameIds.join(","))}`,
@@ -704,6 +718,9 @@ function LotteryWidget({
   const layout = resolveWidgetLayout("lottery", config.layout as WidgetLayout | undefined);
 
   useEffect(() => setIndex(0), [query]);
+  useEffect(() => {
+    if (results.length > 0 || failed) onReady?.();
+  }, [failed, onReady, results.length]);
   useEffect(() => {
     if (results.length <= 1) return;
     const interval = window.setInterval(

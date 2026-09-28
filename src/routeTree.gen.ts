@@ -37,6 +37,7 @@ import { Route as TorrePagamentosRouteImport } from './routes/torre/pagamentos'
 import { Route as TorrePagamentosTestesRouteImport } from './routes/torre/pagamentos-testes'
 import { Route as TorrePlanosRouteImport } from './routes/torre/planos'
 import { Route as TorreSiteRouteImport } from './routes/torre/site'
+import { Route as TorreWidgetsRouteImport } from './routes/torre/widgets'
 import { Route as ApiBrandingLogoRouteImport } from './routes/api/branding/logo'
 import { Route as ApiInternalDeviceMonitorRouteImport } from './routes/api/internal/device-monitor'
 import { Route as ApiMediaReplaceRouteImport } from './routes/api/media/replace'
@@ -208,6 +209,11 @@ const TorrePlanosRoute = TorrePlanosRouteImport.update({
 const TorreSiteRoute = TorreSiteRouteImport.update({
   id: '/site',
   path: '/site',
+  getParentRoute: () => TorreRouteRoute,
+} as any)
+const TorreWidgetsRoute = TorreWidgetsRouteImport.update({
+  id: '/widgets',
+  path: '/widgets',
   getParentRoute: () => TorreRouteRoute,
 } as any)
 const ApiBrandingLogoRoute = ApiBrandingLogoRouteImport.update({
@@ -408,6 +414,7 @@ export interface FileRoutesByFullPath {
   '/torre/pagamentos-testes': typeof TorrePagamentosTestesRoute
   '/torre/planos': typeof TorrePlanosRoute
   '/torre/site': typeof TorreSiteRoute
+  '/torre/widgets': typeof TorreWidgetsRoute
   '/emitir/': typeof EmitirIndexRoute
   '/studio/': typeof StudioIndexRoute
   '/torre/': typeof TorreIndexRoute
@@ -468,6 +475,7 @@ export interface FileRoutesByTo {
   '/torre/pagamentos-testes': typeof TorrePagamentosTestesRoute
   '/torre/planos': typeof TorrePlanosRoute
   '/torre/site': typeof TorreSiteRoute
+  '/torre/widgets': typeof TorreWidgetsRoute
   '/emitir': typeof EmitirIndexRoute
   '/studio': typeof StudioIndexRoute
   '/torre': typeof TorreIndexRoute
@@ -531,6 +539,7 @@ export interface FileRoutesById {
   '/torre/pagamentos-testes': typeof TorrePagamentosTestesRoute
   '/torre/planos': typeof TorrePlanosRoute
   '/torre/site': typeof TorreSiteRoute
+  '/torre/widgets': typeof TorreWidgetsRoute
   '/emitir/': typeof EmitirIndexRoute
   '/studio/': typeof StudioIndexRoute
   '/torre/': typeof TorreIndexRoute
@@ -595,6 +604,7 @@ export interface FileRouteTypes {
     | '/torre/pagamentos-testes'
     | '/torre/planos'
     | '/torre/site'
+    | '/torre/widgets'
     | '/emitir/'
     | '/studio/'
     | '/torre/'
@@ -655,6 +665,7 @@ export interface FileRouteTypes {
     | '/torre/pagamentos-testes'
     | '/torre/planos'
     | '/torre/site'
+    | '/torre/widgets'
     | '/emitir'
     | '/studio'
     | '/torre'
@@ -717,6 +728,7 @@ export interface FileRouteTypes {
     | '/torre/pagamentos-testes'
     | '/torre/planos'
     | '/torre/site'
+    | '/torre/widgets'
     | '/emitir/'
     | '/studio/'
     | '/torre/'
@@ -984,6 +996,13 @@ declare module '@tanstack/react-router' {
       path: '/site'
       fullPath: '/torre/site'
       preLoaderRoute: typeof TorreSiteRouteImport
+      parentRoute: typeof TorreRouteRoute
+    }
+    '/torre/widgets': {
+      id: '/torre/widgets'
+      path: '/widgets'
+      fullPath: '/torre/widgets'
+      preLoaderRoute: typeof TorreWidgetsRouteImport
       parentRoute: typeof TorreRouteRoute
     }
     '/api/branding/logo': {
@@ -1278,6 +1297,7 @@ interface TorreRouteRouteChildren {
   TorrePagamentosTestesRoute: typeof TorrePagamentosTestesRoute
   TorrePlanosRoute: typeof TorrePlanosRoute
   TorreSiteRoute: typeof TorreSiteRoute
+  TorreWidgetsRoute: typeof TorreWidgetsRoute
   TorreIndexRoute: typeof TorreIndexRoute
   TorreClientesOrganizationIdRoute: typeof TorreClientesOrganizationIdRoute
   TorreClientesIndexRoute: typeof TorreClientesIndexRoute
@@ -1291,6 +1311,7 @@ const TorreRouteRouteChildren: TorreRouteRouteChildren = {
   TorrePagamentosTestesRoute: TorrePagamentosTestesRoute,
   TorrePlanosRoute: TorrePlanosRoute,
   TorreSiteRoute: TorreSiteRoute,
+  TorreWidgetsRoute: TorreWidgetsRoute,
   TorreIndexRoute: TorreIndexRoute,
   TorreClientesOrganizationIdRoute: TorreClientesOrganizationIdRoute,
   TorreClientesIndexRoute: TorreClientesIndexRoute,

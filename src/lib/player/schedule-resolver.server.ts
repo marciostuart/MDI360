@@ -10,6 +10,8 @@ import {
 } from "@/lib/schedules/rules";
 import { createDownloadUrl, isStorageConfigured } from "@/lib/storage.server";
 import type { WidgetConfig } from "@/lib/widgets/catalog";
+import { isPlatformWidgetType } from "@/lib/widgets/platform-widgets";
+import { readPlatformWidgetSettings } from "@/lib/widgets/platform-widgets.server";
 
 export type PlayerItem = {
   id: string;
@@ -53,6 +55,7 @@ async function resolveItems(
   timezone: string,
   now: Date,
   path: Set<string>,
+  activePlatformWidgets: Set<string>,
   prefix = "",
 ): Promise<{ items: PlayerItem[]; finger: string[] }> {
   if (path.has(playlistId) || path.size >= 8) return { items: [], finger: [`cycle:${playlistId}`] };
@@ -93,6 +96,7 @@ async function resolveItems(
         timezone,
         now,
         nextPath,
+        activePlatformWidgets,
         `${prefix}${row.id}:`,
       );
       items.push(...nested.items);
@@ -103,6 +107,8 @@ async function resolveItems(
       continue;
     }
     if (!row.mediaAssetId || !row.kind || !row.name || row.status !== "ready") continue;
+    if (isPlatformWidgetType(row.widgetType) && !activePlatformWidgets.has(row.widgetType))
+      continue;
     if (row.airStartAt && row.airStartAt > now) continue;
     if (row.airEndAt && row.airEndAt < now) continue;
     if (row.kind === "widget") {
@@ -153,6 +159,10 @@ export async function resolvePlaybackPlanForDevice(
 ): Promise<PlayerPlaybackPlan> {
   const db = getDb();
   const now = new Date();
+  const platformWidgets = await readPlatformWidgetSettings();
+  const activePlatformWidgets = new Set(
+    Object.entries(platformWidgets).flatMap(([type, entry]) => (entry.active ? [type] : [])),
+  );
   const candidates = await db
     .select({
       playlistId: schema.schedules.playlistId,
@@ -197,7 +207,13 @@ export async function resolvePlaybackPlanForDevice(
         .limit(1)
     )[0];
     if (!playlist) return null;
-    const resolved = await resolveItems(playlist.id, timezone, now, new Set());
+    const resolved = await resolveItems(
+      playlist.id,
+      timezone,
+      now,
+      new Set(),
+      activePlatformWidgets,
+    );
     if (!resolved.items.length) return null;
     return {
       id: playlist.id,
@@ -211,9 +227,10 @@ export async function resolvePlaybackPlanForDevice(
   const preloadPlaylists = await Promise.all(
     [...new Set(candidates.map((candidate) => candidate.playlistId))].map(loadPlaylist),
   );
-  const preloadItems = [...(fallbackPlaylist?.items ?? []), ...preloadPlaylists.flatMap(
-    (playlist) => playlist?.items ?? [],
-  )].filter(
+  const preloadItems = [
+    ...(fallbackPlaylist?.items ?? []),
+    ...preloadPlaylists.flatMap((playlist) => playlist?.items ?? []),
+  ].filter(
     (item, index, items) => items.findIndex((candidate) => candidate.id === item.id) === index,
   );
   for (const match of matches) {

@@ -53,9 +53,15 @@ export type WidgetDraft = { assetId: string; name: string; config: WidgetConfig 
 export function WidgetComposer({
   editing,
   onCancelEditing,
+  allowedTypes,
+  onSave,
+  managedByPlatform = false,
 }: {
   editing?: WidgetDraft | null;
   onCancelEditing?: () => void;
+  allowedTypes?: readonly WidgetType[];
+  onSave?: (draft: { name: string; config: WidgetConfig }) => Promise<unknown>;
+  managedByPlatform?: boolean;
 } = {}) {
   const queryClient = useQueryClient();
   const saveFn = useServerFn(saveWidgetAsset);
@@ -77,6 +83,9 @@ export function WidgetComposer({
   const [config, setConfig] = useState<WidgetConfig>(getWidgetDefinition("clock").defaultConfig);
   const [cep, setCep] = useState("");
   const [cepLoading, setCepLoading] = useState(false);
+  const availableTypes = WIDGET_CATALOG.filter(
+    (entry) => !allowedTypes || allowedTypes.includes(entry.type),
+  );
 
   /** Consulta o CEP e guarda a cidade mais próxima encontrada no provedor. */
   async function lookupCep() {
@@ -140,14 +149,18 @@ export function WidgetComposer({
 
   const saveMutation = useMutation({
     mutationFn: () =>
-      saveFn({
-        data: { name: name.trim(), config, ...(editing ? { assetId: editing.assetId } : {}) },
-      }),
+      onSave
+        ? onSave({ name: name.trim(), config })
+        : saveFn({
+            data: { name: name.trim(), config, ...(editing ? { assetId: editing.assetId } : {}) },
+          }),
     onSuccess: async () => {
       toast.success(
-        editing
-          ? "Widget atualizado. As telas recebem a mudança na sequência."
-          : "Widget adicionado à biblioteca. Já pode entrar em uma playlist.",
+        managedByPlatform
+          ? "Widget global atualizado para todos os clientes."
+          : editing
+            ? "Widget atualizado. As telas recebem a mudança na sequência."
+            : "Widget adicionado à biblioteca. Já pode entrar em uma playlist.",
       );
       await queryClient.invalidateQueries({ queryKey: ["media-assets"] });
       onCancelEditing?.();
@@ -176,7 +189,7 @@ export function WidgetComposer({
                   <SelectValue />
                 </SelectTrigger>
                 <SelectContent>
-                  {WIDGET_CATALOG.map((entry) => (
+                  {availableTypes.map((entry) => (
                     <SelectItem key={entry.type} value={entry.type}>
                       {entry.label}
                     </SelectItem>
@@ -705,7 +718,7 @@ export function WidgetComposer({
               ) : (
                 <Plus className="size-4" />
               )}
-              {editing ? "Salvar alterações" : "Adicionar à biblioteca"}
+              {editing || managedByPlatform ? "Salvar alterações" : "Adicionar à biblioteca"}
             </Button>
             {editing ? (
               <Button type="button" variant="outline" onClick={() => onCancelEditing?.()}>

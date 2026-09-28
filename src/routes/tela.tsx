@@ -183,6 +183,7 @@ function PlayerScreen() {
   const leaveRef = useRef<number | null>(null);
   /** True during the last FADE_MS of an item, so it fades out before swapping. */
   const [leaving, setLeaving] = useState(false);
+  const [widgetReadyKey, setWidgetReadyKey] = useState<string | null>(null);
   // Queue add-on: the call currently taking over the screen, plus the ones
   // waiting for their turn. Calls never overlap: each one owns the screen for
   // its full display time before the next enters.
@@ -299,21 +300,22 @@ function PlayerScreen() {
     setActivationCode(window.localStorage.getItem(CODE_KEY));
     if (stored) {
       try {
-        const cached = JSON.parse(window.localStorage.getItem(CACHED_SYNC_KEY) ?? "null") as
-          | SyncResponse
-          | null;
+        const cached = JSON.parse(
+          window.localStorage.getItem(CACHED_SYNC_KEY) ?? "null",
+        ) as SyncResponse | null;
         if (cached?.device) {
           const rule = cached.offlineSchedule?.activeRule;
           const timezone = cached.offlineSchedule?.timezone ?? "America/Sao_Paulo";
-          const safe = rule && !matchesScheduleRule(rule, new Date(), timezone)
-            ? {
-                ...cached,
-                playlist: cached.offlineSchedule?.fallbackPlaylist ?? null,
-                offlineSchedule: cached.offlineSchedule
-                  ? { ...cached.offlineSchedule, activeRule: null }
-                  : undefined,
-              }
-            : cached;
+          const safe =
+            rule && !matchesScheduleRule(rule, new Date(), timezone)
+              ? {
+                  ...cached,
+                  playlist: cached.offlineSchedule?.fallbackPlaylist ?? null,
+                  offlineSchedule: cached.offlineSchedule
+                    ? { ...cached.offlineSchedule, activeRule: null }
+                    : undefined,
+                }
+              : cached;
           applySync(safe, true);
           setLinked(true);
         }
@@ -593,6 +595,24 @@ function PlayerScreen() {
   // effect dependencies so the file on screen is never remounted mid-playback.
   const currentKey = current?.url ? mediaCache.keyFor(current.url) : null;
   const videoRenderKey = current ? `${current.id}-${index}` : null;
+  const waitsForLottery =
+    current?.kind === "widget" &&
+    current.widgetConfig?.type === "lottery" &&
+    widgetReadyKey !== videoRenderKey;
+  const markWidgetReady = useCallback(() => {
+    if (videoRenderKey) setWidgetReadyKey(videoRenderKey);
+  }, [videoRenderKey]);
+
+  // The playlist clock must not consume the lottery cycle while the first
+  // payload is still loading. A bounded fallback prevents a provider outage
+  // from holding the whole playlist forever.
+  useEffect(() => {
+    if (current?.kind !== "widget" || current.widgetConfig?.type !== "lottery") return;
+    const fallback = window.setTimeout(() => {
+      if (videoRenderKey) setWidgetReadyKey(videoRenderKey);
+    }, 20_000);
+    return () => window.clearTimeout(fallback);
+  }, [current?.kind, current?.widgetConfig?.type, videoRenderKey]);
 
   // Keep the surface black until the video really starts. This prevents the
   // Android WebView default play artwork from ever becoming visible.
@@ -655,6 +675,7 @@ function PlayerScreen() {
     if (leaveRef.current) window.clearTimeout(leaveRef.current);
     if (!current || items.length === 0) return;
     if (current.kind === "video") return;
+    if (waitsForLottery) return;
     const total = Math.max(1000, current.durationMs);
     if (fade && total > FADE_MS * 2) {
       leaveRef.current = window.setTimeout(() => setLeaving(true), total - FADE_MS);
@@ -666,7 +687,16 @@ function PlayerScreen() {
     };
     // Stable identity only: a re-signed link must not restart the exhibition.
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [current?.id, current?.kind, current?.durationMs, index, items.length, advance, fade]);
+  }, [
+    current?.id,
+    current?.kind,
+    current?.durationMs,
+    index,
+    items.length,
+    advance,
+    fade,
+    waitsForLottery,
+  ]);
 
   // Watchdog: qualquer sinal de vida (item trocou, chamada exibida, servidor
   // respondeu) renova o relogio. Se nada acontecer por 2 minutos, a tela se
@@ -719,14 +749,14 @@ function PlayerScreen() {
   // The call is drawn ON TOP of the playlist: nothing is unmounted, so the
   // rotation keeps its place and simply resumes when the call disappears.
   // Video audio is muted while a call is on screen.
-  const callOverlay = activeCall &&
-    (!IS_ANDROID_HYBRID || sync?.device.enabledModes?.includes("caller")) ? (
-    <QueueCallOverlay
-      call={activeCall}
-      accentColor={sync?.branding?.color ?? null}
-      onDone={startNextCall}
-    />
-  ) : null;
+  const callOverlay =
+    activeCall && (!IS_ANDROID_HYBRID || sync?.device.enabledModes?.includes("caller")) ? (
+      <QueueCallOverlay
+        call={activeCall}
+        accentColor={sync?.branding?.color ?? null}
+        onDone={startNextCall}
+      />
+    ) : null;
   const showHybridIssuer =
     IS_ANDROID_HYBRID &&
     sync?.device.enabledModes?.includes("issuer") &&
@@ -744,7 +774,12 @@ function PlayerScreen() {
     <div className="relative min-h-screen overflow-hidden bg-black">
       {sync.suspended ? (
         <div className="grid h-screen w-screen place-items-center bg-black px-6 text-center text-white">
-          <div><h1 className="text-4xl font-semibold">Serviço temporariamente suspenso</h1><p className="mt-3 text-lg text-white/70">Entre em contato com o responsável pela conta MDI 360.</p></div>
+          <div>
+            <h1 className="text-4xl font-semibold">Serviço temporariamente suspenso</h1>
+            <p className="mt-3 text-lg text-white/70">
+              Entre em contato com o responsável pela conta MDI 360.
+            </p>
+          </div>
         </div>
       ) : showHybridIssuer ? (
         <iframe
@@ -768,56 +803,60 @@ function PlayerScreen() {
       ) : current?.kind === "video" ? (
         <FadeLayer enabled={fade} step={index} leaving={leaving}>
           <div className="h-screen w-screen overflow-hidden bg-black">
-          <video
-            key={`${current.id}-${index}-${localSrc ? "local" : "remote"}`}
-            src={localSrc ?? current.url ?? undefined}
-            className="h-screen w-screen object-contain"
-            autoPlay
-            muted={current.isMuted || sync.device?.audioEnabled === false || Boolean(activeCall)}
-            playsInline
-            controls={false}
-            controlsList="nodownload nofullscreen noremoteplayback"
-            disableRemotePlayback
-            disablePictureInPicture
-            poster={TRANSPARENT_VIDEO_POSTER}
-            preload="auto"
-            // Só revela o vídeo quando ele realmente começa a tocar: evita o
-            // ícone de "Play" e qualquer interface do sistema no primeiro frame.
-            // The transition wrapper handles visual swaps. Do not depend on
-            // the browser firing "playing" after a background sync.
-            style={{
-              opacity: videoPlayingKey === videoRenderKey ? 1 : 0,
-              transition: fade ? `opacity ${FADE_MS}ms ease-in-out` : undefined,
-            }}
-            onCanPlay={(event) => {
-              void playWithBrowserFallback(event.currentTarget);
-            }}
-            onPlaying={() => setVideoPlayingKey(videoRenderKey)}
-            onWaiting={() => setVideoPlayingKey(null)}
-            onStalled={() => setVideoPlayingKey(null)}
-            loop={items.length === 1 && !hasPending}
-            onTimeUpdate={(event) => {
-              if (!fade || leaving) return;
-              const el = event.currentTarget;
-              if (!Number.isFinite(el.duration) || el.duration <= FADE_MS / 500) return;
-              if (items.length === 1 && !hasPending) return;
-              if (el.duration - el.currentTime <= FADE_MS / 1000) setLeaving(true);
-            }}
-            onEnded={() => {
-              setVideoPlayingKey(null);
-              if (items.length === 1 && !hasPending) return;
-              advance();
-            }}
-            onError={() => {
-              setVideoPlayingKey(null);
-              advance();
-            }}
-          />
+            <video
+              key={`${current.id}-${index}-${localSrc ? "local" : "remote"}`}
+              src={localSrc ?? current.url ?? undefined}
+              className="h-screen w-screen object-contain"
+              autoPlay
+              muted={current.isMuted || sync.device?.audioEnabled === false || Boolean(activeCall)}
+              playsInline
+              controls={false}
+              controlsList="nodownload nofullscreen noremoteplayback"
+              disableRemotePlayback
+              disablePictureInPicture
+              poster={TRANSPARENT_VIDEO_POSTER}
+              preload="auto"
+              // Só revela o vídeo quando ele realmente começa a tocar: evita o
+              // ícone de "Play" e qualquer interface do sistema no primeiro frame.
+              // The transition wrapper handles visual swaps. Do not depend on
+              // the browser firing "playing" after a background sync.
+              style={{
+                opacity: videoPlayingKey === videoRenderKey ? 1 : 0,
+                transition: fade ? `opacity ${FADE_MS}ms ease-in-out` : undefined,
+              }}
+              onCanPlay={(event) => {
+                void playWithBrowserFallback(event.currentTarget);
+              }}
+              onPlaying={() => setVideoPlayingKey(videoRenderKey)}
+              onWaiting={() => setVideoPlayingKey(null)}
+              onStalled={() => setVideoPlayingKey(null)}
+              loop={items.length === 1 && !hasPending}
+              onTimeUpdate={(event) => {
+                if (!fade || leaving) return;
+                const el = event.currentTarget;
+                if (!Number.isFinite(el.duration) || el.duration <= FADE_MS / 500) return;
+                if (items.length === 1 && !hasPending) return;
+                if (el.duration - el.currentTime <= FADE_MS / 1000) setLeaving(true);
+              }}
+              onEnded={() => {
+                setVideoPlayingKey(null);
+                if (items.length === 1 && !hasPending) return;
+                advance();
+              }}
+              onError={() => {
+                setVideoPlayingKey(null);
+                advance();
+              }}
+            />
           </div>
         </FadeLayer>
       ) : current?.kind === "widget" && current.widgetConfig ? (
         <FadeLayer enabled={fade} step={index} leaving={leaving} key={`${current.id}-${index}`}>
-          <WidgetView config={current.widgetConfig} accentColor={sync.branding?.color ?? null} />
+          <WidgetView
+            config={current.widgetConfig}
+            accentColor={sync.branding?.color ?? null}
+            onReady={markWidgetReady}
+          />
         </FadeLayer>
       ) : current?.kind === "stream" && current.url ? (
         <FadeLayer enabled={fade} step={index} leaving={leaving}>

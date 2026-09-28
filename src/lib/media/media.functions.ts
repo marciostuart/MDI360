@@ -59,6 +59,8 @@ export type MediaListItem = {
   /** Optional airing window (ISO strings) — file only plays inside it. */
   airStartAt: string | null;
   airEndAt: string | null;
+  /** Centrally configured by the platform and read-only inside Studio. */
+  platformManaged: boolean;
 };
 
 /** Library of the caller's organization. Never returns another tenant's rows. */
@@ -69,15 +71,43 @@ export const listMediaAssets = createServerFn({ method: "GET" }).handler(
     if (!isDatabaseConfigured()) return { storageReady: false, items: [] };
 
     const { requireUser } = await import("@/lib/auth/session.server");
-    const { desc, eq } = await import("drizzle-orm");
+    const { and, desc, eq, inArray, sql } = await import("drizzle-orm");
     const user = await requireUser();
+    const { PLATFORM_WIDGET_TAG, isPlatformWidgetType, synchronizePlatformWidgetsForOrganization } =
+      await import("@/lib/widgets/platform-widgets.server");
+    const platformWidgets = await synchronizePlatformWidgetsForOrganization(user.organizationId);
 
-    const rows = await getDb()
-      .select()
-      .from(schema.mediaAssets)
-      .where(eq(schema.mediaAssets.organizationId, user.organizationId))
-      .orderBy(desc(schema.mediaAssets.createdAt))
-      .limit(200);
+    const [regularRows, managedRows] = await Promise.all([
+      getDb()
+        .select()
+        .from(schema.mediaAssets)
+        .where(
+          and(
+            eq(schema.mediaAssets.organizationId, user.organizationId),
+            // Central widgets are appended separately so they cannot disappear
+            // behind the 200-item library limit.
+            sql`${schema.mediaAssets.widgetType} is null or ${schema.mediaAssets.widgetType} not in ('currency', 'news', 'lottery')`,
+          ),
+        )
+        .orderBy(desc(schema.mediaAssets.createdAt))
+        .limit(200),
+      getDb()
+        .select()
+        .from(schema.mediaAssets)
+        .where(
+          and(
+            eq(schema.mediaAssets.organizationId, user.organizationId),
+            inArray(schema.mediaAssets.widgetType, ["currency", "news", "lottery"]),
+          ),
+        )
+        .orderBy(desc(schema.mediaAssets.createdAt)),
+    ]);
+    const canonicalManagedRows = ["currency", "news", "lottery"].flatMap((type) => {
+      if (!isPlatformWidgetType(type) || !platformWidgets[type].active) return [];
+      const row = managedRows.find((item) => item.widgetType === type);
+      return row ? [row] : [];
+    });
+    const rows = [...canonicalManagedRows, ...regularRows];
 
     const storageReady = isStorageConfigured();
 
@@ -111,6 +141,8 @@ export const listMediaAssets = createServerFn({ method: "GET" }).handler(
           tags: row.tags ?? [],
           airStartAt: row.airStartAt ? row.airStartAt.toISOString() : null,
           airEndAt: row.airEndAt ? row.airEndAt.toISOString() : null,
+          platformManaged:
+            isPlatformWidgetType(row.widgetType) || (row.tags ?? []).includes(PLATFORM_WIDGET_TAG),
         } satisfies MediaListItem;
       }),
     );
@@ -256,9 +288,7 @@ const tagsSchema = z.object({
 /** Renames one file. Playlists reference it by id, so nothing else changes. */
 export const renameMediaAsset = createServerFn({ method: "POST" })
   .inputValidator((input: unknown) =>
-    z
-      .object({ assetId: z.string().uuid(), name: z.string().trim().min(1).max(160) })
-      .parse(input),
+    z.object({ assetId: z.string().uuid(), name: z.string().trim().min(1).max(160) }).parse(input),
   )
   .handler(async ({ data }) => {
     const { getDb, schema } = await import("@/lib/db/index.server");
@@ -439,7 +469,10 @@ export const deleteMediaAsset = createServerFn({ method: "POST" })
     const db = getDb();
 
     const rows = await db
-      .select({ storageKey: schema.mediaAssets.storageKey })
+      .select({
+        storageKey: schema.mediaAssets.storageKey,
+        widgetType: schema.mediaAssets.widgetType,
+      })
       .from(schema.mediaAssets)
       .where(
         and(
@@ -451,6 +484,10 @@ export const deleteMediaAsset = createServerFn({ method: "POST" })
 
     const row = rows[0];
     if (!row) return { ok: true };
+    const { isPlatformWidgetType } = await import("@/lib/widgets/platform-widgets.server");
+    if (isPlatformWidgetType(row.widgetType)) {
+      throw new Error("Este widget é administrado pela Torre de Controle.");
+    }
 
     await db
       .delete(schema.mediaAssets)

@@ -24,6 +24,10 @@ export const saveWidgetAsset = createServerFn({ method: "POST" })
     const { and, eq, inArray, sql } = await import("drizzle-orm");
     const user = await requireUser();
     const db = getDb();
+    const { isPlatformWidgetType } = await import("./platform-widgets.server");
+    if (isPlatformWidgetType(data.config.type)) {
+      throw new Error("Este widget é administrado pela Torre de Controle.");
+    }
 
     if (data.assetId) {
       const durationMs =

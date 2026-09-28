@@ -39,17 +39,21 @@ export function WidgetsManager() {
       <div>
         <h1 className="text-3xl font-semibold">Widgets</h1>
         <p className="mt-2 max-w-2xl text-sm text-muted-foreground">
-          Monte relógios, previsão do tempo, cotações e notícias RSS. Cada widget criado aqui fica
-          disponível para ser adicionado às suas playlists.
+          Crie relógios e widgets de clima. Cotações, notícias e resultados das loterias são
+          administrados pela plataforma e aparecem aqui somente quando estiverem ativos.
         </p>
       </div>
 
       <div ref={composerRef}>
-        <WidgetComposer editing={editingWidget} onCancelEditing={() => setEditingWidget(null)} />
+        <WidgetComposer
+          editing={editingWidget}
+          allowedTypes={["clock", "weather"]}
+          onCancelEditing={() => setEditingWidget(null)}
+        />
       </div>
 
       <div className="space-y-3">
-        <h2 className="text-lg font-semibold">Meus widgets</h2>
+        <h2 className="text-lg font-semibold">Widgets disponíveis</h2>
         {library.isPending ? (
           <div className="grid place-items-center py-10">
             <Loader2 className="size-5 animate-spin text-muted-foreground" />
@@ -74,35 +78,43 @@ export function WidgetsManager() {
                     <Badge variant="secondary">
                       {getWidgetDefinition(item.widgetType ?? "clock").label}
                     </Badge>
+                    {item.platformManaged ? (
+                      <Badge variant="outline">Administrado pela plataforma</Badge>
+                    ) : null}
                   </div>
-                  <div className="flex shrink-0 items-center gap-1">
-                    <Button
-                      variant="ghost"
-                      size="icon"
-                      className="size-8 text-muted-foreground"
-                      onClick={() => {
-                        setEditingWidget({
-                          assetId: item.id,
-                          name: item.name,
-                          config: item.widgetConfig!,
-                        });
-                        composerRef.current?.scrollIntoView({ behavior: "smooth", block: "start" });
-                      }}
-                      aria-label={`Personalizar ${item.name}`}
-                    >
-                      <Pencil className="size-4" />
-                    </Button>
-                    <Button
-                      variant="ghost"
-                      size="icon"
-                      className="size-8 text-muted-foreground"
-                      onClick={() => removeMutation.mutate(item.id)}
-                      disabled={removeMutation.isPending}
-                      aria-label={`Remover ${item.name}`}
-                    >
-                      <Trash2 className="size-4" />
-                    </Button>
-                  </div>
+                  {!item.platformManaged ? (
+                    <div className="flex shrink-0 items-center gap-1">
+                      <Button
+                        variant="ghost"
+                        size="icon"
+                        className="size-8 text-muted-foreground"
+                        onClick={() => {
+                          setEditingWidget({
+                            assetId: item.id,
+                            name: item.name,
+                            config: item.widgetConfig!,
+                          });
+                          composerRef.current?.scrollIntoView({
+                            behavior: "smooth",
+                            block: "start",
+                          });
+                        }}
+                        aria-label={`Personalizar ${item.name}`}
+                      >
+                        <Pencil className="size-4" />
+                      </Button>
+                      <Button
+                        variant="ghost"
+                        size="icon"
+                        className="size-8 text-muted-foreground"
+                        onClick={() => removeMutation.mutate(item.id)}
+                        disabled={removeMutation.isPending}
+                        aria-label={`Remover ${item.name}`}
+                      >
+                        <Trash2 className="size-4" />
+                      </Button>
+                    </div>
+                  ) : null}
                 </div>
               </div>
             ))}

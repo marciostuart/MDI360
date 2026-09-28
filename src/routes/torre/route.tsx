@@ -10,6 +10,7 @@ import {
   PlugZap,
   ShieldCheck,
   Tags,
+  Gauge,
 } from "lucide-react";
 
 export const Route = createFileRoute("/torre")({
@@ -23,6 +24,7 @@ const NAV = [
   { to: "/torre/planos", label: "Planos", icon: Tags, exact: false },
   { to: "/torre/site", label: "Site", icon: Globe2, exact: false },
   { to: "/torre/aplicativos", label: "Aplicativos", icon: Download, exact: false },
+  { to: "/torre/widgets", label: "Widgets", icon: Gauge, exact: false },
   { to: "/torre/fontes", label: "Fontes", icon: PlugZap, exact: false },
   { to: "/torre/pagamentos", label: "Pagamentos", icon: CreditCard, exact: false },
   { to: "/torre/email", label: "E-mail", icon: Mail, exact: false },

@@ -8,13 +8,12 @@ export const Route = createFileRoute("/studio/widgets")({
       { title: "Widgets | MDI 360" },
       {
         name: "description",
-        content:
-          "Crie e personalize widgets de relógio, clima, cotações e notícias para suas telas.",
+        content: "Crie relógios e widgets de clima e use os conteúdos liberados pela plataforma.",
       },
       { property: "og:title", content: "Widgets de informação | MDI 360" },
       {
         property: "og:description",
-        content: "Relógio, clima, cotações e notícias RSS prontos para suas playlists.",
+        content: "Widgets locais e globais prontos para suas playlists.",
       },
     ],
   }),
