@@ -22,10 +22,12 @@ import { WidgetLayoutEditor } from "@/components/widgets/widget-layout-editor";
 import {
   CURRENCY_OPTIONS,
   NEWS_FEEDS,
+  LOTTERY_LAYOUT_PRESETS,
   WEATHER_CITIES,
   WIDGET_CATALOG,
   WIDGET_THEME_DEFAULTS,
   getWidgetDefinition,
+  getLotteryLayoutPreset,
   resolveLotteryWidgetLayout,
   resolveWidgetTheme,
   type BackgroundMode,
@@ -470,6 +472,22 @@ export function WidgetComposer({
 
           {config.type === "lottery" ? (
             <div className="max-w-2xl space-y-4">
+              <div className="flex flex-wrap items-center justify-between gap-3 rounded-lg border border-border p-4">
+                <div>
+                  <p className="text-sm font-medium">Templates otimizados para TV</p>
+                  <p className="text-xs text-muted-foreground">
+                    Aplica formatos legíveis e específicos para todas as modalidades.
+                  </p>
+                </div>
+                <Button
+                  type="button"
+                  variant="outline"
+                  onClick={() => setConfig({ ...config, gameLayouts: LOTTERY_LAYOUT_PRESETS })}
+                >
+                  <RotateCcw className="size-4" />
+                  Aplicar padrões em todas
+                </Button>
+              </div>
               <div className="space-y-2">
                 <Label>
                   {managedByPlatform
@@ -583,6 +601,33 @@ export function WidgetComposer({
                   ciclo.
                 </p>
               </div>
+              {config.gameIds.includes("federal") ? (
+                <div className="space-y-2 rounded-lg border border-border p-4">
+                  <div>
+                    <Label>Formato da Loteria Federal</Label>
+                    <p className="text-xs text-muted-foreground">
+                      Compare os dois formatos na prévia selecionando o template da Federal abaixo.
+                    </p>
+                  </div>
+                  <Select
+                    value={config.federalStyle}
+                    onValueChange={(value) =>
+                      setConfig({
+                        ...config,
+                        federalStyle: value as "list" | "receipt",
+                      })
+                    }
+                  >
+                    <SelectTrigger className="max-w-sm">
+                      <SelectValue />
+                    </SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="list">Lista para TV — números grandes</SelectItem>
+                      <SelectItem value="receipt">Comprovante visual — papel impresso</SelectItem>
+                    </SelectContent>
+                  </Select>
+                </div>
+              ) : null}
             </div>
           ) : null}
 
@@ -771,6 +816,7 @@ export function WidgetComposer({
                   config.gameLayouts,
                   config.layout,
                 )}
+                defaultLayout={getLotteryLayoutPreset(lotteryTemplateGameId)}
                 previewConfig={{ ...config, gameIds: [lotteryTemplateGameId] }}
                 onChange={(layout: WidgetLayout) =>
                   setConfig({

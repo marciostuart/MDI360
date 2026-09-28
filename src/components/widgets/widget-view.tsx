@@ -629,18 +629,56 @@ function LotteryBalls({ values, accent }: { values: string[]; accent: string }) 
 function LotteryResultBody({
   result,
   accent,
+  federalStyle = "list",
 }: {
   result: NormalizedLotteryResult;
   accent: string;
+  federalStyle?: "list" | "receipt";
 }) {
   if (result.gameId === "federal") {
+    if (federalStyle === "receipt") {
+      return (
+        <div className="mx-auto max-w-[96%] overflow-hidden rounded-[0.18em] bg-[#fffdf4] text-[#14213d] shadow-[0_0.35em_1.2em_rgba(0,0,0,0.38)]">
+          <div className="flex items-center justify-between border-b-[0.08em] border-[#1677bd] bg-white px-[0.45em] py-[0.28em]">
+            <div className="font-display text-[0.5em] font-black tracking-[-0.04em] text-[#1677bd]">
+              LOTERIAS <span className="text-[#ef7d00]">CAIXA</span>
+            </div>
+            <div className="text-right font-mono text-[0.2em] font-bold uppercase tracking-[0.12em]">
+              Resultado Federal
+              <span className="block font-normal opacity-60">Concurso {result.contestNumber}</span>
+            </div>
+          </div>
+          <div className="space-y-[0.12em] px-[0.45em] py-[0.28em] font-mono">
+            {result.federalPrizes.map((prize) => (
+              <div
+                key={prize.ticket}
+                className="grid grid-cols-[4.4em_1fr_auto] items-baseline gap-[0.28em] border-b border-dashed border-[#14213d]/25 py-[0.11em] last:border-0"
+              >
+                <span className="text-[0.28em] font-bold uppercase">{prize.label}</span>
+                <strong className="text-[0.78em] tracking-[0.08em]">{prize.ticket}</strong>
+                <span className="text-[0.25em] font-bold text-[#1677bd]">{money(prize.value)}</span>
+              </div>
+            ))}
+          </div>
+          <div className="flex justify-between border-t border-[#14213d]/15 bg-[#f4f0df] px-[0.7em] py-[0.22em] font-mono text-[0.17em] uppercase tracking-[0.08em]">
+            <span>{result.drawDate}</span>
+            <strong>Resultado informativo • não é comprovante de aposta</strong>
+          </div>
+        </div>
+      );
+    }
     return (
-      <div className="mx-auto grid max-w-[90%] grid-cols-5 gap-[0.45em] text-[0.66em]">
+      <div className="space-y-[0.22em] text-left leading-none">
         {result.federalPrizes.map((prize) => (
-          <div key={prize.ticket} className="rounded-[0.35em] bg-white/10 px-[0.35em] py-[0.45em]">
-            <div className="text-[0.52em] uppercase opacity-65">{prize.label}</div>
-            <div className="font-display text-[1.25em] font-bold">{prize.ticket}</div>
-            <div className="text-[0.48em]" style={{ color: accent }}>
+          <div
+            key={prize.ticket}
+            className="grid grid-cols-[4.6em_1fr_auto] items-baseline gap-[0.3em] rounded-[0.22em] border border-white/10 bg-black/25 px-[0.35em] py-[0.2em]"
+          >
+            <div className="text-[0.34em] font-semibold uppercase opacity-70">{prize.label}</div>
+            <div className="font-display text-[0.92em] font-bold tracking-[0.04em]">
+              {prize.ticket}
+            </div>
+            <div className="text-[0.31em] font-semibold" style={{ color: accent }}>
               {money(prize.value)}
             </div>
           </div>
@@ -650,7 +688,7 @@ function LotteryResultBody({
   }
   if (result.gameId === "loteca") {
     return (
-      <div className="grid grid-cols-2 gap-x-[1em] gap-y-[0.18em] text-left text-[0.34em] leading-tight">
+      <div className="grid grid-cols-2 gap-x-[1em] gap-y-[0.18em] text-left text-[0.48em] leading-tight">
         {result.matches.map((match) => (
           <div
             key={match.order}
@@ -765,7 +803,7 @@ function LotteryWidget({
             Concurso {result.contestNumber} • {result.drawDate}
           </Block>
           <Block block={layout.result} className="font-display leading-tight">
-            <LotteryResultBody result={result} accent={accent} />
+            <LotteryResultBody result={result} accent={accent} federalStyle={config.federalStyle} />
           </Block>
           <Block block={layout.details}>
             {specialDetails.length ? specialDetails.join("  •  ") : null}

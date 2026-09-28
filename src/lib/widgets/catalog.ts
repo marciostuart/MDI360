@@ -1,6 +1,6 @@
 import { z } from "zod";
 
-import { LOTTERY_GAME_IDS } from "./lottery";
+import { LOTTERY_GAME_IDS, type LotteryGameId } from "./lottery";
 import { selectLotteryLayout } from "./lottery-layout";
 
 /**
@@ -219,6 +219,106 @@ export const LAYOUT_PRESETS: Record<WidgetType, WidgetLayout> = {
   },
 };
 
+const lotteryTemplate = (
+  overrides: Partial<Record<(typeof WIDGET_BLOCKS.lottery)[number]["id"], Partial<WidgetBlock>>>,
+): WidgetLayout => {
+  const base = LAYOUT_PRESETS.lottery;
+  return Object.fromEntries(
+    Object.entries(base).map(([id, block]) => [id, { ...block, ...(overrides[id] ?? {}) }]),
+  );
+};
+
+/**
+ * Readability-first defaults for a 16:9 TV viewed from a queue. Modalities with
+ * many values use more compact result areas; short draws and Federal prioritize
+ * large numbers. Every template remains fully editable in the master panel.
+ */
+export const LOTTERY_LAYOUT_PRESETS: Record<LotteryGameId, WidgetLayout> = {
+  megasena: lotteryTemplate({
+    game: { x: 5, y: 6, w: 90, size: 6.4, align: "center" },
+    contest: { x: 5, y: 17, w: 90, size: 2.7, align: "center" },
+    result: { x: 5, y: 31, w: 90, size: 9.5, align: "center" },
+    details: { hidden: true },
+    status: { x: 7, y: 70, w: 86, size: 3.1, align: "center" },
+  }),
+  lotofacil: lotteryTemplate({
+    game: { x: 5, y: 5, w: 90, size: 5.8, align: "center" },
+    contest: { x: 5, y: 15, w: 90, size: 2.6, align: "center" },
+    result: { x: 7, y: 27, w: 86, size: 6.8, align: "center" },
+    details: { hidden: true },
+    status: { x: 7, y: 73, w: 86, size: 2.9, align: "center" },
+  }),
+  quina: lotteryTemplate({
+    game: { x: 5, y: 6, w: 90, size: 6.4, align: "center" },
+    contest: { x: 5, y: 17, w: 90, size: 2.7, align: "center" },
+    result: { x: 5, y: 31, w: 90, size: 10.5, align: "center" },
+    details: { hidden: true },
+    status: { x: 7, y: 70, w: 86, size: 3.1, align: "center" },
+  }),
+  lotomania: lotteryTemplate({
+    game: { x: 5, y: 4, w: 90, size: 5.6, align: "center" },
+    contest: { x: 5, y: 14, w: 90, size: 2.5, align: "center" },
+    result: { x: 7, y: 24, w: 86, size: 5.8, align: "center" },
+    details: { hidden: true },
+    status: { x: 7, y: 75, w: 86, size: 2.8, align: "center" },
+  }),
+  timemania: lotteryTemplate({
+    game: { x: 5, y: 5, w: 90, size: 5.8, align: "center" },
+    contest: { x: 5, y: 15, w: 90, size: 2.6, align: "center" },
+    result: { x: 5, y: 28, w: 90, size: 8.2, align: "center" },
+    details: { x: 8, y: 57, w: 84, size: 3.5, align: "center" },
+    status: { x: 7, y: 72, w: 86, size: 2.9, align: "center" },
+  }),
+  duplasena: lotteryTemplate({
+    game: { x: 5, y: 3, w: 90, size: 5.4, align: "center" },
+    contest: { x: 5, y: 12, w: 90, size: 2.4, align: "center" },
+    result: { x: 6, y: 21, w: 88, size: 6.4, align: "center" },
+    details: { hidden: true },
+    status: { x: 7, y: 78, w: 86, size: 2.7, align: "center" },
+  }),
+  federal: lotteryTemplate({
+    game: { x: 5, y: 8, w: 38, size: 7.2, align: "left" },
+    contest: { x: 5, y: 24, w: 38, size: 2.8, align: "left" },
+    result: { x: 47, y: 7, w: 48, size: 5.6, align: "left" },
+    details: { hidden: true },
+    status: { x: 5, y: 51, w: 36, size: 3.2, align: "left" },
+    source: { x: 5, y: 90, w: 90, size: 1.7, align: "left" },
+  }),
+  loteca: lotteryTemplate({
+    game: { x: 5, y: 3, w: 90, size: 5.2, align: "center" },
+    contest: { x: 5, y: 12, w: 90, size: 2.3, align: "center" },
+    result: { x: 5, y: 21, w: 90, size: 4.8, align: "center" },
+    details: { hidden: true },
+    status: { x: 7, y: 81, w: 86, size: 2.5, align: "center" },
+    source: { x: 5, y: 91, w: 90, size: 1.5, align: "left" },
+  }),
+  diadesorte: lotteryTemplate({
+    game: { x: 5, y: 5, w: 90, size: 5.8, align: "center" },
+    contest: { x: 5, y: 15, w: 90, size: 2.6, align: "center" },
+    result: { x: 5, y: 28, w: 90, size: 8.2, align: "center" },
+    details: { x: 8, y: 57, w: 84, size: 3.5, align: "center" },
+    status: { x: 7, y: 72, w: 86, size: 2.9, align: "center" },
+  }),
+  supersete: lotteryTemplate({
+    game: { x: 5, y: 5, w: 90, size: 5.8, align: "center" },
+    contest: { x: 5, y: 15, w: 90, size: 2.6, align: "center" },
+    result: { x: 5, y: 28, w: 90, size: 8.2, align: "center" },
+    details: { hidden: true },
+    status: { x: 7, y: 70, w: 86, size: 3, align: "center" },
+  }),
+  maismilionaria: lotteryTemplate({
+    game: { x: 5, y: 4, w: 90, size: 5.6, align: "center" },
+    contest: { x: 5, y: 14, w: 90, size: 2.5, align: "center" },
+    result: { x: 5, y: 25, w: 90, size: 7.5, align: "center" },
+    details: { x: 8, y: 56, w: 84, size: 3.3, align: "center" },
+    status: { x: 7, y: 72, w: 86, size: 2.9, align: "center" },
+  }),
+};
+
+export function getLotteryLayoutPreset(gameId: string): WidgetLayout {
+  return LOTTERY_LAYOUT_PRESETS[gameId as LotteryGameId] ?? LAYOUT_PRESETS.lottery;
+}
+
 /** Merges the saved layout with the preset so new blocks always have a place. */
 export function resolveWidgetLayout(
   type: WidgetType,
@@ -238,7 +338,13 @@ export function resolveLotteryWidgetLayout(
   gameLayouts?: LotteryGameLayouts | null,
   legacyLayout?: WidgetLayout | null,
 ): Required<WidgetLayout> {
-  return resolveWidgetLayout("lottery", selectLotteryLayout(gameId, gameLayouts, legacyLayout));
+  const preset = getLotteryLayoutPreset(gameId ?? "");
+  const selected = selectLotteryLayout(gameId, gameLayouts, legacyLayout);
+  const merged: WidgetLayout = {};
+  for (const [id, block] of Object.entries(preset)) {
+    merged[id] = { ...block, ...(selected?.[id] ?? {}) };
+  }
+  return merged;
 }
 
 export const widgetConfigSchema = z.discriminatedUnion("type", [
@@ -293,6 +399,7 @@ export const widgetConfigSchema = z.discriminatedUnion("type", [
       .max(11)
       .refine((items) => new Set(items).size === items.length, "Não repita modalidades"),
     rotateSeconds: z.number().int().min(5).max(30).default(10),
+    federalStyle: z.enum(["list", "receipt"]).default("list"),
     theme: widgetThemeSchema.optional(),
     /** Independent visual template for each lottery modality. */
     gameLayouts: lotteryGameLayoutsSchema.optional(),
@@ -361,6 +468,8 @@ export const WIDGET_CATALOG: {
       type: "lottery",
       gameIds: [...LOTTERY_GAME_IDS],
       rotateSeconds: 10,
+      federalStyle: "list",
+      gameLayouts: LOTTERY_LAYOUT_PRESETS,
     },
   },
 ];
