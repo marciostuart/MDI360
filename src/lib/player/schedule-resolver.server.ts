@@ -30,6 +30,17 @@ export type PlayerPlaylist = {
   items: PlayerItem[];
 } | null;
 
+export type PlayerPlaybackPlan = {
+  playlist: PlayerPlaylist;
+  fallbackPlaylist: PlayerPlaylist;
+  /** Rule authorized by the latest server sync. The client may only keep this
+   * scheduled playlist offline while the same rule still matches locally. */
+  activeScheduleRule: ScheduleRule | null;
+  preloadItems: PlayerItem[];
+  timezone: string;
+  serverTime: string;
+};
+
 function fingerprint(values: string[]) {
   let hash = 0;
   for (const value of values)
@@ -136,10 +147,10 @@ async function resolveItems(
 }
 
 /** Selects the most specific active schedule; an empty result falls back to the default playlist. */
-export async function resolvePlaylistForDevice(
+export async function resolvePlaybackPlanForDevice(
   deviceId: string,
   timezone = "America/Sao_Paulo",
-): Promise<PlayerPlaylist> {
+): Promise<PlayerPlaybackPlan> {
   const db = getDb();
   const now = new Date();
   const candidates = await db
@@ -172,14 +183,8 @@ export async function resolvePlaylistForDevice(
     .from(schema.devices)
     .where(eq(schema.devices.id, deviceId))
     .limit(1);
-  const choices = [
-    ...new Set(
-      [...matches.map((row) => row.playlistId), device[0]?.defaultPlaylistId].filter(
-        (id): id is string => Boolean(id),
-      ),
-    ),
-  ];
-  for (const playlistId of choices) {
+  const loadPlaylist = async (playlistId: string | null | undefined): Promise<PlayerPlaylist> => {
+    if (!playlistId) return null;
     const playlist = (
       await db
         .select({
@@ -191,15 +196,52 @@ export async function resolvePlaylistForDevice(
         .where(eq(schema.playlists.id, playlistId))
         .limit(1)
     )[0];
-    if (!playlist) continue;
+    if (!playlist) return null;
     const resolved = await resolveItems(playlist.id, timezone, now, new Set());
-    if (!resolved.items.length) continue;
+    if (!resolved.items.length) return null;
     return {
       id: playlist.id,
       name: playlist.name,
       revision: playlist.revision * 1000 + fingerprint(resolved.finger),
       items: resolved.items,
     };
+  };
+
+  const fallbackPlaylist = await loadPlaylist(device[0]?.defaultPlaylistId);
+  const preloadPlaylists = await Promise.all(
+    [...new Set(candidates.map((candidate) => candidate.playlistId))].map(loadPlaylist),
+  );
+  const preloadItems = [...(fallbackPlaylist?.items ?? []), ...preloadPlaylists.flatMap(
+    (playlist) => playlist?.items ?? [],
+  )].filter(
+    (item, index, items) => items.findIndex((candidate) => candidate.id === item.id) === index,
+  );
+  for (const match of matches) {
+    const playlist = await loadPlaylist(match.playlistId);
+    if (!playlist) continue;
+    return {
+      playlist,
+      fallbackPlaylist,
+      activeScheduleRule: match.rule,
+      preloadItems,
+      timezone,
+      serverTime: now.toISOString(),
+    };
   }
-  return null;
+  return {
+    playlist: fallbackPlaylist,
+    fallbackPlaylist,
+    activeScheduleRule: null,
+    preloadItems,
+    timezone,
+    serverTime: now.toISOString(),
+  };
+}
+
+/** Compatibility helper for callers that only need the server-selected playlist. */
+export async function resolvePlaylistForDevice(
+  deviceId: string,
+  timezone = "America/Sao_Paulo",
+): Promise<PlayerPlaylist> {
+  return (await resolvePlaybackPlanForDevice(deviceId, timezone)).playlist;
 }

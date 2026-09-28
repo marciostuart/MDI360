@@ -5,6 +5,7 @@ import { WidgetView } from "@/components/widgets/widget-view";
 import { QueueCallOverlay, type QueueCallPayload } from "@/components/queue/queue-call-overlay";
 import * as mediaCache from "@/lib/player/media-cache";
 import { buildYoutubeEmbedUrl, parseYoutubeId } from "@/lib/media/stream-url";
+import { matchesScheduleRule, type ScheduleRule } from "@/lib/schedules/rules";
 import type { WidgetConfig } from "@/lib/widgets/catalog";
 
 type PlayerItem = {
@@ -34,6 +35,13 @@ type SyncResponse = {
     enabledModes?: string[];
   };
   playlist: { id: string; name: string; revision: number; items: PlayerItem[] } | null;
+  offlineSchedule?: {
+    fallbackPlaylist: { id: string; name: string; revision: number; items: PlayerItem[] } | null;
+    activeRule: ScheduleRule | null;
+    preloadItems?: PlayerItem[];
+    timezone: string;
+    serverTime: string;
+  };
   branding: {
     name: string | null;
     splashText: string | null;
@@ -50,6 +58,7 @@ type SyncResponse = {
 
 const TOKEN_KEY = "mdi360.deviceToken";
 const CODE_KEY = "mdi360.activationCode";
+const CACHED_SYNC_KEY = "mdi360.lastSafeSync.v1";
 const APP_VERSION =
   typeof window !== "undefined" &&
   new URLSearchParams(window.location.search).get("android") === "hybrid"
@@ -122,6 +131,7 @@ async function clearMediaCache() {
 async function wipeLocalCache() {
   window.localStorage.removeItem(TOKEN_KEY);
   window.localStorage.removeItem(CODE_KEY);
+  window.localStorage.removeItem(CACHED_SYNC_KEY);
   if ("caches" in window) {
     try {
       const keys = await caches.keys();
@@ -226,6 +236,18 @@ function PlayerScreen() {
     if (resetIndex) setIndex(0);
   }, []);
 
+  const persistSafeSync = useCallback((data: SyncResponse) => {
+    try {
+      // Never replay old queue calls or remote commands after an offline boot.
+      window.localStorage.setItem(
+        CACHED_SYNC_KEY,
+        JSON.stringify({ ...data, queueCall: null, queueCalls: [], commands: [] }),
+      );
+    } catch {
+      // A full localStorage must not interrupt playback.
+    }
+  }, []);
+
   /**
    * Moves to the next item. If a newer playlist/settings payload is waiting,
    * this is the moment it takes effect.
@@ -275,9 +297,33 @@ function PlayerScreen() {
     const stored = window.localStorage.getItem(TOKEN_KEY);
     setToken(stored);
     setActivationCode(window.localStorage.getItem(CODE_KEY));
+    if (stored) {
+      try {
+        const cached = JSON.parse(window.localStorage.getItem(CACHED_SYNC_KEY) ?? "null") as
+          | SyncResponse
+          | null;
+        if (cached?.device) {
+          const rule = cached.offlineSchedule?.activeRule;
+          const timezone = cached.offlineSchedule?.timezone ?? "America/Sao_Paulo";
+          const safe = rule && !matchesScheduleRule(rule, new Date(), timezone)
+            ? {
+                ...cached,
+                playlist: cached.offlineSchedule?.fallbackPlaylist ?? null,
+                offlineSchedule: cached.offlineSchedule
+                  ? { ...cached.offlineSchedule, activeRule: null }
+                  : undefined,
+              }
+            : cached;
+          applySync(safe, true);
+          setLinked(true);
+        }
+      } catch {
+        window.localStorage.removeItem(CACHED_SYNC_KEY);
+      }
+    }
     setReady(true);
     if (!stored) void register();
-  }, [register]);
+  }, [register, applySync]);
 
   // While unlinked, poll until the customer claims the code in the Studio.
   useEffect(() => {
@@ -350,6 +396,7 @@ function PlayerScreen() {
         }
         if (!response.ok) throw new Error(`sync ${response.status}`);
         const data = (await response.json()) as SyncResponse;
+        persistSafeSync(data);
         if (typeof data.revision === "number") revisionRef.current = data.revision;
 
         // A ticket call NEVER waits for the current file: it takes over now.
@@ -399,8 +446,30 @@ function PlayerScreen() {
         setError("Sem conexão com o servidor. Tentando novamente…");
       }
     },
-    [resetDevice, applySync, enqueueCalls],
+    [resetDevice, applySync, enqueueCalls, persistSafeSync],
   );
+
+  // A scheduled playlist is authorized by the server, but its end is also
+  // enforced by the device clock. If connectivity disappears, expired content
+  // is replaced by the cached default playlist instead of remaining on air.
+  useEffect(() => {
+    const enforce = () => {
+      const currentSync = syncRef.current;
+      const policy = currentSync?.offlineSchedule;
+      if (!currentSync || !policy?.activeRule) return;
+      if (matchesScheduleRule(policy.activeRule, new Date(), policy.timezone)) return;
+      const safe: SyncResponse = {
+        ...currentSync,
+        playlist: policy.fallbackPlaylist,
+        offlineSchedule: { ...policy, activeRule: null },
+      };
+      persistSafeSync(safe);
+      applySync(safe, true);
+    };
+    enforce();
+    const clock = window.setInterval(enforce, 15_000);
+    return () => window.clearInterval(clock);
+  }, [applySync, persistSafeSync]);
 
   useEffect(() => {
     if (!token || !linked) return;
@@ -453,7 +522,9 @@ function PlayerScreen() {
   }, [token, linked, runSync, resetDevice]);
 
   const allItems = sync?.playlist?.items ?? [];
-  const downloadUrls = allItems
+  const fallbackItems = sync?.offlineSchedule?.fallbackPlaylist?.items ?? [];
+  const preloadItems = sync?.offlineSchedule?.preloadItems ?? [];
+  const downloadUrls = [...allItems, ...fallbackItems, ...preloadItems]
     .filter((item) => (item.kind === "image" || item.kind === "video") && item.url)
     .map((item) => item.url as string);
   // Depend on the stable storage paths, never on the signed links: those change

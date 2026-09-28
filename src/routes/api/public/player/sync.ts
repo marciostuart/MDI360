@@ -40,7 +40,7 @@ export const Route = createFileRoute("/api/public/player/sync")({
         }
 
         const { and, eq } = await import("drizzle-orm");
-        const { resolvePlaylistForDevice } = await import(
+        const { resolvePlaybackPlanForDevice } = await import(
           "@/lib/player/schedule-resolver.server"
         );
         const db = getDb();
@@ -53,7 +53,7 @@ export const Route = createFileRoute("/api/public/player/sync")({
           })
           .where(eq(schema.devices.id, device.id));
 
-        const playlist = await resolvePlaylistForDevice(device.id);
+        const playbackPlan = await resolvePlaybackPlanForDevice(device.id);
 
         // Queue add-on: pending ticket calls for this screen, oldest first. The
         // player plays them one at a time, respecting each display time.
@@ -155,7 +155,14 @@ export const Route = createFileRoute("/api/public/player/sync")({
               screenWidth: device.screenWidth,
               screenHeight: device.screenHeight,
             },
-            playlist,
+            playlist: playbackPlan.playlist,
+            offlineSchedule: {
+              fallbackPlaylist: playbackPlan.fallbackPlaylist,
+              activeRule: playbackPlan.activeScheduleRule,
+              preloadItems: playbackPlan.preloadItems,
+              timezone: playbackPlan.timezone,
+              serverTime: playbackPlan.serverTime,
+            },
             branding,
             queueCall,
             queueCalls,
