@@ -1,7 +1,12 @@
 import { useEffect, useMemo, useState } from "react";
 
 import type { WidgetBlock, WidgetConfig, WidgetLayout, WidgetTheme } from "@/lib/widgets/catalog";
-import { getWeatherCity, resolveWidgetLayout, resolveWidgetTheme } from "@/lib/widgets/catalog";
+import {
+  getWeatherCity,
+  resolveLotteryWidgetLayout,
+  resolveWidgetLayout,
+  resolveWidgetTheme,
+} from "@/lib/widgets/catalog";
 import type { NormalizedLotteryResult } from "@/lib/widgets/lottery";
 
 /**
@@ -715,7 +720,6 @@ function LotteryWidget({
   const { data, failed } = useWidgetData<LotteryPayload>(query);
   const [index, setIndex] = useState(0);
   const results = data?.results ?? [];
-  const layout = resolveWidgetLayout("lottery", config.layout as WidgetLayout | undefined);
 
   useEffect(() => setIndex(0), [query]);
   useEffect(() => {
@@ -731,6 +735,7 @@ function LotteryWidget({
   }, [config.rotateSeconds, results.length]);
 
   const result = results[Math.min(index, Math.max(0, results.length - 1))];
+  const layout = resolveLotteryWidgetLayout(result?.gameId, config.gameLayouts, config.layout);
   const specialDetails = result
     ? [
         result.luckyMonth ? `Mês da Sorte: ${result.luckyMonth}` : null,

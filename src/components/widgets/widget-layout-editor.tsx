@@ -32,13 +32,22 @@ function clamp(value: number, min: number, max: number) {
 export function WidgetLayoutEditor({
   config,
   onChange,
+  layout: suppliedLayout,
+  defaultLayout,
+  previewConfig,
+  title = "Layout livre (arraste e solte)",
 }: {
   config: WidgetConfig;
   onChange: (layout: WidgetLayout) => void;
+  layout?: WidgetLayout;
+  defaultLayout?: WidgetLayout;
+  previewConfig?: WidgetConfig;
+  title?: string;
 }) {
   const canvasRef = useRef<HTMLDivElement>(null);
   const blocks = WIDGET_BLOCKS[config.type];
-  const layout = resolveWidgetLayout(config.type, config.layout as WidgetLayout | undefined);
+  const layout =
+    suppliedLayout ?? resolveWidgetLayout(config.type, config.layout as WidgetLayout | undefined);
   const [selected, setSelected] = useState<string>(blocks[0]?.id ?? "");
   const dragRef = useRef<{ id: string; dx: number; dy: number } | null>(null);
 
@@ -94,7 +103,7 @@ export function WidgetLayoutEditor({
     <div className="space-y-4 rounded-lg border border-border p-4">
       <div className="flex items-center justify-between gap-2">
         <div>
-          <h3 className="text-sm font-semibold">Layout livre (arraste e solte)</h3>
+          <h3 className="text-sm font-semibold">{title}</h3>
           <p className="text-xs text-muted-foreground">
             Arraste cada item na prévia para posicioná-lo e ajuste o tamanho da fonte, a largura e o
             alinhamento.
@@ -104,7 +113,7 @@ export function WidgetLayoutEditor({
           type="button"
           variant="ghost"
           size="sm"
-          onClick={() => onChange({ ...LAYOUT_PRESETS[config.type] })}
+          onClick={() => onChange({ ...(defaultLayout ?? LAYOUT_PRESETS[config.type]) })}
         >
           <RotateCcw className="size-4" />
           Padrão
@@ -116,7 +125,7 @@ export function WidgetLayoutEditor({
         className="relative aspect-video w-full select-none overflow-hidden rounded-xl border border-border"
       >
         <div className="pointer-events-none absolute inset-0">
-          <WidgetView config={config} />
+          <WidgetView config={previewConfig ?? config} />
         </div>
         {blocks.map((entry) => {
           const block = layout[entry.id];

@@ -26,6 +26,7 @@ import {
   WIDGET_CATALOG,
   WIDGET_THEME_DEFAULTS,
   getWidgetDefinition,
+  resolveLotteryWidgetLayout,
   resolveWidgetTheme,
   type BackgroundMode,
   type WidgetConfig,
@@ -83,6 +84,7 @@ export function WidgetComposer({
   const [config, setConfig] = useState<WidgetConfig>(getWidgetDefinition("clock").defaultConfig);
   const [cep, setCep] = useState("");
   const [cepLoading, setCepLoading] = useState(false);
+  const [lotteryTemplateGameId, setLotteryTemplateGameId] = useState<LotteryGameId>("megasena");
   const availableTypes = WIDGET_CATALOG.filter(
     (entry) => !allowedTypes || allowedTypes.includes(entry.type),
   );
@@ -132,7 +134,15 @@ export function WidgetComposer({
     setName(editing.name);
     setConfig(editing.config);
     setCep(editing.config.type === "weather" ? (editing.config.cep ?? "") : "");
+    if (editing.config.type === "lottery" && editing.config.gameIds[0]) {
+      setLotteryTemplateGameId(editing.config.gameIds[0]);
+    }
   }, [editing]);
+
+  useEffect(() => {
+    if (config.type !== "lottery" || config.gameIds.includes(lotteryTemplateGameId)) return;
+    if (config.gameIds[0]) setLotteryTemplateGameId(config.gameIds[0]);
+  }, [config, lotteryTemplateGameId]);
 
   const theme: WidgetTheme = resolveWidgetTheme(config.theme);
 
@@ -145,6 +155,9 @@ export function WidgetComposer({
     setType(next);
     setConfig(definition.defaultConfig);
     setName(definition.label);
+    if (definition.defaultConfig.type === "lottery" && definition.defaultConfig.gameIds[0]) {
+      setLotteryTemplateGameId(definition.defaultConfig.gameIds[0]);
+    }
   }
 
   const saveMutation = useMutation({
@@ -722,10 +735,60 @@ export function WidgetComposer({
           </div>
 
           {/* ---------- free layout: drag & drop over a live preview ---------- */}
-          <WidgetLayoutEditor
-            config={config}
-            onChange={(layout: WidgetLayout) => setConfig({ ...config, layout } as WidgetConfig)}
-          />
+          {config.type === "lottery" ? (
+            <div className="space-y-3">
+              <div className="max-w-md space-y-2">
+                <Label>Template da modalidade</Label>
+                <Select
+                  value={lotteryTemplateGameId}
+                  onValueChange={(value) => setLotteryTemplateGameId(value as LotteryGameId)}
+                >
+                  <SelectTrigger>
+                    <SelectValue />
+                  </SelectTrigger>
+                  <SelectContent>
+                    {config.gameIds.map((gameId) => {
+                      const game = LOTTERY_GAMES.find((entry) => entry.id === gameId);
+                      return game ? (
+                        <SelectItem key={game.id} value={game.id}>
+                          {game.label}
+                        </SelectItem>
+                      ) : null;
+                    })}
+                  </SelectContent>
+                </Select>
+                <p className="text-xs text-muted-foreground">
+                  Cada modalidade possui seu próprio posicionamento e tamanho. As alterações feitas
+                  aqui afetam somente o resultado selecionado.
+                </p>
+              </div>
+              <WidgetLayoutEditor
+                key={lotteryTemplateGameId}
+                config={config}
+                title={`Template — ${LOTTERY_GAMES.find((game) => game.id === lotteryTemplateGameId)?.label ?? lotteryTemplateGameId}`}
+                layout={resolveLotteryWidgetLayout(
+                  lotteryTemplateGameId,
+                  config.gameLayouts,
+                  config.layout,
+                )}
+                previewConfig={{ ...config, gameIds: [lotteryTemplateGameId] }}
+                onChange={(layout: WidgetLayout) =>
+                  setConfig({
+                    ...config,
+                    gameLayouts: {
+                      ...(config.gameLayouts ?? {}),
+                      [lotteryTemplateGameId]: layout,
+                    },
+                  })
+                }
+              />
+            </div>
+          ) : (
+            <WidgetLayoutEditor
+              config={config}
+              onChange={(layout: WidgetLayout) => setConfig({ ...config, layout } as WidgetConfig)}
+            />
+          )}
 
           <div className="flex flex-wrap gap-2">
             <Button

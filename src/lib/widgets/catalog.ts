@@ -1,6 +1,7 @@
 import { z } from "zod";
 
 import { LOTTERY_GAME_IDS } from "./lottery";
+import { selectLotteryLayout } from "./lottery-layout";
 
 /**
  * Information widgets. They are stored as regular library items (kind "widget")
@@ -148,6 +149,10 @@ export const widgetLayoutSchema = z.record(z.string(), widgetBlockSchema);
 
 export type WidgetLayout = z.infer<typeof widgetLayoutSchema>;
 
+export const lotteryGameLayoutsSchema = z.record(z.string(), widgetLayoutSchema);
+
+export type LotteryGameLayouts = z.infer<typeof lotteryGameLayoutsSchema>;
+
 export const WIDGET_BLOCKS: Record<WidgetType, { id: string; label: string }[]> = {
   clock: [
     { id: "time", label: "Hora" },
@@ -227,6 +232,15 @@ export function resolveWidgetLayout(
   return merged;
 }
 
+/** Resolve one lottery modality while preserving the old shared layout as fallback. */
+export function resolveLotteryWidgetLayout(
+  gameId: string | null | undefined,
+  gameLayouts?: LotteryGameLayouts | null,
+  legacyLayout?: WidgetLayout | null,
+): Required<WidgetLayout> {
+  return resolveWidgetLayout("lottery", selectLotteryLayout(gameId, gameLayouts, legacyLayout));
+}
+
 export const widgetConfigSchema = z.discriminatedUnion("type", [
   z.object({
     type: z.literal("clock"),
@@ -280,6 +294,9 @@ export const widgetConfigSchema = z.discriminatedUnion("type", [
       .refine((items) => new Set(items).size === items.length, "Não repita modalidades"),
     rotateSeconds: z.number().int().min(5).max(30).default(10),
     theme: widgetThemeSchema.optional(),
+    /** Independent visual template for each lottery modality. */
+    gameLayouts: lotteryGameLayoutsSchema.optional(),
+    /** Legacy shared layout retained as fallback for existing widgets. */
     layout: widgetLayoutSchema.optional(),
   }),
 ]);
