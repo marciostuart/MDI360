@@ -41,6 +41,29 @@ export type ReportMediaOption = {
   name: string;
 };
 
+export type ReportBranding = {
+  organizationName: string;
+  splashText: string | null;
+  brandColor: string | null;
+  logoDataUrl: string | null;
+};
+
+export type DailyReportRow = {
+  id: string;
+  label: string;
+  values: Record<string, number>;
+  total: number;
+};
+
+export type DailyReportResult = {
+  days: string[];
+  rows: DailyReportRow[];
+  totalsByDay: Record<string, number>;
+  totalPlays: number;
+  daysWithPlayback: number;
+  rowLabel: "TV" | "Arquivo";
+};
+
 const querySchema = z.object({
   group: z.enum(["device", "media"]).default("device"),
   from: z.string().min(1),
@@ -65,6 +88,54 @@ export const listReportMediaAssets = createServerFn({ method: "GET" }).handler(
       .where(eq(schema.mediaAssets.organizationId, user.organizationId))
       .orderBy(asc(schema.mediaAssets.name))
       .limit(2000);
+  },
+);
+
+/** Identidade visual do próprio estabelecimento incorporada no PDF. */
+export const getReportBranding = createServerFn({ method: "GET" }).handler(
+  async (): Promise<ReportBranding | null> => {
+    const { isDatabaseConfigured, getDb, schema } = await import("@/lib/db/index.server");
+    if (!isDatabaseConfigured()) return null;
+
+    const { requireUser } = await import("@/lib/auth/session.server");
+    const { eq } = await import("drizzle-orm");
+    const user = await requireUser();
+    const org = (
+      await getDb()
+        .select({
+          name: schema.organizations.name,
+          splashText: schema.organizations.brandSplashText,
+          brandColor: schema.organizations.brandColor,
+          logoKey: schema.organizations.brandLogoKey,
+        })
+        .from(schema.organizations)
+        .where(eq(schema.organizations.id, user.organizationId))
+        .limit(1)
+    )[0];
+    if (!org) return null;
+
+    let logoDataUrl: string | null = null;
+    if (org.logoKey) {
+      try {
+        const { getObjectBytes } = await import("@/lib/storage.server");
+        const object = await getObjectBytes(org.logoKey);
+        if (object && object.bytes.byteLength <= 1_500_000) {
+          const mime = object.contentType?.startsWith("image/")
+            ? object.contentType
+            : "image/png";
+          logoDataUrl = `data:${mime};base64,${Buffer.from(object.bytes).toString("base64")}`;
+        }
+      } catch {
+        logoDataUrl = null;
+      }
+    }
+
+    return {
+      organizationName: org.name,
+      splashText: org.splashText,
+      brandColor: org.brandColor,
+      logoDataUrl,
+    };
   },
 );
 
@@ -142,6 +213,112 @@ export const queryPlaybackReport = createServerFn({ method: "GET" })
       totalPlays,
       totalSeconds,
       rows: grouped.slice(start, start + pageSize),
+    };
+  });
+
+/**
+ * Matriz diária usada no PDF de até 31 dias. Quando um arquivo específico
+ * é escolhido, as linhas passam a ser as TVs que o exibiram.
+ */
+export const queryPlaybackDailyReport = createServerFn({ method: "GET" })
+  .inputValidator((input: unknown) => querySchema.pick({ group: true, from: true, to: true, mediaAssetId: true }).parse(input ?? {}))
+  .handler(async ({ data }): Promise<DailyReportResult> => {
+    const parsedFrom = new Date(data.from);
+    const parsedTo = new Date(data.to);
+    if (
+      Number.isNaN(parsedFrom.getTime()) ||
+      Number.isNaN(parsedTo.getTime()) ||
+      parsedFrom.getTime() >= parsedTo.getTime()
+    ) {
+      throw new Error("Informe um período válido.");
+    }
+
+    const dayFormatter = new Intl.DateTimeFormat("en-CA", {
+      timeZone: "America/Sao_Paulo",
+      year: "numeric",
+      month: "2-digit",
+      day: "2-digit",
+    });
+    const daySet = new Set<string>();
+    for (
+      let cursor = parsedFrom.getTime();
+      cursor <= parsedTo.getTime();
+      cursor += 24 * 60 * 60 * 1000
+    ) {
+      daySet.add(dayFormatter.format(new Date(cursor)));
+    }
+    daySet.add(dayFormatter.format(parsedTo));
+    const days = [...daySet].sort();
+    if (days.length > 31) throw new Error("A matriz diária permite no máximo 31 dias.");
+
+    const empty = (rowLabel: "TV" | "Arquivo"): DailyReportResult => ({
+      days,
+      rows: [],
+      totalsByDay: Object.fromEntries(days.map((day) => [day, 0])),
+      totalPlays: 0,
+      daysWithPlayback: 0,
+      rowLabel,
+    });
+
+    const { isDatabaseConfigured, getDb, schema } = await import("@/lib/db/index.server");
+    const rowLabel = data.group === "media" && !data.mediaAssetId ? "Arquivo" : "TV";
+    if (!isDatabaseConfigured()) return empty(rowLabel);
+
+    const { requireUser } = await import("@/lib/auth/session.server");
+    const { and, eq, gte, isNotNull, lte, sql } = await import("drizzle-orm");
+    const user = await requireUser();
+    const dimensionId = rowLabel === "Arquivo" ? schema.mediaAssets.id : schema.devices.id;
+    const dimensionName = rowLabel === "Arquivo" ? schema.mediaAssets.name : schema.devices.name;
+    const day = sql<string>`to_char(timezone(coalesce(${schema.locations.timezone}, 'America/Sao_Paulo'), ${schema.playbackEvents.startedAt}), 'YYYY-MM-DD')`;
+    const plays = sql<number>`count(*)::int`;
+
+    const grouped = await getDb()
+      .select({ id: dimensionId, label: dimensionName, day, plays })
+      .from(schema.playbackEvents)
+      .innerJoin(schema.devices, eq(schema.devices.id, schema.playbackEvents.deviceId))
+      .leftJoin(schema.locations, eq(schema.locations.id, schema.devices.locationId))
+      .leftJoin(schema.mediaAssets, eq(schema.mediaAssets.id, schema.playbackEvents.mediaAssetId))
+      .where(
+        and(
+          eq(schema.playbackEvents.organizationId, user.organizationId),
+          gte(schema.playbackEvents.startedAt, parsedFrom),
+          lte(schema.playbackEvents.startedAt, parsedTo),
+          data.group === "media" ? isNotNull(schema.playbackEvents.mediaAssetId) : undefined,
+          data.group === "media" && data.mediaAssetId
+            ? eq(schema.playbackEvents.mediaAssetId, data.mediaAssetId)
+            : undefined,
+        ),
+      )
+      .groupBy(dimensionId, dimensionName, day)
+      .orderBy(sql`lower(${dimensionName})`, day)
+      .limit(20_000);
+
+    const totalsByDay = Object.fromEntries(days.map((value) => [value, 0]));
+    const byRow = new Map<string, DailyReportRow>();
+    for (const item of grouped) {
+      if (!item.id || !item.label || !days.includes(item.day)) continue;
+      const row = byRow.get(item.id) ?? {
+        id: item.id,
+        label: item.label,
+        values: Object.fromEntries(days.map((value) => [value, 0])),
+        total: 0,
+      };
+      const value = Number(item.plays);
+      row.values[item.day] = value;
+      row.total += value;
+      totalsByDay[item.day] = (totalsByDay[item.day] ?? 0) + value;
+      byRow.set(item.id, row);
+    }
+
+    const rows = [...byRow.values()];
+    const totalPlays = rows.reduce((total, row) => total + row.total, 0);
+    return {
+      days,
+      rows,
+      totalsByDay,
+      totalPlays,
+      daysWithPlayback: days.filter((value) => (totalsByDay[value] ?? 0) > 0).length,
+      rowLabel,
     };
   });
 

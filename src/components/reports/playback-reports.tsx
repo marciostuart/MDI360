@@ -25,14 +25,56 @@ import {
   TableRow,
 } from "@/components/ui/table";
 import {
+  getReportBranding,
   getNowPlaying,
   listReportMediaAssets,
+  queryPlaybackDailyReport,
   queryPlaybackReport,
   type ReportGroup,
   type ReportRow,
 } from "@/lib/reports/reports.functions";
 
 const PAGE_SIZE = 25;
+
+function hexToRgb(value: string | null | undefined): [number, number, number] {
+  const match = /^#([0-9a-f]{6})$/i.exec(value ?? "");
+  if (!match) return [132, 230, 72];
+  const hex = match[1];
+  return [
+    Number.parseInt(hex.slice(0, 2), 16),
+    Number.parseInt(hex.slice(2, 4), 16),
+    Number.parseInt(hex.slice(4, 6), 16),
+  ];
+}
+
+function reportCode() {
+  const time = Date.now().toString(36).toUpperCase().slice(-6);
+  const random = Math.random().toString(36).toUpperCase().slice(2, 6);
+  return `MDI-${time}-${random}`;
+}
+
+function formatPdfDay(value: string) {
+  const [, month = "", day = ""] = value.split("-");
+  const months = ["jan", "fev", "mar", "abr", "mai", "jun", "jul", "ago", "set", "out", "nov", "dez"];
+  return `${Number(day)}\n${months[Number(month) - 1] ?? month}`;
+}
+
+async function rasterizeLogo(dataUrl: string) {
+  const image = new Image();
+  image.src = dataUrl;
+  await image.decode();
+  const maxSide = 900;
+  const scale = Math.min(1, maxSide / Math.max(image.naturalWidth, image.naturalHeight));
+  const width = Math.max(1, Math.round(image.naturalWidth * scale));
+  const height = Math.max(1, Math.round(image.naturalHeight * scale));
+  const canvas = document.createElement("canvas");
+  canvas.width = width;
+  canvas.height = height;
+  const context = canvas.getContext("2d");
+  if (!context) throw new Error("Canvas indisponível para processar a logo.");
+  context.drawImage(image, 0, 0, width, height);
+  return { dataUrl: canvas.toDataURL("image/png"), width, height };
+}
 
 /** Valor para <input type="datetime-local">, no fuso local do lojista. */
 function toLocalInput(date: Date) {
@@ -80,8 +122,10 @@ function ReportTable({ rows, header }: { rows: ReportRow[]; header: string }) {
 
 export function PlaybackReports() {
   const reportFn = useServerFn(queryPlaybackReport);
+  const dailyReportFn = useServerFn(queryPlaybackDailyReport);
   const nowFn = useServerFn(getNowPlaying);
   const mediaOptionsFn = useServerFn(listReportMediaAssets);
+  const reportBrandingFn = useServerFn(getReportBranding);
 
   // Formulário: o relatório só é buscado quando o lojista clica em Buscar.
   const defaults = useMemo(() => {
@@ -187,30 +231,198 @@ export function PlaybackReports() {
         import("jspdf"),
         import("jspdf-autotable"),
       ]);
-      const doc = new jsPDF({ unit: "pt", format: "a4" });
+      const requestedDays =
+        Math.floor(
+          (new Date(search.to).getTime() - new Date(search.from).getTime()) /
+            (24 * 60 * 60 * 1000),
+        ) + 1;
+      const [branding, daily] = await Promise.all([
+        reportBrandingFn({}),
+        requestedDays <= 31
+          ? dailyReportFn({
+              data: {
+                group: search.group,
+                from: new Date(search.from).toISOString(),
+                to: new Date(search.to).toISOString(),
+                mediaAssetId: search.mediaAssetId,
+              },
+            })
+          : Promise.resolve(null),
+      ]);
+      const generatedAt = new Date();
+      const code = reportCode();
+      const accent = hexToRgb(branding?.brandColor);
+      const doc = new jsPDF({ unit: "pt", format: "a4", orientation: "landscape" });
+      const pageWidth = doc.internal.pageSize.getWidth();
+      const pageHeight = doc.internal.pageSize.getHeight();
       const period = `${new Date(search.from).toLocaleString("pt-BR")} a ${new Date(search.to).toLocaleString("pt-BR")}`;
 
-      doc.setFontSize(16);
-      doc.text("Relatório de exibição — MDI 360", 40, 46);
-      doc.setFontSize(10);
-      doc.text(`Agrupado por: ${groupLabel(search.group)}`, 40, 66);
-      doc.text(`Período: ${period}`, 40, 82);
-      doc.text(
-        `Total: ${first.totalPlays} exibições - ${formatDuration(first.totalSeconds)} em tela`,
-        40,
-        98,
-      );
-      const tableStartY = search.mediaLabel ? 132 : 116;
-      if (search.mediaLabel) doc.text(`Arquivo: ${search.mediaLabel}`, 40, 114);
+      doc.setDrawColor(148, 163, 184);
+      doc.setLineWidth(1.2);
+      doc.line(0, 4, pageWidth, 4);
 
-      autoTable(doc, {
-        startY: tableStartY,
-        head: [[groupLabel(search.group), "Exibições", "Tempo em tela"]],
-        body: rows.map((row) => [row.label, String(row.plays), formatDuration(row.seconds)]),
-        styles: { fontSize: 9, cellPadding: 5 },
-        headStyles: { fillColor: [15, 23, 42] },
-        columnStyles: { 1: { halign: "right" }, 2: { halign: "right" } },
-      });
+      if (branding?.logoDataUrl) {
+        try {
+          const logo = await rasterizeLogo(branding.logoDataUrl);
+          const scale = Math.min(112 / logo.width, 50 / logo.height);
+          const width = logo.width * scale;
+          const height = logo.height * scale;
+          doc.addImage(logo.dataUrl, "PNG", 30 + (112 - width) / 2, 23 + (50 - height) / 2, width, height);
+        } catch {
+          doc.setFont("helvetica", "bold");
+          doc.setFontSize(15);
+          doc.text(branding.organizationName, 30, 51, { maxWidth: 112 });
+        }
+      } else {
+        doc.setFillColor(...accent);
+        doc.roundedRect(30, 28, 30, 30, 6, 6, "F");
+        doc.setTextColor(15, 23, 42);
+        doc.setFont("helvetica", "bold");
+        doc.setFontSize(14);
+        doc.text((branding?.organizationName ?? "MDI").slice(0, 2).toUpperCase(), 45, 48, {
+          align: "center",
+        });
+        doc.setFontSize(12);
+        doc.text(branding?.organizationName ?? "MDI 360", 68, 46, { maxWidth: 75 });
+      }
+
+      doc.setFillColor(244, 246, 248);
+      doc.roundedRect(158, 18, pageWidth - 188, 64, 14, 14, "F");
+      doc.setTextColor(45, 55, 72);
+      doc.setFont("helvetica", "bold");
+      doc.setFontSize(15);
+      doc.text("Relatório de Exibições", 178, 40);
+      doc.setFont("helvetica", "normal");
+      doc.setFontSize(10);
+      doc.text(branding?.organizationName ?? "MDI 360", 178, 57);
+      const subtitle = search.mediaLabel
+        ? `Arquivo: ${search.mediaLabel}`
+        : `Agrupado por ${groupLabel(search.group).toLowerCase()}`;
+      doc.text(subtitle, 178, 72, { maxWidth: pageWidth - 220 });
+
+      doc.setTextColor(45, 55, 72);
+      doc.setFont("helvetica", "bold");
+      doc.setFontSize(11);
+      doc.text("Informações totais de exibição", 30, 108);
+      doc.text("Informações deste relatório", pageWidth / 2 + 25, 108);
+      doc.setDrawColor(203, 213, 225);
+      doc.setLineDashPattern([1, 2], 0);
+      doc.line(30, 120, 30, 173);
+      doc.line(pageWidth / 2 + 25, 120, pageWidth / 2 + 25, 173);
+      doc.setLineDashPattern([], 0);
+
+      doc.setFont("helvetica", "normal");
+      doc.setFontSize(10);
+      doc.text("Total de exibições:", 44, 132);
+      doc.text(`${daily?.rowLabel ?? (search.group === "device" ? "TV" : "Arquivo")}s no relatório:`, 44, 146);
+      doc.text("Dias com exibição:", 44, 160);
+      doc.text("Tempo total em tela:", 44, 174);
+      doc.setFont("helvetica", "bold");
+      doc.text(String(first.totalPlays), 150, 132);
+      doc.text(String(daily?.rows.length ?? first.totalRows), 150, 146);
+      doc.text(String(daily?.daysWithPlayback ?? "-"), 150, 160);
+      doc.text(formatDuration(first.totalSeconds), 150, 174);
+
+      const infoX = pageWidth / 2 + 39;
+      doc.setFont("helvetica", "normal");
+      doc.text("Código:", infoX, 132);
+      doc.text("Gerado em:", infoX, 149);
+      doc.text("Período:", infoX, 166);
+      doc.setFont("helvetica", "bold");
+      doc.text(code, infoX + 58, 132);
+      doc.text(generatedAt.toLocaleString("pt-BR"), infoX + 58, 149);
+      doc.text(period, infoX + 58, 166, { maxWidth: pageWidth / 2 - 125 });
+
+      doc.setFontSize(12);
+      doc.text(
+        daily
+          ? `Detalhes dos últimos ${Math.max(1, requestedDays - 1)} dias`
+          : search.mediaLabel
+            ? "Detalhes do arquivo"
+            : "Detalhes do período",
+        pageWidth / 2,
+        201,
+        { align: "center" },
+      );
+
+      if (daily) {
+        const availableWidth = pageWidth - 60 - 120 - 54;
+        const dayWidth = Math.max(17, Math.min(54, availableWidth / daily.days.length));
+        const columnStyles: Record<
+          number,
+          { halign?: "left" | "center" | "right"; cellWidth?: number }
+        > = { 0: { halign: "left", cellWidth: 120 } };
+        daily.days.forEach((_, index) => {
+          columnStyles[index + 1] = { halign: "center", cellWidth: dayWidth };
+        });
+        columnStyles[daily.days.length + 1] = { halign: "right", cellWidth: 54 };
+
+        autoTable(doc, {
+          startY: 218,
+          margin: { left: 30, right: 30, bottom: 50 },
+          head: [[daily.rowLabel, ...daily.days.map(formatPdfDay), "Total"]],
+          body: daily.rows.map((row) => [
+            row.label,
+            ...daily.days.map((day) => String(row.values[day] ?? 0)),
+            String(row.total),
+          ]),
+          foot: [[
+            "Total",
+            ...daily.days.map((day) => String(daily.totalsByDay[day] ?? 0)),
+            String(daily.totalPlays),
+          ]],
+          showFoot: "lastPage",
+          styles: {
+            fontSize: daily.days.length > 15 ? 6.5 : 8.5,
+            cellPadding: daily.days.length > 15 ? 2 : 5,
+            textColor: [45, 55, 72],
+            valign: "middle",
+          },
+          headStyles: {
+            fillColor: [255, 255, 255],
+            textColor: [45, 55, 72],
+            fontStyle: "bold",
+            halign: "center",
+            lineColor: [148, 163, 184],
+            lineWidth: 0.4,
+          },
+          alternateRowStyles: { fillColor: [247, 249, 251] },
+          footStyles: { fillColor: accent, textColor: [15, 23, 42], fontStyle: "bold" },
+          columnStyles,
+        });
+      } else {
+        autoTable(doc, {
+          startY: 218,
+          margin: { left: 30, right: 30, bottom: 50 },
+          head: [[groupLabel(search.group), "Exibições", "Tempo em tela"]],
+          body: rows.map((row) => [row.label, String(row.plays), formatDuration(row.seconds)]),
+          foot: [["Total", String(first.totalPlays), formatDuration(first.totalSeconds)]],
+          showFoot: "lastPage",
+          styles: { fontSize: 9, cellPadding: 6, textColor: [45, 55, 72] },
+          headStyles: { fillColor: [45, 55, 72], textColor: [255, 255, 255] },
+          alternateRowStyles: { fillColor: [247, 249, 251] },
+          footStyles: { fillColor: accent, textColor: [15, 23, 42], fontStyle: "bold" },
+          columnStyles: {
+            0: { cellWidth: "auto" },
+            1: { halign: "right", cellWidth: 100 },
+            2: { halign: "right", cellWidth: 120 },
+          },
+        });
+      }
+
+      const documentPages = doc.getNumberOfPages();
+      for (let pdfPage = 1; pdfPage <= documentPages; pdfPage += 1) {
+        doc.setPage(pdfPage);
+        doc.setDrawColor(203, 213, 225);
+        doc.line(30, pageHeight - 31, pageWidth - 30, pageHeight - 31);
+        doc.setTextColor(100, 116, 139);
+        doc.setFont("helvetica", "normal");
+        doc.setFontSize(8);
+        doc.text(`Relatório gerado em ${generatedAt.toLocaleString("pt-BR")} · ${code}`, 30, pageHeight - 17);
+        doc.text(`${pdfPage} / ${documentPages}`, pageWidth - 30, pageHeight - 17, {
+          align: "right",
+        });
+      }
 
       const blob = doc.output("blob");
       const url = URL.createObjectURL(blob);
