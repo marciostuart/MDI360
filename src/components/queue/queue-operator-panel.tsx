@@ -152,9 +152,10 @@ function OperatorConsole({
     onSuccess: invalidate,
   });
 
-  // Cada guichê acompanha a SUA senha; a última do painel serve de contexto.
-  const mine = state.myCall;
-  const last = mine ?? state.calls[0] ?? null;
+  // A rechamada sempre usa a última senha do painel e a transfere para o
+  // guichê do operador que clicar no botão.
+  const last = state.calls[0] ?? null;
+  const mine = last?.mine === true;
   const isSector = state.sectors.length > 0;
 
   return (
@@ -249,7 +250,7 @@ function OperatorConsole({
             onClick={() => repeatMutation.mutate()}
           >
             <RotateCcw className="size-4" />
-            {mine ? "Repetir minha chamada" : "Repetir última chamada"}
+            Repetir última chamada neste guichê
           </Button>
         </CardContent>
       </Card>

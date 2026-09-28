@@ -49,7 +49,11 @@ export const Route = createFileRoute("/api/public/queue/call")({
         if (parsed.data.action === "repeat") {
           const last = (
             await db
-              .select({ id: schema.queueCalls.id, label: schema.queueCalls.label })
+              .select({
+                id: schema.queueCalls.id,
+                label: schema.queueCalls.label,
+                kind: schema.queueCalls.kind,
+              })
               .from(schema.queueCalls)
               .where(eq(schema.queueCalls.panelId, link.panelId))
               .orderBy(desc(schema.queueCalls.calledAt))
@@ -58,9 +62,18 @@ export const Route = createFileRoute("/api/public/queue/call")({
           if (!last) {
             return Response.json({ ok: false, empty: true, message: "Nenhuma senha foi chamada." });
           }
+          const deskLabel = device.name;
+          const { buildSpokenText } = await import("@/lib/queue/queue-auth.server");
           await db
             .update(schema.queueCalls)
-            .set({ repeatCount: sql`${schema.queueCalls.repeatCount} + 1`, calledAt: new Date() })
+            .set({
+              operatorId: null,
+              deskLabel,
+              sectorName: deskLabel,
+              spokenText: buildSpokenText(deskLabel, last.label, last.kind),
+              repeatCount: sql`${schema.queueCalls.repeatCount} + 1`,
+              calledAt: new Date(),
+            })
             .where(eq(schema.queueCalls.id, last.id));
           const { notifyQueueDevices } = await import("@/lib/queue/queue-devices.server");
           await notifyQueueDevices(link.panelId);

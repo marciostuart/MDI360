@@ -339,43 +339,52 @@ export const callNextTicket = createServerFn({ method: "POST" })
   });
 
 /**
- * Repete a chamada: cada guichê repete a SUA última senha (não a do vizinho).
- * Sem nenhuma chamada própria, repete a última do painel.
+ * Repete a última chamada do painel no guichê do operador atual.
+ * A senha permanece a mesma, mas a exibição e a locução passam a apontar
+ * para quem efetivamente solicitou a rechamada.
  */
 export const repeatLastTicket = createServerFn({ method: "POST" }).handler(async () => {
   const { getDb, schema } = await import("@/lib/db/index.server");
-  const { requireQueueSession } = await import("@/lib/queue/queue-auth.server");
-  const { and, desc, eq, sql } = await import("drizzle-orm");
+  const { requireQueueSession, buildSpokenText } = await import("@/lib/queue/queue-auth.server");
+  const { desc, eq, sql } = await import("drizzle-orm");
   const session = await requireQueueSession();
   const db = getDb();
 
-  const own = await db
-    .select({ id: schema.queueCalls.id, label: schema.queueCalls.label })
+  const last = await db
+    .select({
+      id: schema.queueCalls.id,
+      label: schema.queueCalls.label,
+      kind: schema.queueCalls.kind,
+      sectorId: schema.queueCalls.sectorId,
+      sectorName: schema.queueCalls.sectorName,
+    })
     .from(schema.queueCalls)
-    .where(
-      and(
-        eq(schema.queueCalls.panelId, session.panelId),
-        eq(schema.queueCalls.operatorId, session.operatorId),
-      ),
-    )
+    .where(eq(schema.queueCalls.panelId, session.panelId))
     .orderBy(desc(schema.queueCalls.calledAt))
     .limit(1);
 
-  const last =
-    own.length > 0
-      ? own
-      : await db
-          .select({ id: schema.queueCalls.id, label: schema.queueCalls.label })
-          .from(schema.queueCalls)
-          .where(eq(schema.queueCalls.panelId, session.panelId))
-          .orderBy(desc(schema.queueCalls.calledAt))
-          .limit(1);
-
   if (!last[0]) throw new Error("Nenhuma senha foi chamada ainda.");
+
+  const deskLabel = session.deskLabel ?? null;
+  const sector =
+    !deskLabel && last[0].sectorId
+      ? (
+          await db
+            .select({ name: schema.queueSectors.name })
+            .from(schema.queueSectors)
+            .where(eq(schema.queueSectors.id, last[0].sectorId))
+            .limit(1)
+        )[0]
+      : null;
+  const announced = deskLabel ?? sector?.name ?? last[0].sectorName;
 
   await db
     .update(schema.queueCalls)
     .set({
+      operatorId: session.operatorId,
+      deskLabel,
+      sectorName: announced,
+      spokenText: buildSpokenText(announced, last[0].label, last[0].kind),
       repeatCount: sql`${schema.queueCalls.repeatCount} + 1`,
       calledAt: new Date(),
     })
