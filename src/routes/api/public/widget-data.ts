@@ -83,7 +83,7 @@ function parseRssItems(xml: string, limit: number): NewsItem[] {
     if (!title) continue;
     const summary = decodeEntities(
       block.match(/<description[^>]*>([\s\S]*?)<\/description>/i)?.[1] ?? "",
-    ).slice(0, 320);
+    ).slice(0, 600);
     const image =
       block.match(/<media:content[^>]+url="([^"]+)"/i)?.[1] ??
       block.match(/<media:thumbnail[^>]+url="([^"]+)"/i)?.[1] ??

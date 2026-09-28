@@ -11,7 +11,12 @@ import {
 import { createDownloadUrl, isStorageConfigured } from "@/lib/storage.server";
 import type { WidgetConfig } from "@/lib/widgets/catalog";
 import { isPlatformWidgetType } from "@/lib/widgets/platform-widgets";
-import { readPlatformWidgetSettings } from "@/lib/widgets/platform-widgets.server";
+import {
+  mergePlatformWidgetConfig,
+  platformWidgetDuration,
+  readPlatformWidgetSettings,
+  type PlatformWidgetSettings,
+} from "@/lib/widgets/platform-widgets.server";
 
 export type PlayerItem = {
   id: string;
@@ -55,7 +60,7 @@ async function resolveItems(
   timezone: string,
   now: Date,
   path: Set<string>,
-  activePlatformWidgets: Set<string>,
+  platformWidgets: PlatformWidgetSettings,
   prefix = "",
 ): Promise<{ items: PlayerItem[]; finger: string[] }> {
   if (path.has(playlistId) || path.size >= 8) return { items: [], finger: [`cycle:${playlistId}`] };
@@ -96,7 +101,7 @@ async function resolveItems(
         timezone,
         now,
         nextPath,
-        activePlatformWidgets,
+        platformWidgets,
         `${prefix}${row.id}:`,
       );
       items.push(...nested.items);
@@ -107,23 +112,28 @@ async function resolveItems(
       continue;
     }
     if (!row.mediaAssetId || !row.kind || !row.name || row.status !== "ready") continue;
-    if (isPlatformWidgetType(row.widgetType) && !activePlatformWidgets.has(row.widgetType))
-      continue;
+    if (isPlatformWidgetType(row.widgetType) && !platformWidgets[row.widgetType].active) continue;
     if (row.airStartAt && row.airStartAt > now) continue;
     if (row.airEndAt && row.airEndAt < now) continue;
     if (row.kind === "widget") {
+      const storedConfig = (row.widgetConfig as WidgetConfig | null) ?? null;
+      const widgetConfig = isPlatformWidgetType(row.widgetType)
+        ? mergePlatformWidgetConfig(row.widgetType, platformWidgets[row.widgetType], storedConfig)
+        : storedConfig;
       items.push({
         id: `${prefix}${row.id}`,
         mediaAssetId: row.mediaAssetId,
         kind: "widget",
         url: null,
-        durationMs: row.durationMs,
+        durationMs: widgetConfig
+          ? (platformWidgetDuration(widgetConfig) ?? row.durationMs)
+          : row.durationMs,
         isMuted: row.isMuted,
         name: row.name,
         widgetType: row.widgetType,
-        widgetConfig: (row.widgetConfig as WidgetConfig | null) ?? null,
+        widgetConfig,
       });
-      finger.push(`${row.id}:${JSON.stringify(row.widgetConfig ?? null)}`);
+      finger.push(`${row.id}:${JSON.stringify(widgetConfig)}`);
       continue;
     }
     const external = row.kind === "web" || row.kind === "stream";
@@ -160,9 +170,6 @@ export async function resolvePlaybackPlanForDevice(
   const db = getDb();
   const now = new Date();
   const platformWidgets = await readPlatformWidgetSettings();
-  const activePlatformWidgets = new Set(
-    Object.entries(platformWidgets).flatMap(([type, entry]) => (entry.active ? [type] : [])),
-  );
   const candidates = await db
     .select({
       playlistId: schema.schedules.playlistId,
@@ -207,13 +214,7 @@ export async function resolvePlaybackPlanForDevice(
         .limit(1)
     )[0];
     if (!playlist) return null;
-    const resolved = await resolveItems(
-      playlist.id,
-      timezone,
-      now,
-      new Set(),
-      activePlatformWidgets,
-    );
+    const resolved = await resolveItems(playlist.id, timezone, now, new Set(), platformWidgets);
     if (!resolved.items.length) return null;
     return {
       id: playlist.id,

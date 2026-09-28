@@ -595,9 +595,9 @@ function PlayerScreen() {
   // effect dependencies so the file on screen is never remounted mid-playback.
   const currentKey = current?.url ? mediaCache.keyFor(current.url) : null;
   const videoRenderKey = current ? `${current.id}-${index}` : null;
-  const waitsForLottery =
+  const waitsForRemoteWidget =
     current?.kind === "widget" &&
-    current.widgetConfig?.type === "lottery" &&
+    (current.widgetConfig?.type === "lottery" || current.widgetConfig?.type === "news") &&
     widgetReadyKey !== videoRenderKey;
   const markWidgetReady = useCallback(() => {
     if (videoRenderKey) setWidgetReadyKey(videoRenderKey);
@@ -607,7 +607,11 @@ function PlayerScreen() {
   // payload is still loading. A bounded fallback prevents a provider outage
   // from holding the whole playlist forever.
   useEffect(() => {
-    if (current?.kind !== "widget" || current.widgetConfig?.type !== "lottery") return;
+    if (
+      current?.kind !== "widget" ||
+      (current.widgetConfig?.type !== "lottery" && current.widgetConfig?.type !== "news")
+    )
+      return;
     const fallback = window.setTimeout(() => {
       if (videoRenderKey) setWidgetReadyKey(videoRenderKey);
     }, 20_000);
@@ -675,7 +679,7 @@ function PlayerScreen() {
     if (leaveRef.current) window.clearTimeout(leaveRef.current);
     if (!current || items.length === 0) return;
     if (current.kind === "video") return;
-    if (waitsForLottery) return;
+    if (waitsForRemoteWidget) return;
     const total = Math.max(1000, current.durationMs);
     if (fade && total > FADE_MS * 2) {
       leaveRef.current = window.setTimeout(() => setLeaving(true), total - FADE_MS);
@@ -695,7 +699,7 @@ function PlayerScreen() {
     items.length,
     advance,
     fade,
-    waitsForLottery,
+    waitsForRemoteWidget,
   ]);
 
   // Watchdog: qualquer sinal de vida (item trocou, chamada exibida, servidor

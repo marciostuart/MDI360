@@ -13,7 +13,7 @@ import {
   fetchPlatformWidgetsAdmin,
   savePlatformWidgetAdmin,
 } from "@/lib/admin/platform-widgets.functions";
-import { getWidgetDefinition, type WidgetConfig } from "@/lib/widgets/catalog";
+import { NEWS_FEEDS, getWidgetDefinition, type WidgetConfig } from "@/lib/widgets/catalog";
 import { PLATFORM_WIDGET_TYPES, type PlatformWidgetType } from "@/lib/widgets/platform-widgets";
 
 export function PlatformWidgetsManager() {
@@ -21,6 +21,7 @@ export function PlatformWidgetsManager() {
   const saveFn = useServerFn(savePlatformWidgetAdmin);
   const editorRef = useRef<HTMLDivElement>(null);
   const [editingType, setEditingType] = useState<PlatformWidgetType | null>(null);
+  const [newsFeedIds, setNewsFeedIds] = useState<string[]>([]);
   const query = useQuery({
     queryKey: ["admin-platform-widgets"],
     queryFn: () => fetchPlatformWidgetsAdmin(),
@@ -30,7 +31,13 @@ export function PlatformWidgetsManager() {
     mutationFn: async (type: PlatformWidgetType) => {
       const entry = query.data![type];
       return saveFn({
-        data: { type, active: !entry.active, name: entry.name, config: entry.config },
+        data: {
+          type,
+          active: !entry.active,
+          name: entry.name,
+          config: entry.config,
+          ...(type === "news" ? { availableNewsFeedIds: entry.availableNewsFeedIds } : {}),
+        },
       });
     },
     onSuccess: async () => {
@@ -65,6 +72,7 @@ export function PlatformWidgetsManager() {
         active: entry.active,
         name: draft.name,
         config: draft.config,
+        ...(editingType === "news" ? { availableNewsFeedIds: newsFeedIds } : {}),
       },
     });
     await queryClient.invalidateQueries({ queryKey: ["admin-platform-widgets"] });
@@ -108,6 +116,7 @@ export function PlatformWidgetsManager() {
                     variant="outline"
                     onClick={() => {
                       setEditingType(type);
+                      if (type === "news") setNewsFeedIds(entry.availableNewsFeedIds);
                       window.setTimeout(
                         () => editorRef.current?.scrollIntoView({ behavior: "smooth" }),
                         0,
@@ -135,6 +144,42 @@ export function PlatformWidgetsManager() {
 
       {editing ? (
         <div ref={editorRef}>
+          {editingType === "news" ? (
+            <Card className="mb-4">
+              <CardContent className="space-y-3 pt-6">
+                <div>
+                  <h2 className="font-semibold">Fontes liberadas para os clientes</h2>
+                  <p className="text-sm text-muted-foreground">
+                    O cliente poderá escolher no Studio somente entre as fontes marcadas aqui.
+                  </p>
+                </div>
+                <div className="flex flex-wrap gap-2">
+                  {NEWS_FEEDS.map((feed) => {
+                    const selected = newsFeedIds.includes(feed.id);
+                    return (
+                      <Button
+                        key={feed.id}
+                        type="button"
+                        size="sm"
+                        variant={selected ? "default" : "outline"}
+                        onClick={() =>
+                          setNewsFeedIds((current) =>
+                            selected
+                              ? current.length > 1
+                                ? current.filter((id) => id !== feed.id)
+                                : current
+                              : [...current, feed.id],
+                          )
+                        }
+                      >
+                        {feed.label}
+                      </Button>
+                    );
+                  })}
+                </div>
+              </CardContent>
+            </Card>
+          ) : null}
           <WidgetComposer
             key={editingType}
             editing={editing}

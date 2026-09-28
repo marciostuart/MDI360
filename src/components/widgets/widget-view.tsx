@@ -32,7 +32,7 @@ export function WidgetView({
     return <CurrencyWidget config={config} theme={theme} accent={accent} />;
   if (config.type === "lottery")
     return <LotteryWidget config={config} theme={theme} accent={accent} onReady={onReady} />;
-  return <NewsWidget config={config} theme={theme} accent={accent} />;
+  return <NewsWidget config={config} theme={theme} accent={accent} onReady={onReady} />;
 }
 
 /* ------------------------------------------------------------------ shell */
@@ -808,10 +808,12 @@ function NewsWidget({
   config,
   theme,
   accent,
+  onReady,
 }: {
   config: Extract<WidgetConfig, { type: "news" }>;
   theme: WidgetTheme;
   accent: string;
+  onReady?: () => void;
 }) {
   const { data, failed } = useWidgetData<NewsPayload>(
     `type=news&feedId=${encodeURIComponent(config.feedId)}`,
@@ -831,6 +833,10 @@ function NewsWidget({
   }, [data, config.headlines]);
 
   const [index, setIndex] = useState(0);
+
+  useEffect(() => {
+    if (items.length > 0 || failed) onReady?.();
+  }, [failed, items.length, onReady]);
 
   useEffect(() => {
     setIndex(0);
@@ -915,7 +921,7 @@ function NewsWidget({
               }}
               key={`summary-${index}`}
             >
-              {current.summary}
+              {current.summary.slice(0, config.summaryMaxChars ?? 240)}
             </Block>
           ) : null}
           {items.length > 1 ? (

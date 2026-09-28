@@ -7,8 +7,9 @@ import { toast } from "sonner";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { WidgetComposer, type WidgetDraft } from "@/components/widgets/widget-composer";
+import { PlatformWidgetPreferences } from "@/components/widgets/platform-widget-preferences";
 import { WidgetView } from "@/components/widgets/widget-view";
-import { deleteMediaAsset, listMediaAssets } from "@/lib/media/media.functions";
+import { deleteMediaAsset, listMediaAssets, type MediaListItem } from "@/lib/media/media.functions";
 import { getWidgetDefinition } from "@/lib/widgets/catalog";
 
 /** Página exclusiva para criar, personalizar e remover widgets de informação. */
@@ -17,7 +18,9 @@ export function WidgetsManager() {
   const listFn = useServerFn(listMediaAssets);
   const deleteFn = useServerFn(deleteMediaAsset);
   const composerRef = useRef<HTMLDivElement>(null);
+  const preferencesRef = useRef<HTMLDivElement>(null);
   const [editingWidget, setEditingWidget] = useState<WidgetDraft | null>(null);
+  const [managedWidget, setManagedWidget] = useState<MediaListItem | null>(null);
 
   const library = useQuery({ queryKey: ["media-assets"], queryFn: () => listFn({}) });
 
@@ -51,6 +54,12 @@ export function WidgetsManager() {
           onCancelEditing={() => setEditingWidget(null)}
         />
       </div>
+
+      {managedWidget ? (
+        <div ref={preferencesRef}>
+          <PlatformWidgetPreferences item={managedWidget} onClose={() => setManagedWidget(null)} />
+        </div>
+      ) : null}
 
       <div className="space-y-3">
         <h2 className="text-lg font-semibold">Widgets disponíveis</h2>
@@ -89,6 +98,7 @@ export function WidgetsManager() {
                         size="icon"
                         className="size-8 text-muted-foreground"
                         onClick={() => {
+                          setManagedWidget(null);
                           setEditingWidget({
                             assetId: item.id,
                             name: item.name,
@@ -114,7 +124,28 @@ export function WidgetsManager() {
                         <Trash2 className="size-4" />
                       </Button>
                     </div>
-                  ) : null}
+                  ) : (
+                    <Button
+                      variant="ghost"
+                      size="icon"
+                      className="size-8 text-muted-foreground"
+                      onClick={() => {
+                        setEditingWidget(null);
+                        setManagedWidget(item);
+                        window.setTimeout(
+                          () =>
+                            preferencesRef.current?.scrollIntoView({
+                              behavior: "smooth",
+                              block: "start",
+                            }),
+                          0,
+                        );
+                      }}
+                      aria-label={`Selecionar conteúdo de ${item.name}`}
+                    >
+                      <Pencil className="size-4" />
+                    </Button>
+                  )}
                 </div>
               </div>
             ))}

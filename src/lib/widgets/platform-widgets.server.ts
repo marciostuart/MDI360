@@ -2,7 +2,12 @@ import { and, eq, inArray, sql } from "drizzle-orm";
 import { z } from "zod";
 
 import { getDb, schema } from "@/lib/db/index.server";
-import { getWidgetDefinition, widgetConfigSchema, type WidgetConfig } from "@/lib/widgets/catalog";
+import {
+  NEWS_FEED_IDS,
+  getWidgetDefinition,
+  widgetConfigSchema,
+  type WidgetConfig,
+} from "@/lib/widgets/catalog";
 import { lotteryDurationMs } from "@/lib/widgets/lottery";
 import {
   PLATFORM_WIDGET_SETTINGS_KEY,
@@ -24,9 +29,17 @@ const platformWidgetEntrySchema = z.object({
   config: widgetConfigSchema,
 });
 
+const platformNewsWidgetEntrySchema = platformWidgetEntrySchema.extend({
+  availableNewsFeedIds: z
+    .array(z.enum(NEWS_FEED_IDS as [string, ...string[]]))
+    .min(1)
+    .max(NEWS_FEED_IDS.length)
+    .default([...NEWS_FEED_IDS]),
+});
+
 export const platformWidgetSettingsSchema = z.object({
   currency: platformWidgetEntrySchema.refine((entry) => entry.config.type === "currency"),
-  news: platformWidgetEntrySchema.refine((entry) => entry.config.type === "news"),
+  news: platformNewsWidgetEntrySchema.refine((entry) => entry.config.type === "news"),
   lottery: platformWidgetEntrySchema.refine((entry) => entry.config.type === "lottery"),
 });
 
@@ -43,6 +56,7 @@ export function defaultPlatformWidgetSettings(): PlatformWidgetSettings {
       active: true,
       name: getWidgetDefinition("news").label,
       config: getWidgetDefinition("news").defaultConfig,
+      availableNewsFeedIds: [...NEWS_FEED_IDS],
     },
     lottery: {
       active: true,
@@ -53,7 +67,48 @@ export function defaultPlatformWidgetSettings(): PlatformWidgetSettings {
 }
 
 export function platformWidgetDuration(config: WidgetConfig): number | null {
-  return config.type === "lottery" ? lotteryDurationMs(config) : null;
+  if (config.type === "lottery") return lotteryDurationMs(config);
+  if (config.type === "news" && config.oneAtATime) {
+    return config.headlines * config.rotateSeconds * 1000;
+  }
+  return null;
+}
+
+export function mergePlatformWidgetConfig(
+  type: (typeof PLATFORM_WIDGET_TYPES)[number],
+  desired: PlatformWidgetSettings[(typeof PLATFORM_WIDGET_TYPES)[number]],
+  current: unknown,
+): WidgetConfig {
+  const local = widgetConfigSchema.safeParse(current);
+  if (type === "currency" && desired.config.type === "currency") {
+    const selected =
+      local.success && local.data.type === "currency"
+        ? local.data.pairs.filter(
+            (pair) => desired.config.type === "currency" && desired.config.pairs.includes(pair),
+          )
+        : [];
+    return { ...desired.config, pairs: selected.length ? selected : desired.config.pairs };
+  }
+  if (type === "lottery" && desired.config.type === "lottery") {
+    const selected =
+      local.success && local.data.type === "lottery"
+        ? local.data.gameIds.filter(
+            (gameId) =>
+              desired.config.type === "lottery" && desired.config.gameIds.includes(gameId),
+          )
+        : [];
+    return { ...desired.config, gameIds: selected.length ? selected : desired.config.gameIds };
+  }
+  if (type === "news" && desired.config.type === "news") {
+    const available =
+      "availableNewsFeedIds" in desired ? desired.availableNewsFeedIds : [...NEWS_FEED_IDS];
+    const feedId =
+      local.success && local.data.type === "news" && available.includes(local.data.feedId)
+        ? local.data.feedId
+        : desired.config.feedId;
+    return { ...desired.config, feedId };
+  }
+  return desired.config;
 }
 
 export async function readPlatformWidgetSettings(): Promise<PlatformWidgetSettings> {
@@ -110,11 +165,12 @@ export async function synchronizePlatformWidgetsForOrganization(organizationId: 
     }
 
     for (const row of rows) {
-      const durationMs = platformWidgetDuration(desired.config);
+      const mergedConfig = mergePlatformWidgetConfig(type, desired, row.widgetConfig);
+      const durationMs = platformWidgetDuration(mergedConfig);
       const tags = Array.from(new Set([...(row.tags ?? []), PLATFORM_WIDGET_TAG]));
       const changed =
         row.name !== desired.name ||
-        JSON.stringify(row.widgetConfig) !== JSON.stringify(desired.config) ||
+        JSON.stringify(row.widgetConfig) !== JSON.stringify(mergedConfig) ||
         row.durationMs !== durationMs ||
         !(row.tags ?? []).includes(PLATFORM_WIDGET_TAG);
       if (!changed) continue;
@@ -123,7 +179,7 @@ export async function synchronizePlatformWidgetsForOrganization(organizationId: 
           .update(schema.mediaAssets)
           .set({
             name: desired.name,
-            widgetConfig: desired.config,
+            widgetConfig: mergedConfig,
             durationMs,
             tags,
           })

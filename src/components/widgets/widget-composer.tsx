@@ -315,7 +315,9 @@ export function WidgetComposer({
 
           {config.type === "currency" ? (
             <div className="space-y-2">
-              <Label>Moedas exibidas</Label>
+              <Label>
+                {managedByPlatform ? "Cotações liberadas no Studio" : "Moedas exibidas"}
+              </Label>
               <div className="flex flex-wrap gap-2">
                 {CURRENCY_OPTIONS.map((option) => {
                   const active = config.pairs.includes(option.id);
@@ -427,6 +429,26 @@ export function WidgetComposer({
                         Usar a foto da notícia como fundo
                       </label>
                     </div>
+                    {config.showSummary ? (
+                      <div className="space-y-2">
+                        <Label htmlFor="widget-summary-length">
+                          Tamanho máximo do resumo: {config.summaryMaxChars} caracteres
+                        </Label>
+                        <Slider
+                          id="widget-summary-length"
+                          min={60}
+                          max={600}
+                          step={20}
+                          value={[config.summaryMaxChars]}
+                          onValueChange={([value]) =>
+                            setConfig({ ...config, summaryMaxChars: value ?? 240 })
+                          }
+                        />
+                        <p className="text-xs text-muted-foreground">
+                          O tamanho da fonte também pode ser ajustado no editor visual abaixo.
+                        </p>
+                      </div>
+                    ) : null}
                   </>
                 ) : null}
               </div>
@@ -436,7 +458,11 @@ export function WidgetComposer({
           {config.type === "lottery" ? (
             <div className="max-w-2xl space-y-4">
               <div className="space-y-2">
-                <Label>Modalidades e ordem de exibição</Label>
+                <Label>
+                  {managedByPlatform
+                    ? "Modalidades liberadas e ordem padrão"
+                    : "Modalidades e ordem de exibição"}
+                </Label>
                 <div className="space-y-2">
                   {[
                     ...config.gameIds.flatMap((id) => {

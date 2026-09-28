@@ -265,6 +265,8 @@ export const widgetConfigSchema = z.discriminatedUnion("type", [
     oneAtATime: z.boolean().default(true),
     rotateSeconds: z.number().int().min(3).max(30).default(7),
     showSummary: z.boolean().default(true),
+    /** Maximum article-summary length rendered on screen. */
+    summaryMaxChars: z.number().int().min(60).max(600).default(240),
     showImage: z.boolean().default(true),
     theme: widgetThemeSchema.optional(),
     layout: widgetLayoutSchema.optional(),
@@ -329,6 +331,7 @@ export const WIDGET_CATALOG: {
       oneAtATime: true,
       rotateSeconds: 7,
       showSummary: true,
+      summaryMaxChars: 240,
       showImage: true,
     },
   },
