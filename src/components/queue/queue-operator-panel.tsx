@@ -1,7 +1,7 @@
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { useServerFn } from "@tanstack/react-start";
 import { Bell, Loader2, LogOut, RotateCcw } from "lucide-react";
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import { toast } from "sonner";
 
 import { Badge } from "@/components/ui/badge";
@@ -15,18 +15,53 @@ import {
   queueLogin,
   queueLogout,
   repeatLastTicket,
+  waitForQueueUpdate,
 } from "@/lib/queue/operator.functions";
 
 export function QueueOperatorPanel() {
   const queryClient = useQueryClient();
   const loadState = useServerFn(fetchQueueState);
   const login = useServerFn(queueLogin);
+  const waitForUpdate = useServerFn(waitForQueueUpdate);
 
   const { data, isPending } = useQuery({
     queryKey: ["queue-operator"],
     queryFn: () => loadState({}),
-    refetchInterval: 30_000,
+    // Safety net only: normal updates arrive through the event-driven long poll.
+    refetchInterval: 60_000,
+    refetchIntervalInBackground: false,
   });
+
+  useEffect(() => {
+    if (!data?.panel.id) return;
+
+    let stopped = false;
+    let revision = 0;
+    let retryTimer: ReturnType<typeof setTimeout> | undefined;
+
+    const wait = async () => {
+      while (!stopped) {
+        try {
+          const result = await waitForUpdate({ data: { revision } });
+          if (stopped) return;
+          revision = result.revision;
+          if (result.changed) {
+            await queryClient.invalidateQueries({ queryKey: ["queue-operator"] });
+          }
+        } catch {
+          await new Promise<void>((resolve) => {
+            retryTimer = setTimeout(resolve, 3_000);
+          });
+        }
+      }
+    };
+
+    void wait();
+    return () => {
+      stopped = true;
+      if (retryTimer) clearTimeout(retryTimer);
+    };
+  }, [data?.panel.id, queryClient, waitForUpdate]);
 
   const [credentials, setCredentials] = useState({ username: "", password: "" });
 

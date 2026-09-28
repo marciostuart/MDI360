@@ -112,6 +112,10 @@ export async function issueTicket(
       and(eq(schema.queueTickets.panelId, panel.id), eq(schema.queueTickets.status, "waiting")),
     );
 
+  // Atualiza os contadores dos operadores sem polling frequente no banco.
+  const { notifyQueuePanel } = await import("@/lib/player/realtime.server");
+  notifyQueuePanel(panel.id);
+
   return {
     id: inserted[0]?.id ?? "",
     label,

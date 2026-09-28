@@ -1,7 +1,7 @@
 import { eq } from "drizzle-orm";
 
 import { getDb, schema } from "@/lib/db/index.server";
-import { notifyDevice } from "@/lib/player/realtime.server";
+import { notifyDevice, notifyQueuePanel } from "@/lib/player/realtime.server";
 
 export async function queueDeviceIds(panelId: string): Promise<string[]> {
   const rows = await getDb()
@@ -12,6 +12,7 @@ export async function queueDeviceIds(panelId: string): Promise<string[]> {
 }
 
 export async function notifyQueueDevices(panelId: string): Promise<void> {
+  notifyQueuePanel(panelId);
   const ids = await queueDeviceIds(panelId);
   for (const deviceId of ids) notifyDevice(deviceId);
 }

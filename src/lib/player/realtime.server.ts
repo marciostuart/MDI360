@@ -18,6 +18,7 @@ type Waiter = {
 type Bus = {
   orgRevision: Map<string, number>;
   deviceRevision: Map<string, number>;
+  queuePanelRevision: Map<string, number>;
   waiters: Map<string, Set<Waiter>>;
 };
 
@@ -28,8 +29,12 @@ const bus: Bus =
   (globalRef.__mdiPlayerBus = {
     orgRevision: new Map(),
     deviceRevision: new Map(),
+    queuePanelRevision: new Map(),
     waiters: new Map(),
   });
+
+// Keeps compatibility with a bus created by an older module during HMR.
+bus.queuePanelRevision ??= new Map();
 
 /** Maximum time a screen holds a long-poll open before we answer "nada novo". */
 export const LONG_POLL_TIMEOUT_MS = 25_000;
@@ -63,6 +68,53 @@ export function notifyOrganization(organizationId: string | null | undefined) {
 export function notifyDevice(deviceId: string) {
   bus.deviceRevision.set(deviceId, Date.now());
   releaseWaiters(`device:${deviceId}`);
+}
+
+/** Called whenever the waiting queue or the latest call of a panel changes. */
+export function notifyQueuePanel(panelId: string) {
+  const current = bus.queuePanelRevision.get(panelId) ?? 0;
+  bus.queuePanelRevision.set(panelId, Math.max(Date.now(), current + 1));
+  releaseWaiters(`queue:${panelId}`);
+}
+
+/** Current revision used by authenticated queue operator panels. */
+export function queueRevisionFor(panelId: string): number {
+  return bus.queuePanelRevision.get(panelId) ?? 0;
+}
+
+/**
+ * Holds one cheap request per operator and resolves immediately when that
+ * panel's queue changes. A timeout keeps proxies and stale connections healthy.
+ */
+export function waitForQueueChange(
+  panelId: string,
+  since: number,
+  timeoutMs = LONG_POLL_TIMEOUT_MS,
+): Promise<number> {
+  const current = queueRevisionFor(panelId);
+  if (current > since) return Promise.resolve(current);
+
+  return new Promise<number>((resolve) => {
+    const key = `queue:${panelId}`;
+    let settled = false;
+    const finish = (revision: number) => {
+      if (settled) return;
+      settled = true;
+      clearTimeout(waiter.timer);
+      const set = bus.waiters.get(key);
+      set?.delete(waiter);
+      if (set?.size === 0) bus.waiters.delete(key);
+      resolve(revision);
+    };
+    const waiter: Waiter = {
+      since,
+      resolve: finish,
+      timer: setTimeout(() => finish(queueRevisionFor(panelId)), timeoutMs),
+    };
+    const set = bus.waiters.get(key) ?? new Set<Waiter>();
+    set.add(waiter);
+    bus.waiters.set(key, set);
+  });
 }
 
 /**

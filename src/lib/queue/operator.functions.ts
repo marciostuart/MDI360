@@ -193,6 +193,22 @@ export const queueLogout = createServerFn({ method: "POST" }).handler(async () =
 });
 
 /**
+ * Cheap event channel for the operator screen. It waits until this panel's
+ * queue changes instead of repeatedly querying all counters and history.
+ */
+export const waitForQueueUpdate = createServerFn({ method: "POST" })
+  .inputValidator((input: unknown) =>
+    z.object({ revision: z.number().int().nonnegative().default(0) }).parse(input),
+  )
+  .handler(async ({ data }) => {
+    const { requireQueueSession } = await import("@/lib/queue/queue-auth.server");
+    const { waitForQueueChange } = await import("@/lib/player/realtime.server");
+    const session = await requireQueueSession();
+    const revision = await waitForQueueChange(session.panelId, data.revision);
+    return { revision, changed: revision > data.revision };
+  });
+
+/**
  * Chama a próxima senha da fila.
  *
  * A escolha respeita a política configurada pelo cliente: "Prioritário" chama
