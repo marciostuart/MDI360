@@ -168,8 +168,10 @@ function PlayerScreen() {
   const [index, setIndex] = useState(0);
   const [videoPlayingKey, setVideoPlayingKey] = useState<string | null>(null);
   const timerRef = useRef<number | null>(null);
-  /** Ultimo sinal de vida do player, usado pelo watchdog. */
+  /** Ultimo sinal de vida geral, usado quando ainda nao ha midia carregada. */
   const beatRef = useRef<number>(Date.now());
+  /** Ultimo avanco real da midia atual. Sincronizacao nao renova este relogio. */
+  const mediaProgressRef = useRef<number>(Date.now());
   const revisionRef = useRef(0);
   // Sync data that arrived while a file was on screen. It is only applied on
   // the next item boundary so nothing is ever cut mid-exhibition.
@@ -197,6 +199,8 @@ function PlayerScreen() {
   const startNextCall = useCallback(() => {
     const next = waitingCallsRef.current.shift() ?? null;
     activeCallRef.current = next;
+    beatRef.current = Date.now();
+    mediaProgressRef.current = Date.now();
     setActiveCall(next);
   }, []);
 
@@ -234,7 +238,11 @@ function PlayerScreen() {
     setHasPending(false);
     syncRef.current = data;
     setSync(data);
-    if (resetIndex) setIndex(0);
+    if (resetIndex) {
+      beatRef.current = Date.now();
+      mediaProgressRef.current = Date.now();
+      setIndex(0);
+    }
   }, []);
 
   const persistSafeSync = useCallback((data: SyncResponse) => {
@@ -254,6 +262,8 @@ function PlayerScreen() {
    * this is the moment it takes effect.
    */
   const advance = useCallback(() => {
+    beatRef.current = Date.now();
+    mediaProgressRef.current = Date.now();
     const pending = pendingSyncRef.current;
     if (pending) {
       applySync(pending, true);
@@ -671,6 +681,43 @@ function PlayerScreen() {
     setLeaving(false);
   }, [index]);
 
+  // A successful sync only proves that the server is reachable. It does not
+  // prove that the current decoder or iframe is still advancing. Keep a
+  // separate media watchdog so a frozen video cannot be kept alive forever by
+  // the 60-second server sync.
+  const currentKind = current?.kind;
+  const currentDurationMs = current?.durationMs ?? 0;
+  useEffect(() => {
+    if (!linked || !currentKind || items.length === 0) return;
+    mediaProgressRef.current = Date.now();
+
+    // Browsers normally emit timeupdate several times per second. Forty-five
+    // seconds without progress is therefore a genuine stall, while still
+    // allowing a slow device to recover from a short buffering pause.
+    const silenceLimit =
+      currentKind === "video"
+        ? 45_000
+        : Math.max(45_000, Math.max(1_000, currentDurationMs) + 30_000);
+    const watchdog = window.setInterval(() => {
+      if (Date.now() - mediaProgressRef.current <= silenceLimit) return;
+      // Remount the current item (also works for a single-item playlist) or
+      // move to the next one. This path intentionally does not reload the
+      // whole screen, preserving the device link and local cache.
+      mediaProgressRef.current = Date.now();
+      advance();
+    }, 15_000);
+    return () => window.clearInterval(watchdog);
+  }, [
+    linked,
+    current?.id,
+    currentKind,
+    currentDurationMs,
+    index,
+    items.length,
+    waitsForRemoteWidget,
+    advance,
+  ]);
+
   // Images advance on a timer; videos advance when they end. With the fade
   // transition on, the outgoing item dims during its final FADE_MS so the
   // effect happens at the end of the exhibition too, not only at the start.
@@ -701,13 +748,6 @@ function PlayerScreen() {
     fade,
     waitsForRemoteWidget,
   ]);
-
-  // Watchdog: qualquer sinal de vida (item trocou, chamada exibida, servidor
-  // respondeu) renova o relogio. Se nada acontecer por 2 minutos, a tela se
-  // recarrega sozinha em vez de ficar congelada.
-  useEffect(() => {
-    beatRef.current = Date.now();
-  }, [index, current, sync, activeCall, linked]);
 
   // Monitoramento remoto: o aplicativo Android devolve a captura por aqui e o
   // player apenas a entrega ao servidor.
@@ -741,10 +781,15 @@ function PlayerScreen() {
   useEffect(() => {
     if (!linked) return;
     const interval = window.setInterval(() => {
-      if (Date.now() - beatRef.current > 120_000) window.location.reload();
+      // When there is no playlist/item, a full reload is still useful. While
+      // media is present, its dedicated watchdog above owns recovery and does
+      // not get masked by background sync responses.
+      if (items.length === 0 && Date.now() - beatRef.current > 120_000) {
+        window.location.reload();
+      }
     }, 15_000);
     return () => window.clearInterval(interval);
-  }, [linked]);
+  }, [linked, items.length]);
 
   if (!ready) return <div className="min-h-screen bg-black" />;
 
@@ -831,11 +876,17 @@ function PlayerScreen() {
               onCanPlay={(event) => {
                 void playWithBrowserFallback(event.currentTarget);
               }}
-              onPlaying={() => setVideoPlayingKey(videoRenderKey)}
+              onPlaying={() => {
+                beatRef.current = Date.now();
+                mediaProgressRef.current = Date.now();
+                setVideoPlayingKey(videoRenderKey);
+              }}
               onWaiting={() => setVideoPlayingKey(null)}
               onStalled={() => setVideoPlayingKey(null)}
               loop={items.length === 1 && !hasPending}
               onTimeUpdate={(event) => {
+                beatRef.current = Date.now();
+                mediaProgressRef.current = Date.now();
                 if (!fade || leaving) return;
                 const el = event.currentTarget;
                 if (!Number.isFinite(el.duration) || el.duration <= FADE_MS / 500) return;

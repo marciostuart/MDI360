@@ -55,6 +55,8 @@ sub init()
     m.videoPosition = 0
     m.videoStallTicks = 0
     m.videoRetries = 0
+    m.currentKind = ""
+    m.itemDeadline = 0
     m.stallTimer = CreateObject("roSGNode", "Timer")
     m.stallTimer.repeat = true
     m.stallTimer.duration = 5
@@ -185,7 +187,6 @@ sub onPayload()
         return
     end if
     m.suspended.visible = false
-    beat()
 
     ' Rede de seguranca: se uma chamada passou do seu tempo (timer perdido),
     ' encerra agora, antes de qualquer outra coisa.
@@ -409,6 +410,8 @@ sub advanceItem()
     beat()
     m.index = (m.index + 1) mod m.items.Count()
     item = m.items[m.index]
+    m.currentKind = item.kind
+    m.itemDeadline = 0
 
     ' Tell the server what went on screen (playback reports / live view).
     if m.report <> invalid
@@ -444,6 +447,7 @@ sub advanceItem()
         if item.durationMs <> invalid and item.durationMs > 1000 then duration = item.durationMs
         m.slideTimer.duration = slideSeconds(duration)
         m.slideTimer.control = "start"
+        m.itemDeadline = uptimeSeconds() + Int(duration / 1000) + 30
         revealContent()
     else if item.kind = "video"
         ' A single-video playlist replays the same node, so reset the player
@@ -481,6 +485,7 @@ sub advanceItem()
         if item.durationMs <> invalid and item.durationMs > 1000 then duration = item.durationMs
         m.slideTimer.duration = slideSeconds(duration)
         m.slideTimer.control = "start"
+        m.itemDeadline = uptimeSeconds() + Int(duration / 1000) + 30
         revealContent()
     end if
 end sub
@@ -910,8 +915,13 @@ sub onWatchdog()
         end if
     end if
 
-    ' Um video saudavel move a posicao; imagens/widgets batem o beat na troca.
-    if now - m.lastBeat < 120 then return
+    ' Um video saudavel move a posicao. Para imagem/widget, o prazo considera
+    ' a duracao configurada; uma sincronizacao de rede nao mascara congelamento.
+    if m.currentKind <> "video" and m.itemDeadline > 0
+        if now <= m.itemDeadline then return
+    else if now - m.lastBeat < 120
+        return
+    end if
 
     recoverFromFreeze()
 end sub

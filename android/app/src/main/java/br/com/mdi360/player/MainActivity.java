@@ -46,6 +46,43 @@ public class MainActivity extends AppCompatActivity {
     private WebView webView;
     private FrameLayout root;
     private final Handler handler = new Handler(Looper.getMainLooper());
+    private static final long RENDERER_WATCHDOG_INTERVAL_MS = 30_000L;
+    private static final long RENDERER_WATCHDOG_TIMEOUT_MS = 75_000L;
+    private long lastRendererResponseAt = 0L;
+    private boolean rendererReloadPending = false;
+    private final Runnable rendererWatchdog = new Runnable() {
+        @Override
+        public void run() {
+            if (webView == null || isFinishing()) return;
+
+            final long now = System.currentTimeMillis();
+            if (!rendererReloadPending
+                    && lastRendererResponseAt > 0L
+                    && now - lastRendererResponseAt > RENDERER_WATCHDOG_TIMEOUT_MS) {
+                // If the WebView renderer or its JS event loop is stuck, the
+                // page-level watchdog cannot execute. Recreate the document
+                // without losing the device link stored in localStorage.
+                rendererReloadPending = true;
+                webView.stopLoading();
+                webView.loadUrl(playerUrl());
+                handler.postDelayed(() -> rendererReloadPending = false, 10_000L);
+            }
+
+            // A tiny JS round-trip proves that the renderer is processing work.
+            // It does not depend on the media element or on network access.
+            try {
+                webView.evaluateJavascript(
+                        "(function(){return document.readyState + ':' + Date.now();})()",
+                        value -> {
+                            lastRendererResponseAt = System.currentTimeMillis();
+                            rendererReloadPending = false;
+                        });
+            } catch (Throwable ignored) {
+                // The next watchdog tick will reload if the renderer remains stuck.
+            }
+            handler.postDelayed(this, RENDERER_WATCHDOG_INTERVAL_MS);
+        }
+    };
 
     @SuppressLint("SetJavaScriptEnabled")
     @Override
@@ -92,6 +129,8 @@ public class MainActivity extends AppCompatActivity {
             @Override
             public void onPageFinished(WebView view, String url) {
                 super.onPageFinished(view, url);
+                lastRendererResponseAt = System.currentTimeMillis();
+                rendererReloadPending = false;
                 enforceVideoKioskMode(view);
             }
 
@@ -110,6 +149,8 @@ public class MainActivity extends AppCompatActivity {
 
         hideSystemUi();
         webView.loadUrl(playerUrl());
+        lastRendererResponseAt = System.currentTimeMillis();
+        handler.postDelayed(rendererWatchdog, RENDERER_WATCHDOG_INTERVAL_MS);
     }
 
     /** Removes media controls without changing the configured audio mode. */
@@ -327,6 +368,11 @@ public class MainActivity extends AppCompatActivity {
     @Override
     protected void onDestroy() {
         handler.removeCallbacksAndMessages(null);
+        if (webView != null) {
+            webView.stopLoading();
+            webView.destroy();
+            webView = null;
+        }
         super.onDestroy();
     }
 }
