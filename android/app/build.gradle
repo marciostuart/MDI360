@@ -10,8 +10,8 @@ android {
         applicationId "br.com.mdi360.player"
         minSdk 21
         targetSdk 34
-        versionCode 2
-        versionName "1.1.0"
+        versionCode 3
+        versionName "1.1.1"
         // Endereco do servidor MDI 360 (pode ser trocado dentro do app).
         buildConfigField "String", "DEFAULT_SERVER_URL", "\"https://mdi.360bh.com.br\""
     }
