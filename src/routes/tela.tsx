@@ -89,6 +89,8 @@ type NativeBridge = {
   hasValidatedNetwork?: () => boolean;
   cachedMediaKeys?: () => string;
   saveOfflinePlan?: (plan: string) => void;
+  drainOfflinePlaybackReports?: () => string;
+  acknowledgeOfflinePlaybackReports?: () => void;
   playMedia?: (
     itemId: string,
     url: string,
@@ -526,6 +528,34 @@ function PlayerScreen() {
     setReady(true);
     if (!stored) void register();
   }, [register, applySync]);
+
+  // A contingencia Android grava eventos em armazenamento nativo, sem
+  // depender de a WebView sobreviver a uma queda de rede. Ao voltar online,
+  // incorporamos essa fila na mesma outbox idempotente usada pela pagina.
+  useEffect(() => {
+    try {
+      const raw = nativeBridge()?.drainOfflinePlaybackReports?.();
+      if (!raw) return;
+      const rows = JSON.parse(raw) as unknown;
+      if (!Array.isArray(rows) || rows.length === 0) return;
+      const valid = rows.filter(
+        (row): row is PlaybackOutboxItem =>
+          typeof row?.startedAt === "string" &&
+          typeof row?.durationMs === "number" &&
+          (typeof row?.playlistId === "string" || row?.playlistId === null) &&
+          (typeof row?.mediaAssetId === "string" || row?.mediaAssetId === null),
+      );
+      if (valid.length === 0) return;
+      playbackOutboxRef.current.push(...valid);
+      if (playbackOutboxRef.current.length > MAX_PLAYBACK_OUTBOX_ITEMS) {
+        playbackOutboxRef.current.splice(0, playbackOutboxRef.current.length - MAX_PLAYBACK_OUTBOX_ITEMS);
+      }
+      persistPlaybackOutbox(playbackOutboxRef.current);
+      nativeBridge()?.acknowledgeOfflinePlaybackReports?.();
+    } catch {
+      // A fila nativa permanece intacta para a proxima tentativa.
+    }
+  }, []);
 
   // While unlinked, poll until the customer claims the code in the Studio.
   useEffect(() => {
