@@ -91,7 +91,7 @@ type NativeBridge = {
     cacheKey: string,
     muted: boolean,
     loop: boolean,
-    fade: boolean,
+    fade?: boolean,
   ) => void;
   showImage?: (itemId: string, url: string, cacheKey: string, fade: boolean) => void;
   stopMedia?: () => void;
@@ -673,7 +673,8 @@ function PlayerScreen() {
   const videoRenderKey = current ? `${current.id}-${index}` : null;
   const nativeMediaActive =
     canUseNativeMedia() &&
-    (current?.kind === "video" || current?.kind === "image") &&
+    (current?.kind === "video" ||
+      (current?.kind === "image" && Boolean(nativeBridge()?.showImage))) &&
     Boolean(current.url);
   const nativeMediaItemId = nativeMediaActive && videoRenderKey ? `native:${videoRenderKey}` : null;
   const nativeMediaCacheKey = current?.mediaAssetId ?? current?.id ?? "";
@@ -742,14 +743,15 @@ function PlayerScreen() {
       native?.showImage?.(nativeMediaItemId, current.url, nativeMediaCacheKey, fade);
       return;
     }
-    native?.playMedia?.(
-      nativeMediaItemId,
-      current.url,
-      nativeMediaCacheKey,
-      current.isMuted || sync?.device?.audioEnabled === false || Boolean(activeCall),
-      items.length === 1 && !hasPending,
-      fade,
-    );
+    const muted = current.isMuted || sync?.device?.audioEnabled === false || Boolean(activeCall);
+    const loop = items.length === 1 && !hasPending;
+    // APK 1.3.0 ainda tem cinco argumentos. Mantemos esse caminho durante a
+    // atualizacao gradual das TV Boxes, sem interromper os terminais antigos.
+    if (native?.version?.() === "android-hybrid-1.3.1") {
+      native.playMedia?.(nativeMediaItemId, current.url, nativeMediaCacheKey, muted, loop, fade);
+    } else {
+      native.playMedia?.(nativeMediaItemId, current.url, nativeMediaCacheKey, muted, loop);
+    }
   }, [
     nativeMediaActive,
     nativeMediaItemId,
