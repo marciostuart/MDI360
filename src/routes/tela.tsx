@@ -142,6 +142,14 @@ function canUseNativeMedia() {
   }
 }
 
+/** APK 1.3.1 introduced the sixth bridge argument (fade). */
+function supportsNativeFadeBridge(bridge: NativeBridge | null) {
+  const match = bridge?.version?.().match(/^android-hybrid-(\d+)\.(\d+)\.(\d+)$/);
+  if (!match) return false;
+  const [, major, minor, patch] = match.map(Number);
+  return major > 1 || (major === 1 && (minor > 3 || (minor === 3 && patch >= 1)));
+}
+
 /**
  * Browsers can reject autoplay when a video has audio. Retry muted only in a
  * normal browser; the Android WebView is explicitly configured to allow
@@ -740,7 +748,7 @@ function PlayerScreen() {
     const loop = items.length === 1 && !hasPending;
     // APK 1.3.0 ainda tem cinco argumentos. Mantemos esse caminho durante a
     // atualizacao gradual das TV Boxes, sem interromper os terminais antigos.
-    if (native?.version?.() === "android-hybrid-1.3.1") {
+    if (supportsNativeFadeBridge(native)) {
       native.playMedia?.(nativeMediaItemId, current.url, nativeMediaCacheKey, muted, loop, fade);
     } else {
       native.playMedia?.(nativeMediaItemId, current.url, nativeMediaCacheKey, muted, loop);
