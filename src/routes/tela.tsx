@@ -87,6 +87,8 @@ type NativeBridge = {
   version?: () => string;
   nativeMediaSupported?: () => boolean;
   hasValidatedNetwork?: () => boolean;
+  cachedMediaKeys?: () => string;
+  saveOfflinePlan?: (plan: string) => void;
   playMedia?: (
     itemId: string,
     url: string,
@@ -356,6 +358,21 @@ function PlayerScreen() {
     };
   }, []);
 
+  // A confirmacao de cache nao pode viver somente na memoria do React. Caso
+  // uma oscilacao reinicie o renderer da WebView, reidratamos a lista a partir
+  // do manifesto persistente do APK antes de montar a rotacao.
+  useEffect(() => {
+    try {
+      const raw = nativeBridge()?.cachedMediaKeys?.();
+      if (!raw) return;
+      const keys = JSON.parse(raw) as unknown;
+      if (!Array.isArray(keys)) return;
+      setNativeCachedKeys(new Set(keys.filter((key): key is string => typeof key === "string")));
+    } catch {
+      // Versoes anteriores do APK continuam pelo preload em segundo plano.
+    }
+  }, []);
+
   /** Shows the next waiting call, or releases the screen back to the playlist. */
   const startNextCall = useCallback(() => {
     const next = waitingCallsRef.current.shift() ?? null;
@@ -594,6 +611,11 @@ function PlayerScreen() {
         }
         nativeBridge()?.startupStage?.("Programação recebida");
         persistSafeSync(data);
+        try {
+          nativeBridge()?.saveOfflinePlan?.(JSON.stringify(data));
+        } catch {
+          // O localStorage continua como segunda camada de seguranca.
+        }
         if (typeof data.revision === "number") revisionRef.current = data.revision;
 
         // A ticket call NEVER waits for the current file: it takes over now.
@@ -901,7 +923,12 @@ function PlayerScreen() {
   useEffect(() => {
     const native = nativeBridge();
     if (!nativeMediaActive || !nativeMediaItemId || !current?.url) {
-      native?.stopMedia?.();
+      // Enquanto a WebView reidrata o manifesto depois de uma oscilacao,
+      // `current` ainda pode estar vazio apesar de o player nativo estar
+      // exibindo um arquivo local valido. Nunca interrompa esse caso.
+      if (current?.kind && current.kind !== "video" && current.kind !== "image") {
+        native?.stopMedia?.();
+      }
       return;
     }
     if (current.kind === "image") {
