@@ -605,7 +605,7 @@ function PlayerScreen() {
   downloadUrlsRef.current = downloadUrls;
   const nativePreloadRef = useRef<Array<{ url: string; cacheKey: string }>>([]);
   nativePreloadRef.current = [...allItems, ...fallbackItems, ...preloadItems]
-    .filter((item) => (item.kind === "video" || item.kind === "image") && Boolean(item.url))
+    .filter((item) => item.kind === "video" && Boolean(item.url))
     .map((item) => ({ url: item.url as string, cacheKey: item.mediaAssetId ?? item.id }));
 
   // Downloads missing files in the background and removes from the local cache
@@ -663,7 +663,7 @@ function PlayerScreen() {
     if (item.kind === "widget" || item.kind === "web" || item.kind === "stream") return true;
     // O APK possui um cache persistente proprio para arquivos. Nao espere a
     // Cache API do WebView (que alguns fabricantes limpam ao perder rede).
-    if (canUseNativeMedia()) return Boolean(item.url);
+    if (canUseNativeMedia() && item.kind === "video") return Boolean(item.url);
     return Boolean(item.url) && readyUrls.has(mediaCache.keyFor(item.url as string));
   });
   const current = items[index % Math.max(items.length, 1)];
@@ -672,10 +672,7 @@ function PlayerScreen() {
   const currentKey = current?.url ? mediaCache.keyFor(current.url) : null;
   const videoRenderKey = current ? `${current.id}-${index}` : null;
   const nativeMediaActive =
-    canUseNativeMedia() &&
-    (current?.kind === "video" ||
-      (current?.kind === "image" && Boolean(nativeBridge()?.showImage))) &&
-    Boolean(current.url);
+    canUseNativeMedia() && current?.kind === "video" && Boolean(current.url);
   const nativeMediaItemId = nativeMediaActive && videoRenderKey ? `native:${videoRenderKey}` : null;
   const nativeMediaCacheKey = current?.mediaAssetId ?? current?.id ?? "";
   const waitsForRemoteWidget =
@@ -737,10 +734,6 @@ function PlayerScreen() {
     const native = nativeBridge();
     if (!nativeMediaActive || !nativeMediaItemId || !current?.url) {
       native?.stopMedia?.();
-      return;
-    }
-    if (current.kind === "image") {
-      native?.showImage?.(nativeMediaItemId, current.url, nativeMediaCacheKey, fade);
       return;
     }
     const muted = current.isMuted || sync?.device?.audioEnabled === false || Boolean(activeCall);
