@@ -60,6 +60,7 @@ const TOKEN_KEY = "mdi360.deviceToken";
 const CODE_KEY = "mdi360.activationCode";
 const CACHED_SYNC_KEY = "mdi360.lastSafeSync.v1";
 const PLAYBACK_OUTBOX_KEY = "mdi360.playbackOutbox.v1";
+const SERVER_CLOCK_OFFSET_KEY = "mdi360.serverClockOffsetMs.v1";
 const MAX_PLAYBACK_OUTBOX_ITEMS = 10_000;
 const APP_VERSION =
   typeof window !== "undefined" &&
@@ -273,6 +274,13 @@ function PlayerScreen() {
   // ordem quando a conexao volta. O horario e registrado no instante local em
   // que o item entrou na rotacao, nunca no instante posterior do reenvio.
   const playbackOutboxRef = useRef<PlaybackOutboxItem[]>([]);
+  const storedClockOffset =
+    typeof window === "undefined"
+      ? 0
+      : Number(window.localStorage.getItem(SERVER_CLOCK_OFFSET_KEY) ?? "0");
+  const serverClockOffsetRef = useRef<number>(
+    Number.isFinite(storedClockOffset) ? storedClockOffset : 0,
+  );
   const playbackFlushRunningRef = useRef(false);
   const leaveRef = useRef<number | null>(null);
   /** True during the last FADE_MS of an item, so it fades out before swapping. */
@@ -566,6 +574,16 @@ function PlayerScreen() {
         }
         if (!response.ok) throw new Error(`sync ${response.status}`);
         const data = (await response.json()) as SyncResponse;
+        const serverTime = Date.parse(data.offlineSchedule?.serverTime ?? "");
+        if (Number.isFinite(serverTime)) {
+          const offset = serverTime - Date.now();
+          serverClockOffsetRef.current = offset;
+          try {
+            window.localStorage.setItem(SERVER_CLOCK_OFFSET_KEY, String(offset));
+          } catch {
+            // Reports still use the in-memory correction if storage is unavailable.
+          }
+        }
         nativeBridge()?.startupStage?.("Programação recebida");
         persistSafeSync(data);
         if (typeof data.revision === "number") revisionRef.current = data.revision;
@@ -979,7 +997,9 @@ function PlayerScreen() {
         playlistId,
         mediaAssetId: item.mediaAssetId ?? null,
         durationMs: item.durationMs,
-        startedAt: new Date().toISOString(),
+        // Usa a diferenca medida contra o servidor para que um relogio de TV
+        // incorreto nao faca o endpoint rejeitar os relatórios de exibicao.
+        startedAt: new Date(Date.now() + serverClockOffsetRef.current).toISOString(),
       });
       if (playbackOutboxRef.current.length > MAX_PLAYBACK_OUTBOX_ITEMS) {
         playbackOutboxRef.current.splice(0, playbackOutboxRef.current.length - MAX_PLAYBACK_OUTBOX_ITEMS);
