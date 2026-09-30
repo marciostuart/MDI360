@@ -70,6 +70,14 @@ const APP_VERSION =
 const IS_ANDROID_HYBRID =
   typeof window !== "undefined" &&
   new URLSearchParams(window.location.search).get("android") === "hybrid";
+// Depois de uma queda de rede, o APK abre esta mesma rota em modo de
+// sincronizacao invisivel. Ela continua buscando revisoes, baixando arquivos e
+// enviando relatorios, mas nao volta a controlar a superficie de midia: essa
+// superficie ja pertence ao player Kotlin local.
+const NATIVE_SYNC_ONLY =
+  IS_ANDROID_HYBRID &&
+  typeof window !== "undefined" &&
+  new URLSearchParams(window.location.search).get("native-sync-only") === "1";
 // Prevents Android WebView from showing its default giant play poster while
 // the first video frame is being decoded.
 const TRANSPARENT_VIDEO_POSTER =
@@ -90,7 +98,7 @@ type NativeBridge = {
   cachedMediaKeys?: () => string;
   saveOfflinePlan?: (plan: string) => void;
   drainOfflinePlaybackReports?: () => string;
-  acknowledgeOfflinePlaybackReports?: () => void;
+  acknowledgeOfflinePlaybackReportsThrough?: (id: number) => void;
   playMedia?: (
     itemId: string,
     url: string,
@@ -111,6 +119,10 @@ type PlaybackOutboxItem = {
   mediaAssetId: string | null;
   durationMs: number;
   startedAt: string;
+};
+
+type NativePlaybackOutboxItem = PlaybackOutboxItem & {
+  _nativeReportId: number;
 };
 
 function loadPlaybackOutbox(): PlaybackOutboxItem[] {
@@ -529,34 +541,6 @@ function PlayerScreen() {
     if (!stored) void register();
   }, [register, applySync]);
 
-  // A contingencia Android grava eventos em armazenamento nativo, sem
-  // depender de a WebView sobreviver a uma queda de rede. Ao voltar online,
-  // incorporamos essa fila na mesma outbox idempotente usada pela pagina.
-  useEffect(() => {
-    try {
-      const raw = nativeBridge()?.drainOfflinePlaybackReports?.();
-      if (!raw) return;
-      const rows = JSON.parse(raw) as unknown;
-      if (!Array.isArray(rows) || rows.length === 0) return;
-      const valid = rows.filter(
-        (row): row is PlaybackOutboxItem =>
-          typeof row?.startedAt === "string" &&
-          typeof row?.durationMs === "number" &&
-          (typeof row?.playlistId === "string" || row?.playlistId === null) &&
-          (typeof row?.mediaAssetId === "string" || row?.mediaAssetId === null),
-      );
-      if (valid.length === 0) return;
-      playbackOutboxRef.current.push(...valid);
-      if (playbackOutboxRef.current.length > MAX_PLAYBACK_OUTBOX_ITEMS) {
-        playbackOutboxRef.current.splice(0, playbackOutboxRef.current.length - MAX_PLAYBACK_OUTBOX_ITEMS);
-      }
-      persistPlaybackOutbox(playbackOutboxRef.current);
-      nativeBridge()?.acknowledgeOfflinePlaybackReports?.();
-    } catch {
-      // A fila nativa permanece intacta para a proxima tentativa.
-    }
-  }, []);
-
   // While unlinked, poll until the customer claims the code in the Studio.
   useEffect(() => {
     if (!token || linked) return;
@@ -951,6 +935,7 @@ function PlayerScreen() {
   // ExoPlayer nativo. A página segue acima dele para preservar chamadas e
   // demais superfícies híbridas.
   useEffect(() => {
+    if (NATIVE_SYNC_ONLY) return;
     const native = nativeBridge();
     if (!nativeMediaActive || !nativeMediaItemId || !current?.url) {
       // Enquanto a WebView reidrata o manifesto depois de uma oscilacao,
@@ -988,9 +973,18 @@ function PlayerScreen() {
 
   // Eventos do player nativo são independentes do polling do servidor. Só o
   // término/erro do decoder efetivamente avança a playlist.
-  useEffect(() => () => nativeBridge()?.stopMedia?.(), []);
+  useEffect(
+    () => () => {
+      if (!NATIVE_SYNC_ONLY) nativeBridge()?.stopMedia?.();
+    },
+    [],
+  );
 
   useEffect(() => {
+    if (NATIVE_SYNC_ONLY) {
+      nativePlaybackReceiverRef.current = () => {};
+      return;
+    }
     if (!nativeMediaItemId) {
       nativePlaybackReceiverRef.current = () => {};
       return;
@@ -1040,6 +1034,34 @@ function PlayerScreen() {
     if (!token || playbackFlushRunningRef.current) return;
     playbackFlushRunningRef.current = true;
     try {
+      // A fila do player nativo permanece no SQLite do APK ate cada POST ser
+      // aceito. Nao a transferimos para localStorage: uma queda entre as duas
+      // gravacoes era justamente o ponto que perdia relatorios offline.
+      const nativeRaw = nativeBridge()?.drainOfflinePlaybackReports?.();
+      const nativeRows = nativeRaw ? (JSON.parse(nativeRaw) as unknown) : [];
+      if (Array.isArray(nativeRows)) {
+        for (const nativeItem of nativeRows) {
+          const valid = nativeItem as Partial<NativePlaybackOutboxItem>;
+          if (
+            typeof valid._nativeReportId !== "number" ||
+            typeof valid.startedAt !== "string" ||
+            typeof valid.durationMs !== "number"
+          )
+            continue;
+          const response = await fetch("/api/public/player/playback", {
+            method: "POST",
+            headers: { "content-type": "application/json", authorization: `Bearer ${token}` },
+            body: JSON.stringify({
+              playlistId: valid.playlistId ?? null,
+              mediaAssetId: valid.mediaAssetId ?? null,
+              durationMs: valid.durationMs,
+              startedAt: valid.startedAt,
+            }),
+          });
+          if (!response.ok) break;
+          nativeBridge()?.acknowledgeOfflinePlaybackReportsThrough?.(valid._nativeReportId);
+        }
+      }
       while (playbackOutboxRef.current.length > 0) {
         const item = playbackOutboxRef.current[0];
         const response = await fetch("/api/public/player/playback", {
@@ -1093,6 +1115,7 @@ function PlayerScreen() {
   // Registra o horario local de entrada do item e preserva a notificacao se
   // estiver offline. O servidor usa esse startedAt, em vez da hora do envio.
   useEffect(() => {
+    if (NATIVE_SYNC_ONLY) return;
     if (!current) return;
     queuePlaybackReport(current, sync?.playlist?.id ?? null);
     // eslint-disable-next-line react-hooks/exhaustive-deps
@@ -1145,6 +1168,7 @@ function PlayerScreen() {
   // transition on, the outgoing item dims during its final FADE_MS so the
   // effect happens at the end of the exhibition too, not only at the start.
   useEffect(() => {
+    if (NATIVE_SYNC_ONLY) return;
     if (timerRef.current) window.clearTimeout(timerRef.current);
     if (leaveRef.current) window.clearTimeout(leaveRef.current);
     if (!current || items.length === 0) return;
@@ -1241,6 +1265,10 @@ function PlayerScreen() {
         {callOverlay}
       </div>
     );
+
+  if (NATIVE_SYNC_ONLY) {
+    return <div className="h-screen w-screen bg-transparent" aria-label="Sincronizacao local MDI 360" />;
+  }
 
   return (
     <div
