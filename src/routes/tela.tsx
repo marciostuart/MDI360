@@ -82,11 +82,31 @@ type NativeBridge = {
   requestScreenshot?: () => void;
   setResolution?: (width: number, height: number) => void;
   version?: () => string;
+  nativeMediaSupported?: () => boolean;
+  playMedia?: (
+    itemId: string,
+    url: string,
+    cacheKey: string,
+    muted: boolean,
+    loop: boolean,
+  ) => void;
+  stopMedia?: () => void;
+  preloadMedia?: (items: string) => void;
 };
 
 function nativeBridge(): NativeBridge | null {
   if (typeof window === "undefined") return null;
   return (window as unknown as { MDI360Native?: NativeBridge }).MDI360Native ?? null;
+}
+
+function canUseNativeMedia() {
+  try {
+    return IS_ANDROID_HYBRID && nativeBridge()?.nativeMediaSupported?.() === true;
+  } catch {
+    // APKs anteriores não possuem esta ponte; eles continuam usando o player
+    // WebView sem interrupção até que sejam atualizados.
+    return false;
+  }
 }
 
 /**
@@ -544,6 +564,10 @@ function PlayerScreen() {
   const downloadKey = downloadUrls.map((url) => mediaCache.keyFor(url)).join("|");
   const downloadUrlsRef = useRef<string[]>(downloadUrls);
   downloadUrlsRef.current = downloadUrls;
+  const nativePreloadRef = useRef<Array<{ url: string; cacheKey: string }>>([]);
+  nativePreloadRef.current = [...allItems, ...fallbackItems, ...preloadItems]
+    .filter((item) => item.kind === "video" && Boolean(item.url))
+    .map((item) => ({ url: item.url as string, cacheKey: item.mediaAssetId ?? item.id }));
 
   // Downloads missing files in the background and removes from the local cache
   // anything that is no longer in the playlist (e.g. deleted in the Studio).
@@ -605,6 +629,10 @@ function PlayerScreen() {
   // effect dependencies so the file on screen is never remounted mid-playback.
   const currentKey = current?.url ? mediaCache.keyFor(current.url) : null;
   const videoRenderKey = current ? `${current.id}-${index}` : null;
+  const nativeMediaActive =
+    canUseNativeMedia() && current?.kind === "video" && Boolean(current.url);
+  const nativeMediaItemId = nativeMediaActive && videoRenderKey ? `native:${videoRenderKey}` : null;
+  const nativeMediaCacheKey = current?.mediaAssetId ?? current?.id ?? "";
   const waitsForRemoteWidget =
     current?.kind === "widget" &&
     (current.widgetConfig?.type === "lottery" || current.widgetConfig?.type === "news") &&
@@ -657,6 +685,80 @@ function PlayerScreen() {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [currentKey, current?.kind, index]);
 
+  // No APK atualizado, vídeos deixam o decoder do WebView e passam ao
+  // ExoPlayer nativo. A página segue acima dele para preservar chamadas e
+  // demais superfícies híbridas.
+  useEffect(() => {
+    const native = nativeBridge();
+    if (!nativeMediaActive || !nativeMediaItemId || !current?.url || !native?.playMedia) {
+      native?.stopMedia?.();
+      return;
+    }
+    native.playMedia(
+      nativeMediaItemId,
+      current.url,
+      nativeMediaCacheKey,
+      current.isMuted || sync?.device?.audioEnabled === false || Boolean(activeCall),
+      items.length === 1 && !hasPending,
+    );
+    return () => native.stopMedia?.();
+  }, [
+    nativeMediaActive,
+    nativeMediaItemId,
+    nativeMediaCacheKey,
+    current?.url,
+    current?.isMuted,
+    sync?.device?.audioEnabled,
+    activeCall,
+    items.length,
+    hasPending,
+  ]);
+
+  // Eventos do player nativo são independentes do polling do servidor. Só o
+  // término/erro do decoder efetivamente avança a playlist.
+  useEffect(() => {
+    if (!nativeMediaItemId) return;
+    const receiver = (event: string, itemId: string) => {
+      if (itemId !== nativeMediaItemId) return;
+      if (event === "ready" || event === "progress") {
+        beatRef.current = Date.now();
+        mediaProgressRef.current = Date.now();
+        setVideoPlayingKey(videoRenderKey);
+        return;
+      }
+      if (event === "ended" || event === "error") {
+        setVideoPlayingKey(null);
+        if (event === "ended" && items.length === 1 && !hasPending) return;
+        advance();
+      }
+    };
+    (window as unknown as { __mdi360NativeMediaEvent?: typeof receiver }).__mdi360NativeMediaEvent =
+      receiver;
+    return () => {
+      delete (window as unknown as { __mdi360NativeMediaEvent?: typeof receiver })
+        .__mdi360NativeMediaEvent;
+    };
+  }, [nativeMediaItemId, videoRenderKey, items.length, hasPending, advance]);
+
+  // Antecipação para o cache persistente do APK. A chave não depende da URL
+  // assinada, portanto o mesmo arquivo não é baixado outra vez a cada sync.
+  useEffect(() => {
+    if (!canUseNativeMedia()) return;
+    nativeBridge()?.preloadMedia?.(JSON.stringify(nativePreloadRef.current));
+  }, [downloadKey]);
+
+  useEffect(() => {
+    if (!nativeMediaActive) return;
+    const previousHtml = document.documentElement.style.backgroundColor;
+    const previousBody = document.body.style.backgroundColor;
+    document.documentElement.style.backgroundColor = "transparent";
+    document.body.style.backgroundColor = "transparent";
+    return () => {
+      document.documentElement.style.backgroundColor = previousHtml;
+      document.body.style.backgroundColor = previousBody;
+    };
+  }, [nativeMediaActive]);
+
   // Playback reporting: one row per item that actually went on screen, which
   // feeds the customer's exhibition reports and the live "no ar agora" view.
   useEffect(() => {
@@ -688,7 +790,7 @@ function PlayerScreen() {
   const currentKind = current?.kind;
   const currentDurationMs = current?.durationMs ?? 0;
   useEffect(() => {
-    if (!linked || !currentKind || items.length === 0) return;
+    if (!linked || !currentKind || items.length === 0 || nativeMediaActive) return;
     mediaProgressRef.current = Date.now();
 
     // Browsers normally emit timeupdate several times per second. Forty-five
@@ -712,6 +814,7 @@ function PlayerScreen() {
     current?.id,
     currentKind,
     currentDurationMs,
+    nativeMediaActive,
     index,
     items.length,
     waitsForRemoteWidget,
@@ -820,7 +923,9 @@ function PlayerScreen() {
     );
 
   return (
-    <div className="relative min-h-screen overflow-hidden bg-black">
+    <div
+      className={`relative min-h-screen overflow-hidden ${nativeMediaActive ? "bg-transparent" : "bg-black"}`}
+    >
       {sync.suspended ? (
         <div className="grid h-screen w-screen place-items-center bg-black px-6 text-center text-white">
           <div>
@@ -849,6 +954,8 @@ function PlayerScreen() {
               : "Nenhuma playlist programada para este horário.")
           }
         />
+      ) : nativeMediaActive ? (
+        <div className="h-screen w-screen bg-transparent" aria-label="Vídeo nativo em reprodução" />
       ) : current?.kind === "video" ? (
         <FadeLayer enabled={fade} step={index} leaving={leaving}>
           <div className="h-screen w-screen overflow-hidden bg-black">
