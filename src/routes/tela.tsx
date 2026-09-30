@@ -85,6 +85,7 @@ type NativeBridge = {
   setResolution?: (width: number, height: number) => void;
   version?: () => string;
   nativeMediaSupported?: () => boolean;
+  hasValidatedNetwork?: () => boolean;
   playMedia?: (
     itemId: string,
     url: string,
@@ -246,6 +247,16 @@ function PlayerScreen() {
   // rotation after its download finishes, so the TV never buffers on air.
   const [readyUrls, setReadyUrls] = useState<Set<string>>(new Set());
   const [localSrc, setLocalSrc] = useState<string | null>(null);
+  // Android's navigator.onLine only reports the Wi-Fi link. The APK exposes
+  // the validated route so an image never falls back to a dead signed URL.
+  const [networkAvailable, setNetworkAvailable] = useState(() => {
+    const browserOnline = typeof navigator === "undefined" ? true : navigator.onLine;
+    try {
+      return nativeBridge()?.hasValidatedNetwork?.() ?? browserOnline;
+    } catch {
+      return browserOnline;
+    }
+  });
   // Eventos de exibicao sobrevivem a queda de rede e sao enviados na mesma
   // ordem quando a conexao volta. O horario e registrado no instante local em
   // que o item entrou na rotacao, nunca no instante posterior do reenvio.
@@ -263,6 +274,26 @@ function PlayerScreen() {
   const activeCallRef = useRef<QueueCallPayload | null>(null);
   const waitingCallsRef = useRef<QueueCallPayload[]>([]);
   const seenCallIdsRef = useRef<Set<string>>(new Set());
+
+  useEffect(() => {
+    const refresh = () => {
+      const browserOnline = navigator.onLine;
+      try {
+        setNetworkAvailable(nativeBridge()?.hasValidatedNetwork?.() ?? browserOnline);
+      } catch {
+        setNetworkAvailable(browserOnline);
+      }
+    };
+    refresh();
+    window.addEventListener("online", refresh);
+    window.addEventListener("offline", refresh);
+    const timer = window.setInterval(refresh, 5_000);
+    return () => {
+      window.removeEventListener("online", refresh);
+      window.removeEventListener("offline", refresh);
+      window.clearInterval(timer);
+    };
+  }, []);
 
   /** Shows the next waiting call, or releases the screen back to the playlist. */
   const startNextCall = useCallback(() => {
@@ -693,9 +724,14 @@ function PlayerScreen() {
     // O APK possui um cache persistente proprio para arquivos. Nao espere a
     // Cache API do WebView (que alguns fabricantes limpam ao perder rede).
     if (canUseNativeMedia() && item.kind === "video") return Boolean(item.url);
-    // New images must not hold the Android player on a loading screen while
-    // the WebView cache warms up in the background.
-    if (IS_ANDROID_HYBRID && item.kind === "image") return Boolean(item.url);
+    // Online, a new image may enter while Cache Storage warms up. Offline it
+    // only enters the rotation after the local copy is complete.
+    if (IS_ANDROID_HYBRID && item.kind === "image") {
+      return (
+        Boolean(item.url) &&
+        (networkAvailable || readyUrls.has(mediaCache.keyFor(item.url as string)))
+      );
+    }
     return Boolean(item.url) && readyUrls.has(mediaCache.keyFor(item.url as string));
   });
   const current = items[index % Math.max(items.length, 1)];
@@ -709,6 +745,10 @@ function PlayerScreen() {
   // Identity that survives a re-sign of the media link, used for React keys and
   // effect dependencies so the file on screen is never remounted mid-playback.
   const currentKey = current?.url ? mediaCache.keyFor(current.url) : null;
+  // Once offline, never point an image at the remote signed link. localSrc is
+  // created from Cache Storage and keeps the visible playlist independent of
+  // the server connection.
+  const imageSrc = localSrc ?? (networkAvailable ? current?.url ?? undefined : undefined);
   const videoRenderKey = current ? `${current.id}-${index}` : null;
   const nativeMediaActive =
     canUseNativeMedia() && current?.kind === "video" && Boolean(current.url);
@@ -1173,7 +1213,7 @@ function PlayerScreen() {
         <FadeLayer enabled={fade} step={index} leaving={leaving}>
           <img
             key={`${current?.id}-${index}-${localSrc ? "local" : "remote"}`}
-            src={localSrc ?? current?.url ?? undefined}
+            src={imageSrc}
             alt={current?.name ?? ""}
             className="h-screen w-screen object-contain"
             onLoad={() => {
