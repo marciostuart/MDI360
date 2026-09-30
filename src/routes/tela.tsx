@@ -170,6 +170,13 @@ function supportsNativeFadeBridge(bridge: NativeBridge | null) {
   return major > 1 || (major === 1 && (minor > 3 || (minor === 3 && patch >= 1)));
 }
 
+/** APK 1.3.15 makes Kotlin the sole owner of file-media playback. */
+function supportsNativeLocalController(bridge: NativeBridge | null) {
+  const match = bridge?.version?.().match(/^android-hybrid-(\d+)\.(\d+)\.(\d+)$/);
+  if (!match) return false;
+  const [, major, minor, patch] = match.map(Number);
+  return major > 1 || (major === 1 && (minor > 3 || (minor === 3 && patch >= 15)));
+}
 /** APK 1.3.9 guarantees that local files are fully cached before playback. */
 function supportsNativeLocalCacheBridge(bridge: NativeBridge | null) {
   const match = bridge?.version?.().match(/^android-hybrid-(\d+)\.(\d+)\.(\d+)$/);
@@ -779,6 +786,13 @@ function PlayerScreen() {
       cacheKey: item.mediaAssetId ?? item.id,
     }));
   const nativeLocalCacheRequired = supportsNativeLocalCacheBridge(nativeBridge());
+  // Widgets, paginas e streams continuam usando a camada visual existente.
+  // Para playlists inteiramente compostas por arquivos locais, o Kotlin e o
+  // unico dono da reproducao; a WebView fica restrita a sincronizar.
+  const nativeLocalPlayback =
+    supportsNativeLocalController(nativeBridge()) &&
+    allItems.length > 0 &&
+    [...allItems, ...fallbackItems].every((item) => item.kind === "image" || item.kind === "video");
 
   // Downloads missing files in the background and removes from the local cache
   // anything that is no longer in the playlist (e.g. deleted in the Studio).
@@ -935,7 +949,7 @@ function PlayerScreen() {
   // ExoPlayer nativo. A página segue acima dele para preservar chamadas e
   // demais superfícies híbridas.
   useEffect(() => {
-    if (NATIVE_SYNC_ONLY) return;
+    if (NATIVE_SYNC_ONLY || nativeLocalPlayback) return;
     const native = nativeBridge();
     if (!nativeMediaActive || !nativeMediaItemId || !current?.url) {
       // Enquanto a WebView reidrata o manifesto depois de uma oscilacao,
@@ -975,13 +989,13 @@ function PlayerScreen() {
   // término/erro do decoder efetivamente avança a playlist.
   useEffect(
     () => () => {
-      if (!NATIVE_SYNC_ONLY) nativeBridge()?.stopMedia?.();
+      if (!NATIVE_SYNC_ONLY && !nativeLocalPlayback) nativeBridge()?.stopMedia?.();
     },
     [],
   );
 
   useEffect(() => {
-    if (NATIVE_SYNC_ONLY) {
+    if (NATIVE_SYNC_ONLY || nativeLocalPlayback) {
       nativePlaybackReceiverRef.current = () => {};
       return;
     }
@@ -1115,7 +1129,7 @@ function PlayerScreen() {
   // Registra o horario local de entrada do item e preserva a notificacao se
   // estiver offline. O servidor usa esse startedAt, em vez da hora do envio.
   useEffect(() => {
-    if (NATIVE_SYNC_ONLY) return;
+    if (NATIVE_SYNC_ONLY || nativeLocalPlayback) return;
     if (!current) return;
     queuePlaybackReport(current, sync?.playlist?.id ?? null);
     // eslint-disable-next-line react-hooks/exhaustive-deps
@@ -1133,7 +1147,7 @@ function PlayerScreen() {
   const currentKind = current?.kind;
   const currentDurationMs = current?.durationMs ?? 0;
   useEffect(() => {
-    if (!linked || !currentKind || items.length === 0 || nativeMediaActive) return;
+    if (!linked || !currentKind || items.length === 0 || nativeMediaActive || nativeLocalPlayback) return;
     mediaProgressRef.current = Date.now();
 
     // Browsers normally emit timeupdate several times per second. Forty-five
@@ -1168,7 +1182,7 @@ function PlayerScreen() {
   // transition on, the outgoing item dims during its final FADE_MS so the
   // effect happens at the end of the exhibition too, not only at the start.
   useEffect(() => {
-    if (NATIVE_SYNC_ONLY) return;
+    if (NATIVE_SYNC_ONLY || nativeLocalPlayback) return;
     if (timerRef.current) window.clearTimeout(timerRef.current);
     if (leaveRef.current) window.clearTimeout(leaveRef.current);
     if (!current || items.length === 0) return;
@@ -1290,6 +1304,8 @@ function PlayerScreen() {
           className="h-screen w-screen border-0"
           allow="autoplay"
         />
+      ) : nativeLocalPlayback ? (
+        <div className="h-screen w-screen bg-transparent" aria-label="Player local MDI 360" />
       ) : IS_ANDROID_HYBRID && !sync.device.enabledModes?.includes("display") ? (
         <div className="h-screen w-screen bg-black" aria-label="Exibição de mídias desativada" />
       ) : items.length === 0 ? (
