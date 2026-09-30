@@ -96,6 +96,8 @@ type NativeBridge = {
   showImage?: (itemId: string, url: string, cacheKey: string, fade: boolean) => void;
   stopMedia?: () => void;
   preloadMedia?: (items: string) => void;
+  startupStage?: (label: string) => void;
+  startupComplete?: () => void;
 };
 
 type PlaybackOutboxItem = {
@@ -237,6 +239,7 @@ function PlayerScreen() {
   // Sync data that arrived while a file was on screen. It is only applied on
   // the next item boundary so nothing is ever cut mid-exhibition.
   const pendingSyncRef = useRef<SyncResponse | null>(null);
+  const pendingSyncTimerRef = useRef<number | null>(null);
   const [hasPending, setHasPending] = useState(false);
   const syncRef = useRef<SyncResponse | null>(null);
   // URLs already fully downloaded to this device. A file only enters the
@@ -300,6 +303,10 @@ function PlayerScreen() {
   );
 
   const applySync = useCallback((data: SyncResponse, resetIndex: boolean) => {
+    if (pendingSyncTimerRef.current !== null) {
+      window.clearTimeout(pendingSyncTimerRef.current);
+      pendingSyncTimerRef.current = null;
+    }
     pendingSyncRef.current = null;
     setHasPending(false);
     syncRef.current = data;
@@ -310,6 +317,13 @@ function PlayerScreen() {
       setIndex(0);
     }
   }, []);
+
+  useEffect(
+    () => () => {
+      if (pendingSyncTimerRef.current !== null) window.clearTimeout(pendingSyncTimerRef.current);
+    },
+    [],
+  );
 
   const persistSafeSync = useCallback((data: SyncResponse) => {
     try {
@@ -460,6 +474,7 @@ function PlayerScreen() {
   const runSync = useCallback(
     async (deviceToken: string) => {
       try {
+        nativeBridge()?.startupStage?.("Conectando ao servidor");
         const response = await fetch("/api/public/player/sync", {
           method: "POST",
           headers: {
@@ -475,6 +490,7 @@ function PlayerScreen() {
         }
         if (!response.ok) throw new Error(`sync ${response.status}`);
         const data = (await response.json()) as SyncResponse;
+        nativeBridge()?.startupStage?.("Programação recebida");
         persistSafeSync(data);
         if (typeof data.revision === "number") revisionRef.current = data.revision;
 
@@ -492,9 +508,14 @@ function PlayerScreen() {
         if (!playing || !changed) {
           applySync(data, changed);
         } else {
-          // Hold it back: the current file finishes first.
+          // Finish the current item when possible, but never leave a long
+          // video/widgets waiting minutes after a Studio update.
           pendingSyncRef.current = data;
           setHasPending(true);
+          if (pendingSyncTimerRef.current !== null) window.clearTimeout(pendingSyncTimerRef.current);
+          pendingSyncTimerRef.current = window.setTimeout(() => {
+            if (pendingSyncRef.current === data) applySync(data, true);
+          }, 10_000);
         }
         // Comandos remotos enviados pelo Studio.
         const native = nativeBridge();
@@ -672,9 +693,19 @@ function PlayerScreen() {
     // O APK possui um cache persistente proprio para arquivos. Nao espere a
     // Cache API do WebView (que alguns fabricantes limpam ao perder rede).
     if (canUseNativeMedia() && item.kind === "video") return Boolean(item.url);
+    // New images must not hold the Android player on a loading screen while
+    // the WebView cache warms up in the background.
+    if (IS_ANDROID_HYBRID && item.kind === "image") return Boolean(item.url);
     return Boolean(item.url) && readyUrls.has(mediaCache.keyFor(item.url as string));
   });
   const current = items[index % Math.max(items.length, 1)];
+  useEffect(() => {
+    // Native video closes the startup layer only after ExoPlayer emits ready.
+    // Other kinds are ready as soon as React can place their surface.
+    if (items.length === 0 || current?.kind === "video" || current?.kind === "image") return;
+    nativeBridge()?.startupStage?.("Conteúdos prontos");
+    nativeBridge()?.startupComplete?.();
+  }, [items.length, current?.kind]);
   // Identity that survives a re-sign of the media link, used for React keys and
   // effect dependencies so the file on screen is never remounted mid-playback.
   const currentKey = current?.url ? mediaCache.keyFor(current.url) : null;
@@ -689,6 +720,8 @@ function PlayerScreen() {
     widgetReadyKey !== videoRenderKey;
   const markWidgetReady = useCallback(() => {
     if (videoRenderKey) setWidgetReadyKey(videoRenderKey);
+    nativeBridge()?.startupStage?.("Conteúdos prontos");
+    nativeBridge()?.startupComplete?.();
   }, [videoRenderKey]);
 
   // The playlist clock must not consume the lottery cycle while the first
@@ -1143,6 +1176,10 @@ function PlayerScreen() {
             src={localSrc ?? current?.url ?? undefined}
             alt={current?.name ?? ""}
             className="h-screen w-screen object-contain"
+            onLoad={() => {
+              nativeBridge()?.startupStage?.("Conteúdos prontos");
+              nativeBridge()?.startupComplete?.();
+            }}
           />
         </FadeLayer>
       )}
