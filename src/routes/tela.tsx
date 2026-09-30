@@ -153,6 +153,14 @@ function supportsNativeFadeBridge(bridge: NativeBridge | null) {
   return major > 1 || (major === 1 && (minor > 3 || (minor === 3 && patch >= 1)));
 }
 
+/** APK 1.3.9 guarantees that local files are fully cached before playback. */
+function supportsNativeLocalCacheBridge(bridge: NativeBridge | null) {
+  const match = bridge?.version?.().match(/^android-hybrid-(\d+)\.(\d+)\.(\d+)$/);
+  if (!match) return false;
+  const [, major, minor, patch] = match.map(Number);
+  return major > 1 || (major === 1 && (minor > 3 || (minor === 3 && patch >= 9)));
+}
+
 /**
  * Browsers can reject autoplay when a video has audio. Retry muted only in a
  * normal browser; the Android WebView is explicitly configured to allow
@@ -246,6 +254,10 @@ function PlayerScreen() {
   // URLs already fully downloaded to this device. A file only enters the
   // rotation after its download finishes, so the TV never buffers on air.
   const [readyUrls, setReadyUrls] = useState<Set<string>>(new Set());
+  // Confirmacoes emitidas pelo APK depois que o arquivo inteiro foi gravado
+  // no cache nativo. A partir da versao 1.3.9, nenhum arquivo e reproduzido
+  // antes desta confirmacao.
+  const [nativeCachedKeys, setNativeCachedKeys] = useState<Set<string>>(new Set());
   const [localSrc, setLocalSrc] = useState<string | null>(null);
   // Android's navigator.onLine only reports the Wi-Fi link. The APK exposes
   // the validated route so an image never falls back to a dead signed URL.
@@ -274,6 +286,39 @@ function PlayerScreen() {
   const activeCallRef = useRef<QueueCallPayload | null>(null);
   const waitingCallsRef = useRef<QueueCallPayload[]>([]);
   const seenCallIdsRef = useRef<Set<string>>(new Set());
+  const nativePlaybackReceiverRef = useRef<(event: string, itemId: string, detail: string) => void>(
+    () => {},
+  );
+
+  useEffect(() => {
+    const receiver = (event: string, itemId: string, detail: string) => {
+      if (event === "cached") {
+        setNativeCachedKeys((previous) => {
+          if (previous.has(detail)) return previous;
+          const next = new Set(previous);
+          next.add(detail);
+          return next;
+        });
+        return;
+      }
+      if (event === "cache-miss") {
+        setNativeCachedKeys((previous) => {
+          if (!previous.has(detail)) return previous;
+          const next = new Set(previous);
+          next.delete(detail);
+          return next;
+        });
+        return;
+      }
+      nativePlaybackReceiverRef.current(event, itemId, detail);
+    };
+    nativePlaybackReceiverRef.current = receiver;
+    return () => {
+      if (nativePlaybackReceiverRef.current === receiver) {
+        nativePlaybackReceiverRef.current = () => {};
+      }
+    };
+  }, []);
 
   useEffect(() => {
     const refresh = () => {
@@ -512,7 +557,7 @@ function PlayerScreen() {
             "content-type": "application/json",
             authorization: `Bearer ${deviceToken}`,
           },
-          body: JSON.stringify({ appVersion: APP_VERSION }),
+          body: JSON.stringify({ appVersion: APP_VERSION, deviceClockMs: Date.now() }),
         });
         if (response.status === 401) {
           // The screen was deleted or unlinked in the Studio.
@@ -663,14 +708,22 @@ function PlayerScreen() {
   const downloadKey = downloadUrls.map((url) => mediaCache.keyFor(url)).join("|");
   const downloadUrlsRef = useRef<string[]>(downloadUrls);
   downloadUrlsRef.current = downloadUrls;
-  const nativePreloadRef = useRef<Array<{ url: string; cacheKey: string }>>([]);
+  const nativePreloadRef = useRef<Array<{ id: string; url: string; cacheKey: string }>>([]);
   nativePreloadRef.current = [...allItems, ...fallbackItems, ...preloadItems]
-    .filter((item) => item.kind === "video" && Boolean(item.url))
-    .map((item) => ({ url: item.url as string, cacheKey: item.mediaAssetId ?? item.id }));
+    .filter((item) => (item.kind === "video" || item.kind === "image") && Boolean(item.url))
+    .map((item) => ({
+      id: item.id,
+      url: item.url as string,
+      cacheKey: item.mediaAssetId ?? item.id,
+    }));
+  const nativeLocalCacheRequired = supportsNativeLocalCacheBridge(nativeBridge());
 
   // Downloads missing files in the background and removes from the local cache
   // anything that is no longer in the playlist (e.g. deleted in the Studio).
   useEffect(() => {
+    // The current APK owns one persistent native cache for all downloadable
+    // files. Do not duplicate downloads in the WebView cache.
+    if (nativeLocalCacheRequired) return;
     let cancelled = false;
     const urls = downloadUrlsRef.current.slice();
 
@@ -716,11 +769,16 @@ function PlayerScreen() {
     return () => {
       cancelled = true;
     };
-  }, [downloadKey]);
+  }, [downloadKey, nativeLocalCacheRequired]);
 
   // Widgets, páginas e streams não têm arquivo; só os arquivos esperam o cache.
   const items = allItems.filter((item) => {
     if (item.kind === "widget" || item.kind === "web" || item.kind === "stream") return true;
+    // APK 1.3.9+: arquivos so entram na rotacao depois que o cache nativo
+    // confirma o download completo. Nao existe streaming como contingencia.
+    if (nativeLocalCacheRequired && (item.kind === "video" || item.kind === "image")) {
+      return Boolean(item.url) && nativeCachedKeys.has(item.mediaAssetId ?? item.id);
+    }
     // O APK possui um cache persistente proprio para arquivos. Nao espere a
     // Cache API do WebView (que alguns fabricantes limpam ao perder rede).
     if (canUseNativeMedia() && item.kind === "video") return Boolean(item.url);
@@ -751,7 +809,10 @@ function PlayerScreen() {
   const imageSrc = localSrc ?? (networkAvailable ? current?.url ?? undefined : undefined);
   const videoRenderKey = current ? `${current.id}-${index}` : null;
   const nativeMediaActive =
-    canUseNativeMedia() && current?.kind === "video" && Boolean(current.url);
+    canUseNativeMedia() &&
+    nativeLocalCacheRequired &&
+    (current?.kind === "video" || current?.kind === "image") &&
+    Boolean(current.url);
   const nativeMediaItemId = nativeMediaActive && videoRenderKey ? `native:${videoRenderKey}` : null;
   const nativeMediaCacheKey = current?.mediaAssetId ?? current?.id ?? "";
   const waitsForRemoteWidget =
@@ -817,14 +878,16 @@ function PlayerScreen() {
       native?.stopMedia?.();
       return;
     }
-    const muted = current.isMuted || sync?.device?.audioEnabled === false || Boolean(activeCall);
-    const loop = items.length === 1 && !hasPending;
-    // APK 1.3.0 ainda tem cinco argumentos. Mantemos esse caminho durante a
-    // atualizacao gradual das TV Boxes, sem interromper os terminais antigos.
-    if (supportsNativeFadeBridge(native)) {
-      native.playMedia?.(nativeMediaItemId, current.url, nativeMediaCacheKey, muted, loop, fade);
+    if (current.kind === "image") {
+      native.showImage?.(nativeMediaItemId, current.url, nativeMediaCacheKey, fade);
     } else {
-      native.playMedia?.(nativeMediaItemId, current.url, nativeMediaCacheKey, muted, loop);
+      const muted = current.isMuted || sync?.device?.audioEnabled === false || Boolean(activeCall);
+      const loop = items.length === 1 && !hasPending;
+      if (supportsNativeFadeBridge(native)) {
+        native.playMedia?.(nativeMediaItemId, current.url, nativeMediaCacheKey, muted, loop, fade);
+      } else {
+        native.playMedia?.(nativeMediaItemId, current.url, nativeMediaCacheKey, muted, loop);
+      }
     }
   }, [
     nativeMediaActive,
@@ -873,7 +936,7 @@ function PlayerScreen() {
   useEffect(() => {
     if (!canUseNativeMedia()) return;
     nativeBridge()?.preloadMedia?.(JSON.stringify(nativePreloadRef.current));
-  }, [downloadKey]);
+  }, [downloadKey, networkAvailable]);
 
   useEffect(() => {
     if (!nativeMediaActive) return;

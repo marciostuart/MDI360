@@ -7,6 +7,7 @@ import {
   Camera,
   Download,
   Eraser,
+  AlertTriangle,
   Loader2,
   Monitor,
   PlaySquare,
@@ -68,6 +69,15 @@ const minute = (value: string) => {
 };
 const time = (value: number) =>
   `${String(Math.floor(value / 60)).padStart(2, "0")}:${String(value % 60).padStart(2, "0")}`;
+
+function parseClockStatus(appVersion: string | null) {
+  const [version = "NÃ£o informada", marker] = (appVersion ?? "").split("|clock=");
+  const offsetSeconds = Number(marker);
+  return {
+    version,
+    offsetSeconds: Number.isFinite(offsetSeconds) ? offsetSeconds : null,
+  };
+}
 
 export function DeviceHub({ deviceId }: { deviceId: string }) {
   const queryClient = useQueryClient();
@@ -236,6 +246,8 @@ export function DeviceHub({ deviceId }: { deviceId: string }) {
     );
   if (!query.data) return <p>Terminal não encontrado.</p>;
   const { device, online, playlists, schedules, playback } = query.data;
+  const clock = parseClockStatus(device.appVersion);
+  const clockOutOfSync = clock.offsetSeconds !== null && Math.abs(clock.offsetSeconds) >= 120;
   return (
     <div className="space-y-5">
       <div className="flex flex-wrap items-center gap-3">
@@ -341,8 +353,17 @@ export function DeviceHub({ deviceId }: { deviceId: string }) {
                   device.lastSeenAt ? new Date(device.lastSeenAt).toLocaleString("pt-BR") : "Nunca"
                 }
               />
-              <Info label="Versão do aplicativo" value={device.appVersion ?? "Não informada"} />
+              <Info label="Versão do aplicativo" value={clock.version} />
               <Info label="Formato" value={device.canvasPreset} />
+              {clockOutOfSync ? (
+                <div className="flex items-start gap-2 rounded-md border border-amber-500/50 bg-amber-500/10 p-3 text-amber-700 dark:text-amber-300 md:col-span-2">
+                  <AlertTriangle className="mt-0.5 size-4 shrink-0" />
+                  <p>
+                    Relógio do terminal fora de sincronia em aproximadamente {Math.abs(clock.offsetSeconds!)} segundo(s)
+                    {clock.offsetSeconds! > 0 ? " adiantado" : " atrasado"}. Verifique data, hora e fuso horário do aparelho.
+                  </p>
+                </div>
+              ) : null}
               <div className="flex flex-wrap gap-2 md:col-span-2">
                 <Button variant="outline" onClick={() => command.mutate("screenshot")}>
                   <Camera className="size-4" />

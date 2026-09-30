@@ -4,6 +4,8 @@ import { z } from "zod";
 const bodySchema = z
   .object({
     appVersion: z.string().trim().max(40).optional(),
+    /** Epoch from the terminal; compared with the server clock for monitoring. */
+    deviceClockMs: z.number().int().positive().optional(),
     playlistRevision: z.number().int().min(0).optional(),
   })
   .partial();
@@ -45,11 +47,23 @@ export const Route = createFileRoute("/api/public/player/sync")({
         );
         const db = getDb();
 
+        const clockOffsetSeconds = body.deviceClockMs
+          ? Math.round((body.deviceClockMs - Date.now()) / 1000)
+          : null;
+        // There is an existing persistent app-version field on every terminal.
+        // Keep the human-readable version and attach the latest clock sample
+        // without introducing a migration into the unrelated security worktree.
+        const reportedAppVersion = body.appVersion
+          ? `${body.appVersion.split("|clock=")[0]}${
+              clockOffsetSeconds === null ? "" : `|clock=${clockOffsetSeconds}`
+            }`.slice(0, 40)
+          : undefined;
+
         await db
           .update(schema.devices)
           .set({
             lastSeenAt: new Date(),
-            ...(body.appVersion ? { appVersion: body.appVersion } : {}),
+            ...(reportedAppVersion ? { appVersion: reportedAppVersion } : {}),
           })
           .where(eq(schema.devices.id, device.id));
 
