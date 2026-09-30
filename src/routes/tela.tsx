@@ -320,10 +320,18 @@ function PlayerScreen() {
       }
       nativePlaybackReceiverRef.current(event, itemId, detail);
     };
-    nativePlaybackReceiverRef.current = receiver;
+    // O APK pode terminar o primeiro download antes que exista uma midia
+    // selecionada pela rotacao. Este receptor precisa ficar exposto desde a
+    // montagem da tela para receber o "cached" inicial.
+    (window as unknown as { __mdi360NativeMediaEvent?: typeof receiver }).__mdi360NativeMediaEvent =
+      receiver;
     return () => {
-      if (nativePlaybackReceiverRef.current === receiver) {
-        nativePlaybackReceiverRef.current = () => {};
+      if (
+        (window as unknown as { __mdi360NativeMediaEvent?: typeof receiver })
+          .__mdi360NativeMediaEvent === receiver
+      ) {
+        delete (window as unknown as { __mdi360NativeMediaEvent?: typeof receiver })
+          .__mdi360NativeMediaEvent;
       }
     };
   }, []);
@@ -926,7 +934,10 @@ function PlayerScreen() {
   useEffect(() => () => nativeBridge()?.stopMedia?.(), []);
 
   useEffect(() => {
-    if (!nativeMediaItemId) return;
+    if (!nativeMediaItemId) {
+      nativePlaybackReceiverRef.current = () => {};
+      return;
+    }
     const receiver = (event: string, itemId: string) => {
       if (itemId !== nativeMediaItemId) return;
       if (event === "ready" || event === "progress") {
@@ -941,11 +952,11 @@ function PlayerScreen() {
         advance();
       }
     };
-    (window as unknown as { __mdi360NativeMediaEvent?: typeof receiver }).__mdi360NativeMediaEvent =
-      receiver;
+    nativePlaybackReceiverRef.current = receiver;
     return () => {
-      delete (window as unknown as { __mdi360NativeMediaEvent?: typeof receiver })
-        .__mdi360NativeMediaEvent;
+      if (nativePlaybackReceiverRef.current === receiver) {
+        nativePlaybackReceiverRef.current = () => {};
+      }
     };
   }, [nativeMediaItemId, videoRenderKey, items.length, hasPending, advance]);
 
