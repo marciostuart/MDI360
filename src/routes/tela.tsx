@@ -59,6 +59,8 @@ type SyncResponse = {
 const TOKEN_KEY = "mdi360.deviceToken";
 const CODE_KEY = "mdi360.activationCode";
 const CACHED_SYNC_KEY = "mdi360.lastSafeSync.v1";
+const PLAYBACK_OUTBOX_KEY = "mdi360.playbackOutbox.v1";
+const MAX_PLAYBACK_OUTBOX_ITEMS = 10_000;
 const APP_VERSION =
   typeof window !== "undefined" &&
   new URLSearchParams(window.location.search).get("android") === "hybrid"
@@ -89,10 +91,41 @@ type NativeBridge = {
     cacheKey: string,
     muted: boolean,
     loop: boolean,
+    fade: boolean,
   ) => void;
+  showImage?: (itemId: string, url: string, cacheKey: string, fade: boolean) => void;
   stopMedia?: () => void;
   preloadMedia?: (items: string) => void;
 };
+
+type PlaybackOutboxItem = {
+  playlistId: string | null;
+  mediaAssetId: string | null;
+  durationMs: number;
+  startedAt: string;
+};
+
+function loadPlaybackOutbox(): PlaybackOutboxItem[] {
+  try {
+    const value = JSON.parse(window.localStorage.getItem(PLAYBACK_OUTBOX_KEY) ?? "[]");
+    return Array.isArray(value)
+      ? value.filter(
+          (item): item is PlaybackOutboxItem =>
+            typeof item?.startedAt === "string" && typeof item?.durationMs === "number",
+        )
+      : [];
+  } catch {
+    return [];
+  }
+}
+
+function persistPlaybackOutbox(items: PlaybackOutboxItem[]) {
+  try {
+    window.localStorage.setItem(PLAYBACK_OUTBOX_KEY, JSON.stringify(items));
+  } catch {
+    // A fila e a exibicao nao podem parar se o armazenamento estiver cheio.
+  }
+}
 
 function nativeBridge(): NativeBridge | null {
   if (typeof window === "undefined") return null;
@@ -202,6 +235,11 @@ function PlayerScreen() {
   // rotation after its download finishes, so the TV never buffers on air.
   const [readyUrls, setReadyUrls] = useState<Set<string>>(new Set());
   const [localSrc, setLocalSrc] = useState<string | null>(null);
+  // Eventos de exibicao sobrevivem a queda de rede e sao enviados na mesma
+  // ordem quando a conexao volta. O horario e registrado no instante local em
+  // que o item entrou na rotacao, nunca no instante posterior do reenvio.
+  const playbackOutboxRef = useRef<PlaybackOutboxItem[]>([]);
+  const playbackFlushRunningRef = useRef(false);
   const leaveRef = useRef<number | null>(null);
   /** True during the last FADE_MS of an item, so it fades out before swapping. */
   const [leaving, setLeaving] = useState(false);
@@ -325,6 +363,7 @@ function PlayerScreen() {
 
   // localStorage is only available after hydration.
   useEffect(() => {
+    playbackOutboxRef.current = loadPlaybackOutbox();
     const stored = window.localStorage.getItem(TOKEN_KEY);
     setToken(stored);
     setActivationCode(window.localStorage.getItem(CODE_KEY));
@@ -566,7 +605,7 @@ function PlayerScreen() {
   downloadUrlsRef.current = downloadUrls;
   const nativePreloadRef = useRef<Array<{ url: string; cacheKey: string }>>([]);
   nativePreloadRef.current = [...allItems, ...fallbackItems, ...preloadItems]
-    .filter((item) => item.kind === "video" && Boolean(item.url))
+    .filter((item) => (item.kind === "video" || item.kind === "image") && Boolean(item.url))
     .map((item) => ({ url: item.url as string, cacheKey: item.mediaAssetId ?? item.id }));
 
   // Downloads missing files in the background and removes from the local cache
@@ -622,6 +661,9 @@ function PlayerScreen() {
   // Widgets, páginas e streams não têm arquivo; só os arquivos esperam o cache.
   const items = allItems.filter((item) => {
     if (item.kind === "widget" || item.kind === "web" || item.kind === "stream") return true;
+    // O APK possui um cache persistente proprio para arquivos. Nao espere a
+    // Cache API do WebView (que alguns fabricantes limpam ao perder rede).
+    if (canUseNativeMedia()) return Boolean(item.url);
     return Boolean(item.url) && readyUrls.has(mediaCache.keyFor(item.url as string));
   });
   const current = items[index % Math.max(items.length, 1)];
@@ -630,7 +672,9 @@ function PlayerScreen() {
   const currentKey = current?.url ? mediaCache.keyFor(current.url) : null;
   const videoRenderKey = current ? `${current.id}-${index}` : null;
   const nativeMediaActive =
-    canUseNativeMedia() && current?.kind === "video" && Boolean(current.url);
+    canUseNativeMedia() &&
+    (current?.kind === "video" || current?.kind === "image") &&
+    Boolean(current.url);
   const nativeMediaItemId = nativeMediaActive && videoRenderKey ? `native:${videoRenderKey}` : null;
   const nativeMediaCacheKey = current?.mediaAssetId ?? current?.id ?? "";
   const waitsForRemoteWidget =
@@ -690,32 +734,40 @@ function PlayerScreen() {
   // demais superfícies híbridas.
   useEffect(() => {
     const native = nativeBridge();
-    if (!nativeMediaActive || !nativeMediaItemId || !current?.url || !native?.playMedia) {
+    if (!nativeMediaActive || !nativeMediaItemId || !current?.url) {
       native?.stopMedia?.();
       return;
     }
-    native.playMedia(
+    if (current.kind === "image") {
+      native?.showImage?.(nativeMediaItemId, current.url, nativeMediaCacheKey, fade);
+      return;
+    }
+    native?.playMedia?.(
       nativeMediaItemId,
       current.url,
       nativeMediaCacheKey,
       current.isMuted || sync?.device?.audioEnabled === false || Boolean(activeCall),
       items.length === 1 && !hasPending,
+      fade,
     );
-    return () => native.stopMedia?.();
   }, [
     nativeMediaActive,
     nativeMediaItemId,
     nativeMediaCacheKey,
+    current?.kind,
     current?.url,
     current?.isMuted,
     sync?.device?.audioEnabled,
     activeCall,
     items.length,
     hasPending,
+    fade,
   ]);
 
   // Eventos do player nativo são independentes do polling do servidor. Só o
   // término/erro do decoder efetivamente avança a playlist.
+  useEffect(() => () => nativeBridge()?.stopMedia?.(), []);
+
   useEffect(() => {
     if (!nativeMediaItemId) return;
     const receiver = (event: string, itemId: string) => {
@@ -759,24 +811,65 @@ function PlayerScreen() {
     };
   }, [nativeMediaActive]);
 
-  // Playback reporting: one row per item that actually went on screen, which
-  // feeds the customer's exhibition reports and the live "no ar agora" view.
+  const flushPlaybackOutbox = useCallback(async () => {
+    if (!token || playbackFlushRunningRef.current) return;
+    playbackFlushRunningRef.current = true;
+    try {
+      while (playbackOutboxRef.current.length > 0) {
+        const item = playbackOutboxRef.current[0];
+        const response = await fetch("/api/public/player/playback", {
+          method: "POST",
+          headers: { "content-type": "application/json", authorization: `Bearer ${token}` },
+          body: JSON.stringify(item),
+        });
+        if (!response.ok) break;
+        playbackOutboxRef.current.shift();
+        persistPlaybackOutbox(playbackOutboxRef.current);
+      }
+    } catch {
+      // Mantem os eventos no dispositivo para a proxima reconexao.
+    } finally {
+      playbackFlushRunningRef.current = false;
+    }
+  }, [token]);
+
+  const queuePlaybackReport = useCallback(
+    (item: PlayerItem, playlistId: string | null) => {
+      if (!token) return;
+      playbackOutboxRef.current.push({
+        playlistId,
+        mediaAssetId: item.mediaAssetId ?? null,
+        durationMs: item.durationMs,
+        startedAt: new Date().toISOString(),
+      });
+      if (playbackOutboxRef.current.length > MAX_PLAYBACK_OUTBOX_ITEMS) {
+        playbackOutboxRef.current.splice(0, playbackOutboxRef.current.length - MAX_PLAYBACK_OUTBOX_ITEMS);
+      }
+      persistPlaybackOutbox(playbackOutboxRef.current);
+      void flushPlaybackOutbox();
+    },
+    [token, flushPlaybackOutbox],
+  );
+
   useEffect(() => {
-    if (!token || !current) return;
-    const controller = new AbortController();
-    void fetch("/api/public/player/playback", {
-      method: "POST",
-      headers: { "content-type": "application/json", authorization: `Bearer ${token}` },
-      body: JSON.stringify({
-        playlistId: sync?.playlist?.id ?? null,
-        mediaAssetId: current.mediaAssetId ?? null,
-        durationMs: current.durationMs,
-      }),
-      signal: controller.signal,
-    }).catch(() => undefined);
-    return () => controller.abort();
+    if (!token) return;
+    void flushPlaybackOutbox();
+    const onOnline = () => void flushPlaybackOutbox();
+    window.addEventListener("online", onOnline);
+    const retry = window.setInterval(() => void flushPlaybackOutbox(), 15_000);
+    return () => {
+      window.removeEventListener("online", onOnline);
+      window.clearInterval(retry);
+    };
+  }, [token, flushPlaybackOutbox]);
+
+  // Registra o horario local de entrada do item e preserva a notificacao se
+  // estiver offline. O servidor usa esse startedAt, em vez da hora do envio.
+  useEffect(() => {
+    if (!current) return;
+    queuePlaybackReport(current, sync?.playlist?.id ?? null);
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [token, current?.id, index, sync?.playlist?.id]);
+  }, [current?.id, index, sync?.playlist?.id, queuePlaybackReport]);
 
   // Every new item starts fully visible again.
   useEffect(() => {
