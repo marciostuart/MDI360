@@ -1568,15 +1568,15 @@ function SplashScreen({
 
 function ActivationScreenBody({ code, message }: { code: string | null; message: string | null }) {
   return (
-    <div className="grid min-h-screen place-items-center bg-black px-6 text-center text-white">
+    <div className="grid min-h-screen place-items-center bg-[#0b1220] px-6 text-center text-white">
       <div className="w-full max-w-2xl">
-        <p className="text-sm uppercase tracking-[0.4em] text-white/50">MDI 360</p>
-        <h1 className="mt-4 text-2xl font-semibold sm:text-3xl">Código de ativação</h1>
+        <p className="text-sm font-semibold uppercase tracking-[0.4em] text-[#a3e635]">MDI 360</p>
+        <h1 className="mt-4 text-2xl font-semibold sm:text-3xl">Vincular terminal</h1>
         <p className="mt-2 text-sm text-white/60 sm:text-base">
-          No painel MDI 360, abra <span className="font-medium text-white/80">Telas</span> e use
-          <span className="font-medium text-white/80"> Vincular tela</span> com o código abaixo.
+          No painel MDI 360, abra <span className="font-medium text-white/80">Terminais</span> e use
+          <span className="font-medium text-white/80"> Vincular terminal</span> com o código abaixo.
         </p>
-        <p className="mt-10 font-display text-6xl font-semibold tracking-[0.25em] sm:text-8xl">
+        <p className="mx-auto mt-10 w-fit rounded-2xl border border-[#a3e635]/50 bg-[#111c2b] px-8 py-6 font-display text-6xl font-semibold tracking-[0.25em] text-[#a3e635] shadow-2xl sm:text-8xl">
           {code ?? "······"}
         </p>
         <p className="mt-10 text-sm text-white/40">

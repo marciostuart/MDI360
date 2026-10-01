@@ -7,7 +7,7 @@ const TOKEN_KEY = "mdi360.emitterToken";
 export const Route = createFileRoute("/emitir/")({
   head: () => ({
     meta: [
-      { title: "Vincular emissor de senhas · MDI 360" },
+      { title: "Vincular terminal · MDI 360" },
       { name: "robots", content: "noindex" },
       { name: "theme-color", content: "#0b1220" },
     ],
@@ -95,8 +95,8 @@ function EmitterActivationPage() {
           <Ticket className="size-8" />
         </div>
         <div className="space-y-2">
-          <h1 className="font-display text-3xl font-semibold">Vincular emissor de senhas</h1>
-          <p className="text-white/70">No Studio, abra Senhas e localize a tela desejada.</p>
+          <h1 className="font-display text-3xl font-semibold">Vincular terminal</h1>
+          <p className="text-white/70">No Studio, abra Terminais e localize o terminal desejado.</p>
         </div>
         <div className="rounded-2xl border border-white/15 bg-white/5 p-8">
           {code ? (
