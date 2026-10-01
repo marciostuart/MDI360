@@ -428,6 +428,8 @@ function WeatherScene({
   videoUrl?: string;
 }) {
   const animated = theme.animations;
+  const videoRef = useRef<HTMLVideoElement | null>(null);
+  const [videoReady, setVideoReady] = useState(false);
   const gradients: Record<SceneKind, string> = {
     clear: "linear-gradient(165deg, #0B4F8A 0%, #0A2540 55%, #04101F 100%)",
     cloudy: "linear-gradient(165deg, #3A4A5C 0%, #1D2731 60%, #0C1116 100%)",
@@ -437,26 +439,40 @@ function WeatherScene({
     snow: "linear-gradient(165deg, #5B6F82 0%, #2C3A47 60%, #131A21 100%)",
   };
 
+  useEffect(() => {
+    setVideoReady(false);
+    if (!videoUrl) return;
+    const video = videoRef.current;
+    if (!video) return;
+
+    // Android WebView can ignore the autoplay attribute when the element is
+    // created after a widget refresh. Set both muted flags and explicitly
+    // request playback; until it really starts the video remains invisible,
+    // so its native play artwork can never appear on the TV.
+    video.muted = true;
+    video.defaultMuted = true;
+    const attemptPlayback = () => {
+      video.muted = true;
+      void video
+        .play()
+        .then(() => setVideoReady(true))
+        .catch(() => setVideoReady(false));
+    };
+    video.addEventListener("loadeddata", attemptPlayback);
+    video.addEventListener("canplay", attemptPlayback);
+    attemptPlayback();
+    return () => {
+      video.removeEventListener("loadeddata", attemptPlayback);
+      video.removeEventListener("canplay", attemptPlayback);
+      video.pause();
+    };
+  }, [videoUrl]);
+
   return (
     <div className="absolute inset-0">
-      {videoUrl ? (
+      <div className="absolute inset-0" style={{ background: gradients[kind] }} />
+      {(!videoUrl || !videoReady) && (
         <>
-          <video
-            key={videoUrl}
-            className="absolute inset-0 size-full object-cover"
-            autoPlay
-            muted
-            loop
-            playsInline
-            preload="auto"
-          >
-            <source src={videoUrl} />
-          </video>
-          <div className="absolute inset-0 bg-black/20" />
-        </>
-      ) : (
-        <>
-          <div className="absolute inset-0" style={{ background: gradients[kind] }} />
           {kind === "clear" ? <ClearScene accent={accent} theme={theme} /> : null}
           {kind === "cloudy" ? <CloudLayer animated={animated} /> : null}
           {kind === "fog" ? <FogLayer animated={animated} /> : null}
@@ -481,12 +497,39 @@ function WeatherScene({
           ) : null}
           {kind === "snow" ? (
             <>
-              <CloudLayer animated={animated} count={3} />
+              <CloudLayer animated={animated} />
               <SnowLayer animated={animated} />
             </>
           ) : null}
         </>
       )}
+      {videoUrl ? (
+        <>
+          <video
+            ref={videoRef}
+            key={videoUrl}
+            className="absolute inset-0 size-full object-cover"
+            autoPlay
+            muted
+            loop
+            playsInline
+            controls={false}
+            disablePictureInPicture
+            disableRemotePlayback
+            preload="auto"
+            onPlaying={() => setVideoReady(true)}
+            onError={() => setVideoReady(false)}
+            style={{
+              opacity: videoReady ? 1 : 0,
+              pointerEvents: "none",
+              transition: "opacity 220ms ease-out",
+            }}
+          >
+            <source src={videoUrl} />
+          </video>
+          {videoReady ? <div className="absolute inset-0 bg-black/20" /> : null}
+        </>
+      ) : null}
     </div>
   );
 }
