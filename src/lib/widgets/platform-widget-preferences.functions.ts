@@ -2,7 +2,13 @@ import { createServerFn } from "@tanstack/react-start";
 import { and, eq, inArray, sql } from "drizzle-orm";
 import { z } from "zod";
 
-import { CURRENCY_IDS, NEWS_FEED_IDS, widgetConfigSchema } from "@/lib/widgets/catalog";
+import {
+  CURRENCY_IDS,
+  NEWS_FEED_IDS,
+  lotteryGameLayoutsSchema,
+  widgetConfigSchema,
+  widgetLayoutSchema,
+} from "@/lib/widgets/catalog";
 import { LOTTERY_GAME_IDS } from "@/lib/widgets/lottery";
 import {
   mergePlatformWidgetConfig,
@@ -29,6 +35,8 @@ const preferenceSchema = z.discriminatedUnion("type", [
     showSummary: z.boolean().default(true),
     summaryMaxChars: z.number().int().min(60).max(600).default(240),
     showImage: z.boolean().default(true),
+    imageMode: z.enum(["background", "block", "hidden"]).default("background"),
+    layout: widgetLayoutSchema.optional(),
   }),
   z.object({
     type: z.literal("lottery"),
@@ -37,6 +45,10 @@ const preferenceSchema = z.discriminatedUnion("type", [
       .array(z.enum(LOTTERY_GAME_IDS as [string, ...string[]]))
       .min(1)
       .max(11),
+    rotateSeconds: z.number().int().min(5).max(30).default(10),
+    federalStyle: z.enum(["list", "receipt"]).default("list"),
+    gameLayouts: lotteryGameLayoutsSchema.optional(),
+    layout: widgetLayoutSchema.optional(),
   }),
 ]);
 
@@ -63,7 +75,11 @@ export const savePlatformWidgetPreferences = createServerFn({ method: "POST" })
     const user = await requireUser();
     const db = getDb();
     const [asset] = await db
-      .select({ id: schema.mediaAssets.id, widgetType: schema.mediaAssets.widgetType, widgetConfig: schema.mediaAssets.widgetConfig })
+      .select({
+        id: schema.mediaAssets.id,
+        widgetType: schema.mediaAssets.widgetType,
+        widgetConfig: schema.mediaAssets.widgetConfig,
+      })
       .from(schema.mediaAssets)
       .where(
         and(
@@ -91,18 +107,32 @@ export const savePlatformWidgetPreferences = createServerFn({ method: "POST" })
         (gameId) => desired.config.type === "lottery" && desired.config.gameIds.includes(gameId),
       );
       if (!gameIds.length) throw new Error("Selecione ao menos uma modalidade disponível.");
-      requested = { ...desired.config, gameIds };
+      const currentConfig = widgetConfigSchema.safeParse(asset.widgetConfig);
+      const base =
+        currentConfig.success && currentConfig.data.type === "lottery"
+          ? currentConfig.data
+          : desired.config;
+      requested = {
+        ...desired.config,
+        ...base,
+        gameIds,
+        rotateSeconds: data.rotateSeconds,
+        federalStyle: data.federalStyle,
+        ...(data.gameLayouts ? { gameLayouts: data.gameLayouts } : {}),
+        ...(data.layout ? { layout: data.layout } : {}),
+      };
     } else if (data.type === "news" && desired.config.type === "news") {
       const isBuiltIn = NEWS_FEED_IDS.includes(data.feedId as (typeof NEWS_FEED_IDS)[number]);
       if (!isBuiltIn) {
-        const { readOrganizationNewsSources } = await import(
-          "@/lib/widgets/organization-news-sources.functions"
-        );
+        const { readOrganizationNewsSources } =
+          await import("@/lib/widgets/organization-news-sources.functions");
         const customSources = await readOrganizationNewsSources(user.organizationId);
         if (!customSources.some((source) => source.id === data.feedId && source.enabled)) {
           throw new Error("Esta fonte de notícias não está disponível.");
         }
-      } else if (!settings.news.availableNewsFeedIds.includes(data.feedId as (typeof NEWS_FEED_IDS)[number])) {
+      } else if (
+        !settings.news.availableNewsFeedIds.includes(data.feedId as (typeof NEWS_FEED_IDS)[number])
+      ) {
         throw new Error("Esta fonte de notícias não está disponível.");
       }
       const currentConfig = widgetConfigSchema.safeParse(asset.widgetConfig);
@@ -120,6 +150,8 @@ export const savePlatformWidgetPreferences = createServerFn({ method: "POST" })
         showSummary: data.showSummary,
         summaryMaxChars: data.summaryMaxChars,
         showImage: data.showImage,
+        imageMode: data.imageMode,
+        ...(data.layout ? { layout: data.layout } : {}),
       };
     } else {
       throw new Error("Configuração de widget inválida.");

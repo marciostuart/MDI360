@@ -30,6 +30,7 @@ export function WidgetsManager() {
   const preferencesRef = useRef<HTMLDivElement>(null);
   const [editingWidget, setEditingWidget] = useState<WidgetDraft | null>(null);
   const [managedWidget, setManagedWidget] = useState<MediaListItem | null>(null);
+  const [composerOpen, setComposerOpen] = useState(false);
 
   const library = useQuery({ queryKey: ["media-assets"], queryFn: () => listFn({}) });
 
@@ -58,8 +59,12 @@ export function WidgetsManager() {
 
   function openLocalEditor(item: MediaListItem) {
     setManagedWidget(null);
+    setComposerOpen(true);
     setEditingWidget({ assetId: item.id, name: item.name, config: item.widgetConfig! });
-    composerRef.current?.scrollIntoView({ behavior: "smooth", block: "start" });
+    window.setTimeout(
+      () => composerRef.current?.scrollIntoView({ behavior: "smooth", block: "start" }),
+      0,
+    );
   }
 
   function openManagedEditor(item: MediaListItem) {
@@ -127,70 +132,16 @@ export function WidgetsManager() {
         <Badge variant="outline">Personalização da empresa</Badge>
         <h1 className="text-3xl font-semibold">Widgets</h1>
         <p className="max-w-3xl text-sm leading-6 text-muted-foreground">
-          Escolha o que aparece nas suas telas. Crie um widget ou abra um recurso disponível e
-          ajuste somente o que importa para o seu público.
+          Configure primeiro os recursos disponíveis, depois seus widgets próprios e, quando
+          precisar, crie um novo widget.
         </p>
       </div>
-
-      <div className="grid gap-3 md:grid-cols-3">
-        {[
-          ["1", "Escolha", "Selecione um widget próprio ou um recurso liberado."],
-          ["2", "Configure", "Ajuste fonte, formato e conteúdo em linguagem simples."],
-          ["3", "Publique", "Salve e a mudança chega às telas na próxima sincronização."],
-        ].map(([number, title, text]) => (
-          <div key={number} className="rounded-xl border border-border bg-card/60 p-4">
-            <div className="flex items-start gap-3">
-              <span className="grid size-7 shrink-0 place-items-center rounded-full bg-primary text-sm font-semibold text-primary-foreground">
-                {number}
-              </span>
-              <div>
-                <p className="font-medium">{title}</p>
-                <p className="mt-1 text-xs leading-5 text-muted-foreground">{text}</p>
-              </div>
-            </div>
-          </div>
-        ))}
-      </div>
-
-      <section ref={composerRef} className="space-y-3">
-        <div className="flex flex-wrap items-end justify-between gap-3">
-          <div>
-            <h2 className="text-xl font-semibold">Widgets da empresa</h2>
-            <p className="mt-1 text-sm text-muted-foreground">
-              Relógio e clima podem ser criados e editados livremente pela sua equipe.
-            </p>
-          </div>
-          <Button variant="outline" onClick={() => setEditingWidget(null)}>
-            <Plus className="size-4" />
-            Novo widget
-          </Button>
-        </div>
-        <WidgetComposer
-          editing={editingWidget}
-          allowedTypes={["clock", "weather"]}
-          onCancelEditing={() => setEditingWidget(null)}
-        />
-        {library.isPending ? (
-          <div className="grid place-items-center py-10">
-            <Loader2 className="size-5 animate-spin text-muted-foreground" />
-          </div>
-        ) : localWidgets.length ? (
-          <div className="grid gap-4 sm:grid-cols-2 xl:grid-cols-3">
-            {localWidgets.map(renderCard)}
-          </div>
-        ) : (
-          <div className="rounded-xl border border-dashed border-border p-6 text-sm text-muted-foreground">
-            Ainda não há widgets próprios. Crie um relógio ou um clima acima.
-          </div>
-        )}
-      </section>
 
       <section className="space-y-3">
         <div>
           <h2 className="text-xl font-semibold">Recursos disponíveis</h2>
           <p className="mt-1 text-sm text-muted-foreground">
-            Notícias, loterias e cotações são mantidos pela plataforma, mas a escolha do conteúdo é
-            sua.
+            Notícias, loterias e cotações são liberadas pela plataforma e personalizadas por você.
           </p>
         </div>
         {managedWidget ? (
@@ -209,6 +160,58 @@ export function WidgetsManager() {
           <div className="rounded-xl border border-dashed border-border p-6 text-sm text-muted-foreground">
             Nenhum recurso foi liberado para esta empresa no momento.
           </div>
+        )}
+      </section>
+
+      <section className="space-y-3">
+        <div>
+          <h2 className="text-xl font-semibold">Widgets da empresa</h2>
+          <p className="mt-1 text-sm text-muted-foreground">
+            Relógio e clima criados pela sua equipe, com liberdade de configuração.
+          </p>
+        </div>
+        {library.isPending ? (
+          <div className="grid place-items-center py-10">
+            <Loader2 className="size-5 animate-spin text-muted-foreground" />
+          </div>
+        ) : localWidgets.length ? (
+          <div className="grid gap-4 sm:grid-cols-2 xl:grid-cols-3">
+            {localWidgets.map(renderCard)}
+          </div>
+        ) : (
+          <div className="rounded-xl border border-dashed border-border p-6 text-sm text-muted-foreground">
+            Ainda não há widgets próprios.
+          </div>
+        )}
+      </section>
+
+      <section ref={composerRef} className="space-y-3 border-t border-border pt-6">
+        <div>
+          <h2 className="text-xl font-semibold">Adicionar novo widget</h2>
+          <p className="mt-1 text-sm text-muted-foreground">
+            O editor só é carregado quando você solicitar, mantendo esta página mais leve.
+          </p>
+        </div>
+        {!composerOpen ? (
+          <Button
+            variant="outline"
+            onClick={() => {
+              setEditingWidget(null);
+              setComposerOpen(true);
+            }}
+          >
+            <Plus className="size-4" />
+            Abrir editor de widget
+          </Button>
+        ) : (
+          <WidgetComposer
+            editing={editingWidget}
+            allowedTypes={["clock", "weather"]}
+            onCancelEditing={() => {
+              setEditingWidget(null);
+              setComposerOpen(false);
+            }}
+          />
         )}
       </section>
     </div>

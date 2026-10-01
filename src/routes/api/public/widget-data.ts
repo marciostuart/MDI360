@@ -138,7 +138,9 @@ async function readCachedNews(feed: {
         headers: { "user-agent": "MDI360-Player/1.0" },
       });
       if (!response.ok) throw new Error(`RSS HTTP ${response.status}`);
-      const items = parseRssItems(await response.text(), 10);
+      // Keep a generous queue so the Studio's per-display batch size can walk
+      // through the complete feed instead of always stopping at the first few.
+      const items = parseRssItems(await response.text(), 50);
       if (items.length === 0) throw new Error("RSS sem notícias válidas");
       const payload = {
         source: feed.label,

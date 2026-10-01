@@ -172,6 +172,7 @@ export const WIDGET_BLOCKS: Record<WidgetType, { id: string; label: string }[]> 
   ],
   news: [
     { id: "source", label: "Etiqueta da fonte" },
+    { id: "image", label: "Imagem da manchete" },
     { id: "headline", label: "Manchete" },
     { id: "summary", label: "Resumo" },
     { id: "progress", label: "Barra de tempo" },
@@ -205,6 +206,7 @@ export const LAYOUT_PRESETS: Record<WidgetType, WidgetLayout> = {
   },
   news: {
     source: { x: 6, y: 10, w: 60, size: 2.2, align: "left", hidden: false },
+    image: { x: 66, y: 22, w: 28, size: 1, align: "center", hidden: true },
     headline: { x: 6, y: 22, w: 84, size: 7.4, align: "left", hidden: false },
     summary: { x: 6, y: 58, w: 72, size: 3.6, align: "left", hidden: false },
     progress: { x: 6, y: 84, w: 36, size: 2, align: "left", hidden: false },
@@ -390,6 +392,8 @@ export const widgetConfigSchema = z.discriminatedUnion("type", [
     /** Maximum article-summary length rendered on screen. */
     summaryMaxChars: z.number().int().min(60).max(600).default(240),
     showImage: z.boolean().default(true),
+    /** Article image can remain a backdrop or become a freely positioned block. */
+    imageMode: z.enum(["background", "block", "hidden"]).default("background"),
     theme: widgetThemeSchema.optional(),
     layout: widgetLayoutSchema.optional(),
   }),
@@ -459,6 +463,7 @@ export const WIDGET_CATALOG: {
       showSummary: true,
       summaryMaxChars: 240,
       showImage: true,
+      imageMode: "background",
     },
   },
   {

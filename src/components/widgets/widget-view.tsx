@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 
 import type { WidgetBlock, WidgetConfig, WidgetLayout, WidgetTheme } from "@/lib/widgets/catalog";
 import {
@@ -39,7 +39,15 @@ export function WidgetView({
     return <CurrencyWidget config={config} theme={theme} accent={accent} />;
   if (config.type === "lottery")
     return <LotteryWidget config={config} theme={theme} accent={accent} onReady={onReady} />;
-  return <NewsWidget config={config} theme={theme} accent={accent} onReady={onReady} deviceToken={deviceToken} />;
+  return (
+    <NewsWidget
+      config={config}
+      theme={theme}
+      accent={accent}
+      onReady={onReady}
+      deviceToken={deviceToken}
+    />
+  );
 }
 
 /* ------------------------------------------------------------------ shell */
@@ -906,15 +914,20 @@ function NewsWidget({
             image: null,
             publishedAt: null,
           }));
-    return list.slice(0, config.headlines);
-  }, [data, config.headlines]);
+    return list;
+  }, [data]);
 
   const [index, setIndex] = useState(0);
+  const [batchStart, setBatchStart] = useState(0);
   const [imageStates, setImageStates] = useState<Record<string, "ready" | "failed">>({});
+  const cursorKey = `mdi-news-cursor:${config.feedId}:${config.headlines}`;
+  const initializedItemsKey = useRef("");
 
   // Do not put an article into rotation until every image it uses is ready.
   useEffect(() => {
-    const urls = [...new Set(items.map((item) => item.image).filter((url): url is string => Boolean(url)))];
+    const urls = [
+      ...new Set(items.map((item) => item.image).filter((url): url is string => Boolean(url))),
+    ];
     setImageStates({});
     if (!urls.length) return;
     let cancelled = false;
@@ -946,20 +959,59 @@ function NewsWidget({
 
   useEffect(() => {
     setIndex(0);
-  }, [config.feedId, config.oneAtATime]);
+    setBatchStart(0);
+    initializedItemsKey.current = "";
+  }, [config.feedId, config.headlines]);
+
+  const itemsKey = renderableItems
+    .map((item) => `${item.title}|${item.image ?? ""}`)
+    .join("\u0001");
+  useEffect(() => {
+    if (!renderableItems.length || initializedItemsKey.current === itemsKey) return;
+    initializedItemsKey.current = itemsKey;
+    let stored = 0;
+    try {
+      stored = Number(window.localStorage.getItem(cursorKey) ?? 0);
+    } catch {
+      stored = 0;
+    }
+    const start = Number.isFinite(stored)
+      ? ((Math.max(0, Math.trunc(stored)) % renderableItems.length) + renderableItems.length) %
+        renderableItems.length
+      : 0;
+    setBatchStart(start);
+    setIndex(0);
+    try {
+      window.localStorage.setItem(
+        cursorKey,
+        String((start + Math.max(1, config.headlines)) % renderableItems.length),
+      );
+    } catch {
+      // Private browsing or a restricted WebView may reject localStorage.
+    }
+  }, [config.headlines, cursorKey, itemsKey, renderableItems.length]);
+
+  const batchItems = useMemo(() => {
+    if (!renderableItems.length) return [];
+    return Array.from(
+      { length: Math.min(config.headlines, renderableItems.length) },
+      (_, offset) => renderableItems[(batchStart + offset) % renderableItems.length]!,
+    );
+  }, [batchStart, config.headlines, renderableItems]);
 
   useEffect(() => {
-    if (!config.oneAtATime || renderableItems.length <= 1) return;
+    if (!config.oneAtATime || batchItems.length <= 1) return;
     const interval = window.setInterval(
-      () => setIndex((current) => (current + 1) % renderableItems.length),
+      () => setIndex((current) => Math.min(current + 1, batchItems.length - 1)),
       config.rotateSeconds * 1000,
     );
     return () => window.clearInterval(interval);
-  }, [config.oneAtATime, config.rotateSeconds, renderableItems.length]);
+  }, [batchItems.length, config.oneAtATime, config.rotateSeconds]);
 
-  const current = renderableItems[Math.min(index, Math.max(renderableItems.length - 1, 0))];
+  const current = batchItems[Math.min(index, Math.max(batchItems.length - 1, 0))];
   const layout = resolveWidgetLayout("news", config.layout as WidgetLayout | undefined);
-  const heroImage = config.showImage ? (current?.image ?? null) : null;
+  const imageMode = !config.showImage ? "hidden" : (config.imageMode ?? "background");
+  const heroImage = imageMode === "background" ? (current?.image ?? null) : null;
 
   // One at a time: the headline itself is the hero, with the article photo used
   // as the backdrop so it stays readable from across the room.
@@ -995,7 +1047,7 @@ function NewsWidget({
           </span>
           {config.oneAtATime && renderableItems.length > 1 ? (
             <span className="tabular-nums opacity-55">
-              {index + 1}/{renderableItems.length}
+              {((batchStart + index) % renderableItems.length) + 1}/{renderableItems.length}
             </span>
           ) : null}
         </div>
@@ -1015,6 +1067,20 @@ function NewsWidget({
         </p>
       ) : config.oneAtATime ? (
         <>
+          {imageMode === "block" && current?.image ? (
+            <Block block={layout.image} key={`image-${current.image}`}>
+              <img
+                src={current.image}
+                alt=""
+                className="size-full rounded-[1cqh] object-cover"
+                style={
+                  theme.animations && theme.kenBurns
+                    ? { animation: "mdi-kenburns 24s ease-in-out infinite alternate" }
+                    : undefined
+                }
+              />
+            </Block>
+          ) : null}
           <Block
             block={layout.headline}
             className="font-display font-semibold leading-[1.12]"
@@ -1038,7 +1104,7 @@ function NewsWidget({
               {current.summary.slice(0, config.summaryMaxChars ?? 240)}
             </Block>
           ) : null}
-          {renderableItems.length > 1 ? (
+          {batchItems.length > 1 ? (
             <Block block={layout.progress}>
               <div className="h-[0.25em] w-full overflow-hidden rounded-full bg-white/20">
                 <div
@@ -1061,7 +1127,7 @@ function NewsWidget({
           style={{ fontSize: `${(layout.summary?.size ?? 3.6) * 1.05}cqh` }}
         >
           <ul className="space-y-[0.5em]">
-            {renderableItems.map((item, position) => (
+            {batchItems.map((item, position) => (
               <li key={`${position}-${item.title.slice(0, 12)}`} className="flex gap-[0.5em]">
                 <span className="font-display font-semibold" style={{ color: accent }}>
                   {position + 1}

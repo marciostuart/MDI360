@@ -10,6 +10,7 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Slider } from "@/components/ui/slider";
 import { Switch } from "@/components/ui/switch";
+import { WidgetLayoutEditor } from "@/components/widgets/widget-layout-editor";
 import {
   Select,
   SelectContent,
@@ -18,8 +19,16 @@ import {
   SelectValue,
 } from "@/components/ui/select";
 import type { MediaListItem } from "@/lib/media/media.functions";
-import { CURRENCY_OPTIONS, NEWS_FEEDS, type WidgetConfig } from "@/lib/widgets/catalog";
-import { LOTTERY_GAMES } from "@/lib/widgets/lottery";
+import {
+  CURRENCY_OPTIONS,
+  NEWS_FEEDS,
+  getLotteryLayoutPreset,
+  resolveLotteryWidgetLayout,
+  resolveWidgetLayout,
+  type WidgetConfig,
+  type WidgetLayout,
+} from "@/lib/widgets/catalog";
+import { LOTTERY_GAMES, type LotteryGameId } from "@/lib/widgets/lottery";
 import {
   fetchPlatformWidgetAvailability,
   savePlatformWidgetPreferences,
@@ -34,9 +43,16 @@ const defaultNewsSettings = {
   showSummary: true,
   summaryMaxChars: 240,
   showImage: true,
+  imageMode: "background" as const,
 } satisfies Pick<
   NewsConfig,
-  "headlines" | "oneAtATime" | "rotateSeconds" | "showSummary" | "summaryMaxChars" | "showImage"
+  | "headlines"
+  | "oneAtATime"
+  | "rotateSeconds"
+  | "showSummary"
+  | "summaryMaxChars"
+  | "showImage"
+  | "imageMode"
 >;
 
 export function PlatformWidgetPreferences({
@@ -62,15 +78,28 @@ export function PlatformWidgetPreferences({
   });
   const [pairs, setPairs] = useState<Extract<WidgetConfig, { type: "currency" }>["pairs"]>([]);
   const [gameIds, setGameIds] = useState<Extract<WidgetConfig, { type: "lottery" }>["gameIds"]>([]);
+  const [lotteryRotateSeconds, setLotteryRotateSeconds] = useState(10);
+  const [lotteryFederalStyle, setLotteryFederalStyle] = useState<"list" | "receipt">("list");
+  const [lotteryGameLayouts, setLotteryGameLayouts] =
+    useState<Extract<WidgetConfig, { type: "lottery" }>["gameLayouts"]>();
+  const [lotteryTemplateGameId, setLotteryTemplateGameId] = useState<LotteryGameId>("megasena");
   const [feedId, setFeedId] = useState("");
   const [newsSettings, setNewsSettings] = useState(defaultNewsSettings);
+  const [newsLayout, setNewsLayout] = useState<WidgetLayout>();
 
   useEffect(() => {
     const config = item.widgetConfig;
     if (config?.type === "currency") setPairs(config.pairs);
-    if (config?.type === "lottery") setGameIds(config.gameIds);
+    if (config?.type === "lottery") {
+      setGameIds(config.gameIds);
+      setLotteryRotateSeconds(config.rotateSeconds);
+      setLotteryFederalStyle(config.federalStyle);
+      setLotteryGameLayouts(config.gameLayouts);
+      if (config.gameIds[0]) setLotteryTemplateGameId(config.gameIds[0]);
+    }
     if (config?.type === "news") {
       setFeedId(config.feedId);
+      setNewsLayout(config.layout);
       setNewsSettings({
         headlines: config.headlines,
         oneAtATime: config.oneAtATime,
@@ -78,6 +107,7 @@ export function PlatformWidgetPreferences({
         showSummary: config.showSummary,
         summaryMaxChars: config.summaryMaxChars,
         showImage: config.showImage,
+        imageMode: config.imageMode ?? (config.showImage ? "background" : "hidden"),
       });
     }
   }, [item]);
@@ -88,7 +118,16 @@ export function PlatformWidgetPreferences({
         return saveFn({ data: { type: "currency", assetId: item.id, pairs } });
       }
       if (item.widgetType === "lottery") {
-        return saveFn({ data: { type: "lottery", assetId: item.id, gameIds } });
+        return saveFn({
+          data: {
+            type: "lottery",
+            assetId: item.id,
+            gameIds,
+            rotateSeconds: lotteryRotateSeconds,
+            federalStyle: lotteryFederalStyle,
+            gameLayouts: lotteryGameLayouts,
+          },
+        });
       }
       if (item.widgetType === "news") {
         if (!feedId) throw new Error("Selecione uma fonte de notícias.");
@@ -98,6 +137,7 @@ export function PlatformWidgetPreferences({
             assetId: item.id,
             feedId,
             ...newsSettings,
+            layout: newsLayout,
           },
         });
       }
@@ -177,7 +217,7 @@ export function PlatformWidgetPreferences({
         ) : null}
 
         {item.widgetType === "lottery" ? (
-          <div className="space-y-2">
+          <div className="space-y-4">
             <Label>Resultados exibidos</Label>
             <div className="flex flex-wrap gap-2">
               {LOTTERY_GAMES.filter((game) =>
@@ -205,6 +245,87 @@ export function PlatformWidgetPreferences({
                 );
               })}
             </div>
+            <div className="grid gap-4 rounded-lg border border-border p-4 sm:grid-cols-2">
+              <div className="space-y-2">
+                <Label>Tempo de cada resultado: {lotteryRotateSeconds}s</Label>
+                <Slider
+                  min={5}
+                  max={30}
+                  step={1}
+                  value={[lotteryRotateSeconds]}
+                  onValueChange={([value]) => setLotteryRotateSeconds(value ?? 10)}
+                />
+              </div>
+              <div className="space-y-2">
+                <Label>Formato da Loteria Federal</Label>
+                <Select
+                  value={lotteryFederalStyle}
+                  onValueChange={(value) => setLotteryFederalStyle(value as "list" | "receipt")}
+                >
+                  <SelectTrigger>
+                    <SelectValue />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="list">Lista para TV</SelectItem>
+                    <SelectItem value="receipt">Comprovante visual</SelectItem>
+                  </SelectContent>
+                </Select>
+              </div>
+            </div>
+            {gameIds.length ? (
+              <div className="space-y-3">
+                <Label>Template visual por modalidade</Label>
+                <Select
+                  value={lotteryTemplateGameId}
+                  onValueChange={(value) => setLotteryTemplateGameId(value as LotteryGameId)}
+                >
+                  <SelectTrigger className="max-w-md">
+                    <SelectValue />
+                  </SelectTrigger>
+                  <SelectContent>
+                    {gameIds.map((gameId) => {
+                      const game = LOTTERY_GAMES.find((entry) => entry.id === gameId);
+                      return game ? (
+                        <SelectItem key={game.id} value={game.id}>
+                          {game.label}
+                        </SelectItem>
+                      ) : null;
+                    })}
+                  </SelectContent>
+                </Select>
+                {item.widgetConfig?.type === "lottery" ? (
+                  <WidgetLayoutEditor
+                    key={lotteryTemplateGameId}
+                    config={item.widgetConfig}
+                    layout={resolveLotteryWidgetLayout(
+                      lotteryTemplateGameId,
+                      lotteryGameLayouts,
+                      item.widgetConfig.layout,
+                    )}
+                    defaultLayout={getLotteryLayoutPreset(lotteryTemplateGameId)}
+                    previewConfig={{
+                      ...item.widgetConfig,
+                      gameIds: [lotteryTemplateGameId],
+                      gameLayouts: {
+                        ...(lotteryGameLayouts ?? {}),
+                        [lotteryTemplateGameId]: resolveLotteryWidgetLayout(
+                          lotteryTemplateGameId,
+                          lotteryGameLayouts,
+                          item.widgetConfig.layout,
+                        ),
+                      },
+                    }}
+                    onChange={(layout: WidgetLayout) =>
+                      setLotteryGameLayouts((current) => ({
+                        ...(current ?? {}),
+                        [lotteryTemplateGameId]: layout,
+                      }))
+                    }
+                    title="Layout único para cada resultado desta modalidade"
+                  />
+                ) : null}
+              </div>
+            ) : null}
           </div>
         ) : null}
 
@@ -255,10 +376,24 @@ export function PlatformWidgetPreferences({
                   <Switch
                     checked={newsSettings.showImage}
                     onCheckedChange={(checked) =>
-                      setNewsSettings((current) => ({ ...current, showImage: checked }))
+                      (() => {
+                        const mode = checked ? newsSettings.imageMode : "hidden";
+                        setNewsSettings((current) => ({
+                          ...current,
+                          showImage: checked,
+                          imageMode: mode,
+                        }));
+                        setNewsLayout((current) => ({
+                          ...resolveWidgetLayout("news", current),
+                          image: {
+                            ...resolveWidgetLayout("news", current).image!,
+                            hidden: mode !== "block",
+                          },
+                        }));
+                      })()
                     }
                   />
-                  Usar imagem como fundo
+                  Exibir imagem
                 </label>
               </div>
             </div>
@@ -323,6 +458,63 @@ export function PlatformWidgetPreferences({
                 ) : null}
               </div>
             </details>
+
+            <div className="space-y-2 rounded-lg border border-border p-4">
+              <Label>Como posicionar a imagem</Label>
+              <Select
+                value={newsSettings.imageMode}
+                onValueChange={(value) =>
+                  (() => {
+                    const mode = value as "background" | "block" | "hidden";
+                    setNewsSettings((current) => ({
+                      ...current,
+                      imageMode: mode,
+                      showImage: mode !== "hidden",
+                    }));
+                    setNewsLayout((current) => ({
+                      ...resolveWidgetLayout("news", current),
+                      image: {
+                        ...resolveWidgetLayout("news", current).image!,
+                        hidden: mode !== "block",
+                      },
+                    }));
+                  })()
+                }
+              >
+                <SelectTrigger className="max-w-md">
+                  <SelectValue />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="background">Imagem de fundo</SelectItem>
+                  <SelectItem value="block">Imagem como bloco livre</SelectItem>
+                  <SelectItem value="hidden">Não exibir imagem</SelectItem>
+                </SelectContent>
+              </Select>
+              <p className="text-xs text-muted-foreground">
+                No modo bloco, a imagem pode ser arrastada, redimensionada e alinhada abaixo.
+              </p>
+            </div>
+
+            <WidgetLayoutEditor
+              config={
+                item.widgetConfig?.type === "news"
+                  ? item.widgetConfig
+                  : ({ type: "news", ...newsSettings, feedId } as WidgetConfig)
+              }
+              layout={newsLayout}
+              previewConfig={
+                item.widgetConfig?.type === "news"
+                  ? {
+                      ...item.widgetConfig,
+                      ...newsSettings,
+                      feedId,
+                      layout: newsLayout,
+                    }
+                  : undefined
+              }
+              onChange={setNewsLayout}
+              title="Layout único para todas as manchetes"
+            />
           </div>
         ) : null}
 

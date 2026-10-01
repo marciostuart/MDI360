@@ -90,14 +90,17 @@ export function mergePlatformWidgetConfig(
     return { ...desired.config, pairs: selected.length ? selected : desired.config.pairs };
   }
   if (type === "lottery" && desired.config.type === "lottery") {
-    const selected =
-      local.success && local.data.type === "lottery"
-        ? local.data.gameIds.filter(
-            (gameId) =>
-              desired.config.type === "lottery" && desired.config.gameIds.includes(gameId),
-          )
-        : [];
-    return { ...desired.config, gameIds: selected.length ? selected : desired.config.gameIds };
+    const localLottery = local.success && local.data.type === "lottery" ? local.data : null;
+    const selected = localLottery
+      ? localLottery.gameIds.filter(
+          (gameId) => desired.config.type === "lottery" && desired.config.gameIds.includes(gameId),
+        )
+      : [];
+    return {
+      ...desired.config,
+      ...(localLottery ?? {}),
+      gameIds: selected.length ? selected : desired.config.gameIds,
+    };
   }
   if (type === "news" && desired.config.type === "news") {
     const available =
