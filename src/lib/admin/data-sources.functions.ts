@@ -5,10 +5,10 @@ import {
   defaultWeatherVideoSettings,
   dataSourcesInputSchema,
   isSafeNewsUrl,
+  newsSourceSchema,
   weatherVideoSettingsSchema,
   type DataSourcesInput,
 } from "@/lib/widgets/data-sources";
-import { NEWS_FEED_IDS } from "@/lib/widgets/catalog";
 import { z } from "zod";
 
 async function requirePlatformAdmin() {
@@ -67,12 +67,18 @@ export const fetchDataSourcesAdmin = createServerFn({ method: "GET" }).handler(
       root.news && typeof root.news === "object" && !Array.isArray(root.news)
         ? (root.news as Record<string, Record<string, unknown>>)
         : {};
-    const news = Object.fromEntries(
-      Object.entries(DEFAULT_NEWS_SOURCES).map(([id, fallback]) => {
+    const news = Object.fromEntries([
+      ...Object.entries(DEFAULT_NEWS_SOURCES).map(([id, fallback]) => {
         const saved = savedNews[id] ?? {};
         return [id, { ...fallback, ...saved, id: undefined }];
       }),
-    ) as DataSourcesInput["news"];
+      ...Object.entries(savedNews)
+        .filter(([id]) => !Object.prototype.hasOwnProperty.call(DEFAULT_NEWS_SOURCES, id))
+        .flatMap(([id, saved]) => {
+          const parsed = newsSourceSchema.safeParse(saved);
+          return parsed.success && isSafeNewsUrl(parsed.data.url) ? [[id, parsed.data]] : [];
+        }),
+    ]) as DataSourcesInput["news"];
     const savedWeatherVideos = weatherVideoSettingsSchema.safeParse(root.weatherVideos);
     const state = states[0];
     return {
@@ -181,7 +187,7 @@ export const testLotteryDataSource = createServerFn({ method: "POST" }).handler(
 });
 
 export const testNewsDataSource = createServerFn({ method: "POST" })
-  .validator(z.object({ id: z.enum(NEWS_FEED_IDS as [string, ...string[]]) }))
+  .validator(z.object({ id: z.string().trim().min(1).max(80) }))
   .handler(async ({ data }) => {
     await requirePlatformAdmin();
     const { getConfiguredNewsFeed } = await import("@/lib/widgets/data-sources.server");

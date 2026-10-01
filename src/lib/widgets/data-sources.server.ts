@@ -5,6 +5,7 @@ import {
   DEFAULT_NEWS_SOURCES,
   defaultWeatherVideoSettings,
   isSafeNewsUrl,
+  newsSourceSchema,
   weatherVideoSettingsSchema,
   type WeatherVideoSettings,
 } from "./data-sources";
@@ -59,16 +60,22 @@ export async function getConfiguredNewsFeed(id: string, organizationId?: string)
     }
   }
 
-  if (!isBuiltIn) {
-    throw new Error("Fonte de notícias não encontrada.");
-  }
-  const fallback = getNewsFeed(id);
   const root = await readRawDataSources();
   const news = root.news;
   const saved =
     news && typeof news === "object" && !Array.isArray(news)
       ? (news as Record<string, unknown>)[id]
       : null;
+
+  if (!isBuiltIn) {
+    const parsed = newsSourceSchema.safeParse(saved);
+    if (!parsed.success || !isSafeNewsUrl(parsed.data.url)) {
+      throw new Error("Fonte de notícias não encontrada.");
+    }
+    return { id, ...parsed.data };
+  }
+
+  const fallback = getNewsFeed(id);
   if (!saved || typeof saved !== "object" || Array.isArray(saved))
     return { enabled: true, refreshMinutes: 30, ...fallback };
   const source = saved as Record<string, unknown>;
@@ -87,7 +94,18 @@ export async function getPublicNewsSources(organizationId?: string) {
   const builtIn = await Promise.all(
     Object.keys(DEFAULT_NEWS_SOURCES).map((id) => getConfiguredNewsFeed(id, organizationId)),
   );
-  if (!organizationId) return builtIn;
+  const root = await readRawDataSources();
+  const configuredNews =
+    root.news && typeof root.news === "object" && !Array.isArray(root.news)
+      ? (root.news as Record<string, unknown>)
+      : {};
+  const globalCustom = await Promise.all(
+    Object.keys(configuredNews)
+      .filter((id) => !Object.prototype.hasOwnProperty.call(DEFAULT_NEWS_SOURCES, id))
+      .map((id) => getConfiguredNewsFeed(id, organizationId).catch(() => null)),
+  );
+  const available = [...builtIn, ...globalCustom.filter((source): source is NonNullable<typeof source> => source !== null)];
+  if (!organizationId) return available;
 
   try {
     const custom = await getDb()
@@ -102,7 +120,7 @@ export async function getPublicNewsSources(organizationId?: string) {
       .from(schema.organizationNewsSources)
       .where(eq(schema.organizationNewsSources.organizationId, organizationId))
       .orderBy(asc(schema.organizationNewsSources.createdAt));
-    return [...builtIn, ...custom];
+    return [...available, ...custom];
   } catch (error) {
     console.error("[widget-news] custom source list failed", {
       organizationId,

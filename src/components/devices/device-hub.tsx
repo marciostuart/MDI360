@@ -187,7 +187,7 @@ export function DeviceHub({ deviceId }: { deviceId: string }) {
     onSuccess: refresh,
   });
   const command = useMutation({
-    mutationFn: (kind: "screenshot" | "restart" | "clear_cache") =>
+    mutationFn: (kind: "screenshot" | "restart" | "clear_cache" | "reboot") =>
       commandFn({ data: { deviceId, kind } }),
     onSuccess: () => toast.success("Comando enviado para o terminal."),
   });
@@ -372,11 +372,26 @@ export function DeviceHub({ deviceId }: { deviceId: string }) {
                 <Button variant="outline" onClick={() => command.mutate("restart")}>
                   Reiniciar aplicativo
                 </Button>
+                <Button
+                  variant="outline"
+                  onClick={() => {
+                    if (window.confirm("Reiniciar o dispositivo agora? A reprodução será interrompida.")) {
+                      command.mutate("reboot");
+                    }
+                  }}
+                >
+                  Reiniciar dispositivo
+                </Button>
                 <Button variant="outline" onClick={() => command.mutate("clear_cache")}>
                   <Eraser className="size-4" />
                   Limpar cache
                 </Button>
               </div>
+              <p className="text-sm text-muted-foreground md:col-span-2">
+                O reinício do dispositivo exige que o app esteja provisionado como proprietário do
+                aparelho (Device Owner) ou que a imagem Android tenha root. Sem esses privilégios,
+                o terminal reinicia somente o aplicativo.
+              </p>
             </CardContent>
           </Card>
         </TabsContent>

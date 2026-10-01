@@ -1,7 +1,7 @@
 import { useEffect, useState, type ReactNode } from "react";
 import { createFileRoute } from "@tanstack/react-router";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
-import { CloudSun, DatabaseZap, Loader2, Newspaper, Save, TestTube2 } from "lucide-react";
+import { CloudSun, DatabaseZap, Loader2, Newspaper, Plus, Save, TestTube2, Trash2 } from "lucide-react";
 import { toast } from "sonner";
 
 import { Button } from "@/components/ui/button";
@@ -16,6 +16,7 @@ import {
   testNewsDataSource,
 } from "@/lib/admin/data-sources.functions";
 import type { DataSourcesInput } from "@/lib/widgets/data-sources";
+import { DEFAULT_NEWS_SOURCES } from "@/lib/widgets/data-sources";
 import { WEATHER_VIDEO_CONDITIONS } from "@/lib/widgets/catalog";
 
 export const Route = createFileRoute("/torre/fontes")({
@@ -35,6 +36,12 @@ function DataSourcesPage() {
     queryFn: () => fetchDataSourcesAdmin(),
   });
   const [draft, setDraft] = useState<DataSourcesInput | null>(null);
+  const [newNewsSource, setNewNewsSource] = useState({
+    label: "",
+    url: "",
+    credit: "",
+    refreshMinutes: 30,
+  });
 
   useEffect(() => {
     if (!data) return;
@@ -109,6 +116,44 @@ function DataSourcesPage() {
           }
         : current,
     );
+
+  const addNewsSource = () => {
+    const label = newNewsSource.label.trim();
+    const url = newNewsSource.url.trim();
+    const credit = newNewsSource.credit.trim() || label;
+    if (!label || !url.startsWith("https://")) {
+      toast.error("Informe um nome e uma URL HTTPS válida para o feed RSS.");
+      return;
+    }
+    const id = `global-${crypto.randomUUID()}`;
+    setDraft((current) =>
+      current
+        ? {
+            ...current,
+            news: {
+              ...current.news,
+              [id]: {
+                enabled: true,
+                refreshMinutes: newNewsSource.refreshMinutes,
+                label,
+                url,
+                credit,
+              },
+            },
+          }
+        : current,
+    );
+    setNewNewsSource({ label: "", url: "", credit: "", refreshMinutes: 30 });
+    toast.success("Fonte RSS adicionada. Clique em Salvar fontes para publicá-la.");
+  };
+
+  const removeNewsSource = (id: string) =>
+    setDraft((current) => {
+      if (!current) return current;
+      const news = { ...current.news };
+      delete news[id];
+      return { ...current, news };
+    });
 
   return (
     <div className="space-y-6">
@@ -298,9 +343,21 @@ function DataSourcesPage() {
                   <option value={180}>3 horas</option>
                 </select>
               </Field>
-              <Button variant="outline" onClick={() => testNews.mutate(id)}>
-                Testar
-              </Button>
+              <div className="flex gap-2">
+                <Button variant="outline" onClick={() => testNews.mutate(id)}>
+                  <TestTube2 className="mr-2 size-4" />
+                  Testar
+                </Button>
+                {!Object.prototype.hasOwnProperty.call(DEFAULT_NEWS_SOURCES, id) && (
+                  <Button
+                    variant="outline"
+                    title="Remover fonte RSS"
+                    onClick={() => removeNewsSource(id)}
+                  >
+                    <Trash2 className="size-4" />
+                  </Button>
+                )}
+              </div>
               <div className="md:col-start-2 md:col-span-4">
                 <Field label="URL HTTPS do feed RSS">
                   <Input
@@ -323,6 +380,69 @@ function DataSourcesPage() {
               </div>
             </div>
           ))}
+          <div className="rounded-xl border border-dashed border-border p-4">
+            <div className="mb-4 flex items-center gap-2">
+              <Plus className="size-5" />
+              <div>
+                <p className="font-medium">Adicionar fonte RSS padrão</p>
+                <p className="text-sm text-muted-foreground">
+                  A nova fonte ficará disponível para todas as empresas, que ainda poderão escolher
+                  se desejam utilizá-la.
+                </p>
+              </div>
+            </div>
+            <div className="grid gap-4 md:grid-cols-[1fr_1.5fr_1fr_11rem_auto] md:items-end">
+              <Field label="Nome exibido">
+                <Input
+                  value={newNewsSource.label}
+                  onChange={(event) =>
+                    setNewNewsSource((current) => ({ ...current, label: event.target.value }))
+                  }
+                  placeholder="Ex.: Notícias da cidade"
+                />
+              </Field>
+              <Field label="URL HTTPS do feed RSS">
+                <Input
+                  value={newNewsSource.url}
+                  onChange={(event) =>
+                    setNewNewsSource((current) => ({ ...current, url: event.target.value }))
+                  }
+                  placeholder="https://exemplo.com/rss.xml"
+                />
+              </Field>
+              <Field label="Crédito da fonte">
+                <Input
+                  value={newNewsSource.credit}
+                  onChange={(event) =>
+                    setNewNewsSource((current) => ({ ...current, credit: event.target.value }))
+                  }
+                  placeholder="Ex.: Portal local"
+                />
+              </Field>
+              <Field label="Atualizar a cada">
+                <select
+                  className="h-10 w-full rounded-md border border-input bg-background px-3 text-sm"
+                  value={newNewsSource.refreshMinutes}
+                  onChange={(event) =>
+                    setNewNewsSource((current) => ({
+                      ...current,
+                      refreshMinutes: Number(event.target.value),
+                    }))
+                  }
+                >
+                  <option value={5}>5 minutos</option>
+                  <option value={15}>15 minutos</option>
+                  <option value={30}>30 minutos</option>
+                  <option value={60}>1 hora</option>
+                  <option value={180}>3 horas</option>
+                </select>
+              </Field>
+              <Button onClick={addNewsSource}>
+                <Plus className="mr-2 size-4" />
+                Adicionar
+              </Button>
+            </div>
+          </div>
         </CardContent>
       </Card>
 

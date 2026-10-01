@@ -57,7 +57,9 @@ export const dataSourcesInputSchema = z.object({
     token: z.string().max(500).optional().default(""),
     clearToken: z.boolean().optional().default(false),
   }),
-  news: z.record(z.string(), newsSourceSchema),
+  news: z
+    .record(z.string().trim().min(1).max(80), newsSourceSchema)
+    .refine((value) => Object.keys(value).length <= 50, "Cadastre no máximo 50 fontes RSS."),
   weatherVideos: weatherVideoSettingsSchema.default(defaultWeatherVideoSettings()),
 });
 
