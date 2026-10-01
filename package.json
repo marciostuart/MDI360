@@ -12,6 +12,7 @@
   "scripts": {
     "dev": "vite dev",
     "build": "vite build",
+    "build:native-player": "vite build --config vite.native.config.ts",
     "build:dev": "vite build --mode development",
     "preview": "vite preview",
     "lint": "eslint .",

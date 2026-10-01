@@ -1,4 +1,5 @@
-import { useEffect, useMemo, useRef, useState } from "react";
+import { useContext, useEffect, useMemo, useRef, useState } from "react";
+import { LocalWidgetData } from "./local-widget-data";
 
 import type {
   WeatherVideoCondition,
@@ -172,11 +173,12 @@ function Block({
 }
 
 function useWidgetData<T>(query: string | null, authorization?: string) {
+  const local = useContext(LocalWidgetData);
   const [data, setData] = useState<T | null>(null);
   const [failed, setFailed] = useState(false);
 
   useEffect(() => {
-    if (!query) return;
+    if (!query || local) return;
     let cancelled = false;
     const controllers = new Set<AbortController>();
     const load = async () => {
@@ -208,9 +210,9 @@ function useWidgetData<T>(query: string | null, authorization?: string) {
       for (const controller of controllers) controller.abort();
       window.clearInterval(interval);
     };
-  }, [query, authorization]);
+  }, [query, authorization, local]);
 
-  return { data, failed };
+  return local ? { data: local.payload as T | null, failed: local.payload === null } : { data, failed };
 }
 
 /* ------------------------------------------------------------------ clock */
@@ -224,12 +226,13 @@ function ClockWidget({
   theme: WidgetTheme;
   accent: string;
 }) {
-  const [now, setNow] = useState(() => new Date());
+  const localClock = useContext(LocalWidgetData)?.now;
+  const [now, setNow] = useState(() => new Date(localClock?.() ?? Date.now()));
   const layout = resolveWidgetLayout("clock", config.layout as WidgetLayout | undefined);
   useEffect(() => {
-    const interval = window.setInterval(() => setNow(new Date()), 1000);
+    const interval = window.setInterval(() => setNow(new Date(localClock?.() ?? Date.now())), 1000);
     return () => window.clearInterval(interval);
-  }, []);
+  }, [localClock]);
 
   const time = new Intl.DateTimeFormat("pt-BR", {
     timeZone: config.timezone,

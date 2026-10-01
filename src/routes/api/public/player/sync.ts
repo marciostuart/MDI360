@@ -170,6 +170,7 @@ export const Route = createFileRoute("/api/public/player/sync")({
               screenHeight: device.screenHeight,
             },
             playlist: playbackPlan.playlist,
+            preparationPending: playbackPlan.preparationPending,
             offlineSchedule: {
               fallbackPlaylist: playbackPlan.fallbackPlaylist,
               activeRule: playbackPlan.activeScheduleRule,

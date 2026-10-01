@@ -28,6 +28,11 @@ export type PlayerItem = {
   name: string;
   widgetType: string | null;
   widgetConfig: WidgetConfig | null;
+  /** Stable content identity: a transcode/replacement must invalidate old APK files. */
+  cacheKey?: string;
+  airStartAt?: string | null;
+  airEndAt?: string | null;
+  scheduleConstraints?: ScheduleRule[][];
 };
 
 export type PlayerPlaylist = {
@@ -38,6 +43,7 @@ export type PlayerPlaylist = {
 } | null;
 
 export type PlayerPlaybackPlan = {
+  preparationPending: boolean;
   playlist: PlayerPlaylist;
   fallbackPlaylist: PlayerPlaylist;
   /** Rule authorized by the latest server sync. The client may only keep this
@@ -62,8 +68,9 @@ async function resolveItems(
   path: Set<string>,
   platformWidgets: PlatformWidgetSettings,
   prefix = "",
-): Promise<{ items: PlayerItem[]; finger: string[] }> {
-  if (path.has(playlistId) || path.size >= 8) return { items: [], finger: [`cycle:${playlistId}`] };
+  constraints: ScheduleRule[][] = [],
+): Promise<{ items: PlayerItem[]; finger: string[]; pending: boolean }> {
+  if (path.has(playlistId) || path.size >= 8) return { items: [], finger: [`cycle:${playlistId}`], pending: false };
   const nextPath = new Set(path).add(playlistId);
   const rows = await getDb()
     .select({
@@ -76,6 +83,8 @@ async function resolveItems(
       kind: schema.mediaAssets.kind,
       name: schema.mediaAssets.name,
       storageKey: schema.mediaAssets.storageKey,
+      byteSize: schema.mediaAssets.byteSize,
+      checksum: schema.mediaAssets.checksum,
       sourceUrl: schema.mediaAssets.sourceUrl,
       status: schema.mediaAssets.status,
       widgetType: schema.mediaAssets.widgetType,
@@ -92,6 +101,7 @@ async function resolveItems(
 
   const items: PlayerItem[] = [];
   const finger: string[] = [];
+  let pending = false;
   for (const row of rows) {
     if (row.nestedPlaylistId) {
       const rules = row.scheduleRules as ScheduleRule[];
@@ -103,18 +113,22 @@ async function resolveItems(
         nextPath,
         platformWidgets,
         `${prefix}${row.id}:`,
+        rules?.length ? [...constraints, rules] : constraints,
       );
       items.push(...nested.items);
+      pending ||= nested.pending;
       finger.push(
         `${row.id}:nested:${row.nestedPlaylistId}:${row.nestedRevision ?? 0}`,
         ...nested.finger,
       );
       continue;
     }
+    if (row.airStartAt && row.airStartAt > now) continue;
+    if (row.airEndAt && row.airEndAt <= now) continue;
+    // Uploading also covers the server's normalization step until ready.
+    if (row.mediaAssetId && row.status === "uploading") pending = true;
     if (!row.mediaAssetId || !row.kind || !row.name || row.status !== "ready") continue;
     if (isPlatformWidgetType(row.widgetType) && !platformWidgets[row.widgetType].active) continue;
-    if (row.airStartAt && row.airStartAt > now) continue;
-    if (row.airEndAt && row.airEndAt < now) continue;
     if (row.kind === "widget") {
       const storedConfig = (row.widgetConfig as WidgetConfig | null) ?? null;
       const widgetConfig = isPlatformWidgetType(row.widgetType)
@@ -132,6 +146,9 @@ async function resolveItems(
         name: row.name,
         widgetType: row.widgetType,
         widgetConfig,
+        airStartAt: row.airStartAt?.toISOString() ?? null,
+        airEndAt: row.airEndAt?.toISOString() ?? null,
+        scheduleConstraints: constraints,
       });
       finger.push(`${row.id}:${JSON.stringify(widgetConfig)}`);
       continue;
@@ -142,6 +159,7 @@ async function resolveItems(
       try {
         url = await createDownloadUrl(row.storageKey, 6 * 3600);
       } catch {
+        pending = true;
         url = null;
       }
     }
@@ -156,10 +174,14 @@ async function resolveItems(
       name: row.name,
       widgetType: null,
       widgetConfig: null,
+      cacheKey: `${row.mediaAssetId}:${row.storageKey ?? row.sourceUrl ?? ""}:${row.checksum ?? row.byteSize ?? ""}`,
+      airStartAt: row.airStartAt?.toISOString() ?? null,
+      airEndAt: row.airEndAt?.toISOString() ?? null,
+      scheduleConstraints: constraints,
     });
     finger.push(`${row.id}:${row.storageKey ?? row.sourceUrl ?? ""}`);
   }
-  return { items, finger };
+  return { items, finger, pending };
 }
 
 /** Selects the most specific active schedule; an empty result falls back to the default playlist. */
@@ -200,6 +222,7 @@ export async function resolvePlaybackPlanForDevice(
     .from(schema.devices)
     .where(eq(schema.devices.id, deviceId))
     .limit(1);
+  const preparationByPlaylist = new Map<string, boolean>();
   const loadPlaylist = async (playlistId: string | null | undefined): Promise<PlayerPlaylist> => {
     if (!playlistId) return null;
     const playlist = (
@@ -215,6 +238,7 @@ export async function resolvePlaybackPlanForDevice(
     )[0];
     if (!playlist) return null;
     const resolved = await resolveItems(playlist.id, timezone, now, new Set(), platformWidgets);
+    preparationByPlaylist.set(playlistId, resolved.pending);
     if (!resolved.items.length) return null;
     return {
       id: playlist.id,
@@ -239,6 +263,7 @@ export async function resolvePlaybackPlanForDevice(
     if (!playlist) continue;
     return {
       playlist,
+      preparationPending: Boolean(preparationByPlaylist.get(match.playlistId) || (device[0]?.defaultPlaylistId && preparationByPlaylist.get(device[0].defaultPlaylistId))),
       fallbackPlaylist,
       activeScheduleRule: match.rule,
       preloadItems,
@@ -248,6 +273,7 @@ export async function resolvePlaybackPlanForDevice(
   }
   return {
     playlist: fallbackPlaylist,
+    preparationPending: Boolean((device[0]?.defaultPlaylistId && preparationByPlaylist.get(device[0].defaultPlaylistId)) || matches.some((candidate) => preparationByPlaylist.get(candidate.playlistId))),
     fallbackPlaylist,
     activeScheduleRule: null,
     preloadItems,
