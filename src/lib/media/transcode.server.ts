@@ -37,8 +37,10 @@ function run(args: string[], timeoutMs: number) {
 
 /**
  * Normalizes ANY uploaded video into one single standard: MP4 container,
- * H.264 High profile, yuv420p, 30 fps, AAC stereo audio, moov atom at the
- * front (faststart) and never larger than the screen preset.
+ * H.264 Main profile, yuv420p, 30 fps, AAC-LC stereo audio, moov atom at the
+ * front (faststart) and never larger than the screen preset. Main profile is
+ * intentionally used instead of High: older Android TV Box decoders can
+ * accept the former reliably while failing after a few seconds on the latter.
  *
  * This is what makes playback predictable on Roku/Android TV: the player only
  * ever receives one codec/container combination, so no device-specific
@@ -74,9 +76,15 @@ export async function transcodeVideoToStandardMp4(
         "-c:v",
         "libx264",
         "-profile:v",
-        "high",
+        "main",
         "-level",
         "4.0",
+        "-tune",
+        "fastdecode",
+        "-refs",
+        "3",
+        "-bf",
+        "2",
         "-preset",
         "veryfast",
         "-crf",
@@ -98,7 +106,7 @@ export async function transcodeVideoToStandardMp4(
         "-ac",
         "2",
         "-ar",
-        "48000",
+        "44100",
         "-movflags",
         "+faststart",
         "-f",
