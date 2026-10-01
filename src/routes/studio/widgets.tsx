@@ -25,7 +25,9 @@ function WidgetsPage() {
   return (
     <div className="space-y-8">
       <WidgetsManager />
-      <OrganizationNewsSources />
+      <section className="border-t border-border pt-8">
+        <OrganizationNewsSources />
+      </section>
     </div>
   );
-}
+}

@@ -16,28 +16,38 @@ export async function readRawDataSources() {
 }
 
 export async function getConfiguredNewsFeed(id: string, organizationId?: string) {
+  const isBuiltIn = NEWS_FEED_IDS.includes(id as (typeof NEWS_FEED_IDS)[number]);
   if (organizationId) {
-    const [custom] = await getDb()
-      .select({
-        id: schema.organizationNewsSources.id,
-        label: schema.organizationNewsSources.label,
-        url: schema.organizationNewsSources.url,
-        credit: schema.organizationNewsSources.credit,
-        enabled: schema.organizationNewsSources.enabled,
-        refreshMinutes: schema.organizationNewsSources.refreshMinutes,
-      })
-      .from(schema.organizationNewsSources)
-      .where(
-        and(
-          eq(schema.organizationNewsSources.id, id),
-          eq(schema.organizationNewsSources.organizationId, organizationId),
-        ),
-      )
-      .limit(1);
-    if (custom) return custom;
+    try {
+      const [custom] = await getDb()
+        .select({
+          id: schema.organizationNewsSources.id,
+          label: schema.organizationNewsSources.label,
+          url: schema.organizationNewsSources.url,
+          credit: schema.organizationNewsSources.credit,
+          enabled: schema.organizationNewsSources.enabled,
+          refreshMinutes: schema.organizationNewsSources.refreshMinutes,
+        })
+        .from(schema.organizationNewsSources)
+        .where(
+          and(
+            eq(schema.organizationNewsSources.id, id),
+            eq(schema.organizationNewsSources.organizationId, organizationId),
+          ),
+        )
+        .limit(1);
+      if (custom) return custom;
+    } catch (error) {
+      console.error("[widget-news] custom source lookup failed", {
+        organizationId,
+        feedId: id,
+        error: error instanceof Error ? error.message : String(error),
+      });
+      if (!isBuiltIn) throw error;
+    }
   }
 
-  if (!NEWS_FEED_IDS.includes(id as (typeof NEWS_FEED_IDS)[number])) {
+  if (!isBuiltIn) {
     throw new Error("Fonte de notícias não encontrada.");
   }
   const fallback = getNewsFeed(id);
@@ -67,17 +77,25 @@ export async function getPublicNewsSources(organizationId?: string) {
   );
   if (!organizationId) return builtIn;
 
-  const custom = await getDb()
-    .select({
-      id: schema.organizationNewsSources.id,
-      label: schema.organizationNewsSources.label,
-      url: schema.organizationNewsSources.url,
-      credit: schema.organizationNewsSources.credit,
-      enabled: schema.organizationNewsSources.enabled,
-      refreshMinutes: schema.organizationNewsSources.refreshMinutes,
-    })
-    .from(schema.organizationNewsSources)
-    .where(eq(schema.organizationNewsSources.organizationId, organizationId))
-    .orderBy(asc(schema.organizationNewsSources.createdAt));
-  return [...builtIn, ...custom];
+  try {
+    const custom = await getDb()
+      .select({
+        id: schema.organizationNewsSources.id,
+        label: schema.organizationNewsSources.label,
+        url: schema.organizationNewsSources.url,
+        credit: schema.organizationNewsSources.credit,
+        enabled: schema.organizationNewsSources.enabled,
+        refreshMinutes: schema.organizationNewsSources.refreshMinutes,
+      })
+      .from(schema.organizationNewsSources)
+      .where(eq(schema.organizationNewsSources.organizationId, organizationId))
+      .orderBy(asc(schema.organizationNewsSources.createdAt));
+    return [...builtIn, ...custom];
+  } catch (error) {
+    console.error("[widget-news] custom source list failed", {
+      organizationId,
+      error: error instanceof Error ? error.message : String(error),
+    });
+    return builtIn;
+  }
 }

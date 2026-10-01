@@ -125,8 +125,7 @@ export function PlatformWidgetPreferences({
   const publicNews = sources.data?.news?.length ? sources.data.news : NEWS_FEEDS;
   const builtInIds = new Set(NEWS_FEEDS.map((source) => source.id));
   const allowedNews = publicNews.filter(
-    (source) =>
-      !builtInIds.has(source.id) || availability.data.newsFeedIds.includes(source.id),
+    (source) => !builtInIds.has(source.id) || availability.data.newsFeedIds.includes(source.id),
   );
 
   return (
@@ -226,56 +225,23 @@ export function PlatformWidgetPreferences({
                 </SelectContent>
               </Select>
               <p className="text-xs text-muted-foreground">
-                Fontes RSS próprias cadastradas em “Fontes RSS da empresa” aparecem aqui junto
-                com as fontes padrão liberadas.
+                Fontes RSS próprias cadastradas em “Fontes RSS da empresa” aparecem aqui junto com
+                as fontes padrão liberadas.
               </p>
             </div>
 
-            <div className="grid gap-4 sm:grid-cols-2">
-              <div className="space-y-2">
-                <Label htmlFor="managed-news-headlines">Manchetes por exibição</Label>
-                <Input
-                  id="managed-news-headlines"
-                  type="number"
-                  min={1}
-                  max={10}
-                  value={newsSettings.headlines}
-                  onChange={(event) =>
-                    setNewsSettings((current) => ({
-                      ...current,
-                      headlines: Math.min(10, Math.max(1, Number(event.target.value) || 1)),
-                    }))
-                  }
-                />
-              </div>
-              <div className="space-y-2">
-                <Label>Tempo de cada notícia: {newsSettings.rotateSeconds}s</Label>
-                <Slider
-                  min={3}
-                  max={30}
-                  step={1}
-                  value={[newsSettings.rotateSeconds]}
-                  onValueChange={([value]) =>
-                    setNewsSettings((current) => ({
-                      ...current,
-                      rotateSeconds: value ?? 7,
-                    }))
-                  }
-                />
-              </div>
-            </div>
-
             <div className="space-y-4 rounded-lg border border-border p-4">
-              <label className="flex items-center gap-2 text-sm">
-                <Switch
-                  checked={newsSettings.oneAtATime}
-                  onCheckedChange={(checked) =>
-                    setNewsSettings((current) => ({ ...current, oneAtATime: checked }))
-                  }
-                />
-                Uma notícia por vez
-              </label>
+              <p className="text-sm font-medium">Como a notícia aparece</p>
               <div className="flex flex-wrap gap-6">
+                <label className="flex items-center gap-2 text-sm">
+                  <Switch
+                    checked={newsSettings.oneAtATime}
+                    onCheckedChange={(checked) =>
+                      setNewsSettings((current) => ({ ...current, oneAtATime: checked }))
+                    }
+                  />
+                  Uma notícia por vez
+                </label>
                 <label className="flex items-center gap-2 text-sm">
                   <Switch
                     checked={newsSettings.showSummary}
@@ -295,24 +261,68 @@ export function PlatformWidgetPreferences({
                   Usar imagem como fundo
                 </label>
               </div>
-              {newsSettings.showSummary ? (
-                <div className="space-y-2">
-                  <Label>Tamanho máximo do resumo: {newsSettings.summaryMaxChars} caracteres</Label>
-                  <Slider
-                    min={60}
-                    max={600}
-                    step={20}
-                    value={[newsSettings.summaryMaxChars]}
-                    onValueChange={([value]) =>
-                      setNewsSettings((current) => ({
-                        ...current,
-                        summaryMaxChars: value ?? 240,
-                      }))
-                    }
-                  />
-                </div>
-              ) : null}
             </div>
+
+            <details className="rounded-lg border border-border p-4">
+              <summary className="cursor-pointer text-sm font-medium">
+                Ajustes avançados de rotação e resumo
+              </summary>
+              <div className="mt-4 space-y-4">
+                <div className="grid gap-4 sm:grid-cols-2">
+                  <div className="space-y-2">
+                    <Label htmlFor="managed-news-headlines">Manchetes por exibição</Label>
+                    <Input
+                      id="managed-news-headlines"
+                      type="number"
+                      min={1}
+                      max={10}
+                      value={newsSettings.headlines}
+                      onChange={(event) =>
+                        setNewsSettings((current) => ({
+                          ...current,
+                          headlines: Math.min(10, Math.max(1, Number(event.target.value) || 1)),
+                        }))
+                      }
+                    />
+                  </div>
+                  <div className="space-y-2">
+                    <Label>Tempo de cada notícia: {newsSettings.rotateSeconds}s</Label>
+                    <Slider
+                      min={3}
+                      max={30}
+                      step={1}
+                      value={[newsSettings.rotateSeconds]}
+                      onValueChange={([value]) =>
+                        setNewsSettings((current) => ({
+                          ...current,
+                          rotateSeconds: value ?? 7,
+                        }))
+                      }
+                    />
+                  </div>
+                </div>
+
+                {newsSettings.showSummary ? (
+                  <div className="space-y-2">
+                    <Label>
+                      Tamanho máximo do resumo: {newsSettings.summaryMaxChars} caracteres
+                    </Label>
+                    <Slider
+                      min={60}
+                      max={600}
+                      step={20}
+                      value={[newsSettings.summaryMaxChars]}
+                      onValueChange={([value]) =>
+                        setNewsSettings((current) => ({
+                          ...current,
+                          summaryMaxChars: value ?? 240,
+                        }))
+                      }
+                    />
+                  </div>
+                ) : null}
+              </div>
+            </details>
           </div>
         ) : null}
 
@@ -335,4 +345,4 @@ export function PlatformWidgetPreferences({
       </CardContent>
     </Card>
   );
-}
+}

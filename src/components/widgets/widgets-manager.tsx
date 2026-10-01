@@ -1,6 +1,15 @@
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { useServerFn } from "@tanstack/react-start";
-import { Gauge, Loader2, Pencil, Trash2 } from "lucide-react";
+import {
+  CloudSun,
+  Gauge,
+  Loader2,
+  Newspaper,
+  Pencil,
+  Trophy,
+  Trash2,
+  WalletCards,
+} from "lucide-react";
 import { useRef, useState } from "react";
 import { toast } from "sonner";
 
@@ -10,7 +19,6 @@ import { WidgetComposer, type WidgetDraft } from "@/components/widgets/widget-co
 import { PlatformWidgetPreferences } from "@/components/widgets/platform-widget-preferences";
 import { WidgetView } from "@/components/widgets/widget-view";
 import { deleteMediaAsset, listMediaAssets, type MediaListItem } from "@/lib/media/media.functions";
-import { getWidgetDefinition } from "@/lib/widgets/catalog";
 
 /** Página exclusiva para criar, personalizar e remover widgets de informação. */
 export function WidgetsManager() {
@@ -36,122 +44,172 @@ export function WidgetsManager() {
   const widgets = (library.data?.items ?? []).filter(
     (item) => item.kind === "widget" && Boolean(item.widgetConfig),
   );
+  const localWidgets = widgets.filter((item) => !item.platformManaged);
+  const managedWidgets = widgets.filter((item) => item.platformManaged);
+
+  const widgetInfo = {
+    clock: { icon: Gauge, label: "Relógio e data" },
+    weather: { icon: CloudSun, label: "Clima" },
+    currency: { icon: WalletCards, label: "Cotações" },
+    news: { icon: Newspaper, label: "Notícias" },
+    lottery: { icon: Trophy, label: "Loterias CAIXA" },
+  } as const;
+
+  function openLocalEditor(item: MediaListItem) {
+    setManagedWidget(null);
+    setEditingWidget({ assetId: item.id, name: item.name, config: item.widgetConfig! });
+    composerRef.current?.scrollIntoView({ behavior: "smooth", block: "start" });
+  }
+
+  function openManagedEditor(item: MediaListItem) {
+    setEditingWidget(null);
+    setManagedWidget(item);
+    window.setTimeout(
+      () => preferencesRef.current?.scrollIntoView({ behavior: "smooth", block: "start" }),
+      0,
+    );
+  }
+
+  function renderCard(item: MediaListItem) {
+    const type = (item.widgetType ?? "clock") as keyof typeof widgetInfo;
+    const info = widgetInfo[type] ?? widgetInfo.clock;
+    const Icon = info.icon;
+    return (
+      <div key={item.id} className="overflow-hidden rounded-xl border border-border bg-card">
+        <div className="relative aspect-video w-full overflow-hidden bg-muted">
+          <WidgetView config={item.widgetConfig!} />
+        </div>
+        <div className="space-y-3 p-4">
+          <div className="flex items-start justify-between gap-3">
+            <div className="min-w-0">
+              <p className="flex items-center gap-2 truncate text-sm font-medium">
+                <Icon className="size-4 shrink-0 text-muted-foreground" />
+                {item.name}
+              </p>
+              <p className="mt-1 text-xs text-muted-foreground">{info.label}</p>
+            </div>
+            <Badge variant={item.platformManaged ? "secondary" : "outline"}>
+              {item.platformManaged ? "Disponível" : "Da empresa"}
+            </Badge>
+          </div>
+          {item.platformManaged ? (
+            <Button className="w-full" variant="outline" onClick={() => openManagedEditor(item)}>
+              <Pencil className="size-4" />
+              Configurar
+            </Button>
+          ) : (
+            <div className="flex gap-2">
+              <Button className="flex-1" variant="outline" onClick={() => openLocalEditor(item)}>
+                <Pencil className="size-4" />
+                Editar
+              </Button>
+              <Button
+                variant="ghost"
+                size="icon"
+                className="text-destructive"
+                onClick={() => removeMutation.mutate(item.id)}
+                disabled={removeMutation.isPending}
+                aria-label={`Remover ${item.name}`}
+              >
+                <Trash2 className="size-4" />
+              </Button>
+            </div>
+          )}
+        </div>
+      </div>
+    );
+  }
 
   return (
-    <div className="space-y-6">
-      <div>
+    <div className="space-y-8">
+      <div className="space-y-3">
+        <Badge variant="outline">Personalização da empresa</Badge>
         <h1 className="text-3xl font-semibold">Widgets</h1>
-        <p className="mt-2 max-w-2xl text-sm text-muted-foreground">
-          Crie relógios e widgets de clima. Cotações, notícias e resultados das loterias são
-          administrados pela plataforma e aparecem aqui somente quando estiverem ativos.
+        <p className="max-w-3xl text-sm leading-6 text-muted-foreground">
+          Escolha o que aparece nas suas telas. Crie um widget ou abra um recurso disponível e
+          ajuste somente o que importa para o seu público.
         </p>
       </div>
 
-      <div ref={composerRef}>
+      <div className="grid gap-3 md:grid-cols-3">
+        {[
+          ["1", "Escolha", "Selecione um widget próprio ou um recurso liberado."],
+          ["2", "Configure", "Ajuste fonte, formato e conteúdo em linguagem simples."],
+          ["3", "Publique", "Salve e a mudança chega às telas na próxima sincronização."],
+        ].map(([number, title, text]) => (
+          <div key={number} className="rounded-xl border border-border bg-card/60 p-4">
+            <div className="flex items-start gap-3">
+              <span className="grid size-7 shrink-0 place-items-center rounded-full bg-primary text-sm font-semibold text-primary-foreground">
+                {number}
+              </span>
+              <div>
+                <p className="font-medium">{title}</p>
+                <p className="mt-1 text-xs leading-5 text-muted-foreground">{text}</p>
+              </div>
+            </div>
+          </div>
+        ))}
+      </div>
+
+      <section ref={composerRef} className="space-y-3">
+        <div className="flex flex-wrap items-end justify-between gap-3">
+          <div>
+            <h2 className="text-xl font-semibold">Widgets da empresa</h2>
+            <p className="mt-1 text-sm text-muted-foreground">
+              Relógio e clima podem ser criados e editados livremente pela sua equipe.
+            </p>
+          </div>
+          <Button variant="outline" onClick={() => setEditingWidget(null)}>
+            <Plus className="size-4" />
+            Novo widget
+          </Button>
+        </div>
         <WidgetComposer
           editing={editingWidget}
           allowedTypes={["clock", "weather"]}
           onCancelEditing={() => setEditingWidget(null)}
         />
-      </div>
-
-      {managedWidget ? (
-        <div ref={preferencesRef}>
-          <PlatformWidgetPreferences item={managedWidget} onClose={() => setManagedWidget(null)} />
-        </div>
-      ) : null}
-
-      <div className="space-y-3">
-        <h2 className="text-lg font-semibold">Widgets disponíveis</h2>
         {library.isPending ? (
           <div className="grid place-items-center py-10">
             <Loader2 className="size-5 animate-spin text-muted-foreground" />
           </div>
-        ) : widgets.length === 0 ? (
-          <p className="text-sm text-muted-foreground">
-            Nenhum widget criado ainda. Use o painel acima para criar o primeiro.
-          </p>
-        ) : (
+        ) : localWidgets.length ? (
           <div className="grid gap-4 sm:grid-cols-2 xl:grid-cols-3">
-            {widgets.map((item) => (
-              <div key={item.id} className="overflow-hidden rounded-xl border border-border">
-                <div className="relative aspect-video w-full overflow-hidden bg-muted">
-                  <WidgetView config={item.widgetConfig!} />
-                </div>
-                <div className="flex items-start justify-between gap-2 p-3">
-                  <div className="min-w-0 space-y-1.5">
-                    <p className="flex items-center gap-2 truncate text-sm font-medium">
-                      <Gauge className="size-4 shrink-0 text-muted-foreground" />
-                      {item.name}
-                    </p>
-                    <Badge variant="secondary">
-                      {getWidgetDefinition(item.widgetType ?? "clock").label}
-                    </Badge>
-                    {item.platformManaged ? (
-                      <Badge variant="outline">Administrado pela plataforma</Badge>
-                    ) : null}
-                  </div>
-                  {!item.platformManaged ? (
-                    <div className="flex shrink-0 items-center gap-1">
-                      <Button
-                        variant="ghost"
-                        size="icon"
-                        className="size-8 text-muted-foreground"
-                        onClick={() => {
-                          setManagedWidget(null);
-                          setEditingWidget({
-                            assetId: item.id,
-                            name: item.name,
-                            config: item.widgetConfig!,
-                          });
-                          composerRef.current?.scrollIntoView({
-                            behavior: "smooth",
-                            block: "start",
-                          });
-                        }}
-                        aria-label={`Personalizar ${item.name}`}
-                      >
-                        <Pencil className="size-4" />
-                      </Button>
-                      <Button
-                        variant="ghost"
-                        size="icon"
-                        className="size-8 text-muted-foreground"
-                        onClick={() => removeMutation.mutate(item.id)}
-                        disabled={removeMutation.isPending}
-                        aria-label={`Remover ${item.name}`}
-                      >
-                        <Trash2 className="size-4" />
-                      </Button>
-                    </div>
-                  ) : (
-                    <Button
-                      variant="ghost"
-                      size="icon"
-                      className="size-8 text-muted-foreground"
-                      onClick={() => {
-                        setEditingWidget(null);
-                        setManagedWidget(item);
-                        window.setTimeout(
-                          () =>
-                            preferencesRef.current?.scrollIntoView({
-                              behavior: "smooth",
-                              block: "start",
-                            }),
-                          0,
-                        );
-                      }}
-                      aria-label={`Selecionar conteúdo de ${item.name}`}
-                    >
-                      <Pencil className="size-4" />
-                    </Button>
-                  )}
-                </div>
-              </div>
-            ))}
+            {localWidgets.map(renderCard)}
+          </div>
+        ) : (
+          <div className="rounded-xl border border-dashed border-border p-6 text-sm text-muted-foreground">
+            Ainda não há widgets próprios. Crie um relógio ou um clima acima.
           </div>
         )}
-      </div>
+      </section>
+
+      <section className="space-y-3">
+        <div>
+          <h2 className="text-xl font-semibold">Recursos disponíveis</h2>
+          <p className="mt-1 text-sm text-muted-foreground">
+            Notícias, loterias e cotações são mantidos pela plataforma, mas a escolha do conteúdo é
+            sua.
+          </p>
+        </div>
+        {managedWidget ? (
+          <div ref={preferencesRef}>
+            <PlatformWidgetPreferences
+              item={managedWidget}
+              onClose={() => setManagedWidget(null)}
+            />
+          </div>
+        ) : null}
+        {managedWidgets.length ? (
+          <div className="grid gap-4 sm:grid-cols-2 xl:grid-cols-3">
+            {managedWidgets.map(renderCard)}
+          </div>
+        ) : (
+          <div className="rounded-xl border border-dashed border-border p-6 text-sm text-muted-foreground">
+            Nenhum recurso foi liberado para esta empresa no momento.
+          </div>
+        )}
+      </section>
     </div>
   );
 }

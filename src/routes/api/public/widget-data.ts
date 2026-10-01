@@ -74,25 +74,38 @@ const newsCacheState = globalThis as typeof globalThis & {
 };
 const newsCache = (newsCacheState.__mdiNewsCache ??= new Map());
 
-/** Pulls title, summary and (when present) the item image out of an RSS feed. */
+/** Pulls title, summary and (when present) the item image out of RSS or Atom. */
 function parseRssItems(xml: string, limit: number): NewsItem[] {
-  const blocks = xml.split(/<item[\s>]/i).slice(1);
+  const blocks = xml.match(/<(?:item|entry)\b[\s\S]*?<\/(?:item|entry)>/gi) ?? [];
   const items: NewsItem[] = [];
   for (const block of blocks) {
-    const title = decodeEntities(block.match(/<title[^>]*>([\s\S]*?)<\/title>/i)?.[1] ?? "");
+    const readTag = (...names: string[]) => {
+      for (const name of names) {
+        const value = block.match(
+          new RegExp(`<${name}(?:\\s[^>]*)?>([\\s\\S]*?)<\\/${name}>`, "i"),
+        )?.[1];
+        if (value) return value;
+      }
+      return "";
+    };
+    const title = decodeEntities(readTag("title"));
     if (!title) continue;
-    const summary = decodeEntities(
-      block.match(/<description[^>]*>([\s\S]*?)<\/description>/i)?.[1] ?? "",
-    ).slice(0, 600);
+    const rawSummary = readTag("description", "content:encoded", "summary", "subtitle");
+    const summary = decodeEntities(rawSummary).slice(0, 600);
+    const imageAttribute = block.match(
+      /<(?:media:content|media:thumbnail|enclosure)\b[^>]*\burl\s*=\s*(["'])(.*?)\1/i,
+    )?.[2];
+    const imageInHtml = rawSummary.match(
+      /(?:<img|&lt;img)\b[^>]*\bsrc\s*=\s*(?:["']|&quot;)([^"'&]+)(?:["']|&quot;)/i,
+    )?.[1];
     const image =
-      block.match(/<media:content[^>]+url="([^"]+)"/i)?.[1] ??
-      block.match(/<media:thumbnail[^>]+url="([^"]+)"/i)?.[1] ??
-      block.match(/<enclosure[^>]+url="([^"]+)"[^>]*type="image/i)?.[1] ??
-      block.match(/<img[^>]+src=(?:"|&quot;)([^"&]+)/i)?.[1] ??
+      imageAttribute ??
+      imageInHtml ??
+      block.match(
+        /<link\b[^>]*\brel\s*=\s*(["'])enclosure\1[^>]*\bhref\s*=\s*(["'])(.*?)\2/i,
+      )?.[3] ??
       null;
-    const publishedAt = decodeEntities(
-      block.match(/<pubDate[^>]*>([\s\S]*?)<\/pubDate>/i)?.[1] ?? "",
-    );
+    const publishedAt = decodeEntities(readTag("pubDate", "published", "updated"));
     items.push({
       title,
       summary,
@@ -357,10 +370,17 @@ export const Route = createFileRoute("/api/public/widget-data")({
           const maxAge = Math.max(300, feed.refreshMinutes * 60);
           return Response.json(payload, {
             headers: {
-              "cache-control": `public, max-age=${maxAge}, stale-while-revalidate=${maxAge}`,
+              "cache-control": organizationId
+                ? `private, max-age=${maxAge}, stale-while-revalidate=${maxAge}`
+                : `public, max-age=${maxAge}, stale-while-revalidate=${maxAge}`,
             },
           });
-        } catch {
+        } catch (error) {
+          console.error("[widget-data] request failed", {
+            type: parsed.data.type,
+            feedId: parsed.data.type === "news" ? parsed.data.feedId : undefined,
+            error: error instanceof Error ? error.message : String(error),
+          });
           return Response.json({ error: "Fonte indisponível no momento." }, { status: 502 });
         }
       },
