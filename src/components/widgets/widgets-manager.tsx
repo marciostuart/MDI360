@@ -6,6 +6,7 @@ import {
   Loader2,
   Newspaper,
   Pencil,
+  Plus,
   Trophy,
   Trash2,
   WalletCards,
