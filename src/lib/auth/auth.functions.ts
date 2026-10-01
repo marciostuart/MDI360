@@ -4,6 +4,7 @@ import { z } from "zod";
 const credentialsSchema = z.object({
   email: z.string().trim().toLowerCase().email("Informe um e-mail válido").max(254),
   password: z.string().min(8, "A senha precisa de ao menos 8 caracteres").max(200),
+  turnstileToken: z.string().max(2048).optional(),
 });
 
 const signUpSchema = credentialsSchema.extend({
@@ -37,12 +38,21 @@ export const fetchCurrentUser = createServerFn({ method: "GET" }).handler(async 
  */
 export const fetchSetupState = createServerFn({ method: "GET" }).handler(async () => {
   const { isDatabaseConfigured } = await import("@/lib/db/index.server");
-  return { databaseReady: isDatabaseConfigured() };
+  const { getTurnstileConfig } = await import("@/lib/auth/turnstile.server");
+  const turnstile = getTurnstileConfig();
+  return {
+    databaseReady: isDatabaseConfigured(),
+    turnstileSiteKey: turnstile.enabled ? turnstile.siteKey : null,
+  };
 });
 
 export const signUp = createServerFn({ method: "POST" })
   .inputValidator((input: unknown) => signUpSchema.parse(input))
   .handler(async ({ data }): Promise<AuthResult> => {
+    const { verifyTurnstileToken } = await import("@/lib/auth/turnstile.server");
+    if (!(await verifyTurnstileToken(data.turnstileToken, "signup"))) {
+      return { ok: false, message: "Confirme a verificação de segurança." };
+    }
     const { getDb, schema, isDatabaseConfigured } = await import("@/lib/db/index.server");
     if (!isDatabaseConfigured()) {
       return { ok: false, message: "Banco de dados ainda não configurado." };
@@ -135,6 +145,10 @@ export const signUp = createServerFn({ method: "POST" })
 export const signIn = createServerFn({ method: "POST" })
   .inputValidator((input: unknown) => credentialsSchema.parse(input))
   .handler(async ({ data }): Promise<AuthResult> => {
+    const { verifyTurnstileToken } = await import("@/lib/auth/turnstile.server");
+    if (!(await verifyTurnstileToken(data.turnstileToken, "login"))) {
+      return { ok: false, message: "Confirme a verificação de segurança." };
+    }
     const { getDb, schema, isDatabaseConfigured } = await import("@/lib/db/index.server");
     if (!isDatabaseConfigured()) {
       return { ok: false, message: "Banco de dados ainda não configurado." };

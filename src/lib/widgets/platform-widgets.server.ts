@@ -102,15 +102,19 @@ export function mergePlatformWidgetConfig(
   if (type === "news" && desired.config.type === "news") {
     const available =
       "availableNewsFeedIds" in desired ? desired.availableNewsFeedIds : [...NEWS_FEED_IDS];
-    const feedId =
-      local.success && local.data.type === "news" && available.includes(local.data.feedId)
-        ? local.data.feedId
-        : desired.config.feedId;
-    return { ...desired.config, feedId };
+    const localNews = local.success && local.data.type === "news" ? local.data : null;
+    const keepLocalFeed =
+      Boolean(localNews) &&
+      (!NEWS_FEED_IDS.includes(localNews.feedId as (typeof NEWS_FEED_IDS)[number]) ||
+        available.includes(localNews.feedId as (typeof NEWS_FEED_IDS)[number]));
+    return {
+      ...desired.config,
+      ...(localNews && keepLocalFeed ? localNews : {}),
+      feedId: localNews && keepLocalFeed ? localNews.feedId : desired.config.feedId,
+    };
   }
   return desired.config;
 }
-
 export async function readPlatformWidgetSettings(): Promise<PlatformWidgetSettings> {
   const [row] = await getDb()
     .select({ value: schema.platformSettings.value })

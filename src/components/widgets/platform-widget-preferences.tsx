@@ -6,7 +6,10 @@ import { toast } from "sonner";
 
 import { Button } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
+import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
+import { Slider } from "@/components/ui/slider";
+import { Switch } from "@/components/ui/switch";
 import {
   Select,
   SelectContent,
@@ -21,6 +24,20 @@ import {
   fetchPlatformWidgetAvailability,
   savePlatformWidgetPreferences,
 } from "@/lib/widgets/platform-widget-preferences.functions";
+
+type NewsConfig = Extract<WidgetConfig, { type: "news" }>;
+
+const defaultNewsSettings = {
+  headlines: 5,
+  oneAtATime: true,
+  rotateSeconds: 7,
+  showSummary: true,
+  summaryMaxChars: 240,
+  showImage: true,
+} satisfies Pick<
+  NewsConfig,
+  "headlines" | "oneAtATime" | "rotateSeconds" | "showSummary" | "summaryMaxChars" | "showImage"
+>;
 
 export function PlatformWidgetPreferences({
   item,
@@ -45,13 +62,24 @@ export function PlatformWidgetPreferences({
   });
   const [pairs, setPairs] = useState<Extract<WidgetConfig, { type: "currency" }>["pairs"]>([]);
   const [gameIds, setGameIds] = useState<Extract<WidgetConfig, { type: "lottery" }>["gameIds"]>([]);
-  const [feedId, setFeedId] = useState<Extract<WidgetConfig, { type: "news" }>["feedId"] | "">("");
+  const [feedId, setFeedId] = useState("");
+  const [newsSettings, setNewsSettings] = useState(defaultNewsSettings);
 
   useEffect(() => {
     const config = item.widgetConfig;
     if (config?.type === "currency") setPairs(config.pairs);
     if (config?.type === "lottery") setGameIds(config.gameIds);
-    if (config?.type === "news") setFeedId(config.feedId);
+    if (config?.type === "news") {
+      setFeedId(config.feedId);
+      setNewsSettings({
+        headlines: config.headlines,
+        oneAtATime: config.oneAtATime,
+        rotateSeconds: config.rotateSeconds,
+        showSummary: config.showSummary,
+        summaryMaxChars: config.summaryMaxChars,
+        showImage: config.showImage,
+      });
+    }
   }, [item]);
 
   const save = useMutation({
@@ -64,7 +92,14 @@ export function PlatformWidgetPreferences({
       }
       if (item.widgetType === "news") {
         if (!feedId) throw new Error("Selecione uma fonte de notícias.");
-        return saveFn({ data: { type: "news", assetId: item.id, feedId } });
+        return saveFn({
+          data: {
+            type: "news",
+            assetId: item.id,
+            feedId,
+            ...newsSettings,
+          },
+        });
       }
       throw new Error("Widget inválido.");
     },
@@ -88,8 +123,10 @@ export function PlatformWidgetPreferences({
   }
 
   const publicNews = sources.data?.news?.length ? sources.data.news : NEWS_FEEDS;
-  const allowedNews = publicNews.filter((source) =>
-    availability.data.newsFeedIds.includes(source.id),
+  const builtInIds = new Set(NEWS_FEEDS.map((source) => source.id));
+  const allowedNews = publicNews.filter(
+    (source) =>
+      !builtInIds.has(source.id) || availability.data.newsFeedIds.includes(source.id),
   );
 
   return (
@@ -97,10 +134,10 @@ export function PlatformWidgetPreferences({
       <CardContent className="space-y-4 pt-6">
         <div className="flex items-start justify-between gap-3">
           <div>
-            <h2 className="font-display text-lg font-semibold">Conteúdo de {item.name}</h2>
+            <h2 className="font-display text-lg font-semibold">Personalizar {item.name}</h2>
             <p className="text-sm text-muted-foreground">
-              Escolha o que faz sentido para seu negócio. Aparência e fontes disponíveis são
-              administradas pela plataforma.
+              Escolha as fontes e o formato mais adequado para o seu público. A Torre controla
+              apenas os recursos liberados para a plataforma.
             </p>
           </div>
           <Button type="button" size="icon" variant="ghost" onClick={onClose}>
@@ -173,25 +210,109 @@ export function PlatformWidgetPreferences({
         ) : null}
 
         {item.widgetType === "news" ? (
-          <div className="max-w-xl space-y-2">
-            <Label>Fonte de notícias</Label>
-            <Select
-              value={feedId}
-              onValueChange={(value) =>
-                setFeedId(value as Extract<WidgetConfig, { type: "news" }>["feedId"])
-              }
-            >
-              <SelectTrigger>
-                <SelectValue placeholder="Selecione a fonte" />
-              </SelectTrigger>
-              <SelectContent>
-                {allowedNews.map((source) => (
-                  <SelectItem key={source.id} value={source.id}>
-                    {source.label}
-                  </SelectItem>
-                ))}
-              </SelectContent>
-            </Select>
+          <div className="max-w-2xl space-y-4">
+            <div className="space-y-2">
+              <Label>Fonte de notícias</Label>
+              <Select value={feedId} onValueChange={setFeedId}>
+                <SelectTrigger>
+                  <SelectValue placeholder="Selecione a fonte" />
+                </SelectTrigger>
+                <SelectContent>
+                  {allowedNews.map((source) => (
+                    <SelectItem key={source.id} value={source.id}>
+                      {source.label}
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+              <p className="text-xs text-muted-foreground">
+                Fontes RSS próprias cadastradas em “Fontes RSS da empresa” aparecem aqui junto
+                com as fontes padrão liberadas.
+              </p>
+            </div>
+
+            <div className="grid gap-4 sm:grid-cols-2">
+              <div className="space-y-2">
+                <Label htmlFor="managed-news-headlines">Manchetes por exibição</Label>
+                <Input
+                  id="managed-news-headlines"
+                  type="number"
+                  min={1}
+                  max={10}
+                  value={newsSettings.headlines}
+                  onChange={(event) =>
+                    setNewsSettings((current) => ({
+                      ...current,
+                      headlines: Math.min(10, Math.max(1, Number(event.target.value) || 1)),
+                    }))
+                  }
+                />
+              </div>
+              <div className="space-y-2">
+                <Label>Tempo de cada notícia: {newsSettings.rotateSeconds}s</Label>
+                <Slider
+                  min={3}
+                  max={30}
+                  step={1}
+                  value={[newsSettings.rotateSeconds]}
+                  onValueChange={([value]) =>
+                    setNewsSettings((current) => ({
+                      ...current,
+                      rotateSeconds: value ?? 7,
+                    }))
+                  }
+                />
+              </div>
+            </div>
+
+            <div className="space-y-4 rounded-lg border border-border p-4">
+              <label className="flex items-center gap-2 text-sm">
+                <Switch
+                  checked={newsSettings.oneAtATime}
+                  onCheckedChange={(checked) =>
+                    setNewsSettings((current) => ({ ...current, oneAtATime: checked }))
+                  }
+                />
+                Uma notícia por vez
+              </label>
+              <div className="flex flex-wrap gap-6">
+                <label className="flex items-center gap-2 text-sm">
+                  <Switch
+                    checked={newsSettings.showSummary}
+                    onCheckedChange={(checked) =>
+                      setNewsSettings((current) => ({ ...current, showSummary: checked }))
+                    }
+                  />
+                  Mostrar resumo
+                </label>
+                <label className="flex items-center gap-2 text-sm">
+                  <Switch
+                    checked={newsSettings.showImage}
+                    onCheckedChange={(checked) =>
+                      setNewsSettings((current) => ({ ...current, showImage: checked }))
+                    }
+                  />
+                  Usar imagem como fundo
+                </label>
+              </div>
+              {newsSettings.showSummary ? (
+                <div className="space-y-2">
+                  <Label>Tamanho máximo do resumo: {newsSettings.summaryMaxChars} caracteres</Label>
+                  <Slider
+                    min={60}
+                    max={600}
+                    step={20}
+                    value={[newsSettings.summaryMaxChars]}
+                    onValueChange={([value]) =>
+                      setNewsSettings((current) => ({
+                        ...current,
+                        summaryMaxChars: value ?? 240,
+                      }))
+                    }
+                  />
+                </div>
+              ) : null}
+            </div>
           </div>
         ) : null}
 
@@ -209,9 +330,9 @@ export function PlatformWidgetPreferences({
           ) : (
             <Save className="size-4" />
           )}
-          Salvar seleção
+          Salvar personalização
         </Button>
       </CardContent>
     </Card>
   );
-}
+}

@@ -2,7 +2,7 @@ import { createServerFn } from "@tanstack/react-start";
 import { and, eq, inArray, sql } from "drizzle-orm";
 import { z } from "zod";
 
-import { CURRENCY_IDS, NEWS_FEED_IDS } from "@/lib/widgets/catalog";
+import { CURRENCY_IDS, NEWS_FEED_IDS, widgetConfigSchema } from "@/lib/widgets/catalog";
 import { LOTTERY_GAME_IDS } from "@/lib/widgets/lottery";
 import {
   mergePlatformWidgetConfig,
@@ -22,7 +22,13 @@ const preferenceSchema = z.discriminatedUnion("type", [
   z.object({
     type: z.literal("news"),
     assetId: z.string().uuid(),
-    feedId: z.enum(NEWS_FEED_IDS as [string, ...string[]]),
+    feedId: z.string().trim().min(1).max(160),
+    headlines: z.number().int().min(1).max(10).default(5),
+    oneAtATime: z.boolean().default(true),
+    rotateSeconds: z.number().int().min(3).max(30).default(7),
+    showSummary: z.boolean().default(true),
+    summaryMaxChars: z.number().int().min(60).max(600).default(240),
+    showImage: z.boolean().default(true),
   }),
   z.object({
     type: z.literal("lottery"),
@@ -57,7 +63,7 @@ export const savePlatformWidgetPreferences = createServerFn({ method: "POST" })
     const user = await requireUser();
     const db = getDb();
     const [asset] = await db
-      .select({ id: schema.mediaAssets.id, widgetType: schema.mediaAssets.widgetType })
+      .select({ id: schema.mediaAssets.id, widgetType: schema.mediaAssets.widgetType, widgetConfig: schema.mediaAssets.widgetConfig })
       .from(schema.mediaAssets)
       .where(
         and(
@@ -87,10 +93,34 @@ export const savePlatformWidgetPreferences = createServerFn({ method: "POST" })
       if (!gameIds.length) throw new Error("Selecione ao menos uma modalidade disponível.");
       requested = { ...desired.config, gameIds };
     } else if (data.type === "news" && desired.config.type === "news") {
-      if (!settings.news.availableNewsFeedIds.includes(data.feedId)) {
+      const isBuiltIn = NEWS_FEED_IDS.includes(data.feedId as (typeof NEWS_FEED_IDS)[number]);
+      if (!isBuiltIn) {
+        const { readOrganizationNewsSources } = await import(
+          "@/lib/widgets/organization-news-sources.functions"
+        );
+        const customSources = await readOrganizationNewsSources(user.organizationId);
+        if (!customSources.some((source) => source.id === data.feedId && source.enabled)) {
+          throw new Error("Esta fonte de notícias não está disponível.");
+        }
+      } else if (!settings.news.availableNewsFeedIds.includes(data.feedId as (typeof NEWS_FEED_IDS)[number])) {
         throw new Error("Esta fonte de notícias não está disponível.");
       }
-      requested = { ...desired.config, feedId: data.feedId };
+      const currentConfig = widgetConfigSchema.safeParse(asset.widgetConfig);
+      const base =
+        currentConfig.success && currentConfig.data.type === "news"
+          ? currentConfig.data
+          : desired.config;
+      requested = {
+        ...desired.config,
+        ...base,
+        feedId: data.feedId,
+        headlines: data.headlines,
+        oneAtATime: data.oneAtATime,
+        rotateSeconds: data.rotateSeconds,
+        showSummary: data.showSummary,
+        summaryMaxChars: data.summaryMaxChars,
+        showImage: data.showImage,
+      };
     } else {
       throw new Error("Configuração de widget inválida.");
     }

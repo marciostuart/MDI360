@@ -6,6 +6,7 @@ import { useState } from "react";
 import { toast } from "sonner";
 
 import { Button } from "@/components/ui/button";
+import { TurnstileWidget } from "@/components/auth/turnstile-widget";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
@@ -45,14 +46,17 @@ function AuthPage() {
   const signInFn = useServerFn(signIn);
   const signUpFn = useServerFn(signUp);
 
-  const [loginForm, setLoginForm] = useState({ email: "", password: "" });
+  const [loginForm, setLoginForm] = useState({ email: "", password: "", turnstileToken: "" });
   const [signupForm, setSignupForm] = useState({
     name: "",
     organizationName: "",
     email: "",
     password: "",
     billingClosingDay: 5 as 1 | 5 | 10 | 15 | 20,
+    turnstileToken: "",
   });
+  const [loginChallenge, setLoginChallenge] = useState(0);
+  const [signupChallenge, setSignupChallenge] = useState(0);
 
   async function onSuccess() {
     await queryClient.invalidateQueries({ queryKey: ["current-user"] });
@@ -71,6 +75,10 @@ function AuthPage() {
       }
     },
     onError: () => toast.error("Verifique os dados informados."),
+    onSettled: () => {
+      setLoginForm((form) => ({ ...form, turnstileToken: "" }));
+      setLoginChallenge((value) => value + 1);
+    },
   });
 
   const signupMutation = useMutation({
@@ -84,6 +92,10 @@ function AuthPage() {
       }
     },
     onError: () => toast.error("Verifique os dados informados."),
+    onSettled: () => {
+      setSignupForm((form) => ({ ...form, turnstileToken: "" }));
+      setSignupChallenge((value) => value + 1);
+    },
   });
 
   const databaseMissing = setup.data && !setup.data.databaseReady;
@@ -158,7 +170,29 @@ function AuthPage() {
                       }
                     />
                   </div>
-                  <Button type="submit" className="w-full" disabled={loginMutation.isPending}>
+                  <div className="text-right">
+                    <Link to="/recuperar-senha" className="text-sm text-primary hover:underline">
+                      Esqueci minha senha
+                    </Link>
+                  </div>
+                  {setup.data?.turnstileSiteKey ? (
+                    <TurnstileWidget
+                      key={loginChallenge}
+                      siteKey={setup.data.turnstileSiteKey}
+                      action="login"
+                      onToken={(turnstileToken) =>
+                        setLoginForm((form) => ({ ...form, turnstileToken }))
+                      }
+                    />
+                  ) : null}
+                  <Button
+                    type="submit"
+                    className="w-full"
+                    disabled={
+                      loginMutation.isPending ||
+                      Boolean(setup.data?.turnstileSiteKey && !loginForm.turnstileToken)
+                    }
+                  >
                     {loginMutation.isPending ? (
                       <Loader2 className="size-4 animate-spin" />
                     ) : (
@@ -253,7 +287,24 @@ function AuthPage() {
                       A cobrança só será ativada após a contratação de um plano pago.
                     </p>
                   </div>
-                  <Button type="submit" className="w-full" disabled={signupMutation.isPending}>
+                  {setup.data?.turnstileSiteKey ? (
+                    <TurnstileWidget
+                      key={signupChallenge}
+                      siteKey={setup.data.turnstileSiteKey}
+                      action="signup"
+                      onToken={(turnstileToken) =>
+                        setSignupForm((form) => ({ ...form, turnstileToken }))
+                      }
+                    />
+                  ) : null}
+                  <Button
+                    type="submit"
+                    className="w-full"
+                    disabled={
+                      signupMutation.isPending ||
+                      Boolean(setup.data?.turnstileSiteKey && !signupForm.turnstileToken)
+                    }
+                  >
                     {signupMutation.isPending ? (
                       <Loader2 className="size-4 animate-spin" />
                     ) : (

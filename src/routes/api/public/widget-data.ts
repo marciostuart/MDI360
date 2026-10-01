@@ -32,7 +32,7 @@ const querySchema = z.discriminatedUnion("type", [
       .regex(/^\d{5}-?\d{3}$/),
   }),
   z.object({ type: z.literal("currency"), pairs: z.string().trim().max(60) }),
-  z.object({ type: z.literal("news"), feedId: z.enum(NEWS_FEED_IDS as [string, ...string[]]) }),
+  z.object({ type: z.literal("news"), feedId: z.string().trim().min(1).max(160) }),
   z.object({ type: z.literal("lottery"), games: z.string().trim().max(180) }),
 ]);
 
@@ -343,8 +343,13 @@ export const Route = createFileRoute("/api/public/widget-data")({
             );
           }
 
+          const { authenticateDevice } = await import("@/lib/player/player-auth.server");
+          const device = await authenticateDevice(request);
+          const { getSessionUser } = await import("@/lib/auth/session.server");
+          const session = device ? null : await getSessionUser();
+          const organizationId = device?.organizationId ?? session?.organizationId;
           const { getConfiguredNewsFeed } = await import("@/lib/widgets/data-sources.server");
-          const feed = await getConfiguredNewsFeed(parsed.data.feedId);
+          const feed = await getConfiguredNewsFeed(parsed.data.feedId, organizationId);
           if (!feed.enabled) {
             return Response.json({ error: "Fonte de notícias desativada." }, { status: 404 });
           }

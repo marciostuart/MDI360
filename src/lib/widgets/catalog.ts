@@ -379,7 +379,9 @@ export const widgetConfigSchema = z.discriminatedUnion("type", [
   }),
   z.object({
     type: z.literal("news"),
-    feedId: z.enum(NEWS_FEED_IDS as [string, ...string[]]),
+    // Built-in feeds are controlled by the platform, while customer-owned
+    // RSS feeds use their organization-scoped UUID as the identifier.
+    feedId: z.string().trim().min(1).max(160),
     headlines: z.number().int().min(1).max(10).default(5),
     /** One headline at a time, rotating — much easier to read on a TV. */
     oneAtATime: z.boolean().default(true),

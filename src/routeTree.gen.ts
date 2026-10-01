@@ -11,12 +11,15 @@
 import { Route as rootRouteImport } from './routes/__root'
 import { Route as IndexRouteImport } from './routes/index'
 import { Route as EntrarRouteImport } from './routes/entrar'
+import { Route as RecuperarSenhaRouteImport } from './routes/recuperar-senha'
 import { Route as SenhasRouteImport } from './routes/senhas'
 import { Route as StudioRouteRouteImport } from './routes/studio/route'
 import { Route as TelaRouteImport } from './routes/tela'
 import { Route as TorreRouteRouteImport } from './routes/torre/route'
+import { Route as ConfirmarEmailTokenRouteImport } from './routes/confirmar-email.$token'
 import { Route as EmitirIndexRouteImport } from './routes/emitir/index'
 import { Route as EmitirTokenRouteImport } from './routes/emitir.$token'
+import { Route as RedefinirSenhaTokenRouteImport } from './routes/redefinir-senha.$token'
 import { Route as StudioIndexRouteImport } from './routes/studio/index'
 import { Route as StudioAgendaRouteImport } from './routes/studio/agenda'
 import { Route as StudioCadastroRouteImport } from './routes/studio/cadastro'
@@ -81,6 +84,11 @@ const EntrarRoute = EntrarRouteImport.update({
   path: '/entrar',
   getParentRoute: () => rootRouteImport,
 } as any)
+const RecuperarSenhaRoute = RecuperarSenhaRouteImport.update({
+  id: '/recuperar-senha',
+  path: '/recuperar-senha',
+  getParentRoute: () => rootRouteImport,
+} as any)
 const SenhasRoute = SenhasRouteImport.update({
   id: '/senhas',
   path: '/senhas',
@@ -101,6 +109,11 @@ const TorreRouteRoute = TorreRouteRouteImport.update({
   path: '/torre',
   getParentRoute: () => rootRouteImport,
 } as any)
+const ConfirmarEmailTokenRoute = ConfirmarEmailTokenRouteImport.update({
+  id: '/confirmar-email/$token',
+  path: '/confirmar-email/$token',
+  getParentRoute: () => rootRouteImport,
+} as any)
 const EmitirIndexRoute = EmitirIndexRouteImport.update({
   id: '/emitir/',
   path: '/emitir/',
@@ -109,6 +122,11 @@ const EmitirIndexRoute = EmitirIndexRouteImport.update({
 const EmitirTokenRoute = EmitirTokenRouteImport.update({
   id: '/emitir/$token',
   path: '/emitir/$token',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const RedefinirSenhaTokenRoute = RedefinirSenhaTokenRouteImport.update({
+  id: '/redefinir-senha/$token',
+  path: '/redefinir-senha/$token',
   getParentRoute: () => rootRouteImport,
 } as any)
 const StudioIndexRoute = StudioIndexRouteImport.update({
@@ -393,9 +411,12 @@ export interface FileRoutesByFullPath {
   '/studio': typeof StudioRouteRouteWithChildren
   '/torre': typeof TorreRouteRouteWithChildren
   '/entrar': typeof EntrarRoute
+  '/recuperar-senha': typeof RecuperarSenhaRoute
   '/senhas': typeof SenhasRoute
   '/tela': typeof TelaRoute
+  '/confirmar-email/$token': typeof ConfirmarEmailTokenRoute
   '/emitir/$token': typeof EmitirTokenRoute
+  '/redefinir-senha/$token': typeof RedefinirSenhaTokenRoute
   '/studio/agenda': typeof StudioAgendaRoute
   '/studio/cadastro': typeof StudioCadastroRoute
   '/studio/configuracoes': typeof StudioConfiguracoesRoute
@@ -454,9 +475,12 @@ export interface FileRoutesByFullPath {
 export interface FileRoutesByTo {
   '/': typeof IndexRoute
   '/entrar': typeof EntrarRoute
+  '/recuperar-senha': typeof RecuperarSenhaRoute
   '/senhas': typeof SenhasRoute
   '/tela': typeof TelaRoute
+  '/confirmar-email/$token': typeof ConfirmarEmailTokenRoute
   '/emitir/$token': typeof EmitirTokenRoute
+  '/redefinir-senha/$token': typeof RedefinirSenhaTokenRoute
   '/studio/agenda': typeof StudioAgendaRoute
   '/studio/cadastro': typeof StudioCadastroRoute
   '/studio/configuracoes': typeof StudioConfiguracoesRoute
@@ -518,9 +542,12 @@ export interface FileRoutesById {
   '/studio': typeof StudioRouteRouteWithChildren
   '/torre': typeof TorreRouteRouteWithChildren
   '/entrar': typeof EntrarRoute
+  '/recuperar-senha': typeof RecuperarSenhaRoute
   '/senhas': typeof SenhasRoute
   '/tela': typeof TelaRoute
+  '/confirmar-email/$token': typeof ConfirmarEmailTokenRoute
   '/emitir/$token': typeof EmitirTokenRoute
+  '/redefinir-senha/$token': typeof RedefinirSenhaTokenRoute
   '/studio/agenda': typeof StudioAgendaRoute
   '/studio/cadastro': typeof StudioCadastroRoute
   '/studio/configuracoes': typeof StudioConfiguracoesRoute
@@ -583,9 +610,12 @@ export interface FileRouteTypes {
     | '/studio'
     | '/torre'
     | '/entrar'
+    | '/recuperar-senha'
     | '/senhas'
     | '/tela'
+    | '/confirmar-email/$token'
     | '/emitir/$token'
+    | '/redefinir-senha/$token'
     | '/studio/agenda'
     | '/studio/cadastro'
     | '/studio/configuracoes'
@@ -644,9 +674,12 @@ export interface FileRouteTypes {
   to:
     | '/'
     | '/entrar'
+    | '/recuperar-senha'
     | '/senhas'
     | '/tela'
+    | '/confirmar-email/$token'
     | '/emitir/$token'
+    | '/redefinir-senha/$token'
     | '/studio/agenda'
     | '/studio/cadastro'
     | '/studio/configuracoes'
@@ -707,9 +740,12 @@ export interface FileRouteTypes {
     | '/studio'
     | '/torre'
     | '/entrar'
+    | '/recuperar-senha'
     | '/senhas'
     | '/tela'
+    | '/confirmar-email/$token'
     | '/emitir/$token'
+    | '/redefinir-senha/$token'
     | '/studio/agenda'
     | '/studio/cadastro'
     | '/studio/configuracoes'
@@ -771,9 +807,12 @@ export interface RootRouteChildren {
   StudioRouteRoute: typeof StudioRouteRouteWithChildren
   TorreRouteRoute: typeof TorreRouteRouteWithChildren
   EntrarRoute: typeof EntrarRoute
+  RecuperarSenhaRoute: typeof RecuperarSenhaRoute
   SenhasRoute: typeof SenhasRoute
   TelaRoute: typeof TelaRoute
+  ConfirmarEmailTokenRoute: typeof ConfirmarEmailTokenRoute
   EmitirTokenRoute: typeof EmitirTokenRoute
+  RedefinirSenhaTokenRoute: typeof RedefinirSenhaTokenRoute
   EmitirIndexRoute: typeof EmitirIndexRoute
   ApiBrandingLogoRoute: typeof ApiBrandingLogoRoute
   ApiInternalDeviceMonitorRoute: typeof ApiInternalDeviceMonitorRoute
@@ -816,6 +855,13 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof EntrarRouteImport
       parentRoute: typeof rootRouteImport
     }
+    '/recuperar-senha': {
+      id: '/recuperar-senha'
+      path: '/recuperar-senha'
+      fullPath: '/recuperar-senha'
+      preLoaderRoute: typeof RecuperarSenhaRouteImport
+      parentRoute: typeof rootRouteImport
+    }
     '/senhas': {
       id: '/senhas'
       path: '/senhas'
@@ -844,6 +890,13 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof TorreRouteRouteImport
       parentRoute: typeof rootRouteImport
     }
+    '/confirmar-email/$token': {
+      id: '/confirmar-email/$token'
+      path: '/confirmar-email/$token'
+      fullPath: '/confirmar-email/$token'
+      preLoaderRoute: typeof ConfirmarEmailTokenRouteImport
+      parentRoute: typeof rootRouteImport
+    }
     '/emitir/': {
       id: '/emitir/'
       path: '/emitir'
@@ -856,6 +909,13 @@ declare module '@tanstack/react-router' {
       path: '/emitir/$token'
       fullPath: '/emitir/$token'
       preLoaderRoute: typeof EmitirTokenRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/redefinir-senha/$token': {
+      id: '/redefinir-senha/$token'
+      path: '/redefinir-senha/$token'
+      fullPath: '/redefinir-senha/$token'
+      preLoaderRoute: typeof RedefinirSenhaTokenRouteImport
       parentRoute: typeof rootRouteImport
     }
     '/studio/': {
@@ -1326,9 +1386,12 @@ const rootRouteChildren: RootRouteChildren = {
   StudioRouteRoute: StudioRouteRouteWithChildren,
   TorreRouteRoute: TorreRouteRouteWithChildren,
   EntrarRoute: EntrarRoute,
+  RecuperarSenhaRoute: RecuperarSenhaRoute,
   SenhasRoute: SenhasRoute,
   TelaRoute: TelaRoute,
+  ConfirmarEmailTokenRoute: ConfirmarEmailTokenRoute,
   EmitirTokenRoute: EmitirTokenRoute,
+  RedefinirSenhaTokenRoute: RedefinirSenhaTokenRoute,
   EmitirIndexRoute: EmitirIndexRoute,
   ApiBrandingLogoRoute: ApiBrandingLogoRoute,
   ApiInternalDeviceMonitorRoute: ApiInternalDeviceMonitorRoute,

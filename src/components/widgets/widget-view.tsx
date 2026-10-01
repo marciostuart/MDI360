@@ -22,10 +22,12 @@ export function WidgetView({
   config,
   accentColor,
   onReady,
+  deviceToken,
 }: {
   config: WidgetConfig;
   accentColor?: string | null;
   onReady?: () => void;
+  deviceToken?: string | null;
 }) {
   const theme = resolveWidgetTheme(config.theme);
   const accent = theme.accentColor || accentColor || "#38BDF8";
@@ -37,7 +39,7 @@ export function WidgetView({
     return <CurrencyWidget config={config} theme={theme} accent={accent} />;
   if (config.type === "lottery")
     return <LotteryWidget config={config} theme={theme} accent={accent} onReady={onReady} />;
-  return <NewsWidget config={config} theme={theme} accent={accent} onReady={onReady} />;
+  return <NewsWidget config={config} theme={theme} accent={accent} onReady={onReady} deviceToken={deviceToken} />;
 }
 
 /* ------------------------------------------------------------------ shell */
@@ -155,7 +157,7 @@ function Block({
   );
 }
 
-function useWidgetData<T>(query: string | null) {
+function useWidgetData<T>(query: string | null, authorization?: string) {
   const [data, setData] = useState<T | null>(null);
   const [failed, setFailed] = useState(false);
 
@@ -168,7 +170,8 @@ function useWidgetData<T>(query: string | null) {
       controllers.add(controller);
       const timeout = window.setTimeout(() => controller.abort(), 12_000);
       try {
-        const response = await fetch(`/api/public/widget-data?${query}`, {
+        const response = await fetch("/api/public/widget-data?" + query, {
+          ...(authorization ? { headers: { authorization: "Bearer " + authorization } } : {}),
           signal: controller.signal,
         });
         if (!response.ok) throw new Error("widget-data");
@@ -191,7 +194,7 @@ function useWidgetData<T>(query: string | null) {
       for (const controller of controllers) controller.abort();
       window.clearInterval(interval);
     };
-  }, [query]);
+  }, [query, authorization]);
 
   return { data, failed };
 }
@@ -612,20 +615,43 @@ function money(value: number | null) {
 
 function LotteryBalls({ values, accent }: { values: string[]; accent: string }) {
   return (
-    <div className="flex flex-wrap items-center justify-center gap-[0.35em]">
+    <div
+      style={{
+        display: "flex",
+        flexWrap: "wrap",
+        alignItems: "center",
+        justifyContent: "center",
+        gap: "0.35em",
+      }}
+    >
       {values.map((value, index) => (
         <span
-          key={`${value}-${index}`}
-          className="flex aspect-square min-w-[1.55em] items-center justify-center rounded-full bg-white px-[0.28em] font-display font-bold text-slate-950 shadow-lg"
-          style={{ boxShadow: `0 0.15em 0.65em ${accent}44` }}
+          key={String(value) + "-" + index}
+          style={{
+            display: "inline-flex",
+            width: "1.55em",
+            height: "1.55em",
+            minWidth: "1.55em",
+            alignItems: "center",
+            justifyContent: "center",
+            borderRadius: "9999px",
+            padding: "0.08em",
+            color: "#020617",
+            WebkitTextFillColor: "#020617",
+            backgroundColor: "#ffffff",
+            fontFamily: "Arial, sans-serif",
+            fontSize: "0.82em",
+            fontWeight: 700,
+            lineHeight: 1,
+            boxShadow: "0 0.15em 0.65em " + accent + "44",
+          }}
         >
-          {value}
+          {String(value)}
         </span>
       ))}
     </div>
   );
 }
-
 function LotteryResultBody({
   result,
   accent,
@@ -672,11 +698,8 @@ function LotteryResultBody({
         {result.federalPrizes.map((prize) => (
           <div
             key={prize.ticket}
-            className="grid w-full grid-cols-[minmax(0,1.15fr)_minmax(3.8em,0.85fr)] items-center gap-[0.32em] rounded-[0.22em] border border-white/10 bg-black/25 px-[0.38em] py-[0.22em]"
+            className="grid w-full grid-cols-[minmax(3.8em,0.85fr)_minmax(0,1.15fr)] items-center gap-[0.32em] rounded-[0.22em] border border-white/10 bg-black/25 px-[0.38em] py-[0.22em]"
           >
-            <div className="min-w-0 self-center text-center font-display text-[0.96em] font-bold tracking-[0.04em]">
-              {prize.ticket}
-            </div>
             <div className="flex min-w-0 flex-col items-center justify-center gap-[0.16em] self-stretch text-center">
               <div className="text-[0.34em] font-semibold uppercase opacity-75">{prize.label}</div>
               <div
@@ -685,6 +708,9 @@ function LotteryResultBody({
               >
                 {money(prize.value)}
               </div>
+            </div>
+            <div className="min-w-0 self-center text-center font-display text-[1.05em] font-bold tracking-[0.04em]">
+              {prize.ticket}
             </div>
           </div>
         ))}
@@ -857,14 +883,17 @@ function NewsWidget({
   theme,
   accent,
   onReady,
+  deviceToken,
 }: {
   config: Extract<WidgetConfig, { type: "news" }>;
   theme: WidgetTheme;
   accent: string;
   onReady?: () => void;
+  deviceToken?: string | null;
 }) {
   const { data, failed } = useWidgetData<NewsPayload>(
-    `type=news&feedId=${encodeURIComponent(config.feedId)}`,
+    "type=news&feedId=" + encodeURIComponent(config.feedId),
+    deviceToken ?? undefined,
   );
 
   const items = useMemo(() => {
@@ -881,27 +910,56 @@ function NewsWidget({
   }, [data, config.headlines]);
 
   const [index, setIndex] = useState(0);
+  const [imageStates, setImageStates] = useState<Record<string, "ready" | "failed">>({});
+
+  // Do not put an article into rotation until every image it uses is ready.
+  useEffect(() => {
+    const urls = [...new Set(items.map((item) => item.image).filter((url): url is string => Boolean(url)))];
+    setImageStates({});
+    if (!urls.length) return;
+    let cancelled = false;
+    for (const url of urls) {
+      const image = new window.Image();
+      image.onload = () => {
+        if (!cancelled) setImageStates((current) => ({ ...current, [url]: "ready" }));
+      };
+      image.onerror = () => {
+        if (!cancelled) setImageStates((current) => ({ ...current, [url]: "failed" }));
+      };
+      image.src = url;
+    }
+    return () => {
+      cancelled = true;
+    };
+  }, [items]);
+
+  const renderableItems = useMemo(
+    () => items.filter((item) => !item.image || imageStates[item.image] === "ready"),
+    [imageStates, items],
+  );
+  const imagesPending = items.some((item) => Boolean(item.image && !imageStates[item.image]));
+  const imagesUnavailable = items.length > 0 && !imagesPending && renderableItems.length === 0;
 
   useEffect(() => {
-    if (items.length > 0 || failed) onReady?.();
-  }, [failed, items.length, onReady]);
+    if (renderableItems.length > 0 || failed || imagesUnavailable) onReady?.();
+  }, [failed, imagesUnavailable, onReady, renderableItems.length]);
 
   useEffect(() => {
     setIndex(0);
   }, [config.feedId, config.oneAtATime]);
 
   useEffect(() => {
-    if (!config.oneAtATime || items.length <= 1) return;
+    if (!config.oneAtATime || renderableItems.length <= 1) return;
     const interval = window.setInterval(
-      () => setIndex((current) => (current + 1) % items.length),
+      () => setIndex((current) => (current + 1) % renderableItems.length),
       config.rotateSeconds * 1000,
     );
     return () => window.clearInterval(interval);
-  }, [config.oneAtATime, config.rotateSeconds, items.length]);
+  }, [config.oneAtATime, config.rotateSeconds, renderableItems.length]);
 
-  const current = items[Math.min(index, Math.max(items.length - 1, 0))];
-  const heroImage = config.showImage && current?.image ? current.image : null;
+  const current = renderableItems[Math.min(index, Math.max(renderableItems.length - 1, 0))];
   const layout = resolveWidgetLayout("news", config.layout as WidgetLayout | undefined);
+  const heroImage = config.showImage ? (current?.image ?? null) : null;
 
   // One at a time: the headline itself is the hero, with the article photo used
   // as the backdrop so it stays readable from across the room.
@@ -935,9 +993,9 @@ function NewsWidget({
           >
             {data?.source ?? "Notícias"}
           </span>
-          {config.oneAtATime && items.length > 1 ? (
+          {config.oneAtATime && renderableItems.length > 1 ? (
             <span className="tabular-nums opacity-55">
-              {index + 1}/{items.length}
+              {index + 1}/{renderableItems.length}
             </span>
           ) : null}
         </div>
@@ -946,6 +1004,14 @@ function NewsWidget({
       {failed && !data ? (
         <p className="absolute left-[6%] top-[45%] text-[4cqh] opacity-60">
           Notícias indisponíveis agora.
+        </p>
+      ) : imagesPending && renderableItems.length === 0 ? (
+        <p className="absolute inset-x-[6%] top-[45%] text-center text-[4cqh] opacity-60">
+          Carregando imagens das notícias…
+        </p>
+      ) : imagesUnavailable ? (
+        <p className="absolute inset-x-[6%] top-[45%] text-center text-[4cqh] opacity-60">
+          Notícias sem imagem disponível no momento.
         </p>
       ) : config.oneAtATime ? (
         <>
@@ -972,7 +1038,7 @@ function NewsWidget({
               {current.summary.slice(0, config.summaryMaxChars ?? 240)}
             </Block>
           ) : null}
-          {items.length > 1 ? (
+          {renderableItems.length > 1 ? (
             <Block block={layout.progress}>
               <div className="h-[0.25em] w-full overflow-hidden rounded-full bg-white/20">
                 <div
@@ -995,7 +1061,7 @@ function NewsWidget({
           style={{ fontSize: `${(layout.summary?.size ?? 3.6) * 1.05}cqh` }}
         >
           <ul className="space-y-[0.5em]">
-            {items.map((item, position) => (
+            {renderableItems.map((item, position) => (
               <li key={`${position}-${item.title.slice(0, 12)}`} className="flex gap-[0.5em]">
                 <span className="font-display font-semibold" style={{ color: accent }}>
                   {position + 1}

@@ -121,6 +121,27 @@ export const organizations = pgTable("organizations", {
   createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
 });
 
+export const organizationNewsSources = pgTable(
+  "organization_news_sources",
+  {
+    id: uuid("id").primaryKey().defaultRandom(),
+    organizationId: uuid("organization_id")
+      .notNull()
+      .references(() => organizations.id, { onDelete: "cascade" }),
+    label: text("label").notNull(),
+    url: text("url").notNull(),
+    credit: text("credit").notNull(),
+    enabled: boolean("enabled").notNull().default(true),
+    refreshMinutes: integer("refresh_minutes").notNull().default(30),
+    createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
+    updatedAt: timestamp("updated_at", { withTimezone: true }).notNull().defaultNow(),
+  },
+  (t) => [
+    uniqueIndex("organization_news_sources_org_url_unique").on(t.organizationId, t.url),
+    index("organization_news_sources_org_idx").on(t.organizationId),
+  ],
+);
+
 export const users = pgTable(
   "users",
   {
@@ -165,6 +186,28 @@ export const sessions = pgTable(
     createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
   },
   (t) => [index("sessions_user_idx").on(t.userId)],
+);
+
+/** Single-use, hashed links for password recovery and verified e-mail changes. */
+export const accountActionTokens = pgTable(
+  "account_action_tokens",
+  {
+    id: uuid("id").primaryKey().defaultRandom(),
+    userId: uuid("user_id")
+      .notNull()
+      .references(() => users.id, { onDelete: "cascade" }),
+    purpose: text("purpose").notNull(),
+    tokenHash: text("token_hash").notNull(),
+    pendingEmail: text("pending_email"),
+    expiresAt: timestamp("expires_at", { withTimezone: true }).notNull(),
+    usedAt: timestamp("used_at", { withTimezone: true }),
+    createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
+  },
+  (t) => [
+    uniqueIndex("account_action_tokens_hash_unique").on(t.tokenHash),
+    index("account_action_tokens_user_purpose_idx").on(t.userId, t.purpose, t.createdAt),
+    index("account_action_tokens_expiry_idx").on(t.expiresAt),
+  ],
 );
 
 /* ------------------------------------------------------------------ */
@@ -1029,7 +1072,15 @@ export const organizationsRelations = relations(organizations, ({ many }) => ({
   devices: many(devices),
   playlists: many(playlists),
   mediaAssets: many(mediaAssets),
+  newsSources: many(organizationNewsSources),
   locations: many(locations),
+}));
+
+export const organizationNewsSourcesRelations = relations(organizationNewsSources, ({ one }) => ({
+  organization: one(organizations, {
+    fields: [organizationNewsSources.organizationId],
+    references: [organizations.id],
+  }),
 }));
 
 export const usersRelations = relations(users, ({ one, many }) => ({

@@ -1381,6 +1381,7 @@ function PlayerScreen() {
           <WidgetView
             config={current.widgetConfig}
             accentColor={sync.branding?.color ?? null}
+            deviceToken={token}
             onReady={markWidgetReady}
           />
         </FadeLayer>

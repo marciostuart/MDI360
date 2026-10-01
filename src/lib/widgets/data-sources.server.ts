@@ -1,8 +1,8 @@
-import { eq } from "drizzle-orm";
+import { and, asc, eq } from "drizzle-orm";
 
 import { getDb, schema } from "@/lib/db/index.server";
 import { DEFAULT_NEWS_SOURCES, isSafeNewsUrl } from "./data-sources";
-import { getNewsFeed } from "./catalog";
+import { NEWS_FEED_IDS, getNewsFeed } from "./catalog";
 
 export async function readRawDataSources() {
   const [row] = await getDb()
@@ -15,7 +15,31 @@ export async function readRawDataSources() {
     : {};
 }
 
-export async function getConfiguredNewsFeed(id: string) {
+export async function getConfiguredNewsFeed(id: string, organizationId?: string) {
+  if (organizationId) {
+    const [custom] = await getDb()
+      .select({
+        id: schema.organizationNewsSources.id,
+        label: schema.organizationNewsSources.label,
+        url: schema.organizationNewsSources.url,
+        credit: schema.organizationNewsSources.credit,
+        enabled: schema.organizationNewsSources.enabled,
+        refreshMinutes: schema.organizationNewsSources.refreshMinutes,
+      })
+      .from(schema.organizationNewsSources)
+      .where(
+        and(
+          eq(schema.organizationNewsSources.id, id),
+          eq(schema.organizationNewsSources.organizationId, organizationId),
+        ),
+      )
+      .limit(1);
+    if (custom) return custom;
+  }
+
+  if (!NEWS_FEED_IDS.includes(id as (typeof NEWS_FEED_IDS)[number])) {
+    throw new Error("Fonte de notícias não encontrada.");
+  }
   const fallback = getNewsFeed(id);
   const root = await readRawDataSources();
   const news = root.news;
@@ -37,6 +61,23 @@ export async function getConfiguredNewsFeed(id: string) {
   };
 }
 
-export async function getPublicNewsSources() {
-  return Promise.all(Object.keys(DEFAULT_NEWS_SOURCES).map((id) => getConfiguredNewsFeed(id)));
+export async function getPublicNewsSources(organizationId?: string) {
+  const builtIn = await Promise.all(
+    Object.keys(DEFAULT_NEWS_SOURCES).map((id) => getConfiguredNewsFeed(id, organizationId)),
+  );
+  if (!organizationId) return builtIn;
+
+  const custom = await getDb()
+    .select({
+      id: schema.organizationNewsSources.id,
+      label: schema.organizationNewsSources.label,
+      url: schema.organizationNewsSources.url,
+      credit: schema.organizationNewsSources.credit,
+      enabled: schema.organizationNewsSources.enabled,
+      refreshMinutes: schema.organizationNewsSources.refreshMinutes,
+    })
+    .from(schema.organizationNewsSources)
+    .where(eq(schema.organizationNewsSources.organizationId, organizationId))
+    .orderBy(asc(schema.organizationNewsSources.createdAt));
+  return [...builtIn, ...custom];
 }
