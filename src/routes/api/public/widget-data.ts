@@ -6,8 +6,10 @@ import {
   NEWS_FEED_IDS,
   WEATHER_CITY_IDS,
   getWeatherCity,
+  weatherVideoConditionForCode,
 } from "@/lib/widgets/catalog";
 import { LOTTERY_GAME_IDS, lotteryGameIdSchema } from "@/lib/widgets/lottery";
+import { getWeatherInteractiveVideos } from "@/lib/widgets/data-sources.server";
 
 /**
  * Read-only proxy the TVs use to fetch open data (weather, quotes, headlines).
@@ -283,7 +285,7 @@ export const Route = createFileRoute("/api/public/widget-data")({
             const label = parsed.data.label?.trim() || city.label;
             const endpoint =
               `https://api.open-meteo.com/v1/forecast?latitude=${latitude}` +
-              `&longitude=${longitude}&current=temperature_2m,relative_humidity_2m,weather_code` +
+              `&longitude=${longitude}&current=temperature_2m,relative_humidity_2m,weather_code,is_day` +
               `&daily=weather_code,temperature_2m_max,temperature_2m_min&forecast_days=3` +
               `&timezone=America%2FSao_Paulo`;
             const response = await fetch(endpoint);
@@ -293,6 +295,7 @@ export const Route = createFileRoute("/api/public/widget-data")({
                 temperature_2m?: number;
                 relative_humidity_2m?: number;
                 weather_code?: number;
+                is_day?: number;
               };
               daily?: {
                 time?: string[];
@@ -301,6 +304,11 @@ export const Route = createFileRoute("/api/public/widget-data")({
                 temperature_2m_min?: number[];
               };
             };
+            const code = payload.current?.weather_code ?? null;
+            const condition = weatherVideoConditionForCode(code);
+            const isDay = payload.current?.is_day === 1;
+            const videos = await getWeatherInteractiveVideos();
+            const videoUrl = videos[condition][isDay ? "day" : "night"];
             return Response.json(
               {
                 city: label,
@@ -308,8 +316,9 @@ export const Route = createFileRoute("/api/public/widget-data")({
                 current: {
                   temperature: payload.current?.temperature_2m ?? null,
                   humidity: payload.current?.relative_humidity_2m ?? null,
-                  code: payload.current?.weather_code ?? null,
+                  code,
                 },
+                interactiveBackground: { condition, isDay, videoUrl },
                 daily: (payload.daily?.time ?? []).map((date, index) => ({
                   date,
                   code: payload.daily?.weather_code?.[index] ?? null,

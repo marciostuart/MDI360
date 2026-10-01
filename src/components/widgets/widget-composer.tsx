@@ -325,6 +325,32 @@ export function WidgetComposer({
                   </SelectContent>
                 </Select>
               </div>
+              <div className="space-y-2 sm:col-span-2">
+                <Label>Fundo do clima</Label>
+                <Select
+                  value={config.backgroundMode ?? "procedural"}
+                  onValueChange={(value) =>
+                    setConfig({
+                      ...config,
+                      backgroundMode: value as "procedural" | "interactiveVideo",
+                    })
+                  }
+                >
+                  <SelectTrigger>
+                    <SelectValue />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="procedural">Fundo animado padrão</SelectItem>
+                    <SelectItem value="interactiveVideo">
+                      Fundo Interativo (vídeos da Torre)
+                    </SelectItem>
+                  </SelectContent>
+                </Select>
+                <p className="text-xs text-muted-foreground">
+                  No modo interativo, o vídeo é escolhido automaticamente conforme o clima e o
+                  período do dia configurados pela Torre.
+                </p>
+              </div>
             </div>
           ) : null}
 

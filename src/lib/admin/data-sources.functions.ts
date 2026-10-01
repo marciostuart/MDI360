@@ -2,8 +2,10 @@ import { createServerFn } from "@tanstack/react-start";
 
 import {
   DEFAULT_NEWS_SOURCES,
+  defaultWeatherVideoSettings,
   dataSourcesInputSchema,
   isSafeNewsUrl,
+  weatherVideoSettingsSchema,
   type DataSourcesInput,
 } from "@/lib/widgets/data-sources";
 import { NEWS_FEED_IDS } from "@/lib/widgets/catalog";
@@ -71,6 +73,7 @@ export const fetchDataSourcesAdmin = createServerFn({ method: "GET" }).handler(
         return [id, { ...fallback, ...saved, id: undefined }];
       }),
     ) as DataSourcesInput["news"];
+    const savedWeatherVideos = weatherVideoSettingsSchema.safeParse(root.weatherVideos);
     const state = states[0];
     return {
       lotteryRelay: {
@@ -80,6 +83,9 @@ export const fetchDataSourcesAdmin = createServerFn({ method: "GET" }).handler(
         tokenConfigured: Boolean(String(relay.token ?? "").trim()),
       },
       news,
+      weatherVideos: savedWeatherVideos.success
+        ? savedWeatherVideos.data
+        : defaultWeatherVideoSettings(),
       lotteryStatus: {
         lastAttemptAt: state?.lastAttemptAt?.toISOString() ?? null,
         lastSuccessAt: state?.lastSuccessAt?.toISOString() ?? null,
@@ -138,6 +144,7 @@ export const saveDataSourcesAdmin = createServerFn({ method: "POST" })
         token: plainToken ? encryptCredential(plainToken) : "",
       },
       news: data.news,
+      weatherVideos: data.weatherVideos,
     };
     await db
       .insert(schema.platformSettings)

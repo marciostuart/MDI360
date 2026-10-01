@@ -1,7 +1,13 @@
 import { and, asc, eq } from "drizzle-orm";
 
 import { getDb, schema } from "@/lib/db/index.server";
-import { DEFAULT_NEWS_SOURCES, isSafeNewsUrl } from "./data-sources";
+import {
+  DEFAULT_NEWS_SOURCES,
+  defaultWeatherVideoSettings,
+  isSafeNewsUrl,
+  weatherVideoSettingsSchema,
+  type WeatherVideoSettings,
+} from "./data-sources";
 import { NEWS_FEED_IDS, getNewsFeed } from "./catalog";
 
 export async function readRawDataSources() {
@@ -13,6 +19,12 @@ export async function readRawDataSources() {
   return row?.value && typeof row.value === "object" && !Array.isArray(row.value)
     ? (row.value as Record<string, unknown>)
     : {};
+}
+
+export async function getWeatherInteractiveVideos(): Promise<WeatherVideoSettings> {
+  const root = await readRawDataSources();
+  const parsed = weatherVideoSettingsSchema.safeParse(root.weatherVideos);
+  return parsed.success ? parsed.data : defaultWeatherVideoSettings();
 }
 
 export async function getConfiguredNewsFeed(id: string, organizationId?: string) {

@@ -8,6 +8,7 @@ import {
   lotteryGameLayoutsSchema,
   widgetConfigSchema,
   widgetLayoutSchema,
+  widgetThemeSchema,
 } from "@/lib/widgets/catalog";
 import { LOTTERY_GAME_IDS } from "@/lib/widgets/lottery";
 import {
@@ -24,6 +25,8 @@ const preferenceSchema = z.discriminatedUnion("type", [
       .array(z.enum(CURRENCY_IDS as [string, ...string[]]))
       .min(1)
       .max(5),
+    layout: widgetLayoutSchema.optional(),
+    theme: widgetThemeSchema.optional(),
   }),
   z.object({
     type: z.literal("news"),
@@ -101,7 +104,18 @@ export const savePlatformWidgetPreferences = createServerFn({ method: "POST" })
         (pair) => desired.config.type === "currency" && desired.config.pairs.includes(pair),
       );
       if (!pairs.length) throw new Error("Selecione ao menos uma cotação disponível.");
-      requested = { ...desired.config, pairs };
+      const currentConfig = widgetConfigSchema.safeParse(asset.widgetConfig);
+      const base =
+        currentConfig.success && currentConfig.data.type === "currency"
+          ? currentConfig.data
+          : desired.config;
+      requested = {
+        ...desired.config,
+        ...base,
+        pairs,
+        ...(data.layout ? { layout: data.layout } : {}),
+        ...(data.theme ? { theme: data.theme } : {}),
+      };
     } else if (data.type === "lottery" && desired.config.type === "lottery") {
       const gameIds = data.gameIds.filter(
         (gameId) => desired.config.type === "lottery" && desired.config.gameIds.includes(gameId),

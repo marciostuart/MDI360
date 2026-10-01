@@ -1,7 +1,7 @@
 import { useEffect, useState, type ReactNode } from "react";
 import { createFileRoute } from "@tanstack/react-router";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
-import { DatabaseZap, Loader2, Newspaper, Save, TestTube2 } from "lucide-react";
+import { CloudSun, DatabaseZap, Loader2, Newspaper, Save, TestTube2 } from "lucide-react";
 import { toast } from "sonner";
 
 import { Button } from "@/components/ui/button";
@@ -16,6 +16,7 @@ import {
   testNewsDataSource,
 } from "@/lib/admin/data-sources.functions";
 import type { DataSourcesInput } from "@/lib/widgets/data-sources";
+import { WEATHER_VIDEO_CONDITIONS } from "@/lib/widgets/catalog";
 
 export const Route = createFileRoute("/torre/fontes")({
   head: () => ({
@@ -46,6 +47,7 @@ function DataSourcesPage() {
         clearToken: false,
       },
       news: data.news,
+      weatherVideos: data.weatherVideos,
     });
   }, [data]);
 
@@ -89,6 +91,23 @@ function DataSourcesPage() {
   ) =>
     setDraft((current) =>
       current ? { ...current, lotteryRelay: { ...current.lotteryRelay, [key]: value } } : current,
+    );
+
+  const setWeatherVideo = (
+    condition: (typeof WEATHER_VIDEO_CONDITIONS)[number]["id"],
+    period: "day" | "night",
+    value: string,
+  ) =>
+    setDraft((current) =>
+      current
+        ? {
+            ...current,
+            weatherVideos: {
+              ...current.weatherVideos,
+              [condition]: { ...current.weatherVideos[condition], [period]: value },
+            },
+          }
+        : current,
     );
 
   return (
@@ -302,6 +321,46 @@ function DataSourcesPage() {
                   />
                 </Field>
               </div>
+            </div>
+          ))}
+        </CardContent>
+      </Card>
+
+      <Card>
+        <CardHeader>
+          <CardTitle className="flex items-center gap-2">
+            <CloudSun className="size-5" />
+            Fundos interativos do clima
+          </CardTitle>
+          <CardDescription>
+            Informe URLs HTTPS de vídeos MP4 ou WebM. O cliente poderá escolher “Fundo Interativo”
+            no widget Clima; o sistema selecionará automaticamente o vídeo conforme a condição e se
+            é dia ou noite.
+          </CardDescription>
+        </CardHeader>
+        <CardContent className="space-y-4">
+          {WEATHER_VIDEO_CONDITIONS.map((condition) => (
+            <div
+              key={condition.id}
+              className="grid gap-4 rounded-xl border border-border p-4 md:grid-cols-2"
+            >
+              <div className="md:col-span-2">
+                <p className="font-medium">{condition.label}</p>
+              </div>
+              <Field label="Vídeo durante o dia (HTTPS)">
+                <Input
+                  placeholder="https://.../clima-dia.mp4"
+                  value={draft.weatherVideos[condition.id].day}
+                  onChange={(event) => setWeatherVideo(condition.id, "day", event.target.value)}
+                />
+              </Field>
+              <Field label="Vídeo durante a noite (HTTPS)">
+                <Input
+                  placeholder="https://.../clima-noite.mp4"
+                  value={draft.weatherVideos[condition.id].night}
+                  onChange={(event) => setWeatherVideo(condition.id, "night", event.target.value)}
+                />
+              </Field>
             </div>
           ))}
         </CardContent>

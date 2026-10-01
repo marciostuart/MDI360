@@ -1,6 +1,12 @@
 import { useEffect, useMemo, useRef, useState } from "react";
 
-import type { WidgetBlock, WidgetConfig, WidgetLayout, WidgetTheme } from "@/lib/widgets/catalog";
+import type {
+  WeatherVideoCondition,
+  WidgetBlock,
+  WidgetConfig,
+  WidgetLayout,
+  WidgetTheme,
+} from "@/lib/widgets/catalog";
 import {
   getWeatherCity,
   resolveLotteryWidgetLayout,
@@ -265,6 +271,11 @@ type WeatherPayload = {
   city: string;
   credit: string;
   current: { temperature: number | null; humidity: number | null; code: number | null };
+  interactiveBackground?: {
+    condition: WeatherVideoCondition;
+    isDay: boolean;
+    videoUrl: string;
+  };
   daily: { date: string; code: number | null; max: number | null; min: number | null }[];
 };
 
@@ -409,10 +420,12 @@ function WeatherScene({
   kind,
   theme,
   accent,
+  videoUrl,
 }: {
   kind: SceneKind;
   theme: WidgetTheme;
   accent: string;
+  videoUrl?: string;
 }) {
   const animated = theme.animations;
   const gradients: Record<SceneKind, string> = {
@@ -426,32 +439,54 @@ function WeatherScene({
 
   return (
     <div className="absolute inset-0">
-      <div className="absolute inset-0" style={{ background: gradients[kind] }} />
-      {kind === "clear" ? <ClearScene accent={accent} theme={theme} /> : null}
-      {kind === "cloudy" ? <CloudLayer animated={animated} /> : null}
-      {kind === "fog" ? <FogLayer animated={animated} /> : null}
-      {kind === "rain" ? (
+      {videoUrl ? (
         <>
-          <CloudLayer animated={animated} count={3} />
-          <RainLayer animated={animated} />
+          <video
+            key={videoUrl}
+            className="absolute inset-0 size-full object-cover"
+            autoPlay
+            muted
+            loop
+            playsInline
+            preload="auto"
+          >
+            <source src={videoUrl} />
+          </video>
+          <div className="absolute inset-0 bg-black/20" />
         </>
-      ) : null}
-      {kind === "storm" ? (
+      ) : (
         <>
-          <CloudLayer animated={animated} count={3} />
-          <RainLayer animated={animated} heavy />
-          <div
-            className="absolute inset-0 bg-white"
-            style={{ animation: animated ? "mdi-flash 9s linear infinite" : undefined, opacity: 0 }}
-          />
+          <div className="absolute inset-0" style={{ background: gradients[kind] }} />
+          {kind === "clear" ? <ClearScene accent={accent} theme={theme} /> : null}
+          {kind === "cloudy" ? <CloudLayer animated={animated} /> : null}
+          {kind === "fog" ? <FogLayer animated={animated} /> : null}
+          {kind === "rain" ? (
+            <>
+              <CloudLayer animated={animated} count={3} />
+              <RainLayer animated={animated} />
+            </>
+          ) : null}
+          {kind === "storm" ? (
+            <>
+              <CloudLayer animated={animated} count={3} />
+              <RainLayer animated={animated} heavy />
+              <div
+                className="absolute inset-0 bg-white"
+                style={{
+                  animation: animated ? "mdi-flash 9s linear infinite" : undefined,
+                  opacity: 0,
+                }}
+              />
+            </>
+          ) : null}
+          {kind === "snow" ? (
+            <>
+              <CloudLayer animated={animated} count={3} />
+              <SnowLayer animated={animated} />
+            </>
+          ) : null}
         </>
-      ) : null}
-      {kind === "snow" ? (
-        <>
-          <CloudLayer animated={animated} count={3} />
-          <SnowLayer animated={animated} />
-        </>
-      ) : null}
+      )}
     </div>
   );
 }
@@ -477,13 +512,23 @@ function WeatherWidget({
   const layout = resolveWidgetLayout("weather", config.layout as WidgetLayout | undefined);
 
   const look = weatherLook(data?.current.code ?? null);
+  const interactiveVideo =
+    config.backgroundMode === "interactiveVideo" ? data?.interactiveBackground?.videoUrl : "";
+  const weatherTheme = interactiveVideo ? { ...theme, background: "scene" as const } : theme;
 
   return (
     <Shell
       accent={accent}
-      theme={theme}
+      theme={weatherTheme}
       credit={data?.credit ?? "Open-Meteo · CC BY 4.0"}
-      scene={<WeatherScene kind={look.scene} theme={theme} accent={accent} />}
+      scene={
+        <WeatherScene
+          kind={look.scene}
+          theme={weatherTheme}
+          accent={accent}
+          videoUrl={interactiveVideo}
+        />
+      }
     >
       {failed && !data ? (
         <p className="absolute left-[6%] top-[46%] text-[4cqh] opacity-60">

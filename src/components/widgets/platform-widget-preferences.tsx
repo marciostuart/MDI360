@@ -25,8 +25,10 @@ import {
   getLotteryLayoutPreset,
   resolveLotteryWidgetLayout,
   resolveWidgetLayout,
+  resolveWidgetTheme,
   type WidgetConfig,
   type WidgetLayout,
+  type WidgetTheme,
 } from "@/lib/widgets/catalog";
 import { LOTTERY_GAMES, type LotteryGameId } from "@/lib/widgets/lottery";
 import {
@@ -77,6 +79,8 @@ export function PlatformWidgetPreferences({
     },
   });
   const [pairs, setPairs] = useState<Extract<WidgetConfig, { type: "currency" }>["pairs"]>([]);
+  const [currencyLayout, setCurrencyLayout] = useState<WidgetLayout>();
+  const [currencyTheme, setCurrencyTheme] = useState<WidgetTheme>(resolveWidgetTheme());
   const [gameIds, setGameIds] = useState<Extract<WidgetConfig, { type: "lottery" }>["gameIds"]>([]);
   const [lotteryRotateSeconds, setLotteryRotateSeconds] = useState(10);
   const [lotteryFederalStyle, setLotteryFederalStyle] = useState<"list" | "receipt">("list");
@@ -89,7 +93,11 @@ export function PlatformWidgetPreferences({
 
   useEffect(() => {
     const config = item.widgetConfig;
-    if (config?.type === "currency") setPairs(config.pairs);
+    if (config?.type === "currency") {
+      setPairs(config.pairs);
+      setCurrencyLayout(config.layout);
+      setCurrencyTheme(resolveWidgetTheme(config.theme));
+    }
     if (config?.type === "lottery") {
       setGameIds(config.gameIds);
       setLotteryRotateSeconds(config.rotateSeconds);
@@ -115,7 +123,15 @@ export function PlatformWidgetPreferences({
   const save = useMutation({
     mutationFn: async () => {
       if (item.widgetType === "currency") {
-        return saveFn({ data: { type: "currency", assetId: item.id, pairs } });
+        return saveFn({
+          data: {
+            type: "currency",
+            assetId: item.id,
+            pairs,
+            layout: currencyLayout,
+            theme: currencyTheme,
+          },
+        });
       }
       if (item.widgetType === "lottery") {
         return saveFn({
@@ -185,7 +201,7 @@ export function PlatformWidgetPreferences({
         </div>
 
         {item.widgetType === "currency" ? (
-          <div className="space-y-2">
+          <div className="space-y-4">
             <Label>Cotações exibidas</Label>
             <div className="flex flex-wrap gap-2">
               {CURRENCY_OPTIONS.filter((option) =>
@@ -213,6 +229,116 @@ export function PlatformWidgetPreferences({
                 );
               })}
             </div>
+            <div className="space-y-4 rounded-lg border border-border p-4">
+              <p className="text-sm font-medium">Aparência do widget</p>
+              <div className="grid gap-4 sm:grid-cols-2">
+                <div className="space-y-2">
+                  <Label>Fundo</Label>
+                  <Select
+                    value={currencyTheme.background}
+                    onValueChange={(value) =>
+                      setCurrencyTheme((current) => ({
+                        ...current,
+                        background: value as WidgetTheme["background"],
+                      }))
+                    }
+                  >
+                    <SelectTrigger>
+                      <SelectValue />
+                    </SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="solid">Cor sólida</SelectItem>
+                      <SelectItem value="gradient">Gradiente</SelectItem>
+                      <SelectItem value="image">Imagem de fundo</SelectItem>
+                    </SelectContent>
+                  </Select>
+                </div>
+                <div className="space-y-2">
+                  <Label>Cor dos textos</Label>
+                  <Input
+                    type="color"
+                    value={currencyTheme.textColor}
+                    onChange={(event) =>
+                      setCurrencyTheme((current) => ({ ...current, textColor: event.target.value }))
+                    }
+                  />
+                </div>
+                {currencyTheme.background === "image" ? (
+                  <div className="space-y-2 sm:col-span-2">
+                    <Label>URL HTTPS da imagem de fundo</Label>
+                    <Input
+                      placeholder="https://.../fundo.jpg"
+                      value={currencyTheme.backgroundImageUrl}
+                      onChange={(event) =>
+                        setCurrencyTheme((current) => ({
+                          ...current,
+                          backgroundImageUrl: event.target.value,
+                        }))
+                      }
+                    />
+                  </div>
+                ) : null}
+                {currencyTheme.background === "solid" ? (
+                  <div className="space-y-2">
+                    <Label>Cor do fundo</Label>
+                    <Input
+                      type="color"
+                      value={currencyTheme.backgroundColor}
+                      onChange={(event) =>
+                        setCurrencyTheme((current) => ({
+                          ...current,
+                          backgroundColor: event.target.value,
+                        }))
+                      }
+                    />
+                  </div>
+                ) : null}
+                {currencyTheme.background === "gradient" ? (
+                  <>
+                    <div className="space-y-2">
+                      <Label>Início do gradiente</Label>
+                      <Input
+                        type="color"
+                        value={currencyTheme.gradientFrom}
+                        onChange={(event) =>
+                          setCurrencyTheme((current) => ({
+                            ...current,
+                            gradientFrom: event.target.value,
+                          }))
+                        }
+                      />
+                    </div>
+                    <div className="space-y-2">
+                      <Label>Fim do gradiente</Label>
+                      <Input
+                        type="color"
+                        value={currencyTheme.gradientTo}
+                        onChange={(event) =>
+                          setCurrencyTheme((current) => ({
+                            ...current,
+                            gradientTo: event.target.value,
+                          }))
+                        }
+                      />
+                    </div>
+                  </>
+                ) : null}
+              </div>
+            </div>
+            {item.widgetConfig?.type === "currency" ? (
+              <WidgetLayoutEditor
+                config={item.widgetConfig}
+                layout={currencyLayout}
+                previewConfig={{
+                  ...item.widgetConfig,
+                  pairs,
+                  layout: currencyLayout,
+                  theme: currencyTheme,
+                }}
+                onChange={setCurrencyLayout}
+                title="Posição e tamanho dos elementos"
+              />
+            ) : null}
           </div>
         ) : null}
 

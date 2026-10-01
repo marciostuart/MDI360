@@ -88,6 +88,26 @@ export function getWeatherCity(id: string) {
   return WEATHER_CITIES.find((city) => city.id === id) ?? WEATHER_CITIES[0];
 }
 
+export const WEATHER_VIDEO_CONDITIONS = [
+  { id: "clear", label: "Céu limpo" },
+  { id: "partlyCloudy", label: "Parcialmente nublado" },
+  { id: "cloudy", label: "Nublado" },
+  { id: "showers", label: "Pancadas de chuva" },
+  { id: "rain", label: "Chuva" },
+] as const;
+
+export const WEATHER_VIDEO_CONDITION_IDS = WEATHER_VIDEO_CONDITIONS.map((item) => item.id);
+export type WeatherVideoCondition = (typeof WEATHER_VIDEO_CONDITION_IDS)[number];
+
+/** Maps Open-Meteo WMO codes to the five customer-configurable video groups. */
+export function weatherVideoConditionForCode(code: number | null): WeatherVideoCondition {
+  if (code === 0) return "clear";
+  if (code === 1 || code === 2) return "partlyCloudy";
+  if (code === 3 || code === 45 || code === 48) return "cloudy";
+  if (code !== null && [51, 53, 55, 56, 57, 80, 81, 82].includes(code)) return "showers";
+  return "rain";
+}
+
 /**
  * Look & feel shared by every widget. Optional so widgets saved before the
  * theming feature keep parsing — the player merges WIDGET_THEME_DEFAULTS.
@@ -367,6 +387,8 @@ export const widgetConfigSchema = z.discriminatedUnion("type", [
     placeLabel: z.string().trim().max(80).optional(),
     latitude: z.number().min(-90).max(90).optional(),
     longitude: z.number().min(-180).max(180).optional(),
+    /** Procedural scene keeps the legacy behavior; interactiveVideo uses Torre videos. */
+    backgroundMode: z.enum(["procedural", "interactiveVideo"]).default("procedural"),
     theme: widgetThemeSchema.optional(),
     layout: widgetLayoutSchema.optional(),
   }),

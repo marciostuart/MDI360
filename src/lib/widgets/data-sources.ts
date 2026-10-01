@@ -1,6 +1,6 @@
 import { z } from "zod";
 
-import { NEWS_FEEDS, NEWS_FEED_IDS } from "./catalog";
+import { NEWS_FEEDS, NEWS_FEED_IDS, WEATHER_VIDEO_CONDITIONS } from "./catalog";
 
 export type NewsFeedId = (typeof NEWS_FEED_IDS)[number];
 
@@ -16,6 +16,35 @@ export const newsSourceSchema = z.object({
   credit: z.string().trim().min(1).max(160),
 });
 
+const weatherVideoUrl = z
+  .string()
+  .trim()
+  .max(1000)
+  .refine((value) => !value || value.startsWith("https://"), "Use HTTPS.");
+
+export const weatherVideoSettingsSchema = z.object(
+  Object.fromEntries(
+    WEATHER_VIDEO_CONDITIONS.map(({ id }) => [
+      id,
+      z.object({ day: weatherVideoUrl.default(""), night: weatherVideoUrl.default("") }),
+    ]),
+  ) as Record<
+    (typeof WEATHER_VIDEO_CONDITIONS)[number]["id"],
+    z.ZodObject<{
+      day: z.ZodDefault<typeof weatherVideoUrl>;
+      night: z.ZodDefault<typeof weatherVideoUrl>;
+    }>
+  >,
+);
+
+export type WeatherVideoSettings = z.infer<typeof weatherVideoSettingsSchema>;
+
+export function defaultWeatherVideoSettings(): WeatherVideoSettings {
+  return Object.fromEntries(
+    WEATHER_VIDEO_CONDITIONS.map(({ id }) => [id, { day: "", night: "" }]),
+  ) as WeatherVideoSettings;
+}
+
 export const dataSourcesInputSchema = z.object({
   lotteryRelay: z.object({
     enabled: z.boolean(),
@@ -29,6 +58,7 @@ export const dataSourcesInputSchema = z.object({
     clearToken: z.boolean().optional().default(false),
   }),
   news: z.record(z.string(), newsSourceSchema),
+  weatherVideos: weatherVideoSettingsSchema.default(defaultWeatherVideoSettings()),
 });
 
 export type DataSourcesInput = z.infer<typeof dataSourcesInputSchema>;

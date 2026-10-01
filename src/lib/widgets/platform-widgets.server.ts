@@ -81,13 +81,17 @@ export function mergePlatformWidgetConfig(
 ): WidgetConfig {
   const local = widgetConfigSchema.safeParse(current);
   if (type === "currency" && desired.config.type === "currency") {
-    const selected =
-      local.success && local.data.type === "currency"
-        ? local.data.pairs.filter(
-            (pair) => desired.config.type === "currency" && desired.config.pairs.includes(pair),
-          )
-        : [];
-    return { ...desired.config, pairs: selected.length ? selected : desired.config.pairs };
+    const localCurrency = local.success && local.data.type === "currency" ? local.data : null;
+    const selected = localCurrency
+      ? localCurrency.pairs.filter(
+          (pair) => desired.config.type === "currency" && desired.config.pairs.includes(pair),
+        )
+      : [];
+    return {
+      ...desired.config,
+      ...(localCurrency ?? {}),
+      pairs: selected.length ? selected : desired.config.pairs,
+    };
   }
   if (type === "lottery" && desired.config.type === "lottery") {
     const localLottery = local.success && local.data.type === "lottery" ? local.data : null;
