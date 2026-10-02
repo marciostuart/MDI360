@@ -182,6 +182,7 @@ export const Route = createFileRoute("/api/public/player/sync")({
             queueCall,
             queueCalls,
             commands: commands.map((c) => c.kind),
+            screenshotRequestIds: commands.filter((c) => c.kind === "screenshot").map((c) => c.id),
             syncIntervalMs: 60_000,
             // Seed for the long-poll channel (/api/public/player/events).
             revision,

@@ -1010,12 +1010,18 @@ function NewsWidget({
 
   const [index, setIndex] = useState(0);
   const [batchStart, setBatchStart] = useState(0);
-  const [imageStates, setImageStates] = useState<Record<string, "ready" | "failed">>({});
+  const localSnapshot = useContext(LocalWidgetData);
+  const [imageStates, setImageStates] = useState<Record<string, "ready" | "failed">>(() =>
+    localSnapshot?.imagesReady ? Object.fromEntries(items.filter((item) => item.image).map((item) => [item.image!, "ready"])) : {});
   const cursorKey = `mdi-news-cursor:${config.feedId}:${config.headlines}`;
   const initializedItemsKey = useRef("");
 
   // Do not put an article into rotation until every image it uses is ready.
   useEffect(() => {
+    if (localSnapshot?.imagesReady) {
+      setImageStates(Object.fromEntries(items.filter((item) => item.image).map((item) => [item.image!, "ready"])));
+      return;
+    }
     const urls = [
       ...new Set(items.map((item) => item.image).filter((url): url is string => Boolean(url))),
     ];
@@ -1035,7 +1041,7 @@ function NewsWidget({
     return () => {
       cancelled = true;
     };
-  }, [items]);
+  }, [items, localSnapshot?.imagesReady]);
 
   const renderableItems = useMemo(
     () => items.filter((item) => !item.image || imageStates[item.image] === "ready"),

@@ -20,6 +20,9 @@ const cases = [
   { name: "lottery", config: { type: "lottery", gameIds: ["megasena"], rotateSeconds: 10 }, payload: { credit: "Loterias CAIXA", results: [{ gameId: "megasena", gameName: "Mega-Sena", contestNumber: 3000, drawDate: "01/10/2026", numbers: ["01", "12", "23", "34", "45", "56"], secondDraw: [], clovers: [], federalPrizes: [], matches: [], accumulated: false, nextEstimate: 1000000, nextDate: null, prizes: [] }] }, texts: ["Mega-Sena", "3000", "23", "56"] },
   { name: "news", config: { type: "news", feedId: "teste", headlines: 2, oneAtATime: false, rotateSeconds: 7, showSummary: true, summaryMaxChars: 240, showImage: true }, payload: { source: "Fonte teste", credit: "Teste", items: news }, texts: ["Manchete teste 3", "Manchete teste 4"] },
   { name: "video", kind: "video", texts: [] },
+  { name: "news-empty", config: { type: "news", feedId: "empty", headlines: 2 }, payload: { items: [] }, skipped: true, texts: [] },
+  { name: "weather-empty", config: { type: "weather" }, payload: { current: { temperature: null, code: null } }, skipped: true, texts: [] },
+  { name: "news-broken-image", config: { type: "news", feedId: "broken", headlines: 2 }, payload: { items: [{ title: "Do not show this", image: "/missing-image.jpg" }] }, skipped: true, texts: [] },
 ];
 const server = createServer(async (request, response) => {
   try {
@@ -38,6 +41,7 @@ const server = createServer(async (request, response) => {
           clockNow: () => Date.parse('2026-10-01T12:34:56Z'),
           setCallAudio: () => {},
           visualReady: () => { document.documentElement.dataset.ready = 'yes'; },
+          widgetUnavailable: () => { document.documentElement.dataset.skipped = 'yes'; },
           rendererReady: () => {
             window.__mdi360LocalFrame(frame('first'));
             if (fixture.name === 'news') setTimeout(() => {
@@ -74,7 +78,11 @@ try {
       assert.doesNotMatch(stdout, /data-error=/, `${fixture.name}: runtime error`);
       assert.match(stdout, /data-fetches="0"/, `${fixture.name}: unexpected widget HTTP`);
       assert.match(stdout, /data-transparent="true"/, `${fixture.name}: covers native video surface`);
-      assert.match(stdout, /data-ready="yes"/, `${fixture.name}: missing visual readiness`);
+      if (fixture.skipped) {
+        assert.match(stdout, /data-skipped="yes"/, `${fixture.name}: must skip incomplete widget`);
+        const rendered = stdout.slice(stdout.indexOf('<div id="root">'));
+        assert.doesNotMatch(rendered, /Notícias indisponíveis|Carregando imagens|Do not show this/, "No incomplete widget placeholder may reach the screen");
+      } else assert.match(stdout, /data-ready="yes"/, `${fixture.name}: missing visual readiness`);
       for (const text of fixture.texts) assert.ok(stdout.includes(text), `${fixture.name}: missing ${text}`);
       if (fixture.name === "news") assert.match(stdout, /data-first-batch="true"/, "News must advance 1/2 to 3/4 across playlist passes");
       if (fixture.name === "video") assert.match(stdout, /data-web-videos="0"/, "Web layer cannot create a second decoder for local video");

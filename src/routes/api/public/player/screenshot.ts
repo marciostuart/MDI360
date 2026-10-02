@@ -1,12 +1,13 @@
 import { createFileRoute } from "@tanstack/react-router";
+import { MAX_SCREENSHOT_CHARS, screenshotDataUrl } from "@/lib/devices/screenshot-relay";
 
 /** Hard ceiling for one screenshot (base64 payload). Keeps storage predictable. */
-const MAX_BASE64_CHARS = 6 * 1024 * 1024;
+const MAX_BASE64_CHARS = MAX_SCREENSHOT_CHARS;
 
 /**
  * Remote monitoring: the player answers a "screenshot" command by capturing its
- * own screen and posting it here. Authenticated by the device token only, and
- * the file is always stored under the owner organization of that screen.
+ * own screen and posting it here. One-use, short-lived transport in RAM only;
+ * no image is persisted in the database or object storage.
  */
 export const Route = createFileRoute("/api/public/player/screenshot")({
   server: {
@@ -23,9 +24,11 @@ export const Route = createFileRoute("/api/public/player/screenshot")({
 
         let image = "";
         let contentType = "image/jpeg";
+        let requestId: string | undefined;
         try {
-          const body = (await request.json()) as { image?: unknown; contentType?: unknown };
+          const body = (await request.json()) as { image?: unknown; contentType?: unknown; requestId?: unknown };
           if (typeof body.image === "string") image = body.image;
+          if (typeof body.requestId === "string") requestId = body.requestId;
           if (typeof body.contentType === "string" && body.contentType.startsWith("image/")) {
             contentType = body.contentType;
           }
@@ -46,35 +49,21 @@ export const Route = createFileRoute("/api/public/player/screenshot")({
           return Response.json({ error: "Imagem muito grande." }, { status: 413 });
         }
 
-        let bytes: Uint8Array;
-        try {
-          const binary = atob(image);
-          bytes = new Uint8Array(binary.length);
-          for (let i = 0; i < binary.length; i += 1) bytes[i] = binary.charCodeAt(i);
-        } catch {
+        const dataUrl = screenshotDataUrl(image, contentType);
+        if (!dataUrl) {
           return Response.json({ error: "Imagem inválida." }, { status: 400 });
         }
-
-        const extension = contentType === "image/png" ? "png" : "jpg";
-        const key = `screenshots/${device.organizationId ?? "unlinked"}/${device.id}.${extension}`;
-
-        try {
-          const { putObject } = await import("@/lib/storage.server");
-          await putObject(key, bytes, contentType);
-        } catch (cause) {
-          console.error("[player/screenshot] falha ao gravar no storage:", cause);
-          return Response.json({ error: "Falha ao salvar a captura." }, { status: 500 });
+        const { screenshotRelay } = await import("@/lib/devices/screenshot-relay.server");
+        if (!device.organizationId || !screenshotRelay.publish(device.id, device.organizationId, requestId, dataUrl)) {
+          // Closed/expired modal or an unsolicited capture: discard immediately.
+          return Response.json({ ok: true, discarded: true }, { headers: { "cache-control": "no-store" } });
         }
 
         const { eq } = await import("drizzle-orm");
         await getDb()
           .update(schema.devices)
-          .set({ lastScreenshotKey: key, lastScreenshotAt: new Date(), lastSeenAt: new Date() })
+          .set({ lastSeenAt: new Date() })
           .where(eq(schema.devices.id, device.id));
-
-        // The Studio list picks the new capture up on its next refresh.
-        const { notifyOrganization } = await import("@/lib/player/realtime.server");
-        if (device.organizationId) notifyOrganization(device.organizationId);
 
         return Response.json({ ok: true }, { headers: { "cache-control": "no-store" } });
       },

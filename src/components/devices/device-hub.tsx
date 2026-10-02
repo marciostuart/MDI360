@@ -4,7 +4,6 @@ import { useServerFn } from "@tanstack/react-start";
 import {
   Bell,
   CalendarClock,
-  Camera,
   Download,
   Eraser,
   AlertTriangle,
@@ -36,6 +35,7 @@ import {
   verifyWhatsappOtp,
 } from "@/lib/devices/device-hub.functions";
 import { sendDeviceCommand } from "@/lib/devices/devices.functions";
+import { ScreenshotDialog } from "./screenshot-dialog";
 import type { ScheduleRuleType } from "@/lib/schedules/rules";
 
 type OperatingWindow = { weekdays: number[]; startMinute: number; endMinute: number };
@@ -365,10 +365,7 @@ export function DeviceHub({ deviceId }: { deviceId: string }) {
                 </div>
               ) : null}
               <div className="flex flex-wrap gap-2 md:col-span-2">
-                <Button variant="outline" onClick={() => command.mutate("screenshot")}>
-                  <Camera className="size-4" />
-                  Capturar tela
-                </Button>
+                <ScreenshotDialog deviceId={deviceId} />
                 <Button variant="outline" onClick={() => command.mutate("restart")}>
                   Reiniciar aplicativo
                 </Button>

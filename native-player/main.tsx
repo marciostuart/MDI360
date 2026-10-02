@@ -19,6 +19,7 @@ type Frame = {
 type Bridge = {
   localFrame(): string;
   visualReady(id: string): void;
+  widgetUnavailable(id: string): void;
   setCallAudio(active: boolean): void;
   rendererReady(): void;
   clockNow(): number;
@@ -56,6 +57,7 @@ export function LocalScreen() {
   useEffect(() => {
     if (!frame) return;
     if (frame.item.kind === "stream") return;
+    if (frame.item.kind === "widget") return;
     if (frame.item.widgetConfig?.type === "news" || frame.item.widgetConfig?.type === "lottery") return;
     // Widget data and images are already on disk. Allow React to paint before
     // reporting the visual start; no server response governs this timer.
@@ -78,10 +80,7 @@ export function LocalScreen() {
         : frame?.issuer ? <iframe title="Emissor de senhas" src="/emitir/dispositivo?desktop=1" className="size-full border-0" allow="autoplay" />
         : item?.kind === "widget" && item.widgetConfig ? (
           <div key={frame?.playbackId} className="size-full" style={{ animation: frame?.fade ? "mdi-local-enter 350ms ease-out" : undefined }}>
-            <LocalWidgetData.Provider value={{ payload: item.widgetData ?? null, now: () => window.MDI360Native.clockNow() }}>
-              <WidgetView config={item.widgetConfig} accentColor={frame?.accentColor}
-                onReady={() => window.MDI360Native.visualReady(frame!.playbackId)} />
-            </LocalWidgetData.Provider>
+            <ReadyWidget frame={frame!} />
           </div>
         ) : item?.kind === "stream" && item.url ? (
           <LocalStream url={item.url} name={item.name} muted={item.isMuted !== false || frame?.audioEnabled === false || callActive}
@@ -95,6 +94,51 @@ export function LocalScreen() {
       <style>{"@keyframes mdi-local-enter { from {opacity:0} to {opacity:1} }"}</style>
     </div>
   );
+}
+
+/** Decode prepared local images before mounting any news/weather layout. */
+function ReadyWidget({ frame }: { frame: Frame }) {
+  const [ready, setReady] = useState(false);
+  const config = frame.item.widgetConfig!;
+  useEffect(() => {
+    let cancelled = false;
+    const images: HTMLImageElement[] = [];
+    const timers: ReturnType<typeof setTimeout>[] = [];
+    const data = frame.item.widgetData as { items?: { title?: string; image?: string | null }[]; current?: { temperature?: number | null; code?: number | null }; quotes?: unknown[]; results?: unknown[] } | undefined;
+    const urls = new Set<string>();
+    if (config.theme?.background === "image" && config.theme.backgroundImageUrl) urls.add(config.theme.backgroundImageUrl);
+    if (config.type === "news") data?.items?.forEach((article) => { if (article.image) urls.add(article.image); });
+    const valid = config.type === "clock" || (config.type === "news" ? Boolean(data?.items?.length && data.items.every((article) => article.title?.trim()))
+      : config.type === "weather" ? data?.current?.temperature != null && data.current.code != null
+        : config.type === "currency" ? Boolean(data?.quotes?.length) : Boolean(data?.results?.length));
+    const tasks = [...urls].map((url) => new Promise<void>((resolve, reject) => {
+      const image = new Image();
+      images.push(image);
+      const timeout = setTimeout(() => reject(new Error("Local image unavailable")), 5000);
+      timers.push(timeout);
+      image.onerror = () => { clearTimeout(timeout); reject(new Error("Local image invalid")); };
+      image.onload = () => {
+        void (image.decode ? image.decode() : Promise.resolve()).then(() => {
+          clearTimeout(timeout); resolve();
+        }, () => { clearTimeout(timeout); reject(new Error("Local image decode failed")); });
+      };
+      image.src = url;
+    }));
+    if (!valid) tasks.push(Promise.reject(new Error("Widget incomplete")));
+    void Promise.all(tasks).then(() => { if (!cancelled) setReady(true); }, () => {
+      if (!cancelled) window.MDI360Native.widgetUnavailable(frame.playbackId);
+    });
+    return () => { cancelled = true; timers.forEach(clearTimeout); images.forEach((image) => { image.onload = null; image.onerror = null; }); };
+  }, [frame, config]);
+  useEffect(() => {
+    if (!ready || config.type === "news" || config.type === "lottery") return;
+    const timer = setTimeout(() => window.MDI360Native.visualReady(frame.playbackId), 100);
+    return () => clearTimeout(timer);
+  }, [ready, config.type, frame.playbackId]);
+  if (!ready) return null;
+  return <LocalWidgetData.Provider value={{ payload: frame.item.widgetData ?? null, now: () => window.MDI360Native.clockNow(), imagesReady: true }}>
+    <WidgetView config={config} accentColor={frame.accentColor} onReady={() => window.MDI360Native.visualReady(frame.playbackId)} />
+  </LocalWidgetData.Provider>;
 }
 function LocalStream({ url, name, muted, onReady }: { url: string; name: string; muted: boolean; onReady: () => void }) {
   const youtube = parseYoutubeId(url);

@@ -59,6 +59,7 @@ type NewsItem = {
 };
 
 type NewsPayload = {
+  updatedAt: number;
   source: string;
   credit: string;
   items: NewsItem[];
@@ -145,6 +146,7 @@ async function readCachedNews(feed: {
       const items = parseRssItems(await response.text(), 50);
       if (items.length === 0) throw new Error("RSS sem notícias válidas");
       const payload = {
+        updatedAt: Date.now(),
         source: feed.label,
         credit: feed.credit,
         items,
@@ -312,6 +314,7 @@ export const Route = createFileRoute("/api/public/widget-data")({
             return Response.json(
               {
                 city: label,
+                updatedAt: Date.now(),
                 credit: "Open-Meteo · CC BY 4.0",
                 current: {
                   temperature: payload.current?.temperature_2m ?? null,
