@@ -309,7 +309,7 @@ export const removeDeviceSchedule = createServerFn({ method: "POST" })
     z.object({ deviceId: z.string().uuid(), scheduleId: z.string().uuid() }).parse(input),
   )
   .handler(async ({ data }) => {
-    const { db, schema } = await context(data.deviceId);
+    const { db, schema, user } = await context(data.deviceId);
     const { and, eq } = await import("drizzle-orm");
     await db
       .delete(schema.schedules)
