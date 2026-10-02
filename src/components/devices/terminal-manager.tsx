@@ -9,6 +9,7 @@ import {
   MonitorSmartphone,
   Replace,
   Settings2,
+  Ticket,
   Trash2,
 } from "lucide-react";
 import { useEffect, useState } from "react";
@@ -45,6 +46,8 @@ import {
 } from "@/lib/devices/devices.functions";
 import { DEFAULT_CANVAS_PRESET } from "@/lib/media/presets";
 import { listPlaylists } from "@/lib/playlists/playlists.functions";
+import { claimEmitter } from "@/lib/queue/emitter.functions";
+import { listQueuePanels } from "@/lib/queue/queue.functions";
 
 const MODES = [
   ["display", "Exibir mídias", "Reproduz playlists e recebe chamadas sobre as mídias."],
@@ -61,6 +64,14 @@ function formatLastSeen(iso: string | null) {
   return hours < 24 ? `há ${hours} h` : `há ${Math.floor(hours / 24)} dias`;
 }
 
+function formatServerError(error: unknown, fallback: string) {
+  const message = error instanceof Error ? error.message : "";
+  if (message === "UNAUTHORIZED") {
+    return "Sua sess\u00e3o expirou. Atualize a p\u00e1gina e entre novamente para continuar.";
+  }
+  return message || fallback;
+}
+
 export function TerminalManager() {
   const queryClient = useQueryClient();
   const listFn = useServerFn(listDevices);
@@ -70,9 +81,14 @@ export function TerminalManager() {
   const playlistFn = useServerFn(setDevicePlaylist);
   const deleteFn = useServerFn(deleteDevice);
   const replaceFn = useServerFn(replaceDevice);
+  const claimEmitterFn = useServerFn(claimEmitter);
+  const listQueuePanelsFn = useServerFn(listQueuePanels);
 
   const [code, setCode] = useState("");
   const [name, setName] = useState("");
+  const [emitterDialogOpen, setEmitterDialogOpen] = useState(false);
+  const [emitterCode, setEmitterCode] = useState("");
+  const [emitterPanelId, setEmitterPanelId] = useState("");
   const [replaceTarget, setReplaceTarget] = useState<{ id: string; name: string } | null>(null);
   const [replaceCode, setReplaceCode] = useState("");
   const [viewMode, setViewMode] = useState<"list" | "grid">("list");
@@ -93,6 +109,11 @@ export function TerminalManager() {
     refetchInterval: 30_000,
   });
   const playlists = useQuery({ queryKey: ["playlists"], queryFn: () => playlistsFn({}) });
+  const queuePanels = useQuery({
+    queryKey: ["queue-panels-for-emitter-link"],
+    queryFn: () => listQueuePanelsFn({}),
+    enabled: emitterDialogOpen,
+  });
   const refresh = () => queryClient.invalidateQueries({ queryKey: ["devices"] });
 
   const linkMutation = useMutation({
@@ -112,7 +133,23 @@ export function TerminalManager() {
       await refresh();
     },
     onError: (error: unknown) =>
-      toast.error(error instanceof Error ? error.message : "Não foi possível vincular o terminal."),
+      toast.error(formatServerError(error, "Não foi possível vincular o terminal.")),
+  });
+
+  const emitterMutation = useMutation({
+    mutationFn: () => {
+      if (!emitterPanelId) throw new Error("Selecione a fila que este emissor dever\u00e1 atender.");
+      return claimEmitterFn({ data: { panelId: emitterPanelId, code: emitterCode } });
+    },
+    onSuccess: async () => {
+      setEmitterDialogOpen(false);
+      setEmitterCode("");
+      setEmitterPanelId("");
+      await queryClient.invalidateQueries({ queryKey: ["queue-panels"] });
+      toast.success("Emissor de senhas vinculado \u00e0 fila selecionada.");
+    },
+    onError: (error: unknown) =>
+      toast.error(formatServerError(error, "N\u00e3o foi poss\u00edvel vincular o emissor de senhas.")),
   });
 
   const modesMutation = useMutation({
@@ -230,19 +267,115 @@ export function TerminalManager() {
             Após o vínculo, aparelhos Android também poderão emitir e chamar senhas. Roku e
             navegador permanecem dedicados à exibição de mídias.
           </p>
-          <Button
-            onClick={() => linkMutation.mutate()}
-            disabled={code.length !== 6 || !name.trim() || linkMutation.isPending}
-          >
-            {linkMutation.isPending ? (
-              <Loader2 className="size-4 animate-spin" />
-            ) : (
-              <Link2 className="size-4" />
-            )}
-            Vincular terminal
-          </Button>
+          <div className="flex flex-wrap gap-2">
+            <Button
+              onClick={() => linkMutation.mutate()}
+              disabled={code.length !== 6 || !name.trim() || linkMutation.isPending}
+            >
+              {linkMutation.isPending ? (
+                <Loader2 className="size-4 animate-spin" />
+              ) : (
+                <Link2 className="size-4" />
+              )}
+              Vincular terminal
+            </Button>
+            <Button type="button" variant="outline" onClick={() => setEmitterDialogOpen(true)}>
+              <Ticket className="size-4" />
+              Vincular emissor web
+            </Button>
+          </div>
+          <p className="text-xs text-muted-foreground">
+            O código mostrado em <code>/emitir</code> deve ser vinculado em “Vincular emissor web”,
+            e não no campo de terminal de mídia.
+          </p>
         </CardContent>
       </Card>
+
+      <Dialog open={emitterDialogOpen} onOpenChange={setEmitterDialogOpen}>
+        <DialogContent>
+          <DialogHeader>
+            <DialogTitle>Vincular emissor de senhas web</DialogTitle>
+            <DialogDescription>
+              Informe o código exibido no navegador em <code>/emitir</code> e escolha a fila que ele
+              deverá atender.
+            </DialogDescription>
+          </DialogHeader>
+
+          <div className="space-y-4 py-2">
+            <div className="space-y-2">
+              <Label htmlFor="emitter-code">Código do emissor</Label>
+              <Input
+                id="emitter-code"
+                value={emitterCode}
+                onChange={(event) =>
+                  setEmitterCode(
+                    event.target.value
+                      .toUpperCase()
+                      .replace(/[^A-Z0-9]/g, "")
+                      .slice(0, 6),
+                  )
+                }
+                placeholder="7CDAZD"
+                maxLength={6}
+                className="font-display tracking-[0.3em] uppercase"
+                autoComplete="off"
+              />
+            </div>
+            <div className="space-y-2">
+              <Label htmlFor="emitter-panel">Fila de atendimento</Label>
+              <Select value={emitterPanelId} onValueChange={setEmitterPanelId}>
+                <SelectTrigger id="emitter-panel">
+                  <SelectValue
+                    placeholder={
+                      queuePanels.isPending ? "Carregando filas..." : "Selecione uma fila"
+                    }
+                  />
+                </SelectTrigger>
+                <SelectContent>
+                  {Array.from(
+                    new Map(
+                      (queuePanels.data?.items ?? [])
+                        .filter((panel) => panel.panelId)
+                        .map((panel) => [panel.panelId, panel.queueName]),
+                    ),
+                  ).map(([panelId, queueName]) => (
+                    <SelectItem key={panelId} value={panelId as string}>
+                      {queueName}
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+              {queuePanels.data && !queuePanels.data.available ? (
+                <p className="text-xs text-muted-foreground">
+                  O recurso de senhas não está disponível no plano atual.
+                </p>
+              ) : null}
+              {queuePanels.data?.available &&
+              (queuePanels.data.items ?? []).every((panel) => !panel.panelId) ? (
+                <p className="text-xs text-muted-foreground">
+                  Crie uma fila em “Senhas e atendimento” antes de vincular o emissor.
+                </p>
+              ) : null}
+            </div>
+          </div>
+
+          <DialogFooter>
+            <Button type="button" variant="ghost" onClick={() => setEmitterDialogOpen(false)}>
+              Cancelar
+            </Button>
+            <Button
+              type="button"
+              onClick={() => emitterMutation.mutate()}
+              disabled={
+                emitterCode.length !== 6 || !emitterPanelId || emitterMutation.isPending
+              }
+            >
+              {emitterMutation.isPending ? <Loader2 className="size-4 animate-spin" /> : null}
+              Vincular emissor
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
 
       {devices.isPending ? (
         <div className="grid place-items-center py-16">
