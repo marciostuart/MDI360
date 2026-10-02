@@ -287,6 +287,7 @@ export const saveDeviceSchedule = createServerFn({ method: "POST" })
           and(
             eq(schema.schedules.id, data.scheduleId),
             eq(schema.schedules.deviceId, data.deviceId),
+            eq(schema.schedules.organizationId, user.organizationId),
           ),
         );
     else
@@ -313,8 +314,14 @@ export const removeDeviceSchedule = createServerFn({ method: "POST" })
     await db
       .delete(schema.schedules)
       .where(
-        and(eq(schema.schedules.id, data.scheduleId), eq(schema.schedules.deviceId, data.deviceId)),
+        and(
+          eq(schema.schedules.id, data.scheduleId),
+          eq(schema.schedules.deviceId, data.deviceId),
+          eq(schema.schedules.organizationId, user.organizationId),
+        ),
       );
+    const { notifyDevice } = await import("@/lib/player/realtime.server");
+    notifyDevice(data.deviceId);
     return { ok: true };
   });
 

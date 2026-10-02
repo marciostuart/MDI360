@@ -9,7 +9,10 @@ import {
   AlertTriangle,
   Loader2,
   Monitor,
+  Pencil,
   PlaySquare,
+  Power,
+  PowerOff,
   Save,
   Settings2,
   Trash2,
@@ -60,6 +63,15 @@ type RuleConfig = {
   weekdays?: number[];
   day?: number;
   month?: number;
+};
+type DeviceSchedule = {
+  id: string;
+  playlistId: string;
+  playlistName: string;
+  ruleType: string;
+  ruleConfig: RuleConfig;
+  isActive: boolean;
+  createdAt: string;
 };
 
 const week = ["Dom", "Seg", "Ter", "Qua", "Qui", "Sex", "Sáb"];
@@ -114,6 +126,8 @@ export function DeviceHub({ deviceId }: { deviceId: string }) {
   const [day, setDay] = useState(1);
   const [month, setMonth] = useState(1);
   const [weekdays, setWeekdays] = useState([1, 2, 3, 4, 5]);
+  const [editingScheduleId, setEditingScheduleId] = useState<string | null>(null);
+  const [editingScheduleActive, setEditingScheduleActive] = useState(true);
   const [phone, setPhone] = useState("");
   const [otp, setOtp] = useState("");
   const [otpSent, setOtpSent] = useState(false);
@@ -151,7 +165,7 @@ export function DeviceHub({ deviceId }: { deviceId: string }) {
     },
     onError: (e) => toast.error(e instanceof Error ? e.message : "Não foi possível salvar."),
   });
-  const addSchedule = useMutation({
+  const saveScheduleMutation = useMutation({
     mutationFn: () => {
       const base: RuleConfig & { type: ScheduleRuleType } = { type: ruleType };
       if (ruleType === "date_time_range") {
@@ -174,17 +188,73 @@ export function DeviceHub({ deviceId }: { deviceId: string }) {
       }
       if (ruleType === "month_day") base.day = day;
       if (ruleType === "month") base.month = month;
-      return scheduleFn({ data: { deviceId, playlistId, rule: base, isActive: true } });
+      return scheduleFn({ data: { deviceId, scheduleId: editingScheduleId ?? undefined, playlistId, rule: base, isActive: editingScheduleActive } });
     },
     onSuccess: async () => {
-      toast.success("Agendamento adicionado.");
+      toast.success(editingScheduleId ? "Agendamento atualizado." : "Agendamento adicionado.");
+      setEditingScheduleId(null);
       await refresh();
     },
     onError: (e) => toast.error(e instanceof Error ? e.message : "Revise os campos."),
   });
+  const toggleScheduleMutation = useMutation({
+    mutationFn: (schedule: DeviceSchedule) => {
+      const rule = { type: schedule.ruleType as ScheduleRuleType, ...(schedule.ruleConfig as RuleConfig) };
+      return scheduleFn({ data: { deviceId, scheduleId: schedule.id, playlistId: schedule.playlistId, rule, isActive: !schedule.isActive } });
+    },
+    onSuccess: async (_, schedule) => {
+      toast.success(schedule.isActive ? "Agendamento desativado." : "Agendamento ativado.");
+      await refresh();
+    },
+    onError: (e) => toast.error(e instanceof Error ? e.message : "Não foi possível alterar o agendamento."),
+  });
+  const editSchedule = (schedule: DeviceSchedule) => {
+    const config = schedule.ruleConfig;
+    setEditingScheduleId(schedule.id);
+    setEditingScheduleActive(schedule.isActive);
+    setPlaylistId(schedule.playlistId);
+    setRuleType(schedule.ruleType as ScheduleRuleType);
+    setDate("");
+    setEndDate("");
+    setDay(config.day ?? 1);
+    setMonth(config.month ?? 1);
+    setWeekdays(config.weekdays ?? [1, 2, 3, 4, 5]);
+    setStart(time(config.startMinute ?? 480));
+    setEnd(time(config.endMinute ?? 1080));
+    if (schedule.ruleType === "date_time_range") {
+      const localParts = (value?: string) => {
+        if (!value) return { date: "", time: "08:00" };
+        const parsed = new Date(value);
+        const localDate = Number.isNaN(parsed.getTime())
+          ? ""
+          : `${parsed.getFullYear()}-${String(parsed.getMonth() + 1).padStart(2, "0")}-${String(parsed.getDate()).padStart(2, "0")}`;
+        return {
+          date: localDate,
+          time: Number.isNaN(parsed.getTime()) ? "08:00" : time(parsed.getHours() * 60 + parsed.getMinutes()),
+        };
+      };
+      const from = localParts(config.startAt);
+      const to = localParts(config.endAt);
+      setDate(from.date);
+      setStart(from.time);
+      setEndDate(to.date);
+      setEnd(to.time);
+    } else if (schedule.ruleType === "specific_date_time") {
+      setDate(config.date ?? "");
+    }
+  };
+  const cancelEdit = () => {
+    setEditingScheduleId(null);
+    setEditingScheduleActive(true);
+  };
   const removeScheduleMutation = useMutation({
     mutationFn: (scheduleId: string) => removeFn({ data: { deviceId, scheduleId } }),
-    onSuccess: refresh,
+    onSuccess: async () => {
+      toast.success("Agendamento excluído.");
+      if (editingScheduleId) setEditingScheduleId(null);
+      await refresh();
+    },
+    onError: (e) => toast.error(e instanceof Error ? e.message : "Não foi possível excluir o agendamento."),
   });
   const command = useMutation({
     mutationFn: (kind: "screenshot" | "restart" | "clear_cache" | "reboot") =>
@@ -397,7 +467,7 @@ export function DeviceHub({ deviceId }: { deviceId: string }) {
             <CardHeader>
               <CardTitle className="flex items-center gap-2">
                 <CalendarClock className="size-5" />
-                Adicionar agendamento
+                {editingScheduleId ? "Editar agendamento" : "Adicionar agendamento"}
               </CardTitle>
             </CardHeader>
             <CardContent className="grid gap-3 md:grid-cols-3">
@@ -498,11 +568,16 @@ export function DeviceHub({ deviceId }: { deviceId: string }) {
               )}
               <div className="flex items-end">
                 <Button
-                  onClick={() => addSchedule.mutate()}
-                  disabled={!playlistId || addSchedule.isPending}
+                  onClick={() => saveScheduleMutation.mutate()}
+                  disabled={!playlistId || saveScheduleMutation.isPending}
                 >
-                  Adicionar agendamento
+                  {editingScheduleId ? "Salvar alterações" : "Adicionar agendamento"}
                 </Button>
+                {editingScheduleId ? (
+                  <Button type="button" variant="outline" className="ml-2" onClick={cancelEdit}>
+                    Cancelar
+                  </Button>
+                ) : null}
               </div>
             </CardContent>
           </Card>
@@ -510,9 +585,18 @@ export function DeviceHub({ deviceId }: { deviceId: string }) {
             {schedules.map((s) => (
               <Card key={s.id}>
                 <CardContent className="flex items-center gap-3 py-4">
-                  <PlaySquare className="size-5 text-primary" />
+                  {s.isActive ? (
+                    <PlaySquare className="size-5 text-primary" />
+                  ) : (
+                    <PowerOff className="size-5 text-muted-foreground" />
+                  )}
                   <div className="min-w-0 flex-1">
-                    <p className="font-medium">{s.playlistName}</p>
+                    <div className="flex items-center gap-2">
+                      <p className="font-medium">{s.playlistName}</p>
+                      <Badge variant={s.isActive ? "default" : "outline"}>
+                        {s.isActive ? "Ativo" : "Desativado"}
+                      </Badge>
+                    </div>
                     <p className="text-xs text-muted-foreground">
                       {scheduleLabel(s.ruleType as ScheduleRuleType, s.ruleConfig as RuleConfig)}
                     </p>
@@ -520,6 +604,28 @@ export function DeviceHub({ deviceId }: { deviceId: string }) {
                   <Button
                     size="icon"
                     variant="ghost"
+                    title="Editar agendamento"
+                    aria-label="Editar agendamento"
+                    onClick={() => editSchedule(s)}
+                  >
+                    <Pencil className="size-4" />
+                  </Button>
+                  <Button
+                    size="icon"
+                    variant="ghost"
+                    title={s.isActive ? "Desativar agendamento" : "Ativar agendamento"}
+                    aria-label={s.isActive ? "Desativar agendamento" : "Ativar agendamento"}
+                    disabled={toggleScheduleMutation.isPending}
+                    onClick={() => toggleScheduleMutation.mutate(s)}
+                  >
+                    <Power className={s.isActive ? "size-4 text-amber-500" : "size-4 text-primary"} />
+                  </Button>
+                  <Button
+                    size="icon"
+                    variant="ghost"
+                    title="Excluir agendamento"
+                    aria-label="Excluir agendamento"
+                    disabled={removeScheduleMutation.isPending}
                     onClick={() => removeScheduleMutation.mutate(s.id)}
                   >
                     <Trash2 className="size-4 text-destructive" />
