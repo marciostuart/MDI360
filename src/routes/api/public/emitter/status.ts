@@ -16,12 +16,12 @@ export const Route = createFileRoute("/api/public/emitter/status")({
             columns: { id: true, panelId: true, pairingCode: true, pairingExpiresAt: true },
             where: eq(schema.queueEmitters.tokenHash, hashEmitterToken(token)),
           });
-          if (!emitter) return new Response("Terminal desconhecido", { status: 404 });
+          if (!emitter) return Response.json({ code: "EMITTER_UNKNOWN", error: "Terminal desconhecido" }, { status: 404, headers: { "cache-control": "no-store" } });
 
           if (!emitter.panelId) {
             if (!emitter.pairingCode || !emitter.pairingExpiresAt || emitter.pairingExpiresAt <= new Date()) {
               await getDb().delete(schema.queueEmitters).where(eq(schema.queueEmitters.id, emitter.id));
-              return new Response("Código expirado", { status: 410 });
+              return Response.json({ code: "EMITTER_EXPIRED", error: "Código expirado" }, { status: 410, headers: { "cache-control": "no-store" } });
             }
             return Response.json(
               {

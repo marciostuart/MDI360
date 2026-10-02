@@ -10,13 +10,25 @@ function newPairingCode() {
 export const Route = createFileRoute("/api/public/emitter/register")({
   server: {
     handlers: {
-      POST: async () => {
+      POST: async ({ request }) => {
         try {
           const { getDb, isDatabaseConfigured, schema } = await import("@/lib/db/index.server");
           if (!isDatabaseConfigured()) return new Response("Indisponível", { status: 503 });
-          const { newEmitterToken, hashEmitterToken } = await import(
+          const { newEmitterToken, hashEmitterToken, bearerToken } = await import(
             "@/lib/queue/emitter-auth.server"
           );
+          // A retry carrying the existing secret must not replace a valid code.
+          const previousToken = bearerToken(request);
+          if (previousToken) {
+            const { eq } = await import("drizzle-orm");
+            const existing = await getDb().query.queueEmitters.findFirst({
+              columns: { pairingCode: true, pairingExpiresAt: true },
+              where: eq(schema.queueEmitters.tokenHash, hashEmitterToken(previousToken)),
+            });
+            if (existing?.pairingCode && existing.pairingExpiresAt && existing.pairingExpiresAt > new Date()) {
+              return Response.json({ emitterToken: previousToken, pairingCode: existing.pairingCode, expiresAt: existing.pairingExpiresAt.toISOString() }, { headers: { "cache-control": "no-store" } });
+            }
+          }
           const token = newEmitterToken();
           const expiresAt = new Date(Date.now() + 24 * 60 * 60 * 1000);
 

@@ -1,8 +1,7 @@
 import { createFileRoute } from "@tanstack/react-router";
 import { Loader2, Ticket } from "lucide-react";
 import { useEffect, useState } from "react";
-
-const TOKEN_KEY = "mdi360.emitterToken";
+import { startEmitterActivation } from "@/lib/queue/emitter-activation";
 
 export const Route = createFileRoute("/emitir/")({
   head: () => ({
@@ -20,72 +19,20 @@ function EmitterActivationPage() {
   const [message, setMessage] = useState("Preparando este terminal...");
 
   useEffect(() => {
-    let cancelled = false;
-    let timer: number | undefined;
-
-    const schedule = (callback: () => void, delay = 2_000) => {
-      timer = window.setTimeout(callback, delay);
-    };
-
-    const register = async () => {
-      try {
-        const response = await fetch("/api/public/emitter/register", { method: "POST" });
-        if (!response.ok) throw new Error(`Servidor respondeu ${response.status}`);
-        const data = (await response.json()) as {
-          emitterToken: string;
-          pairingCode: string;
-        };
-        if (cancelled) return;
-        window.localStorage.setItem(TOKEN_KEY, data.emitterToken);
-        setCode(data.pairingCode);
-        setMessage("Informe este código no Studio. A conexão acontecerá automaticamente.");
-        schedule(() => void checkStatus(data.emitterToken));
-      } catch {
-        if (cancelled) return;
-        setMessage("Não foi possível conectar. Tentando novamente...");
-        schedule(() => void register(), 5_000);
-      }
-    };
-
-    const checkStatus = async (token: string) => {
-      try {
-        const response = await fetch("/api/public/emitter/status", {
-          headers: { authorization: `Bearer ${token}` },
-        });
-        if (response.status === 404 || response.status === 410) {
-          window.localStorage.removeItem(TOKEN_KEY);
-          setCode(null);
-          await register();
-          return;
-        }
-        if (!response.ok) throw new Error(`Servidor respondeu ${response.status}`);
-        const data = (await response.json()) as {
-          state: "waiting" | "linked";
-          pairingCode?: string;
-        };
-        if (cancelled) return;
-        if (data.state === "linked") {
-          window.location.replace(`/emitir/${encodeURIComponent(token)}`);
-          return;
-        }
-        setCode(data.pairingCode ?? null);
-        setMessage("Informe este código no Studio. A conexão acontecerá automaticamente.");
-        schedule(() => void checkStatus(token));
-      } catch {
-        if (cancelled) return;
-        setMessage("Sem conexão com o servidor. Tentando novamente...");
-        schedule(() => void checkStatus(token), 5_000);
-      }
-    };
-
-    const savedToken = window.localStorage.getItem(TOKEN_KEY);
-    if (savedToken) void checkStatus(savedToken);
-    else void register();
-
-    return () => {
-      cancelled = true;
-      if (timer) window.clearTimeout(timer);
-    };
+    return startEmitterActivation({
+      fetch: window.fetch.bind(window),
+      storage: {
+        getItem: (key) => window.localStorage.getItem(key),
+        setItem: (key, value) => window.localStorage.setItem(key, value),
+        removeItem: (key) => window.localStorage.removeItem(key),
+      },
+      schedule: (task, delay) => {
+        const timer = window.setTimeout(task, delay);
+        return () => window.clearTimeout(timer);
+      },
+      onState: (nextCode, nextMessage) => { setCode(nextCode); setMessage(nextMessage); },
+      onLinked: (token) => window.location.replace(`/emitir/${encodeURIComponent(token)}`),
+    });
   }, []);
 
   return (

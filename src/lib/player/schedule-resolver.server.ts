@@ -30,6 +30,8 @@ export type PlayerItem = {
   widgetConfig: WidgetConfig | null;
   /** Stable content identity: a transcode/replacement must invalidate old APK files. */
   cacheKey?: string;
+  /** Download progress fallback when an object response has no Content-Length. */
+  byteSize?: number | null;
   airStartAt?: string | null;
   airEndAt?: string | null;
   scheduleConstraints?: ScheduleRule[][];
@@ -175,6 +177,7 @@ async function resolveItems(
       widgetType: null,
       widgetConfig: null,
       cacheKey: `${row.mediaAssetId}:${row.storageKey ?? row.sourceUrl ?? ""}:${row.checksum ?? row.byteSize ?? ""}`,
+      byteSize: row.byteSize,
       airStartAt: row.airStartAt?.toISOString() ?? null,
       airEndAt: row.airEndAt?.toISOString() ?? null,
       scheduleConstraints: constraints,
