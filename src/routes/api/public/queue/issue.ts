@@ -25,7 +25,14 @@ export const Route = createFileRoute("/api/public/queue/issue")({
           return Response.json({ error: "Serviço indisponível." }, { status: 503 });
         const { and, eq, or } = await import("drizzle-orm");
         const { hashEmitterToken } = await import("@/lib/queue/emitter-auth.server");
-        const { hashDeviceToken } = await import("@/lib/player/player-auth.server");
+        const { authenticateDevice, hashDeviceToken } = await import("@/lib/player/player-auth.server");
+        const device = await authenticateDevice(request);
+        if (device && !device.enabledModes.includes("issuer")) {
+          return Response.json(
+            { error: "Emissão de senhas não habilitada neste terminal." },
+            { status: 403 },
+          );
+        }
         const db = getDb();
         const rows = await db
           .select({

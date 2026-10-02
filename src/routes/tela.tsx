@@ -1259,8 +1259,7 @@ function PlayerScreen() {
   // The call is drawn ON TOP of the playlist: nothing is unmounted, so the
   // rotation keeps its place and simply resumes when the call disappears.
   // Video audio is muted while a call is on screen.
-  const callOverlay =
-    activeCall && (!IS_ANDROID_HYBRID || sync?.device.enabledModes?.includes("caller")) ? (
+  const callOverlay = activeCall ? (
       <QueueCallOverlay
         call={activeCall}
         accentColor={sync?.branding?.color ?? null}
