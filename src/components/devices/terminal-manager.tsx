@@ -158,7 +158,8 @@ export function TerminalManager() {
       toast.success("Funções atualizadas no terminal.");
       await refresh();
     },
-    onError: () => toast.error("Não foi possível atualizar as funções."),
+    onError: (error: unknown) =>
+      toast.error(formatServerError(error, "Não foi possível atualizar as funções.")),
   });
 
   const playlistMutation = useMutation({

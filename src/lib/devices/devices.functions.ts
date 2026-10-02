@@ -197,6 +197,23 @@ export const updateDevice = createServerFn({ method: "POST" })
     const { requireUser } = await import("@/lib/auth/session.server");
     const { and, eq } = await import("drizzle-orm");
     const user = await requireUser();
+    const db = getDb();
+
+    const current = await db
+      .select({ id: schema.devices.id, appVersion: schema.devices.appVersion })
+      .from(schema.devices)
+      .where(
+        and(
+          eq(schema.devices.id, data.deviceId),
+          eq(schema.devices.organizationId, user.organizationId),
+        ),
+      )
+      .limit(1);
+    const device = current[0];
+    if (!device) throw new Error("Terminal não encontrado nesta conta.");
+    if (!(device.appVersion ?? "").toLowerCase().startsWith("android")) {
+      throw new Error("As funções de senhas estão disponíveis somente no Android híbrido.");
+    }
 
     const patch: { name?: string; canvasPreset?: string; enabledModes?: string[] } = {};
     if (data.name) patch.name = data.name;
@@ -204,7 +221,7 @@ export const updateDevice = createServerFn({ method: "POST" })
     if (data.enabledModes) patch.enabledModes = data.enabledModes;
     if (Object.keys(patch).length === 0) return { ok: true };
 
-    await getDb()
+    const updated = await db
       .update(schema.devices)
       .set(patch)
       .where(
@@ -212,12 +229,20 @@ export const updateDevice = createServerFn({ method: "POST" })
           eq(schema.devices.id, data.deviceId),
           eq(schema.devices.organizationId, user.organizationId),
         ),
-      );
+      )
+      .returning({ id: schema.devices.id, enabledModes: schema.devices.enabledModes });
+
+    if (!updated[0]) throw new Error("Não foi possível salvar as funções deste terminal.");
 
     const { notifyDevice } = await import("@/lib/player/realtime.server");
     notifyDevice(data.deviceId);
 
-    return { ok: true };
+    return {
+      ok: true,
+      enabledModes: Array.isArray(updated[0].enabledModes)
+        ? (updated[0].enabledModes as string[])
+        : ["display"],
+    } as const;
   });
 
 export const deleteDevice = createServerFn({ method: "POST" })
