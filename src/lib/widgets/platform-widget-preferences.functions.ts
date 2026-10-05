@@ -6,6 +6,7 @@ import {
   CURRENCY_IDS,
   NEWS_FEED_IDS,
   lotteryGameLayoutsSchema,
+  lotteryGameThemesSchema,
   widgetConfigSchema,
   widgetLayoutSchema,
   widgetThemeSchema,
@@ -39,6 +40,7 @@ const preferenceSchema = z.discriminatedUnion("type", [
     summaryMaxChars: z.number().int().min(60).max(600).default(240),
     showImage: z.boolean().default(true),
     imageMode: z.enum(["background", "block", "hidden"]).default("background"),
+    theme: widgetThemeSchema.optional(),
     layout: widgetLayoutSchema.optional(),
   }),
   z.object({
@@ -51,6 +53,7 @@ const preferenceSchema = z.discriminatedUnion("type", [
     rotateSeconds: z.number().int().min(5).max(30).default(10),
     federalStyle: z.enum(["list", "receipt"]).default("list"),
     gameLayouts: lotteryGameLayoutsSchema.optional(),
+    gameThemes: lotteryGameThemesSchema.optional(),
     layout: widgetLayoutSchema.optional(),
   }),
 ]);
@@ -133,6 +136,7 @@ export const savePlatformWidgetPreferences = createServerFn({ method: "POST" })
         rotateSeconds: data.rotateSeconds,
         federalStyle: data.federalStyle,
         ...(data.gameLayouts ? { gameLayouts: data.gameLayouts } : {}),
+        ...(data.gameThemes ? { gameThemes: data.gameThemes } : {}),
         ...(data.layout ? { layout: data.layout } : {}),
       };
     } else if (data.type === "news" && desired.config.type === "news") {
@@ -165,6 +169,7 @@ export const savePlatformWidgetPreferences = createServerFn({ method: "POST" })
         summaryMaxChars: data.summaryMaxChars,
         showImage: data.showImage,
         imageMode: data.imageMode,
+        ...(data.theme ? { theme: data.theme } : {}),
         ...(data.layout ? { layout: data.layout } : {}),
       };
     } else {

@@ -2,6 +2,7 @@ import { Eye, EyeOff, Move, RotateCcw } from "lucide-react";
 import { useRef, useState } from "react";
 
 import { Button } from "@/components/ui/button";
+import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Slider } from "@/components/ui/slider";
 import { WidgetView } from "@/components/widgets/widget-view";
@@ -122,7 +123,8 @@ export function WidgetLayoutEditor({
 
       <div
         ref={canvasRef}
-        className="relative aspect-video w-full select-none overflow-hidden rounded-xl border border-border"
+        className="relative w-full select-none overflow-hidden rounded-xl border border-border"
+        style={{ aspectRatio: "16 / 9" }}
       >
         <div className="pointer-events-none absolute inset-0">
           <WidgetView config={previewConfig ?? config} />
@@ -224,6 +226,68 @@ export function WidgetLayoutEditor({
                 value={[current.y]}
                 onValueChange={([value]) => patch(selected, { y: value ?? current.y })}
               />
+            </div>
+          </div>
+
+          <div className="grid gap-4 rounded-lg border border-border p-4 sm:grid-cols-2">
+            <div className="space-y-2">
+              <Label>Cor da fonte deste item</Label>
+              <div className="flex items-center gap-2">
+                <Input
+                  type="color"
+                  className="h-10 w-16 cursor-pointer p-1"
+                  value={current.color || "#ffffff"}
+                  onChange={(event) => patch(selected, { color: event.target.value })}
+                />
+                <Button
+                  type="button"
+                  size="sm"
+                  variant="outline"
+                  onClick={() => patch(selected, { color: "" })}
+                >
+                  Herdar cor do widget
+                </Button>
+              </div>
+            </div>
+            <div className="space-y-2">
+              <Label>Cor de fundo deste item</Label>
+              <div className="flex items-center gap-2">
+                <Input
+                  type="color"
+                  className="h-10 w-16 cursor-pointer p-1"
+                  value={current.backgroundColor || "#000000"}
+                  onChange={(event) => patch(selected, { backgroundColor: event.target.value })}
+                />
+                <Button
+                  type="button"
+                  size="sm"
+                  variant="outline"
+                  onClick={() => patch(selected, { backgroundColor: "" })}
+                >
+                  Transparente
+                </Button>
+              </div>
+            </div>
+            <div className="space-y-2 sm:col-span-2">
+              <Label>Imagem de fundo exclusiva deste item (URL HTTPS)</Label>
+              <div className="flex gap-2">
+                <Input
+                  placeholder="https://.../fundo-do-item.jpg"
+                  value={current.backgroundImageUrl}
+                  onChange={(event) => patch(selected, { backgroundImageUrl: event.target.value })}
+                />
+                <Button
+                  type="button"
+                  size="sm"
+                  variant="outline"
+                  onClick={() => patch(selected, { backgroundImageUrl: "" })}
+                >
+                  Remover
+                </Button>
+              </div>
+              <p className="text-xs text-muted-foreground">
+                A imagem ocupa somente este item e acompanha a proporÃ§Ã£o da tela na TV.
+              </p>
             </div>
           </div>
 

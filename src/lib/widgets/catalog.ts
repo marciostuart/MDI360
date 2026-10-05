@@ -145,6 +145,30 @@ export function resolveWidgetTheme(theme?: Partial<WidgetTheme> | null): WidgetT
   return { ...WIDGET_THEME_DEFAULTS, ...(theme ?? {}) };
 }
 
+/** Theme and numbered-placeholder colors for one lottery modality. */
+export const lotteryGameThemeSchema = widgetThemeSchema.extend({
+  /** Empty means transparent placeholders. */
+  placeholderBackground: z.union([hex, z.literal("")]).default("#FFFFFF"),
+  placeholderTextColor: hex.default("#020617"),
+  /** Empty means no visible placeholder outline. */
+  placeholderBorderColor: z.union([hex, z.literal("")]).default(""),
+});
+
+export const lotteryGameThemesSchema = z.record(z.string(), lotteryGameThemeSchema);
+export type LotteryGameTheme = z.infer<typeof lotteryGameThemeSchema>;
+export type LotteryGameThemes = z.infer<typeof lotteryGameThemesSchema>;
+
+export function resolveLotteryGameTheme(
+  gameId: string | null | undefined,
+  sharedTheme?: Partial<WidgetTheme> | null,
+  gameThemes?: LotteryGameThemes | null,
+): LotteryGameTheme {
+  return lotteryGameThemeSchema.parse({
+    ...resolveWidgetTheme(sharedTheme),
+    ...(gameId ? gameThemes?.[gameId] ?? {} : {}),
+  });
+}
+
 /**
  * Free layout. Every visible piece of a widget is a "block" that the customer
  * can drag, resize (font size in cqh, so it scales with the screen), align or
@@ -161,6 +185,12 @@ export const widgetBlockSchema = z.object({
   size: z.number().min(0.8).max(40).default(4),
   align: z.enum(["left", "center", "right"]).default("left"),
   hidden: z.boolean().default(false),
+  /** Optional per-item font color. Empty means inherit the widget color. */
+  color: z.union([hex, z.literal("")]).default(""),
+  /** Optional per-item background color. Empty means transparent. */
+  backgroundColor: z.union([hex, z.literal("")]).default(""),
+  /** Optional HTTPS image used only behind this item. */
+  backgroundImageUrl: z.string().trim().max(600).default(""),
 });
 
 export type WidgetBlock = z.infer<typeof widgetBlockSchema>;
@@ -349,7 +379,7 @@ export function resolveWidgetLayout(
   const preset = LAYOUT_PRESETS[type];
   const merged: WidgetLayout = {};
   for (const [id, block] of Object.entries(preset)) {
-    merged[id] = { ...block, ...(layout?.[id] ?? {}) };
+    merged[id] = widgetBlockSchema.parse({ ...block, ...(layout?.[id] ?? {}) });
   }
   return merged;
 }
@@ -364,7 +394,7 @@ export function resolveLotteryWidgetLayout(
   const selected = selectLotteryLayout(gameId, gameLayouts, legacyLayout);
   const merged: WidgetLayout = {};
   for (const [id, block] of Object.entries(preset)) {
-    merged[id] = { ...block, ...(selected?.[id] ?? {}) };
+    merged[id] = widgetBlockSchema.parse({ ...block, ...(selected?.[id] ?? {}) });
   }
   return merged;
 }
@@ -431,6 +461,8 @@ export const widgetConfigSchema = z.discriminatedUnion("type", [
     theme: widgetThemeSchema.optional(),
     /** Independent visual template for each lottery modality. */
     gameLayouts: lotteryGameLayoutsSchema.optional(),
+    /** Independent theme and placeholder colors per modality. */
+    gameThemes: lotteryGameThemesSchema.optional(),
     /** Legacy shared layout retained as fallback for existing widgets. */
     layout: widgetLayoutSchema.optional(),
   }),

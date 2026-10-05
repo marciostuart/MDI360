@@ -7,9 +7,11 @@ import type {
   WidgetConfig,
   WidgetLayout,
   WidgetTheme,
+  LotteryGameTheme,
 } from "@/lib/widgets/catalog";
 import {
   getWeatherCity,
+  resolveLotteryGameTheme,
   resolveLotteryWidgetLayout,
   resolveWidgetLayout,
   resolveWidgetTheme,
@@ -155,6 +157,16 @@ function Block({
   style?: React.CSSProperties;
 }) {
   if (!block || block.hidden) return null;
+  const itemBackground = block.backgroundImageUrl
+    ? {
+        backgroundImage: `url(${JSON.stringify(block.backgroundImageUrl)})`,
+        backgroundPosition: "center",
+        backgroundRepeat: "no-repeat",
+        backgroundSize: "cover",
+      }
+    : block.backgroundColor
+      ? { backgroundColor: block.backgroundColor }
+      : {};
   return (
     <div
       className={`absolute ${className ?? ""}`}
@@ -165,6 +177,8 @@ function Block({
         fontSize: `${block.size}cqh`,
         textAlign: block.align,
         ...style,
+        ...(block.color ? { color: block.color } : {}),
+        ...itemBackground,
       }}
     >
       {children}
@@ -712,7 +726,15 @@ function money(value: number | null) {
   return value.toLocaleString("pt-BR", { style: "currency", currency: "BRL" });
 }
 
-function LotteryBalls({ values, accent }: { values: string[]; accent: string }) {
+function LotteryBalls({
+  values,
+  accent,
+  placeholder,
+}: {
+  values: string[];
+  accent: string;
+  placeholder: LotteryGameTheme;
+}) {
   return (
     <div
       style={{
@@ -735,9 +757,12 @@ function LotteryBalls({ values, accent }: { values: string[]; accent: string }) 
             justifyContent: "center",
             borderRadius: "9999px",
             padding: "0.08em",
-            color: "#020617",
-            WebkitTextFillColor: "#020617",
-            backgroundColor: "#ffffff",
+            color: placeholder.placeholderTextColor,
+            WebkitTextFillColor: placeholder.placeholderTextColor,
+            backgroundColor: placeholder.placeholderBackground || "transparent",
+            border: placeholder.placeholderBorderColor
+              ? `0.08em solid ${placeholder.placeholderBorderColor}`
+              : "none",
             fontFamily: "Arial, sans-serif",
             fontSize: "0.82em",
             fontWeight: 700,
@@ -754,10 +779,12 @@ function LotteryBalls({ values, accent }: { values: string[]; accent: string }) 
 function LotteryResultBody({
   result,
   accent,
+  placeholder,
   federalStyle = "list",
 }: {
   result: NormalizedLotteryResult;
   accent: string;
+  placeholder: LotteryGameTheme;
   federalStyle?: "list" | "receipt";
 }) {
   if (result.gameId === "federal") {
@@ -844,13 +871,13 @@ function LotteryResultBody({
           <span className="mb-[0.25em] block text-[0.35em] uppercase tracking-[0.2em] opacity-65">
             1º sorteio
           </span>
-          <LotteryBalls values={result.numbers} accent={accent} />
+          <LotteryBalls values={result.numbers} accent={accent} placeholder={placeholder} />
         </div>
         <div>
           <span className="mb-[0.25em] block text-[0.35em] uppercase tracking-[0.2em] opacity-65">
             2º sorteio
           </span>
-          <LotteryBalls values={result.secondDraw} accent={accent} />
+          <LotteryBalls values={result.secondDraw} accent={accent} placeholder={placeholder} />
         </div>
       </div>
     );
@@ -867,7 +894,7 @@ function LotteryResultBody({
       </div>
     );
   }
-  return <LotteryBalls values={result.numbers} accent={accent} />;
+  return <LotteryBalls values={result.numbers} accent={accent} placeholder={placeholder} />;
 }
 
 function LotteryWidget({
@@ -904,6 +931,8 @@ function LotteryWidget({
 
   const result = results[Math.min(index, Math.max(0, results.length - 1))];
   const layout = resolveLotteryWidgetLayout(result?.gameId, config.gameLayouts, config.layout);
+  const resultTheme = resolveLotteryGameTheme(result?.gameId, theme, config.gameThemes);
+  const resultAccent = resultTheme.accentColor || accent;
   const specialDetails = result
     ? [
         result.luckyMonth ? `Mês da Sorte: ${result.luckyMonth}` : null,
@@ -919,21 +948,30 @@ function LotteryWidget({
     : result?.drawDate;
 
   return (
-    <Shell accent={accent} theme={theme} scene={<ClearScene accent={accent} theme={theme} />}>
+    <Shell
+      accent={resultAccent}
+      theme={resultTheme}
+      scene={<ClearScene accent={resultAccent} theme={resultTheme} />}
+    >
       {!result ? (
         <p className="absolute inset-x-[8%] top-[45%] text-center text-[4cqh] opacity-65">
           {failed ? "Resultados temporariamente indisponíveis." : "Carregando resultados oficiais…"}
         </p>
       ) : (
         <>
-          <Block block={layout.game} className="font-display font-bold" style={{ color: accent }}>
+          <Block block={layout.game} className="font-display font-bold">
             {result.gameName}
           </Block>
           <Block block={layout.contest} className="uppercase tracking-[0.18em] opacity-70">
             Concurso {result.contestNumber} • {result.drawDate}
           </Block>
           <Block block={layout.result} className="font-display leading-tight">
-            <LotteryResultBody result={result} accent={accent} federalStyle={config.federalStyle} />
+            <LotteryResultBody
+              result={result}
+              accent={resultAccent}
+              placeholder={resultTheme}
+              federalStyle={config.federalStyle}
+            />
           </Block>
           <Block block={layout.details}>
             {specialDetails.length ? specialDetails.join("  •  ") : null}
@@ -941,7 +979,7 @@ function LotteryWidget({
           <Block block={layout.status}>
             <div className="flex flex-wrap items-center justify-center gap-[0.7em]">
               {result.accumulated ? (
-                <strong style={{ color: accent }}>ACUMULOU</strong>
+                <strong>ACUMULOU</strong>
               ) : (
                 <span>Resultado confirmado</span>
               )}

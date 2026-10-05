@@ -23,11 +23,14 @@ import {
   CURRENCY_OPTIONS,
   NEWS_FEEDS,
   getLotteryLayoutPreset,
+  resolveLotteryGameTheme,
   resolveLotteryWidgetLayout,
   resolveWidgetLayout,
   resolveWidgetTheme,
   type WidgetConfig,
   type WidgetLayout,
+  type LotteryGameTheme,
+  type LotteryGameThemes,
   type WidgetTheme,
 } from "@/lib/widgets/catalog";
 import { LOTTERY_GAMES, type LotteryGameId } from "@/lib/widgets/lottery";
@@ -86,10 +89,13 @@ export function PlatformWidgetPreferences({
   const [lotteryFederalStyle, setLotteryFederalStyle] = useState<"list" | "receipt">("list");
   const [lotteryGameLayouts, setLotteryGameLayouts] =
     useState<Extract<WidgetConfig, { type: "lottery" }>["gameLayouts"]>();
+  const [lotteryGameThemes, setLotteryGameThemes] =
+    useState<Extract<WidgetConfig, { type: "lottery" }>["gameThemes"]>();
   const [lotteryTemplateGameId, setLotteryTemplateGameId] = useState<LotteryGameId>("megasena");
   const [feedId, setFeedId] = useState("");
   const [newsSettings, setNewsSettings] = useState(defaultNewsSettings);
   const [newsLayout, setNewsLayout] = useState<WidgetLayout>();
+  const [newsTheme, setNewsTheme] = useState<WidgetTheme>(resolveWidgetTheme());
 
   useEffect(() => {
     const config = item.widgetConfig;
@@ -103,11 +109,13 @@ export function PlatformWidgetPreferences({
       setLotteryRotateSeconds(config.rotateSeconds);
       setLotteryFederalStyle(config.federalStyle);
       setLotteryGameLayouts(config.gameLayouts);
+      setLotteryGameThemes(config.gameThemes);
       if (config.gameIds[0]) setLotteryTemplateGameId(config.gameIds[0]);
     }
     if (config?.type === "news") {
       setFeedId(config.feedId);
       setNewsLayout(config.layout);
+      setNewsTheme(resolveWidgetTheme(config.theme));
       setNewsSettings({
         headlines: config.headlines,
         oneAtATime: config.oneAtATime,
@@ -142,6 +150,7 @@ export function PlatformWidgetPreferences({
             rotateSeconds: lotteryRotateSeconds,
             federalStyle: lotteryFederalStyle,
             gameLayouts: lotteryGameLayouts,
+            gameThemes: lotteryGameThemes,
           },
         });
       }
@@ -153,6 +162,7 @@ export function PlatformWidgetPreferences({
             assetId: item.id,
             feedId,
             ...newsSettings,
+            theme: newsTheme,
             layout: newsLayout,
           },
         });
@@ -183,6 +193,17 @@ export function PlatformWidgetPreferences({
   const allowedNews = publicNews.filter(
     (source) => !builtInIds.has(source.id) || availability.data.newsFeedIds.includes(source.id),
   );
+  const selectedLotteryTheme = resolveLotteryGameTheme(
+    lotteryTemplateGameId,
+    item.widgetConfig?.type === "lottery" ? item.widgetConfig.theme : null,
+    lotteryGameThemes,
+  );
+  const patchLotteryTheme = (next: Partial<LotteryGameTheme>) => {
+    setLotteryGameThemes((current) => ({
+      ...(current ?? {}),
+      [lotteryTemplateGameId]: { ...selectedLotteryTheme, ...next },
+    }) as LotteryGameThemes);
+  };
 
   return (
     <Card>
@@ -419,6 +440,156 @@ export function PlatformWidgetPreferences({
                     })}
                   </SelectContent>
                 </Select>
+                <div className="space-y-4 rounded-lg border border-border p-4">
+                  <div>
+                    <p className="text-sm font-medium">Cores e fundo desta modalidade</p>
+                    <p className="text-xs text-muted-foreground">
+                      Estas opções valem somente para {LOTTERY_GAMES.find((game) => game.id === lotteryTemplateGameId)?.label ?? "este resultado"}.
+                    </p>
+                  </div>
+                  <div className="grid gap-4 sm:grid-cols-2">
+                    <div className="space-y-2">
+                      <Label>Fundo</Label>
+                      <Select
+                        value={selectedLotteryTheme.background}
+                        onValueChange={(value) =>
+                          patchLotteryTheme({ background: value as LotteryGameTheme["background"] })
+                        }
+                      >
+                        <SelectTrigger>
+                          <SelectValue />
+                        </SelectTrigger>
+                        <SelectContent>
+                          <SelectItem value="solid">Cor sólida</SelectItem>
+                          <SelectItem value="gradient">Gradiente</SelectItem>
+                          <SelectItem value="image">Imagem de fundo</SelectItem>
+                        </SelectContent>
+                      </Select>
+                    </div>
+                    <div className="space-y-2">
+                      <Label>Cor geral das fontes</Label>
+                      <Input
+                        type="color"
+                        value={selectedLotteryTheme.textColor}
+                        onChange={(event) => patchLotteryTheme({ textColor: event.target.value })}
+                      />
+                    </div>
+                    {selectedLotteryTheme.background === "solid" ? (
+                      <div className="space-y-2">
+                        <Label>Cor do fundo</Label>
+                        <Input
+                          type="color"
+                          value={selectedLotteryTheme.backgroundColor}
+                          onChange={(event) =>
+                            patchLotteryTheme({ backgroundColor: event.target.value })
+                          }
+                        />
+                      </div>
+                    ) : null}
+                    {selectedLotteryTheme.background === "gradient" ? (
+                      <>
+                        <div className="space-y-2">
+                          <Label>Início do gradiente</Label>
+                          <Input
+                            type="color"
+                            value={selectedLotteryTheme.gradientFrom}
+                            onChange={(event) =>
+                              patchLotteryTheme({ gradientFrom: event.target.value })
+                            }
+                          />
+                        </div>
+                        <div className="space-y-2">
+                          <Label>Fim do gradiente</Label>
+                          <Input
+                            type="color"
+                            value={selectedLotteryTheme.gradientTo}
+                            onChange={(event) =>
+                              patchLotteryTheme({ gradientTo: event.target.value })
+                            }
+                          />
+                        </div>
+                      </>
+                    ) : null}
+                    {selectedLotteryTheme.background === "image" ? (
+                      <div className="space-y-2 sm:col-span-2">
+                        <Label>Imagem de fundo desta modalidade (URL HTTPS)</Label>
+                        <Input
+                          placeholder="https://.../fundo-mega-sena.jpg"
+                          value={selectedLotteryTheme.backgroundImageUrl}
+                          onChange={(event) =>
+                            patchLotteryTheme({ backgroundImageUrl: event.target.value })
+                          }
+                        />
+                      </div>
+                    ) : null}
+                    <div className="space-y-2">
+                      <Label>Fundo das bolinhas</Label>
+                      <div className="flex items-center gap-2">
+                        <Input
+                          type="color"
+                          className="h-10 w-16 cursor-pointer p-1"
+                          value={selectedLotteryTheme.placeholderBackground || "#ffffff"}
+                          disabled={!selectedLotteryTheme.placeholderBackground}
+                          onChange={(event) =>
+                            patchLotteryTheme({ placeholderBackground: event.target.value })
+                          }
+                        />
+                        <Button
+                          type="button"
+                          size="sm"
+                          variant="outline"
+                          onClick={() =>
+                            patchLotteryTheme({
+                              placeholderBackground: selectedLotteryTheme.placeholderBackground
+                                ? ""
+                                : "#ffffff",
+                            })
+                          }
+                        >
+                          {selectedLotteryTheme.placeholderBackground ? "Transparente" : "Usar cor"}
+                        </Button>
+                      </div>
+                    </div>
+                    <div className="space-y-2">
+                      <Label>Cor dos números</Label>
+                      <Input
+                        type="color"
+                        value={selectedLotteryTheme.placeholderTextColor}
+                        onChange={(event) =>
+                          patchLotteryTheme({ placeholderTextColor: event.target.value })
+                        }
+                      />
+                    </div>
+                    <div className="space-y-2 sm:col-span-2">
+                      <Label>Contorno das bolinhas</Label>
+                      <div className="flex items-center gap-2">
+                        <Input
+                          type="color"
+                          className="h-10 w-16 cursor-pointer p-1"
+                          value={selectedLotteryTheme.placeholderBorderColor || "#ffffff"}
+                          disabled={!selectedLotteryTheme.placeholderBorderColor}
+                          onChange={(event) =>
+                            patchLotteryTheme({ placeholderBorderColor: event.target.value })
+                          }
+                        />
+                        <Button
+                          type="button"
+                          size="sm"
+                          variant="outline"
+                          onClick={() =>
+                            patchLotteryTheme({
+                              placeholderBorderColor: selectedLotteryTheme.placeholderBorderColor
+                                ? ""
+                                : "#ffffff",
+                            })
+                          }
+                        >
+                          {selectedLotteryTheme.placeholderBorderColor ? "Sem contorno" : "Usar contorno"}
+                        </Button>
+                      </div>
+                    </div>
+                  </div>
+                </div>
                 {item.widgetConfig?.type === "lottery" ? (
                   <WidgetLayoutEditor
                     key={lotteryTemplateGameId}
@@ -439,6 +610,10 @@ export function PlatformWidgetPreferences({
                           lotteryGameLayouts,
                           item.widgetConfig.layout,
                         ),
+                      },
+                      gameThemes: {
+                        ...(lotteryGameThemes ?? {}),
+                        [lotteryTemplateGameId]: selectedLotteryTheme,
                       },
                     }}
                     onChange={(layout: WidgetLayout) =>
@@ -521,6 +696,100 @@ export function PlatformWidgetPreferences({
                   />
                   Exibir imagem
                 </label>
+              </div>
+            </div>
+
+            <div className="space-y-4 rounded-lg border border-border p-4">
+              <p className="text-sm font-medium">Cores e fundo das notícias</p>
+              <div className="grid gap-4 sm:grid-cols-2">
+                <div className="space-y-2">
+                  <Label>Fundo</Label>
+                  <Select
+                    value={newsTheme.background}
+                    onValueChange={(value) =>
+                      setNewsTheme((current) => ({
+                        ...current,
+                        background: value as WidgetTheme["background"],
+                      }))
+                    }
+                  >
+                    <SelectTrigger>
+                      <SelectValue />
+                    </SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="solid">Cor sólida</SelectItem>
+                      <SelectItem value="gradient">Gradiente</SelectItem>
+                      <SelectItem value="image">Imagem de fundo</SelectItem>
+                    </SelectContent>
+                  </Select>
+                </div>
+                <div className="space-y-2">
+                  <Label>Cor geral das fontes</Label>
+                  <Input
+                    type="color"
+                    value={newsTheme.textColor}
+                    onChange={(event) =>
+                      setNewsTheme((current) => ({ ...current, textColor: event.target.value }))
+                    }
+                  />
+                </div>
+                {newsTheme.background === "solid" ? (
+                  <div className="space-y-2">
+                    <Label>Cor do fundo</Label>
+                    <Input
+                      type="color"
+                      value={newsTheme.backgroundColor}
+                      onChange={(event) =>
+                        setNewsTheme((current) => ({
+                          ...current,
+                          backgroundColor: event.target.value,
+                        }))
+                      }
+                    />
+                  </div>
+                ) : null}
+                {newsTheme.background === "gradient" ? (
+                  <>
+                    <div className="space-y-2">
+                      <Label>Início do gradiente</Label>
+                      <Input
+                        type="color"
+                        value={newsTheme.gradientFrom}
+                        onChange={(event) =>
+                          setNewsTheme((current) => ({
+                            ...current,
+                            gradientFrom: event.target.value,
+                          }))
+                        }
+                      />
+                    </div>
+                    <div className="space-y-2">
+                      <Label>Fim do gradiente</Label>
+                      <Input
+                        type="color"
+                        value={newsTheme.gradientTo}
+                        onChange={(event) =>
+                          setNewsTheme((current) => ({ ...current, gradientTo: event.target.value }))
+                        }
+                      />
+                    </div>
+                  </>
+                ) : null}
+                {newsTheme.background === "image" ? (
+                  <div className="space-y-2 sm:col-span-2">
+                    <Label>Imagem de fundo das notícias (URL HTTPS)</Label>
+                    <Input
+                      placeholder="https://.../fundo-noticias.jpg"
+                      value={newsTheme.backgroundImageUrl}
+                      onChange={(event) =>
+                        setNewsTheme((current) => ({
+                          ...current,
+                          backgroundImageUrl: event.target.value,
+                        }))
+                      }
+                    />
+                  </div>
+                ) : null}
               </div>
             </div>
 
@@ -634,6 +903,7 @@ export function PlatformWidgetPreferences({
                       ...item.widgetConfig,
                       ...newsSettings,
                       feedId,
+                      theme: newsTheme,
                       layout: newsLayout,
                     }
                   : undefined
