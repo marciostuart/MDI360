@@ -181,7 +181,11 @@ export function WidgetComposer({
     if (!editing) return;
     setType(editing.config.type);
     setName(editing.name);
-    setConfig(editing.config);
+    setConfig(
+      editing.config.type === "lottery"
+        ? { ...editing.config, federalStyle: "list" }
+        : editing.config,
+    );
     setCep(editing.config.type === "weather" ? (editing.config.cep ?? "") : "");
     if (editing.config.type === "lottery" && editing.config.gameIds[0]) {
       setLotteryTemplateGameId(editing.config.gameIds[0]);
@@ -689,8 +693,8 @@ export function WidgetComposer({
                   ciclo.
                 </p>
               </div>
-              {config.gameIds.includes("federal") ? (
-                <div className="space-y-2 rounded-lg border border-border p-4">
+              {config.gameIds.includes("federal") && config.federalStyle === "receipt" ? (
+                <div className="hidden space-y-2 rounded-lg border border-border p-4">
                   <div>
                     <Label>Formato da Loteria Federal</Label>
                     <p className="text-xs text-muted-foreground">
@@ -960,6 +964,12 @@ export function WidgetComposer({
                       <div className="space-y-2 sm:col-span-2"><Label>Ângulo do degradê: {selectedLotteryTheme.gradientAngle}°</Label><Slider min={0} max={360} step={1} value={[selectedLotteryTheme.gradientAngle]} onValueChange={([value]) => patchLotteryTheme({ gradientAngle: value ?? 160 })} /></div>
                     </>
                   ) : null}
+                  {selectedLotteryTheme.background === "gradient" ? (
+                    <div className="grid gap-3 sm:col-span-2 sm:grid-cols-2">
+                      <div className="space-y-1"><Label className="text-xs">Ponto inicial do degradê</Label><Input type="number" min={0} max={100} value={selectedLotteryTheme.gradientFromStop} onChange={(event) => patchLotteryTheme({ gradientFromStop: Number(event.target.value) || 0 })} /></div>
+                      <div className="space-y-1"><Label className="text-xs">Ponto final do degradê</Label><Input type="number" min={0} max={100} value={selectedLotteryTheme.gradientToStop} onChange={(event) => patchLotteryTheme({ gradientToStop: Number(event.target.value) || 0 })} /></div>
+                    </div>
+                  ) : null}
                   {selectedLotteryTheme.background === "image" ? (
                     <>
                       <div className="space-y-2 sm:col-span-2"><Label>Imagem de fundo (URL HTTPS)</Label><Input placeholder="https://.../fundo.jpg" value={selectedLotteryTheme.backgroundImageUrl} onChange={(event) => patchLotteryTheme({ backgroundImageUrl: event.target.value })} /></div>
@@ -968,6 +978,19 @@ export function WidgetComposer({
                       {selectedLotteryTheme.imageOverlayMode === "gradient" ? <><ColorOpacityField label="Início da sobreposição" color={selectedLotteryTheme.imageOverlayGradientFrom} opacity={selectedLotteryTheme.imageOverlayGradientFromOpacity} onColorChange={(imageOverlayGradientFrom) => patchLotteryTheme({ imageOverlayGradientFrom })} onOpacityChange={(imageOverlayGradientFromOpacity) => patchLotteryTheme({ imageOverlayGradientFromOpacity })} /><ColorOpacityField label="Fim da sobreposição" color={selectedLotteryTheme.imageOverlayGradientTo} opacity={selectedLotteryTheme.imageOverlayGradientToOpacity} onColorChange={(imageOverlayGradientTo) => patchLotteryTheme({ imageOverlayGradientTo })} onOpacityChange={(imageOverlayGradientToOpacity) => patchLotteryTheme({ imageOverlayGradientToOpacity })} /></> : null}
                     </>
                   ) : null}
+                    {selectedLotteryTheme.background === "image" ? (
+                      <div className="grid gap-3 rounded-md border border-border p-3 sm:col-span-2 sm:grid-cols-3">
+                        <label className="flex items-center gap-2 text-sm sm:col-span-3">
+                          <Switch checked={selectedLotteryTheme.kenBurns} onCheckedChange={(kenBurns) => patchLotteryTheme({ kenBurns })} />
+                          Aplicar zoom suave (Ken Burns) nesta imagem
+                        </label>
+                        {selectedLotteryTheme.imageOverlayMode === "gradient" ? <>
+                          <div className="space-y-1"><Label className="text-xs">Ponto inicial</Label><Input type="number" min={0} max={100} value={selectedLotteryTheme.imageOverlayGradientFromStop} onChange={(event) => patchLotteryTheme({ imageOverlayGradientFromStop: Number(event.target.value) || 0 })} /></div>
+                          <div className="space-y-1"><Label className="text-xs">Ponto final</Label><Input type="number" min={0} max={100} value={selectedLotteryTheme.imageOverlayGradientToStop} onChange={(event) => patchLotteryTheme({ imageOverlayGradientToStop: Number(event.target.value) || 0 })} /></div>
+                          <div className="space-y-1"><Label className="text-xs">Ângulo (graus)</Label><Input type="number" min={0} max={360} value={selectedLotteryTheme.imageOverlayGradientAngle} onChange={(event) => patchLotteryTheme({ imageOverlayGradientAngle: Number(event.target.value) || 0 })} /></div>
+                        </> : null}
+                      </div>
+                    ) : null}
                     <details className="rounded-md bg-muted/30 p-3 sm:col-span-2">
                       <summary className="cursor-pointer text-sm font-medium">Detalhes dos resultados e bolinhas</summary>
                       <div className="mt-4 grid gap-4 sm:grid-cols-2">

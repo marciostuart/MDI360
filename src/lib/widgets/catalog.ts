@@ -129,6 +129,8 @@ export const widgetThemeSchema = z.object({
   gradientTo: hex.default("#020617"),
   gradientToOpacity: z.number().int().min(0).max(100).default(100),
   gradientAngle: z.number().int().min(0).max(360).default(160),
+  gradientFromStop: z.number().int().min(0).max(100).default(0),
+  gradientToStop: z.number().int().min(0).max(100).default(100),
   /** Public https image used as backdrop (optional). */
   backgroundImageUrl: z.string().trim().max(600).default(""),
   /** Dark veil over the image so text stays readable (0–90%). */
@@ -141,6 +143,8 @@ export const widgetThemeSchema = z.object({
   imageOverlayGradientTo: hex.default("#000000"),
   imageOverlayGradientToOpacity: z.number().int().min(0).max(100).default(15),
   imageOverlayGradientAngle: z.number().int().min(0).max(360).default(160),
+  imageOverlayGradientFromStop: z.number().int().min(0).max(100).default(0),
+  imageOverlayGradientToStop: z.number().int().min(0).max(100).default(100),
   textColor: hex.default("#FFFFFF"),
   /** Empty = follow the organization brand color. */
   accentColor: z.union([hex, z.literal("")]).default(""),
@@ -225,6 +229,14 @@ export const widgetBlockSchema = z.object({
   backgroundGradientTo: hex.default("#000000"),
   backgroundGradientToOpacity: z.number().int().min(0).max(100).default(10),
   backgroundGradientAngle: z.number().int().min(0).max(360).default(160),
+  backgroundGradientFromStop: z.number().int().min(0).max(100).default(0),
+  backgroundGradientToStop: z.number().int().min(0).max(100).default(100),
+  /** Corner radius and inner spacing of this item's own backdrop, in cqh. */
+  backgroundRadius: z.number().min(0).max(20).default(0),
+  paddingTop: z.number().min(0).max(20).default(0),
+  paddingRight: z.number().min(0).max(20).default(0),
+  paddingBottom: z.number().min(0).max(20).default(0),
+  paddingLeft: z.number().min(0).max(20).default(0),
   /** Optional HTTPS image used only behind this item. */
   backgroundImageUrl: z.string().trim().max(600).default(""),
   imageOverlayMode: z.enum(["none", "solid", "gradient"]).default("none"),
@@ -235,6 +247,8 @@ export const widgetBlockSchema = z.object({
   imageOverlayGradientTo: hex.default("#000000"),
   imageOverlayGradientToOpacity: z.number().int().min(0).max(100).default(15),
   imageOverlayGradientAngle: z.number().int().min(0).max(360).default(160),
+  imageOverlayGradientFromStop: z.number().int().min(0).max(100).default(0),
+  imageOverlayGradientToStop: z.number().int().min(0).max(100).default(100),
 });
 
 export type WidgetBlock = z.infer<typeof widgetBlockSchema>;
@@ -276,7 +290,9 @@ export const WIDGET_BLOCKS: Record<WidgetType, { id: string; label: string }[]> 
     { id: "contest", label: "Concurso e data" },
     { id: "result", label: "Resultado" },
     { id: "details", label: "Informações complementares" },
-    { id: "status", label: "Situação e próximo prêmio" },
+    { id: "accumulated", label: "Situação do prêmio" },
+    { id: "nextPrize", label: "Próximo prêmio estimado" },
+    { id: "nextDraw", label: "Próximo concurso" },
     { id: "source", label: "Fonte oficial" },
     { id: "bottomBar", label: "Barra inferior" },
   ],
@@ -327,7 +343,11 @@ export const LAYOUT_PRESETS: Record<WidgetType, WidgetLayout> = {
     contest: { x: 6, y: 18, w: 60, size: 2.4, align: "left", hidden: false },
     result: { x: 6, y: 29, w: 88, size: 6, align: "center", hidden: false },
     details: { x: 8, y: 55, w: 84, size: 2.7, align: "center", hidden: false },
-    status: { x: 8, y: 75, w: 84, size: 2.5, align: "center", hidden: false },
+    // Legacy combined status is intentionally retained for old saved layouts.
+    status: { x: 8, y: 75, w: 84, size: 2.5, align: "center", hidden: true },
+    accumulated: { x: 8, y: 75, w: 22, size: 2.5, align: "left", hidden: false },
+    nextPrize: { x: 31, y: 75, w: 38, size: 2.5, align: "center", hidden: false },
+    nextDraw: { x: 70, y: 75, w: 22, size: 2.5, align: "right", hidden: false },
     source: { x: 6, y: 89, w: 88, size: 1.6, align: "left", hidden: false },
     bottomBar: { x: 0, y: 99, w: 100, size: 1, align: "left", hidden: false },
   },
@@ -396,7 +416,9 @@ export const LOTTERY_LAYOUT_PRESETS: Record<LotteryGameId, WidgetLayout> = {
       contest: { x: 5, y: 24, w: 38, size: 2.8, align: "left" },
       result: { hidden: true },
       details: { hidden: true },
-      status: { x: 5, y: 51, w: 36, size: 3.2, align: "left" },
+      accumulated: { x: 5, y: 51, w: 36, size: 3.2, align: "left" },
+      nextPrize: { x: 5, y: 57, w: 36, size: 2.5, align: "left" },
+      nextDraw: { x: 5, y: 63, w: 36, size: 2.3, align: "left" },
       source: { x: 5, y: 90, w: 90, size: 1.7, align: "left" },
     }),
     ...Object.fromEntries(Array.from({ length: 5 }, (_, index) => {

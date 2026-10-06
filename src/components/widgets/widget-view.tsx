@@ -77,11 +77,13 @@ function gradient(
   fromOpacity: number,
   to: string,
   toOpacity: number,
+  fromStop = 0,
+  toStop = 100,
 ) {
-  return `linear-gradient(${angle}deg, ${withOpacity(from, fromOpacity)}, ${withOpacity(to, toOpacity)})`;
+  return `linear-gradient(${angle}deg, ${withOpacity(from, fromOpacity)} ${fromStop}%, ${withOpacity(to, toOpacity)} ${toStop}%)`;
 }
 
-function imageOverlay(theme: Pick<WidgetTheme, "imageOverlayMode" | "imageOverlayColor" | "imageOverlayOpacity" | "imageOverlayGradientFrom" | "imageOverlayGradientFromOpacity" | "imageOverlayGradientTo" | "imageOverlayGradientToOpacity" | "imageOverlayGradientAngle">) {
+function imageOverlay(theme: Pick<WidgetTheme, "imageOverlayMode" | "imageOverlayColor" | "imageOverlayOpacity" | "imageOverlayGradientFrom" | "imageOverlayGradientFromOpacity" | "imageOverlayGradientTo" | "imageOverlayGradientToOpacity" | "imageOverlayGradientAngle" | "imageOverlayGradientFromStop" | "imageOverlayGradientToStop">) {
   if (theme.imageOverlayMode === "none") return "";
   if (theme.imageOverlayMode === "gradient") {
     return gradient(
@@ -90,6 +92,8 @@ function imageOverlay(theme: Pick<WidgetTheme, "imageOverlayMode" | "imageOverla
       theme.imageOverlayGradientFromOpacity,
       theme.imageOverlayGradientTo,
       theme.imageOverlayGradientToOpacity,
+      theme.imageOverlayGradientFromStop,
+      theme.imageOverlayGradientToStop,
     );
   }
   return withOpacity(theme.imageOverlayColor, theme.imageOverlayOpacity);
@@ -119,6 +123,8 @@ function Backdrop({
                   theme.gradientFromOpacity,
                   theme.gradientTo,
                   theme.gradientToOpacity,
+                  theme.gradientFromStop,
+                  theme.gradientToStop,
                 ),
         }}
       />
@@ -230,6 +236,8 @@ function Block({
               block.backgroundGradientFromOpacity,
               block.backgroundGradientTo,
               block.backgroundGradientToOpacity,
+              block.backgroundGradientFromStop,
+              block.backgroundGradientToStop,
             ),
           }
         : backgroundMode === "solid" && block.backgroundColor
@@ -244,6 +252,8 @@ function Block({
         width: `${block.w}%`,
         fontSize: `${block.size}cqh`,
         textAlign: block.align,
+        borderRadius: `${block.backgroundRadius}cqh`,
+        padding: `${block.paddingTop}cqh ${block.paddingRight}cqh ${block.paddingBottom}cqh ${block.paddingLeft}cqh`,
         ...style,
         ...(block.color ? { color: withOpacity(block.color, block.colorOpacity) } : {}),
         ...itemBackground,
@@ -1088,7 +1098,7 @@ function LotteryWidget({
           <Block block={layout.contest} className="uppercase tracking-[0.18em] opacity-70">
             Concurso {result.contestNumber} • {result.drawDate}
           </Block>
-          {result.gameId === "federal" && config.federalStyle === "list" ? (
+          {result.gameId === "federal" ? (
             <FederalPrizeBlocks result={result} layout={layout} accent={resultAccent} placeholder={resultTheme} />
           ) : (
             <Block block={layout.result} className="font-display leading-tight">
@@ -1096,14 +1106,23 @@ function LotteryWidget({
                 result={result}
                 accent={resultAccent}
                 placeholder={resultTheme}
-                federalStyle={config.federalStyle}
+                federalStyle="list"
               />
             </Block>
           )}
           <Block block={layout.details}>
             {specialDetails.length ? specialDetails.join("  •  ") : null}
           </Block>
-          <Block block={layout.status}>
+          <Block block={layout.accumulated}>
+            {result.accumulated ? <strong>ACUMULOU</strong> : <span>Resultado confirmado</span>}
+          </Block>
+          <Block block={layout.nextPrize}>
+            {estimate ? <span>Próximo prêmio estimado: <strong>{estimate}</strong></span> : null}
+          </Block>
+          <Block block={layout.nextDraw}>
+            {result.nextDate ? <span>Próximo concurso: {result.nextDate}</span> : null}
+          </Block>
+          <Block block={{ ...layout.status, hidden: true }}>
             <div
               className={`flex flex-wrap items-center gap-[0.7em] ${
                 layout.status.align === "right"
