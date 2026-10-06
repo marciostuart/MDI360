@@ -5,6 +5,13 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Slider } from "@/components/ui/slider";
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "@/components/ui/select";
 import { WidgetView } from "@/components/widgets/widget-view";
 import {
   LAYOUT_PRESETS,
@@ -237,7 +244,7 @@ export function WidgetLayoutEditor({
                   type="color"
                   className="h-10 w-16 cursor-pointer p-1"
                   value={current.color || "#ffffff"}
-                  onChange={(event) => patch(selected, { color: event.target.value })}
+                  onChange={(event) => patch(selected, { color: event.target.value, colorOpacity: 100 })}
                 />
                 <Button
                   type="button"
@@ -248,25 +255,47 @@ export function WidgetLayoutEditor({
                   Herdar cor do widget
                 </Button>
               </div>
+              <Label className="text-xs">Opacidade da fonte: {current.colorOpacity}%</Label>
+              <Slider
+                min={0}
+                max={100}
+                step={1}
+                value={[current.colorOpacity]}
+                onValueChange={([value]) => patch(selected, { colorOpacity: value ?? 100 })}
+              />
             </div>
             <div className="space-y-2">
-              <Label>Cor de fundo deste item</Label>
+              <Label>Fundo deste item</Label>
+              <Select
+                value={current.backgroundMode}
+                onValueChange={(value) => patch(selected, { backgroundMode: value as WidgetBlock["backgroundMode"] })}
+              >
+                <SelectTrigger><SelectValue /></SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="transparent">Transparente</SelectItem>
+                  <SelectItem value="solid">Cor sólida</SelectItem>
+                  <SelectItem value="gradient">Degradê</SelectItem>
+                  <SelectItem value="image">Imagem</SelectItem>
+                </SelectContent>
+              </Select>
               <div className="flex items-center gap-2">
                 <Input
                   type="color"
                   className="h-10 w-16 cursor-pointer p-1"
                   value={current.backgroundColor || "#000000"}
-                  onChange={(event) => patch(selected, { backgroundColor: event.target.value })}
+                  onChange={(event) => patch(selected, { backgroundColor: event.target.value, backgroundMode: "solid" })}
                 />
                 <Button
                   type="button"
                   size="sm"
                   variant="outline"
-                  onClick={() => patch(selected, { backgroundColor: "" })}
+                  onClick={() => patch(selected, { backgroundColor: "", backgroundMode: "transparent" })}
                 >
                   Transparente
                 </Button>
               </div>
+              <Label className="text-xs">Opacidade da cor sólida: {current.backgroundColorOpacity}%</Label>
+              <Slider min={0} max={100} step={1} value={[current.backgroundColorOpacity]} onValueChange={([value]) => patch(selected, { backgroundColorOpacity: value ?? 100 })} />
             </div>
             <div className="space-y-2 sm:col-span-2">
               <Label>Imagem de fundo exclusiva deste item (URL HTTPS)</Label>
@@ -274,13 +303,13 @@ export function WidgetLayoutEditor({
                 <Input
                   placeholder="https://.../fundo-do-item.jpg"
                   value={current.backgroundImageUrl}
-                  onChange={(event) => patch(selected, { backgroundImageUrl: event.target.value })}
+                  onChange={(event) => patch(selected, { backgroundImageUrl: event.target.value, backgroundMode: "image" })}
                 />
                 <Button
                   type="button"
                   size="sm"
                   variant="outline"
-                  onClick={() => patch(selected, { backgroundImageUrl: "" })}
+                  onClick={() => patch(selected, { backgroundImageUrl: "", backgroundMode: "transparent" })}
                 >
                   Remover
                 </Button>
@@ -289,6 +318,88 @@ export function WidgetLayoutEditor({
                 A imagem ocupa somente este item e acompanha a proporÃ§Ã£o da tela na TV.
               </p>
             </div>
+          </div>
+
+          <div className="grid gap-4 rounded-lg border border-border p-4 sm:grid-cols-2">
+            <div className="space-y-2 sm:col-span-2">
+              <div className="font-medium">Gradiente e sobreposição deste item</div>
+              <p className="text-xs text-muted-foreground">
+                Use o gradiente como fundo do bloco ou como uma camada de leitura sobre a imagem.
+              </p>
+            </div>
+            <div className="space-y-2">
+              <Label>Início do gradiente</Label>
+              <div className="flex items-center gap-3">
+                <Input type="color" className="h-10 w-16 cursor-pointer p-1" value={current.backgroundGradientFrom} onChange={(event) => patch(selected, { backgroundGradientFrom: event.target.value, backgroundMode: "gradient" })} />
+                <div className="min-w-0 flex-1">
+                  <Label className="text-xs">{current.backgroundGradientFromOpacity}%</Label>
+                  <Slider min={0} max={100} step={1} value={[current.backgroundGradientFromOpacity]} onValueChange={([value]) => patch(selected, { backgroundGradientFromOpacity: value ?? 65, backgroundMode: "gradient" })} />
+                </div>
+              </div>
+            </div>
+            <div className="space-y-2">
+              <Label>Fim do gradiente</Label>
+              <div className="flex items-center gap-3">
+                <Input type="color" className="h-10 w-16 cursor-pointer p-1" value={current.backgroundGradientTo} onChange={(event) => patch(selected, { backgroundGradientTo: event.target.value, backgroundMode: "gradient" })} />
+                <div className="min-w-0 flex-1">
+                  <Label className="text-xs">{current.backgroundGradientToOpacity}%</Label>
+                  <Slider min={0} max={100} step={1} value={[current.backgroundGradientToOpacity]} onValueChange={([value]) => patch(selected, { backgroundGradientToOpacity: value ?? 10, backgroundMode: "gradient" })} />
+                </div>
+              </div>
+            </div>
+            <div className="space-y-2 sm:col-span-2">
+              <Label>Ângulo do gradiente: {current.backgroundGradientAngle}°</Label>
+              <Slider min={0} max={360} step={1} value={[current.backgroundGradientAngle]} onValueChange={([value]) => patch(selected, { backgroundGradientAngle: value ?? 160, backgroundMode: "gradient" })} />
+            </div>
+            {current.backgroundImageUrl ? (
+              <>
+                <div className="space-y-2">
+                  <Label>Sobreposição sobre a imagem</Label>
+                  <Select value={current.imageOverlayMode} onValueChange={(value) => patch(selected, { imageOverlayMode: value as WidgetBlock["imageOverlayMode"], backgroundMode: "image" })}>
+                    <SelectTrigger><SelectValue /></SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="none">Sem sobreposição</SelectItem>
+                      <SelectItem value="solid">Cor sólida</SelectItem>
+                      <SelectItem value="gradient">Degradê</SelectItem>
+                    </SelectContent>
+                  </Select>
+                </div>
+                {current.imageOverlayMode === "solid" ? (
+                  <div className="space-y-2">
+                    <Label>Cor da sobreposição</Label>
+                    <div className="flex items-center gap-3">
+                      <Input type="color" className="h-10 w-16 cursor-pointer p-1" value={current.imageOverlayColor} onChange={(event) => patch(selected, { imageOverlayColor: event.target.value })} />
+                      <div className="min-w-0 flex-1">
+                        <Label className="text-xs">{current.imageOverlayOpacity}%</Label>
+                        <Slider min={0} max={100} step={1} value={[current.imageOverlayOpacity]} onValueChange={([value]) => patch(selected, { imageOverlayOpacity: value ?? 45 })} />
+                      </div>
+                    </div>
+                  </div>
+                ) : null}
+                {current.imageOverlayMode === "gradient" ? (
+                  <>
+                    <div className="space-y-2">
+                      <Label>Início da sobreposição</Label>
+                      <div className="flex items-center gap-3">
+                        <Input type="color" className="h-10 w-16 cursor-pointer p-1" value={current.imageOverlayGradientFrom} onChange={(event) => patch(selected, { imageOverlayGradientFrom: event.target.value })} />
+                        <div className="min-w-0 flex-1"><Label className="text-xs">{current.imageOverlayGradientFromOpacity}%</Label><Slider min={0} max={100} step={1} value={[current.imageOverlayGradientFromOpacity]} onValueChange={([value]) => patch(selected, { imageOverlayGradientFromOpacity: value ?? 60 })} /></div>
+                      </div>
+                    </div>
+                    <div className="space-y-2">
+                      <Label>Fim da sobreposição</Label>
+                      <div className="flex items-center gap-3">
+                        <Input type="color" className="h-10 w-16 cursor-pointer p-1" value={current.imageOverlayGradientTo} onChange={(event) => patch(selected, { imageOverlayGradientTo: event.target.value })} />
+                        <div className="min-w-0 flex-1"><Label className="text-xs">{current.imageOverlayGradientToOpacity}%</Label><Slider min={0} max={100} step={1} value={[current.imageOverlayGradientToOpacity]} onValueChange={([value]) => patch(selected, { imageOverlayGradientToOpacity: value ?? 15 })} /></div>
+                      </div>
+                    </div>
+                    <div className="space-y-2 sm:col-span-2">
+                      <Label>Ângulo da sobreposição: {current.imageOverlayGradientAngle}°</Label>
+                      <Slider min={0} max={360} step={1} value={[current.imageOverlayGradientAngle]} onValueChange={([value]) => patch(selected, { imageOverlayGradientAngle: value ?? 160 })} />
+                    </div>
+                  </>
+                ) : null}
+              </>
+            ) : null}
           </div>
 
           <div className="flex flex-wrap items-center gap-2">

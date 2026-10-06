@@ -61,6 +61,40 @@ export function WidgetView({
 
 /* ------------------------------------------------------------------ shell */
 
+function withOpacity(color: string, opacity: number) {
+  const clean = color.replace("#", "");
+  if (!/^[0-9a-fA-F]{6}$/.test(clean)) return color;
+  const value = Number.parseInt(clean, 16);
+  const red = (value >> 16) & 255;
+  const green = (value >> 8) & 255;
+  const blue = value & 255;
+  return `rgba(${red}, ${green}, ${blue}, ${Math.min(100, Math.max(0, opacity)) / 100})`;
+}
+
+function gradient(
+  angle: number,
+  from: string,
+  fromOpacity: number,
+  to: string,
+  toOpacity: number,
+) {
+  return `linear-gradient(${angle}deg, ${withOpacity(from, fromOpacity)}, ${withOpacity(to, toOpacity)})`;
+}
+
+function imageOverlay(theme: Pick<WidgetTheme, "imageOverlayMode" | "imageOverlayColor" | "imageOverlayOpacity" | "imageOverlayGradientFrom" | "imageOverlayGradientFromOpacity" | "imageOverlayGradientTo" | "imageOverlayGradientToOpacity" | "imageOverlayGradientAngle">) {
+  if (theme.imageOverlayMode === "none") return "";
+  if (theme.imageOverlayMode === "gradient") {
+    return gradient(
+      theme.imageOverlayGradientAngle,
+      theme.imageOverlayGradientFrom,
+      theme.imageOverlayGradientFromOpacity,
+      theme.imageOverlayGradientTo,
+      theme.imageOverlayGradientToOpacity,
+    );
+  }
+  return withOpacity(theme.imageOverlayColor, theme.imageOverlayOpacity);
+}
+
 function Backdrop({
   theme,
   scene,
@@ -78,8 +112,14 @@ function Backdrop({
         style={{
           background:
             theme.background === "solid"
-              ? theme.backgroundColor
-              : `linear-gradient(160deg, ${theme.gradientFrom}, ${theme.gradientTo})`,
+              ? withOpacity(theme.backgroundColor, theme.backgroundColorOpacity)
+              : gradient(
+                  theme.gradientAngle,
+                  theme.gradientFrom,
+                  theme.gradientFromOpacity,
+                  theme.gradientTo,
+                  theme.gradientToOpacity,
+                ),
         }}
       />
       {theme.background === "scene" && scene ? scene : null}
@@ -97,7 +137,7 @@ function Backdrop({
           />
           <div
             className="absolute inset-0"
-            style={{ backgroundColor: `rgba(0,0,0,${theme.overlay / 100})` }}
+            style={{ background: imageOverlay(theme) }}
           />
         </>
       ) : null}
@@ -157,16 +197,36 @@ function Block({
   style?: React.CSSProperties;
 }) {
   if (!block || block.hidden) return null;
-  const itemBackground = block.backgroundImageUrl
-    ? {
-        backgroundImage: `url(${JSON.stringify(block.backgroundImageUrl)})`,
-        backgroundPosition: "center",
-        backgroundRepeat: "no-repeat",
-        backgroundSize: "cover",
-      }
-    : block.backgroundColor
-      ? { backgroundColor: block.backgroundColor }
-      : {};
+  // Infer the mode for layouts saved before per-item background modes existed.
+  const backgroundMode =
+    block.backgroundMode === "transparent" && block.backgroundImageUrl
+      ? "image"
+      : block.backgroundMode === "transparent" && block.backgroundColor
+        ? "solid"
+        : block.backgroundMode;
+  const itemBackground =
+    backgroundMode === "image" && block.backgroundImageUrl
+      ? {
+          backgroundImage: [imageOverlay(block), `url(${JSON.stringify(block.backgroundImageUrl)})`]
+            .filter(Boolean)
+            .join(", "),
+          backgroundPosition: "center",
+          backgroundRepeat: "no-repeat",
+          backgroundSize: "cover",
+        }
+      : backgroundMode === "gradient"
+        ? {
+            backgroundImage: gradient(
+              block.backgroundGradientAngle,
+              block.backgroundGradientFrom,
+              block.backgroundGradientFromOpacity,
+              block.backgroundGradientTo,
+              block.backgroundGradientToOpacity,
+            ),
+          }
+        : backgroundMode === "solid" && block.backgroundColor
+          ? { backgroundColor: withOpacity(block.backgroundColor, block.backgroundColorOpacity) }
+          : {};
   return (
     <div
       className={`absolute ${className ?? ""}`}
@@ -177,7 +237,7 @@ function Block({
         fontSize: `${block.size}cqh`,
         textAlign: block.align,
         ...style,
-        ...(block.color ? { color: block.color } : {}),
+        ...(block.color ? { color: withOpacity(block.color, block.colorOpacity) } : {}),
         ...itemBackground,
       }}
     >

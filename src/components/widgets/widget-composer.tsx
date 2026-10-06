@@ -28,11 +28,13 @@ import {
   WIDGET_THEME_DEFAULTS,
   getWidgetDefinition,
   getLotteryLayoutPreset,
+  resolveLotteryGameTheme,
   resolveLotteryWidgetLayout,
   resolveWidgetTheme,
   type BackgroundMode,
   type WidgetConfig,
   type WidgetLayout,
+  type LotteryGameTheme,
   type WidgetTheme,
   type WidgetType,
 } from "@/lib/widgets/catalog";
@@ -49,6 +51,44 @@ const BACKGROUND_LABELS: { id: BackgroundMode; label: string; hint: string }[] =
   { id: "solid", label: "Cor sólida", hint: "Fundo chapado" },
   { id: "image", label: "Imagem", hint: "URL pública (https) com zoom suave" },
 ];
+
+function ColorOpacityField({
+  label,
+  color,
+  opacity,
+  onColorChange,
+  onOpacityChange,
+}: {
+  label: string;
+  color: string;
+  opacity: number;
+  onColorChange: (value: string) => void;
+  onOpacityChange: (value: number) => void;
+}) {
+  return (
+    <div className="space-y-2">
+      <Label>{label}</Label>
+      <div className="flex items-center gap-3">
+        <Input
+          type="color"
+          className="h-10 w-16 shrink-0 cursor-pointer p-1"
+          value={color}
+          onChange={(event) => onColorChange(event.target.value)}
+        />
+        <div className="min-w-0 flex-1 space-y-1">
+          <div className="text-xs text-muted-foreground">Opacidade: {opacity}%</div>
+          <Slider
+            min={0}
+            max={100}
+            step={1}
+            value={[opacity]}
+            onValueChange={([value]) => onOpacityChange(value ?? opacity)}
+          />
+        </div>
+      </div>
+    </div>
+  );
+}
 
 export type WidgetDraft = { assetId: string; name: string; config: WidgetConfig };
 
@@ -147,9 +187,24 @@ export function WidgetComposer({
   }, [config, lotteryTemplateGameId]);
 
   const theme: WidgetTheme = resolveWidgetTheme(config.theme);
+  const selectedLotteryTheme =
+    config.type === "lottery"
+      ? resolveLotteryGameTheme(lotteryTemplateGameId, theme, config.gameThemes)
+      : null;
 
   function patchTheme(patch: Partial<WidgetTheme>) {
     setConfig({ ...config, theme: { ...theme, ...patch } } as WidgetConfig);
+  }
+
+  function patchLotteryTheme(patch: Partial<LotteryGameTheme>) {
+    if (config.type !== "lottery") return;
+    setConfig({
+      ...config,
+      gameThemes: {
+        ...(config.gameThemes ?? {}),
+        [lotteryTemplateGameId]: { ...(selectedLotteryTheme ?? theme), ...patch },
+      },
+    });
   }
 
   function pickType(next: WidgetType) {
@@ -721,15 +776,13 @@ export function WidgetComposer({
               </div>
 
               {theme.background === "solid" ? (
-                <div className="space-y-2">
-                  <Label>Cor do fundo</Label>
-                  <Input
-                    type="color"
-                    className="h-10 w-16 p-1"
-                    value={theme.backgroundColor}
-                    onChange={(event) => patchTheme({ backgroundColor: event.target.value })}
-                  />
-                </div>
+                <ColorOpacityField
+                  label="Cor do fundo"
+                  color={theme.backgroundColor}
+                  opacity={theme.backgroundColorOpacity}
+                  onColorChange={(backgroundColor) => patchTheme({ backgroundColor })}
+                  onOpacityChange={(backgroundColorOpacity) => patchTheme({ backgroundColorOpacity })}
+                />
               ) : null}
 
               {theme.background === "gradient" ? (
@@ -748,6 +801,20 @@ export function WidgetComposer({
                       value={theme.gradientTo}
                       onChange={(event) => patchTheme({ gradientTo: event.target.value })}
                     />
+                  </div>
+                  <div className="grid gap-3 pt-2 sm:grid-cols-3">
+                    <div className="space-y-1">
+                      <Label className="text-xs">Opacidade inicial: {theme.gradientFromOpacity}%</Label>
+                      <Slider min={0} max={100} step={1} value={[theme.gradientFromOpacity]} onValueChange={([value]) => patchTheme({ gradientFromOpacity: value ?? 100 })} />
+                    </div>
+                    <div className="space-y-1">
+                      <Label className="text-xs">Opacidade final: {theme.gradientToOpacity}%</Label>
+                      <Slider min={0} max={100} step={1} value={[theme.gradientToOpacity]} onValueChange={([value]) => patchTheme({ gradientToOpacity: value ?? 100 })} />
+                    </div>
+                    <div className="space-y-1">
+                      <Label className="text-xs">Ângulo: {theme.gradientAngle}°</Label>
+                      <Slider min={0} max={360} step={1} value={[theme.gradientAngle]} onValueChange={([value]) => patchTheme({ gradientAngle: value ?? 160 })} />
+                    </div>
                   </div>
                 </div>
               ) : null}
@@ -775,15 +842,38 @@ export function WidgetComposer({
                   />
                 </div>
                 <div className="space-y-2">
-                  <Label>Escurecer a imagem: {theme.overlay}%</Label>
-                  <Slider
-                    min={0}
-                    max={90}
-                    step={5}
-                    value={[theme.overlay]}
-                    onValueChange={([value]) => patchTheme({ overlay: value ?? 45 })}
-                  />
+                  <Label>Sobreposição da imagem</Label>
+                  <Select
+                    value={theme.imageOverlayMode}
+                    onValueChange={(value) => patchTheme({ imageOverlayMode: value as WidgetTheme["imageOverlayMode"] })}
+                  >
+                    <SelectTrigger><SelectValue /></SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="none">Sem sobreposição</SelectItem>
+                      <SelectItem value="solid">Cor sólida</SelectItem>
+                      <SelectItem value="gradient">Degradê</SelectItem>
+                    </SelectContent>
+                  </Select>
                 </div>
+                {theme.imageOverlayMode === "solid" ? (
+                  <ColorOpacityField
+                    label="Cor da sobreposição"
+                    color={theme.imageOverlayColor}
+                    opacity={theme.imageOverlayOpacity}
+                    onColorChange={(imageOverlayColor) => patchTheme({ imageOverlayColor })}
+                    onOpacityChange={(imageOverlayOpacity) => patchTheme({ imageOverlayOpacity })}
+                  />
+                ) : null}
+                {theme.imageOverlayMode === "gradient" ? (
+                  <>
+                    <ColorOpacityField label="Início da sobreposição" color={theme.imageOverlayGradientFrom} opacity={theme.imageOverlayGradientFromOpacity} onColorChange={(imageOverlayGradientFrom) => patchTheme({ imageOverlayGradientFrom })} onOpacityChange={(imageOverlayGradientFromOpacity) => patchTheme({ imageOverlayGradientFromOpacity })} />
+                    <ColorOpacityField label="Fim da sobreposição" color={theme.imageOverlayGradientTo} opacity={theme.imageOverlayGradientToOpacity} onColorChange={(imageOverlayGradientTo) => patchTheme({ imageOverlayGradientTo })} onOpacityChange={(imageOverlayGradientToOpacity) => patchTheme({ imageOverlayGradientToOpacity })} />
+                    <div className="space-y-2 sm:col-span-2">
+                      <Label>Ângulo da sobreposição: {theme.imageOverlayGradientAngle}°</Label>
+                      <Slider min={0} max={360} step={1} value={[theme.imageOverlayGradientAngle]} onValueChange={([value]) => patchTheme({ imageOverlayGradientAngle: value ?? 160 })} />
+                    </div>
+                  </>
+                ) : null}
               </div>
             ) : null}
 
@@ -833,6 +923,47 @@ export function WidgetComposer({
                   aqui afetam somente o resultado selecionado.
                 </p>
               </div>
+              {selectedLotteryTheme ? (
+                <div className="grid gap-4 rounded-lg border border-border p-4 sm:grid-cols-2">
+                  <div className="sm:col-span-2">
+                    <p className="text-sm font-medium">Cores e fundo desta modalidade</p>
+                    <p className="text-xs text-muted-foreground">Valem apenas para o resultado selecionado acima.</p>
+                  </div>
+                  <div className="space-y-2">
+                    <Label>Fundo</Label>
+                    <Select value={selectedLotteryTheme.background} onValueChange={(value) => patchLotteryTheme({ background: value as LotteryGameTheme["background"] })}>
+                      <SelectTrigger><SelectValue /></SelectTrigger>
+                      <SelectContent>
+                        <SelectItem value="solid">Cor sólida</SelectItem>
+                        <SelectItem value="gradient">Degradê</SelectItem>
+                        <SelectItem value="image">Imagem</SelectItem>
+                      </SelectContent>
+                    </Select>
+                  </div>
+                  <div className="space-y-2">
+                    <Label>Cor geral das fontes</Label>
+                    <Input type="color" className="h-10 w-16 cursor-pointer p-1" value={selectedLotteryTheme.textColor} onChange={(event) => patchLotteryTheme({ textColor: event.target.value })} />
+                  </div>
+                  {selectedLotteryTheme.background === "solid" ? (
+                    <ColorOpacityField label="Cor do fundo" color={selectedLotteryTheme.backgroundColor} opacity={selectedLotteryTheme.backgroundColorOpacity} onColorChange={(backgroundColor) => patchLotteryTheme({ backgroundColor })} onOpacityChange={(backgroundColorOpacity) => patchLotteryTheme({ backgroundColorOpacity })} />
+                  ) : null}
+                  {selectedLotteryTheme.background === "gradient" ? (
+                    <>
+                      <ColorOpacityField label="Início do degradê" color={selectedLotteryTheme.gradientFrom} opacity={selectedLotteryTheme.gradientFromOpacity} onColorChange={(gradientFrom) => patchLotteryTheme({ gradientFrom })} onOpacityChange={(gradientFromOpacity) => patchLotteryTheme({ gradientFromOpacity })} />
+                      <ColorOpacityField label="Fim do degradê" color={selectedLotteryTheme.gradientTo} opacity={selectedLotteryTheme.gradientToOpacity} onColorChange={(gradientTo) => patchLotteryTheme({ gradientTo })} onOpacityChange={(gradientToOpacity) => patchLotteryTheme({ gradientToOpacity })} />
+                      <div className="space-y-2 sm:col-span-2"><Label>Ângulo do degradê: {selectedLotteryTheme.gradientAngle}°</Label><Slider min={0} max={360} step={1} value={[selectedLotteryTheme.gradientAngle]} onValueChange={([value]) => patchLotteryTheme({ gradientAngle: value ?? 160 })} /></div>
+                    </>
+                  ) : null}
+                  {selectedLotteryTheme.background === "image" ? (
+                    <>
+                      <div className="space-y-2 sm:col-span-2"><Label>Imagem de fundo (URL HTTPS)</Label><Input placeholder="https://.../fundo.jpg" value={selectedLotteryTheme.backgroundImageUrl} onChange={(event) => patchLotteryTheme({ backgroundImageUrl: event.target.value })} /></div>
+                      <div className="space-y-2"><Label>Sobreposição</Label><Select value={selectedLotteryTheme.imageOverlayMode} onValueChange={(value) => patchLotteryTheme({ imageOverlayMode: value as LotteryGameTheme["imageOverlayMode"] })}><SelectTrigger><SelectValue /></SelectTrigger><SelectContent><SelectItem value="none">Sem sobreposição</SelectItem><SelectItem value="solid">Cor sólida</SelectItem><SelectItem value="gradient">Degradê</SelectItem></SelectContent></Select></div>
+                      {selectedLotteryTheme.imageOverlayMode === "solid" ? <ColorOpacityField label="Cor da sobreposição" color={selectedLotteryTheme.imageOverlayColor} opacity={selectedLotteryTheme.imageOverlayOpacity} onColorChange={(imageOverlayColor) => patchLotteryTheme({ imageOverlayColor })} onOpacityChange={(imageOverlayOpacity) => patchLotteryTheme({ imageOverlayOpacity })} /> : null}
+                      {selectedLotteryTheme.imageOverlayMode === "gradient" ? <><ColorOpacityField label="Início da sobreposição" color={selectedLotteryTheme.imageOverlayGradientFrom} opacity={selectedLotteryTheme.imageOverlayGradientFromOpacity} onColorChange={(imageOverlayGradientFrom) => patchLotteryTheme({ imageOverlayGradientFrom })} onOpacityChange={(imageOverlayGradientFromOpacity) => patchLotteryTheme({ imageOverlayGradientFromOpacity })} /><ColorOpacityField label="Fim da sobreposição" color={selectedLotteryTheme.imageOverlayGradientTo} opacity={selectedLotteryTheme.imageOverlayGradientToOpacity} onColorChange={(imageOverlayGradientTo) => patchLotteryTheme({ imageOverlayGradientTo })} onOpacityChange={(imageOverlayGradientToOpacity) => patchLotteryTheme({ imageOverlayGradientToOpacity })} /></> : null}
+                    </>
+                  ) : null}
+                </div>
+              ) : null}
               <WidgetLayoutEditor
                 key={lotteryTemplateGameId}
                 config={config}

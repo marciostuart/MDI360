@@ -123,12 +123,24 @@ const hex = z
 export const widgetThemeSchema = z.object({
   background: z.enum(BACKGROUND_MODES).default("gradient"),
   backgroundColor: hex.default("#0A0A0B"),
+  backgroundColorOpacity: z.number().int().min(0).max(100).default(100),
   gradientFrom: hex.default("#0F172A"),
+  gradientFromOpacity: z.number().int().min(0).max(100).default(100),
   gradientTo: hex.default("#020617"),
+  gradientToOpacity: z.number().int().min(0).max(100).default(100),
+  gradientAngle: z.number().int().min(0).max(360).default(160),
   /** Public https image used as backdrop (optional). */
   backgroundImageUrl: z.string().trim().max(600).default(""),
   /** Dark veil over the image so text stays readable (0–90%). */
   overlay: z.number().int().min(0).max(90).default(45),
+  imageOverlayMode: z.enum(["none", "solid", "gradient"]).default("solid"),
+  imageOverlayColor: hex.default("#000000"),
+  imageOverlayOpacity: z.number().int().min(0).max(100).default(45),
+  imageOverlayGradientFrom: hex.default("#000000"),
+  imageOverlayGradientFromOpacity: z.number().int().min(0).max(100).default(55),
+  imageOverlayGradientTo: hex.default("#000000"),
+  imageOverlayGradientToOpacity: z.number().int().min(0).max(100).default(15),
+  imageOverlayGradientAngle: z.number().int().min(0).max(360).default(160),
   textColor: hex.default("#FFFFFF"),
   /** Empty = follow the organization brand color. */
   accentColor: z.union([hex, z.literal("")]).default(""),
@@ -142,7 +154,13 @@ export type WidgetTheme = z.infer<typeof widgetThemeSchema>;
 export const WIDGET_THEME_DEFAULTS: WidgetTheme = widgetThemeSchema.parse({});
 
 export function resolveWidgetTheme(theme?: Partial<WidgetTheme> | null): WidgetTheme {
-  return { ...WIDGET_THEME_DEFAULTS, ...(theme ?? {}) };
+  const legacyOverlay = theme?.overlay;
+  return widgetThemeSchema.parse({
+    ...WIDGET_THEME_DEFAULTS,
+    ...(theme ?? {}),
+    imageOverlayOpacity:
+      theme?.imageOverlayOpacity ?? legacyOverlay ?? WIDGET_THEME_DEFAULTS.imageOverlayOpacity,
+  });
 }
 
 /** Theme and numbered-placeholder colors for one lottery modality. */
@@ -187,10 +205,27 @@ export const widgetBlockSchema = z.object({
   hidden: z.boolean().default(false),
   /** Optional per-item font color. Empty means inherit the widget color. */
   color: z.union([hex, z.literal("")]).default(""),
+  colorOpacity: z.number().int().min(0).max(100).default(100),
+  /** Each item may be transparent, solid, gradient, or image-backed. */
+  backgroundMode: z.enum(["transparent", "solid", "gradient", "image"]).default("transparent"),
   /** Optional per-item background color. Empty means transparent. */
   backgroundColor: z.union([hex, z.literal("")]).default(""),
+  backgroundColorOpacity: z.number().int().min(0).max(100).default(100),
+  backgroundGradientFrom: hex.default("#000000"),
+  backgroundGradientFromOpacity: z.number().int().min(0).max(100).default(65),
+  backgroundGradientTo: hex.default("#000000"),
+  backgroundGradientToOpacity: z.number().int().min(0).max(100).default(10),
+  backgroundGradientAngle: z.number().int().min(0).max(360).default(160),
   /** Optional HTTPS image used only behind this item. */
   backgroundImageUrl: z.string().trim().max(600).default(""),
+  imageOverlayMode: z.enum(["none", "solid", "gradient"]).default("none"),
+  imageOverlayColor: hex.default("#000000"),
+  imageOverlayOpacity: z.number().int().min(0).max(100).default(45),
+  imageOverlayGradientFrom: hex.default("#000000"),
+  imageOverlayGradientFromOpacity: z.number().int().min(0).max(100).default(60),
+  imageOverlayGradientTo: hex.default("#000000"),
+  imageOverlayGradientToOpacity: z.number().int().min(0).max(100).default(15),
+  imageOverlayGradientAngle: z.number().int().min(0).max(360).default(160),
 });
 
 export type WidgetBlock = z.infer<typeof widgetBlockSchema>;
