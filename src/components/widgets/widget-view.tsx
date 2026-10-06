@@ -974,6 +974,43 @@ function LotteryResultBody({
   return <LotteryBalls values={result.numbers} accent={accent} placeholder={placeholder} />;
 }
 
+function FederalPrizeBlocks({
+  result,
+  layout,
+  accent,
+  placeholder,
+}: {
+  result: NormalizedLotteryResult;
+  layout: WidgetLayout;
+  accent: string;
+  placeholder: LotteryGameTheme;
+}) {
+  return (
+    <>
+      {result.federalPrizes.map((prize, index) => {
+        const number = index + 1;
+        return (
+          <div key={prize.ticket}>
+            <Block block={layout[`federalPrize${number}Label`]} className="font-display font-semibold uppercase leading-none">
+              {prize.label}
+            </Block>
+            <Block
+              block={layout[`federalPrize${number}Value`]}
+              className="font-display font-semibold leading-none"
+              style={{ color: placeholder.prizeValueColor || accent }}
+            >
+              {money(prize.value)}
+            </Block>
+            <Block block={layout[`federalPrize${number}Number`]} className="font-display font-bold leading-none tracking-[0.04em]">
+              {prize.ticket}
+            </Block>
+          </div>
+        );
+      })}
+    </>
+  );
+}
+
 function LotteryWidget({
   config,
   theme,
@@ -1042,14 +1079,18 @@ function LotteryWidget({
           <Block block={layout.contest} className="uppercase tracking-[0.18em] opacity-70">
             Concurso {result.contestNumber} • {result.drawDate}
           </Block>
-          <Block block={layout.result} className="font-display leading-tight">
-            <LotteryResultBody
-              result={result}
-              accent={resultAccent}
-              placeholder={resultTheme}
-              federalStyle={config.federalStyle}
-            />
-          </Block>
+          {result.gameId === "federal" && config.federalStyle === "list" ? (
+            <FederalPrizeBlocks result={result} layout={layout} accent={resultAccent} placeholder={resultTheme} />
+          ) : (
+            <Block block={layout.result} className="font-display leading-tight">
+              <LotteryResultBody
+                result={result}
+                accent={resultAccent}
+                placeholder={resultTheme}
+                federalStyle={config.federalStyle}
+              />
+            </Block>
+          )}
           <Block block={layout.details}>
             {specialDetails.length ? specialDetails.join("  •  ") : null}
           </Block>

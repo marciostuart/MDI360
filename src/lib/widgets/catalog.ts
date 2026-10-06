@@ -281,6 +281,22 @@ export const WIDGET_BLOCKS: Record<WidgetType, { id: string; label: string }[]> 
   ],
 };
 
+/** Federal is read from farther away, so each prize line is individually editable. */
+export const FEDERAL_RESULT_BLOCKS = Array.from({ length: 5 }, (_, index) => {
+  const number = index + 1;
+  return [
+    { id: `federalPrize${number}Label`, label: `${number}º prêmio` },
+    { id: `federalPrize${number}Value`, label: `Valor do ${number}º prêmio` },
+    { id: `federalPrize${number}Number`, label: `Número do ${number}º prêmio` },
+  ];
+}).flat();
+
+export function getWidgetLayoutBlocks(type: WidgetType, lotteryGameId?: string | null) {
+  return type === "lottery" && lotteryGameId === "federal"
+    ? [...WIDGET_BLOCKS.lottery.filter((block) => block.id !== "result"), ...FEDERAL_RESULT_BLOCKS]
+    : WIDGET_BLOCKS[type];
+}
+
 export const LAYOUT_PRESETS: Record<WidgetType, WidgetLayout> = {
   clock: {
     time: { x: 8, y: 24, w: 84, size: 22, align: "center", hidden: false },
@@ -316,7 +332,7 @@ export const LAYOUT_PRESETS: Record<WidgetType, WidgetLayout> = {
 };
 
 const lotteryTemplate = (
-  overrides: Partial<Record<(typeof WIDGET_BLOCKS.lottery)[number]["id"], Partial<WidgetBlock>>>,
+  overrides: Partial<Record<string, Partial<WidgetBlock>>>,
 ): WidgetLayout => {
   const base = LAYOUT_PRESETS.lottery;
   return Object.fromEntries(
@@ -372,14 +388,25 @@ export const LOTTERY_LAYOUT_PRESETS: Record<LotteryGameId, WidgetLayout> = {
     details: { hidden: true },
     status: { x: 7, y: 78, w: 86, size: 2.7, align: "center" },
   }),
-  federal: lotteryTemplate({
-    game: { x: 5, y: 8, w: 38, size: 7.2, align: "left" },
-    contest: { x: 5, y: 24, w: 38, size: 2.8, align: "left" },
-    result: { x: 47, y: 7, w: 48, size: 5.6, align: "left" },
-    details: { hidden: true },
-    status: { x: 5, y: 51, w: 36, size: 3.2, align: "left" },
-    source: { x: 5, y: 90, w: 90, size: 1.7, align: "left" },
-  }),
+  federal: {
+    ...lotteryTemplate({
+      game: { x: 5, y: 8, w: 38, size: 7.2, align: "left" },
+      contest: { x: 5, y: 24, w: 38, size: 2.8, align: "left" },
+      result: { hidden: true },
+      details: { hidden: true },
+      status: { x: 5, y: 51, w: 36, size: 3.2, align: "left" },
+      source: { x: 5, y: 90, w: 90, size: 1.7, align: "left" },
+    }),
+    ...Object.fromEntries(Array.from({ length: 5 }, (_, index) => {
+      const number = index + 1;
+      const y = 7 + index * 15;
+      return [
+        [`federalPrize${number}Label`, { x: 47, y, w: 17, size: 2.6, align: "center", hidden: false }],
+        [`federalPrize${number}Value`, { x: 47, y: y + 5, w: 17, size: 2, align: "center", hidden: false }],
+        [`federalPrize${number}Number`, { x: 65, y: y - 1, w: 29, size: 6.2, align: "center", hidden: false }],
+      ];
+    }).flat()),
+  },
   loteca: lotteryTemplate({
     game: { x: 5, y: 3, w: 90, size: 5.2, align: "center" },
     contest: { x: 5, y: 12, w: 90, size: 2.3, align: "center" },
