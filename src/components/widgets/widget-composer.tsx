@@ -693,33 +693,6 @@ export function WidgetComposer({
                   ciclo.
                 </p>
               </div>
-              {config.gameIds.includes("federal") && config.federalStyle === "receipt" ? (
-                <div className="hidden space-y-2 rounded-lg border border-border p-4">
-                  <div>
-                    <Label>Formato da Loteria Federal</Label>
-                    <p className="text-xs text-muted-foreground">
-                      Compare os dois formatos na prévia selecionando o template da Federal abaixo.
-                    </p>
-                  </div>
-                  <Select
-                    value={config.federalStyle}
-                    onValueChange={(value) =>
-                      setConfig({
-                        ...config,
-                        federalStyle: value as "list" | "receipt",
-                      })
-                    }
-                  >
-                    <SelectTrigger className="max-w-sm">
-                      <SelectValue />
-                    </SelectTrigger>
-                    <SelectContent>
-                      <SelectItem value="list">Lista para TV — números grandes</SelectItem>
-                      <SelectItem value="receipt">Comprovante visual — papel impresso</SelectItem>
-                    </SelectContent>
-                  </Select>
-                </div>
-              ) : null}
             </div>
           ) : null}
 
