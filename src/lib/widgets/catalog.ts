@@ -167,9 +167,18 @@ export function resolveWidgetTheme(theme?: Partial<WidgetTheme> | null): WidgetT
 export const lotteryGameThemeSchema = widgetThemeSchema.extend({
   /** Empty means transparent placeholders. */
   placeholderBackground: z.union([hex, z.literal("")]).default("#FFFFFF"),
+  placeholderBackgroundOpacity: z.number().int().min(0).max(100).default(100),
   placeholderTextColor: hex.default("#020617"),
+  placeholderTextOpacity: z.number().int().min(0).max(100).default(100),
   /** Empty means no visible placeholder outline. */
   placeholderBorderColor: z.union([hex, z.literal("")]).default(""),
+  placeholderBorderOpacity: z.number().int().min(0).max(100).default(100),
+  /** Empty keeps the prize label in the main widget text color. */
+  prizeLabelColor: z.union([hex, z.literal("")]).default(""),
+  prizeLabelOpacity: z.number().int().min(0).max(100).default(100),
+  /** Empty keeps the prize value in the accent color. */
+  prizeValueColor: z.union([hex, z.literal("")]).default(""),
+  prizeValueOpacity: z.number().int().min(0).max(100).default(100),
 });
 
 export const lotteryGameThemesSchema = z.record(z.string(), lotteryGameThemeSchema);

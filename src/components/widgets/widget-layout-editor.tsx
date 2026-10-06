@@ -246,6 +246,13 @@ export function WidgetLayoutEditor({
                   value={current.color || "#ffffff"}
                   onChange={(event) => patch(selected, { color: event.target.value, colorOpacity: 100 })}
                 />
+                <Input
+                  className="h-10 w-28 font-mono uppercase"
+                  value={current.color || "#FFFFFF"}
+                  maxLength={7}
+                  aria-label="Cor da fonte em hexadecimal"
+                  onChange={(event) => patch(selected, { color: event.target.value })}
+                />
                 <Button
                   type="button"
                   size="sm"
@@ -267,12 +274,11 @@ export function WidgetLayoutEditor({
             <div className="space-y-2">
               <Label>Fundo deste item</Label>
               <Select
-                value={current.backgroundMode}
+                value={current.backgroundMode === "transparent" ? "solid" : current.backgroundMode}
                 onValueChange={(value) => patch(selected, { backgroundMode: value as WidgetBlock["backgroundMode"] })}
               >
                 <SelectTrigger><SelectValue /></SelectTrigger>
                 <SelectContent>
-                  <SelectItem value="transparent">Transparente</SelectItem>
                   <SelectItem value="solid">Cor sólida</SelectItem>
                   <SelectItem value="gradient">Degradê</SelectItem>
                   <SelectItem value="image">Imagem</SelectItem>
@@ -285,14 +291,13 @@ export function WidgetLayoutEditor({
                   value={current.backgroundColor || "#000000"}
                   onChange={(event) => patch(selected, { backgroundColor: event.target.value, backgroundMode: "solid" })}
                 />
-                <Button
-                  type="button"
-                  size="sm"
-                  variant="outline"
-                  onClick={() => patch(selected, { backgroundColor: "", backgroundMode: "transparent" })}
-                >
-                  Transparente
-                </Button>
+                <Input
+                  className="h-10 w-28 font-mono uppercase"
+                  value={current.backgroundColor || "#000000"}
+                  maxLength={7}
+                  aria-label="Cor do fundo em hexadecimal"
+                  onChange={(event) => patch(selected, { backgroundColor: event.target.value, backgroundMode: "solid" })}
+                />
               </div>
               <Label className="text-xs">Opacidade da cor sólida: {current.backgroundColorOpacity}%</Label>
               <Slider min={0} max={100} step={1} value={[current.backgroundColorOpacity]} onValueChange={([value]) => patch(selected, { backgroundColorOpacity: value ?? 100 })} />
@@ -320,7 +325,9 @@ export function WidgetLayoutEditor({
             </div>
           </div>
 
-          <div className="grid gap-4 rounded-lg border border-border p-4 sm:grid-cols-2">
+          <details className="rounded-lg border border-border">
+            <summary className="cursor-pointer px-4 py-3 text-sm font-medium">Aparência avançada deste item</summary>
+            <div className="grid gap-4 border-t border-border p-4 sm:grid-cols-2">
             <div className="space-y-2 sm:col-span-2">
               <div className="font-medium">Gradiente e sobreposição deste item</div>
               <p className="text-xs text-muted-foreground">
@@ -400,7 +407,8 @@ export function WidgetLayoutEditor({
                 ) : null}
               </>
             ) : null}
-          </div>
+            </div>
+          </details>
 
           <div className="flex flex-wrap items-center gap-2">
             {ALIGNMENTS.map((option) => (

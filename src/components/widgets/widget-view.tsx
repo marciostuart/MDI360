@@ -817,11 +817,13 @@ function LotteryBalls({
             justifyContent: "center",
             borderRadius: "9999px",
             padding: "0.08em",
-            color: placeholder.placeholderTextColor,
-            WebkitTextFillColor: placeholder.placeholderTextColor,
-            backgroundColor: placeholder.placeholderBackground || "transparent",
+            color: withOpacity(placeholder.placeholderTextColor, placeholder.placeholderTextOpacity),
+            WebkitTextFillColor: withOpacity(placeholder.placeholderTextColor, placeholder.placeholderTextOpacity),
+            backgroundColor: placeholder.placeholderBackground
+              ? withOpacity(placeholder.placeholderBackground, placeholder.placeholderBackgroundOpacity)
+              : "transparent",
             border: placeholder.placeholderBorderColor
-              ? `0.08em solid ${placeholder.placeholderBorderColor}`
+              ? `0.08em solid ${withOpacity(placeholder.placeholderBorderColor, placeholder.placeholderBorderOpacity)}`
               : "none",
             fontFamily: "Arial, sans-serif",
             fontSize: "0.82em",
@@ -887,10 +889,25 @@ function LotteryResultBody({
             className="grid w-full grid-cols-[minmax(3.8em,0.85fr)_minmax(0,1.15fr)] items-center gap-[0.32em] rounded-[0.22em] border border-white/10 bg-black/25 px-[0.38em] py-[0.22em]"
           >
             <div className="flex min-w-0 flex-col items-center justify-center gap-[0.16em] self-stretch text-center">
-              <div className="text-[0.34em] font-semibold uppercase opacity-75">{prize.label}</div>
+              <div
+                className="text-[0.34em] font-semibold uppercase"
+                style={{
+                  color: placeholder.prizeLabelColor
+                    ? withOpacity(placeholder.prizeLabelColor, placeholder.prizeLabelOpacity)
+                    : undefined,
+                  opacity: placeholder.prizeLabelColor ? undefined : 0.75,
+                }}
+              >
+                {prize.label}
+              </div>
               <div
                 className="whitespace-nowrap text-[0.3em] font-semibold leading-none"
-                style={{ color: accent }}
+                style={{
+                  color: withOpacity(
+                    placeholder.prizeValueColor || accent,
+                    placeholder.prizeValueColor ? placeholder.prizeValueOpacity : 100,
+                  ),
+                }}
               >
                 {money(prize.value)}
               </div>

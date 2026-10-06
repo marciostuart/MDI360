@@ -75,6 +75,13 @@ function ColorOpacityField({
           value={color}
           onChange={(event) => onColorChange(event.target.value)}
         />
+        <Input
+          className="h-10 w-28 shrink-0 font-mono uppercase"
+          value={color}
+          maxLength={7}
+          aria-label={`${label} em hexadecimal`}
+          onChange={(event) => onColorChange(event.target.value)}
+        />
         <div className="min-w-0 flex-1 space-y-1">
           <div className="text-xs text-muted-foreground">Opacidade: {opacity}%</div>
           <Slider
@@ -924,11 +931,13 @@ export function WidgetComposer({
                 </p>
               </div>
               {selectedLotteryTheme ? (
-                <div className="grid gap-4 rounded-lg border border-border p-4 sm:grid-cols-2">
-                  <div className="sm:col-span-2">
-                    <p className="text-sm font-medium">Cores e fundo desta modalidade</p>
-                    <p className="text-xs text-muted-foreground">Valem apenas para o resultado selecionado acima.</p>
-                  </div>
+                <details className="rounded-lg border border-border" open>
+                  <summary className="cursor-pointer px-4 py-3 text-sm font-medium">
+                    Aparência desta modalidade
+                    <span className="ml-2 text-xs font-normal text-muted-foreground">cores, fundo e bolinhas</span>
+                  </summary>
+                  <div className="grid gap-4 border-t border-border p-4 sm:grid-cols-2">
+                    <p className="text-xs text-muted-foreground sm:col-span-2">Estas escolhas valem apenas para o resultado selecionado acima.</p>
                   <div className="space-y-2">
                     <Label>Fundo</Label>
                     <Select value={selectedLotteryTheme.background} onValueChange={(value) => patchLotteryTheme({ background: value as LotteryGameTheme["background"] })}>
@@ -940,10 +949,7 @@ export function WidgetComposer({
                       </SelectContent>
                     </Select>
                   </div>
-                  <div className="space-y-2">
-                    <Label>Cor geral das fontes</Label>
-                    <Input type="color" className="h-10 w-16 cursor-pointer p-1" value={selectedLotteryTheme.textColor} onChange={(event) => patchLotteryTheme({ textColor: event.target.value })} />
-                  </div>
+                    <ColorOpacityField label="Cor geral dos textos" color={selectedLotteryTheme.textColor} opacity={100} onColorChange={(textColor) => patchLotteryTheme({ textColor })} onOpacityChange={() => undefined} />
                   {selectedLotteryTheme.background === "solid" ? (
                     <ColorOpacityField label="Cor do fundo" color={selectedLotteryTheme.backgroundColor} opacity={selectedLotteryTheme.backgroundColorOpacity} onColorChange={(backgroundColor) => patchLotteryTheme({ backgroundColor })} onOpacityChange={(backgroundColorOpacity) => patchLotteryTheme({ backgroundColorOpacity })} />
                   ) : null}
@@ -962,7 +968,18 @@ export function WidgetComposer({
                       {selectedLotteryTheme.imageOverlayMode === "gradient" ? <><ColorOpacityField label="Início da sobreposição" color={selectedLotteryTheme.imageOverlayGradientFrom} opacity={selectedLotteryTheme.imageOverlayGradientFromOpacity} onColorChange={(imageOverlayGradientFrom) => patchLotteryTheme({ imageOverlayGradientFrom })} onOpacityChange={(imageOverlayGradientFromOpacity) => patchLotteryTheme({ imageOverlayGradientFromOpacity })} /><ColorOpacityField label="Fim da sobreposição" color={selectedLotteryTheme.imageOverlayGradientTo} opacity={selectedLotteryTheme.imageOverlayGradientToOpacity} onColorChange={(imageOverlayGradientTo) => patchLotteryTheme({ imageOverlayGradientTo })} onOpacityChange={(imageOverlayGradientToOpacity) => patchLotteryTheme({ imageOverlayGradientToOpacity })} /></> : null}
                     </>
                   ) : null}
-                </div>
+                    <details className="rounded-md bg-muted/30 p-3 sm:col-span-2">
+                      <summary className="cursor-pointer text-sm font-medium">Detalhes dos resultados e bolinhas</summary>
+                      <div className="mt-4 grid gap-4 sm:grid-cols-2">
+                        <ColorOpacityField label="Texto do identificador do prêmio" color={selectedLotteryTheme.prizeLabelColor || selectedLotteryTheme.textColor} opacity={selectedLotteryTheme.prizeLabelOpacity} onColorChange={(prizeLabelColor) => patchLotteryTheme({ prizeLabelColor })} onOpacityChange={(prizeLabelOpacity) => patchLotteryTheme({ prizeLabelOpacity })} />
+                        <ColorOpacityField label="Valor do prêmio" color={selectedLotteryTheme.prizeValueColor || selectedLotteryTheme.accentColor || "#38BDF8"} opacity={selectedLotteryTheme.prizeValueOpacity} onColorChange={(prizeValueColor) => patchLotteryTheme({ prizeValueColor })} onOpacityChange={(prizeValueOpacity) => patchLotteryTheme({ prizeValueOpacity })} />
+                        <ColorOpacityField label="Fundo das bolinhas" color={selectedLotteryTheme.placeholderBackground || "#FFFFFF"} opacity={selectedLotteryTheme.placeholderBackgroundOpacity} onColorChange={(placeholderBackground) => patchLotteryTheme({ placeholderBackground })} onOpacityChange={(placeholderBackgroundOpacity) => patchLotteryTheme({ placeholderBackgroundOpacity })} />
+                        <ColorOpacityField label="Números das bolinhas" color={selectedLotteryTheme.placeholderTextColor} opacity={selectedLotteryTheme.placeholderTextOpacity} onColorChange={(placeholderTextColor) => patchLotteryTheme({ placeholderTextColor })} onOpacityChange={(placeholderTextOpacity) => patchLotteryTheme({ placeholderTextOpacity })} />
+                        <ColorOpacityField label="Contorno das bolinhas" color={selectedLotteryTheme.placeholderBorderColor || "#FFFFFF"} opacity={selectedLotteryTheme.placeholderBorderOpacity} onColorChange={(placeholderBorderColor) => patchLotteryTheme({ placeholderBorderColor })} onOpacityChange={(placeholderBorderOpacity) => patchLotteryTheme({ placeholderBorderOpacity })} />
+                      </div>
+                    </details>
+                  </div>
+                </details>
               ) : null}
               <WidgetLayoutEditor
                 key={lotteryTemplateGameId}
