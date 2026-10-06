@@ -278,6 +278,7 @@ export const WIDGET_BLOCKS: Record<WidgetType, { id: string; label: string }[]> 
     { id: "details", label: "Informações complementares" },
     { id: "status", label: "Situação e próximo prêmio" },
     { id: "source", label: "Fonte oficial" },
+    { id: "bottomBar", label: "Barra inferior" },
   ],
 };
 
@@ -328,6 +329,7 @@ export const LAYOUT_PRESETS: Record<WidgetType, WidgetLayout> = {
     details: { x: 8, y: 55, w: 84, size: 2.7, align: "center", hidden: false },
     status: { x: 8, y: 75, w: 84, size: 2.5, align: "center", hidden: false },
     source: { x: 6, y: 89, w: 88, size: 1.6, align: "left", hidden: false },
+    bottomBar: { x: 0, y: 99, w: 100, size: 1, align: "left", hidden: false },
   },
 };
 

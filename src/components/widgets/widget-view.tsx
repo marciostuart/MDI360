@@ -153,12 +153,14 @@ function Shell({
   accent,
   theme,
   scene,
+  bottomBar,
 }: {
   children: React.ReactNode;
   credit?: string | null;
   accent: string;
   theme: WidgetTheme;
   scene?: React.ReactNode;
+  bottomBar?: WidgetBlock;
 }) {
   return (
     <div
@@ -167,7 +169,13 @@ function Shell({
     >
       <Backdrop theme={theme} scene={scene} />
       <div className="absolute inset-0">{children}</div>
-      <div className="absolute inset-x-0 bottom-0 h-[0.7cqh]" style={{ backgroundColor: accent }} />
+      {bottomBar ? (
+        <Block block={bottomBar} style={{ backgroundColor: accent }}>
+          <span className="block w-full" style={{ height: "1em" }} />
+        </Block>
+      ) : (
+        <div className="absolute inset-x-0 bottom-0 h-[0.7cqh]" style={{ backgroundColor: accent }} />
+      )}
       {credit ? (
         <p
           className="absolute bottom-[2.2cqh] right-[3cqw] text-[1.2cqh] uppercase tracking-[0.25em] opacity-45"
@@ -1066,6 +1074,7 @@ function LotteryWidget({
       accent={resultAccent}
       theme={resultTheme}
       scene={<ClearScene accent={resultAccent} theme={resultTheme} />}
+      bottomBar={layout.bottomBar}
     >
       {!result ? (
         <p className="absolute inset-x-[8%] top-[45%] text-center text-[4cqh] opacity-65">
@@ -1095,7 +1104,15 @@ function LotteryWidget({
             {specialDetails.length ? specialDetails.join("  •  ") : null}
           </Block>
           <Block block={layout.status}>
-            <div className="flex flex-wrap items-center justify-center gap-[0.7em]">
+            <div
+              className={`flex flex-wrap items-center gap-[0.7em] ${
+                layout.status.align === "right"
+                  ? "justify-end"
+                  : layout.status.align === "center"
+                    ? "justify-center"
+                    : "justify-start"
+              }`}
+            >
               {result.accumulated ? (
                 <strong>ACUMULOU</strong>
               ) : (
