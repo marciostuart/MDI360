@@ -56,6 +56,54 @@ export type PlayerPlaybackPlan = {
   serverTime: string;
 };
 
+/**
+ * Stable fingerprint of everything a terminal needs to keep cached and play.
+ *
+ * The in-process realtime bus is only an acceleration layer: in a Swarm
+ * deployment, a Studio request and a TV long-poll can land on different
+ * replicas. This database-resolved signature is therefore the safe fallback.
+ */
+export function playbackPlanRevision(plan: PlayerPlaybackPlan): string {
+  const playlist = (value: PlayerPlaylist) =>
+    value
+      ? [
+          value.id,
+          value.revision,
+          value.items.map((item) => [
+            item.id,
+            item.mediaAssetId,
+            item.kind,
+            item.cacheKey ?? item.url,
+            item.durationMs,
+            item.isMuted,
+            item.widgetType,
+            item.widgetConfig,
+            item.airStartAt,
+            item.airEndAt,
+            item.scheduleConstraints,
+          ]),
+        ]
+      : null;
+
+  return JSON.stringify({
+    playlist: playlist(plan.playlist),
+    fallback: playlist(plan.fallbackPlaylist),
+    activeRule: plan.activeScheduleRule,
+    preload: plan.preloadItems.map((item) => [
+      item.id,
+      item.mediaAssetId,
+      item.kind,
+      item.cacheKey ?? item.url,
+      item.durationMs,
+      item.widgetType,
+      item.widgetConfig,
+      item.airStartAt,
+      item.airEndAt,
+      item.scheduleConstraints,
+    ]),
+  });
+}
+
 function fingerprint(values: string[]) {
   let hash = 0;
   for (const value of values)

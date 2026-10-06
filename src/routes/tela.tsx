@@ -51,6 +51,8 @@ type SyncResponse = {
   commands: string[];
   syncIntervalMs: number;
   revision?: number;
+  /** Database-derived plan identity, reliable across server replicas. */
+  contentRevision?: string;
   /** Add-on de senhas: chamada mais recente desta tela (null quando inativo). */
   queueCall?: QueueCallPayload | null;
   queueCalls?: QueueCallPayload[] | null;
@@ -269,6 +271,7 @@ function PlayerScreen() {
   /** Ultimo avanco real da midia atual. Sincronizacao nao renova este relogio. */
   const mediaProgressRef = useRef<number>(Date.now());
   const revisionRef = useRef(0);
+  const contentRevisionRef = useRef("");
   // Sync data that arrived while a file was on screen. It is only applied on
   // the next item boundary so nothing is ever cut mid-exhibition.
   const pendingSyncRef = useRef<SyncResponse | null>(null);
@@ -638,6 +641,7 @@ function PlayerScreen() {
           // O localStorage continua como segunda camada de seguranca.
         }
         if (typeof data.revision === "number") revisionRef.current = data.revision;
+        if (typeof data.contentRevision === "string") contentRevisionRef.current = data.contentRevision;
 
         // A ticket call NEVER waits for the current file: it takes over now.
         // Several calls in a row are queued and shown one after the other.
@@ -720,8 +724,10 @@ function PlayerScreen() {
     if (!token || !linked) return;
     void runSync(token);
 
-    // Safety net: even if the push channel dies, the screen refreshes itself.
-    const interval = window.setInterval(() => void runSync(token), 60_000);
+    // Safety net: even if a different Swarm replica owns the push channel,
+    // the screen reconciles quickly. Applying a new plan still waits for an
+    // item boundary, so this never cuts the media currently on air.
+    const interval = window.setInterval(() => void runSync(token), 20_000);
     // A screen that linked but never received its first payload must not sit on
     // the splash for a whole minute: retry fast until content arrives.
     const bootstrap = window.setInterval(() => {
@@ -740,7 +746,10 @@ function PlayerScreen() {
               "content-type": "application/json",
               authorization: `Bearer ${token}`,
             },
-            body: JSON.stringify({ revision: revisionRef.current }),
+            body: JSON.stringify({
+              revision: revisionRef.current,
+              contentRevision: contentRevisionRef.current,
+            }),
           });
           if (stopped) return;
           if (response.status === 401) {
@@ -748,8 +757,15 @@ function PlayerScreen() {
             return;
           }
           if (!response.ok) throw new Error("events");
-          const data = (await response.json()) as { revision: number; changed: boolean };
+          const data = (await response.json()) as {
+            revision: number;
+            contentRevision?: string;
+            changed: boolean;
+          };
           revisionRef.current = data.revision;
+          // Only advance the local content marker after a successful /sync.
+          // Otherwise a brief network failure could hide the same change from
+          // the next long-poll attempt.
           if (data.changed) await runSync(token);
         } catch {
           // Network hiccup: wait a bit before reopening the channel.

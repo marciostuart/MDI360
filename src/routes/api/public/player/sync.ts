@@ -42,7 +42,7 @@ export const Route = createFileRoute("/api/public/player/sync")({
         }
 
         const { and, eq } = await import("drizzle-orm");
-        const { resolvePlaybackPlanForDevice } = await import(
+        const { playbackPlanRevision, resolvePlaybackPlanForDevice } = await import(
           "@/lib/player/schedule-resolver.server"
         );
         const db = getDb();
@@ -186,6 +186,9 @@ export const Route = createFileRoute("/api/public/player/sync")({
             syncIntervalMs: 60_000,
             // Seed for the long-poll channel (/api/public/player/events).
             revision,
+            // Database-derived companion to the in-memory realtime revision.
+            // It remains valid when another Swarm replica serves the request.
+            contentRevision: playbackPlanRevision(playbackPlan),
             suspended,
           },
           { headers: { "cache-control": "no-store" } },
