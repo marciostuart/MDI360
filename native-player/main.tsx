@@ -1,4 +1,4 @@
-import { useEffect, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { createRoot } from "react-dom/client";
 import { WidgetView } from "@/components/widgets/widget-view";
 import { LocalWidgetData } from "@/components/widgets/local-widget-data";
@@ -34,7 +34,10 @@ declare global {
 
 export function LocalScreen() {
   const [frame, setFrame] = useState<Frame | null>(null);
+  const [leavingWidget, setLeavingWidget] = useState<Frame | null>(null);
   const [calls, setCalls] = useState<QueueCallPayload[]>([]);
+  const previousWidget = useRef<Frame | null>(null);
+  const leaveTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
   const call = calls[0];
   useEffect(() => {
     const seen = new Set<string>();
@@ -73,9 +76,34 @@ export function LocalScreen() {
     const timeout = window.setTimeout(ready, 250);
     return () => { window.cancelAnimationFrame(id); window.clearTimeout(timeout); };
   }, [frame]);
+  // Videos and images fade in the Android native surface. Widgets are drawn
+  // by the WebView, so keep their last frame for the same transition window.
+  useEffect(() => {
+    const nextWidget = frame?.item.kind === "widget" && frame.item.widgetConfig ? frame : null;
+    const previous = previousWidget.current;
+    if (leaveTimer.current) window.clearTimeout(leaveTimer.current);
+    if (frame?.fade && previous && previous.playbackId !== frame.playbackId) {
+      setLeavingWidget(previous);
+      leaveTimer.current = window.setTimeout(() => {
+        setLeavingWidget(null);
+        leaveTimer.current = null;
+      }, 350);
+    } else {
+      setLeavingWidget(null);
+    }
+    previousWidget.current = nextWidget;
+    return () => {
+      if (leaveTimer.current) window.clearTimeout(leaveTimer.current);
+    };
+  }, [frame]);
   const item = frame?.item;
   return (
     <div className="relative h-screen w-screen overflow-hidden" style={{ background: "transparent" }}>
+      {leavingWidget ? (
+        <div className="pointer-events-none absolute inset-0" style={{ animation: "mdi-local-leave 350ms ease-in both" }}>
+          <ReadyWidget frame={leavingWidget} />
+        </div>
+      ) : null}
       {frame?.suspended ? <div className="grid size-full place-items-center bg-black text-3xl text-white">Serviço temporariamente suspenso</div>
         : frame?.issuer ? <iframe title="Emissor de senhas" src="/emitir/dispositivo?desktop=1" className="size-full border-0" allow="autoplay" />
         : item?.kind === "widget" && item.widgetConfig ? (
@@ -91,7 +119,7 @@ export function LocalScreen() {
           <div className="grid size-full place-items-center bg-black text-xl text-white/70">Nenhum conteúdo local disponível para este horário.</div>
         ) : null}
       {call ? <QueueCallOverlay call={call} onDone={() => setCalls((previous) => previous.slice(1))} /> : null}
-      <style>{"@keyframes mdi-local-enter { from {opacity:0} to {opacity:1} }"}</style>
+      <style>{"@keyframes mdi-local-enter { from {opacity:0} to {opacity:1} } @keyframes mdi-local-leave { from {opacity:1} to {opacity:0} }"}</style>
     </div>
   );
 }
