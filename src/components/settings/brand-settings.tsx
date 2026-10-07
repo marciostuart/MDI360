@@ -9,6 +9,7 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/com
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { getBranding, removeBrandLogo, updateBranding } from "@/lib/settings/branding.functions";
+import { DEFAULT_ACTIVATION_BRANDING, type ActivationBrandStyle } from "@/lib/settings/activation-branding";
 
 export function BrandSettings() {
   const queryClient = useQueryClient();
@@ -19,6 +20,7 @@ export function BrandSettings() {
 
   const [splashText, setSplashText] = useState("");
   const [brandColor, setBrandColor] = useState("#2563eb");
+  const [activationStyle, setActivationStyle] = useState<ActivationBrandStyle>(DEFAULT_ACTIVATION_BRANDING);
   const [uploading, setUploading] = useState(false);
 
   const branding = useQuery({ queryKey: ["branding"], queryFn: () => brandingFn({}) });
@@ -27,9 +29,18 @@ export function BrandSettings() {
     if (!branding.data) return;
     setSplashText(branding.data.splashText ?? "");
     setBrandColor(branding.data.brandColor ?? "#2563eb");
+    setActivationStyle(branding.data.activationStyle ?? DEFAULT_ACTIVATION_BRANDING);
   }, [branding.data]);
 
   const refresh = () => queryClient.invalidateQueries({ queryKey: ["branding"] });
+  const previewOverlay = activationStyle.overlayMode === "solid"
+    ? activationStyle.overlayColor
+    : activationStyle.overlayMode === "gradient"
+      ? `linear-gradient(${activationStyle.overlayAngle}deg, ${activationStyle.overlayColor}, ${activationStyle.overlayColorEnd})`
+      : "transparent";
+  const previewBackground = activationStyle.backgroundMode === "image" && activationStyle.backgroundImageUrl
+    ? `url(${JSON.stringify(activationStyle.backgroundImageUrl)})`
+    : undefined;
 
   const saveMutation = useMutation({
     mutationFn: () =>
@@ -37,6 +48,7 @@ export function BrandSettings() {
         data: {
           splashText: splashText.trim() ? splashText.trim() : null,
           brandColor: brandColor || null,
+          activationStyle,
         },
       }),
     onSuccess: async () => {
@@ -131,6 +143,58 @@ export function BrandSettings() {
               </div>
             </div>
 
+            <div className="space-y-4 rounded-lg border border-border p-4">
+              <div>
+                <Label>Tela de vinculação</Label>
+                <p className="text-xs text-muted-foreground">A tela do código usa estas mesmas definições no navegador e no app Android.</p>
+              </div>
+              <div className="grid gap-3 sm:grid-cols-2">
+                <label className="space-y-1 text-sm">Fundo
+                  <select className="h-10 w-full rounded-md border border-input bg-background px-3" value={activationStyle.backgroundMode} onChange={(e) => setActivationStyle((s) => ({ ...s, backgroundMode: e.target.value as "color" | "image" }))}>
+                    <option value="color">Cor sólida</option><option value="image">Imagem</option>
+                  </select>
+                </label>
+                <label className="space-y-1 text-sm">Cor do fundo
+                  <Input type="text" value={activationStyle.backgroundColor} onChange={(e) => setActivationStyle((s) => ({ ...s, backgroundColor: e.target.value }))} />
+                </label>
+              </div>
+              {activationStyle.backgroundMode === "image" ? (
+                <label className="block space-y-1 text-sm">Imagem de fundo (URL HTTPS)
+                  <Input value={activationStyle.backgroundImageUrl ?? ""} placeholder="https://..." onChange={(e) => setActivationStyle((s) => ({ ...s, backgroundImageUrl: e.target.value || null }))} />
+                </label>
+              ) : null}
+              <div className="grid gap-3 sm:grid-cols-2">
+                <label className="space-y-1 text-sm">Sobreposição
+                  <select className="h-10 w-full rounded-md border border-input bg-background px-3" value={activationStyle.overlayMode} onChange={(e) => setActivationStyle((s) => ({ ...s, overlayMode: e.target.value as ActivationBrandStyle["overlayMode"] }))}>
+                    <option value="none">Sem sobreposição</option><option value="solid">Cor sólida</option><option value="gradient">Gradiente</option>
+                  </select>
+                </label>
+                <label className="space-y-1 text-sm">Ângulo do gradiente
+                  <Input type="number" min={0} max={360} value={activationStyle.overlayAngle} onChange={(e) => setActivationStyle((s) => ({ ...s, overlayAngle: Number(e.target.value) }))} />
+                </label>
+              </div>
+              {activationStyle.overlayMode !== "none" ? (
+                <div className="grid gap-3 sm:grid-cols-2">
+                  <label className="space-y-1 text-sm">Cor / opacidade
+                    <div className="flex gap-2"><Input type="text" value={activationStyle.overlayColor} onChange={(e) => setActivationStyle((s) => ({ ...s, overlayColor: e.target.value }))} /><Input type="number" min={0} max={100} value={activationStyle.overlayOpacity} onChange={(e) => setActivationStyle((s) => ({ ...s, overlayOpacity: Number(e.target.value) }))} /></div>
+                  </label>
+                  {activationStyle.overlayMode === "gradient" ? <label className="space-y-1 text-sm">Cor final / opacidade
+                    <div className="flex gap-2"><Input type="text" value={activationStyle.overlayColorEnd} onChange={(e) => setActivationStyle((s) => ({ ...s, overlayColorEnd: e.target.value }))} /><Input type="number" min={0} max={100} value={activationStyle.overlayOpacityEnd} onChange={(e) => setActivationStyle((s) => ({ ...s, overlayOpacityEnd: Number(e.target.value) }))} /></div>
+                  </label> : null}
+                </div>
+              ) : null}
+              <div className="grid gap-3 sm:grid-cols-2">
+                {(["logo", "title", "code", "message"] as const).map((item) => {
+                  const value = activationStyle[item];
+                  return <div key={item} className="grid grid-cols-2 gap-2 text-sm">
+                    <span className="col-span-2 font-medium">{item === "logo" ? "Logo" : item === "title" ? "Título" : item === "code" ? "Código" : "Mensagem"}</span>
+                    <label>Esquerda (%)<Input type="number" min={0} max={100} value={value.x} onChange={(e) => setActivationStyle((s) => ({ ...s, [item]: { ...s[item], x: Number(e.target.value) } }))} /></label>
+                    <label>Topo (%)<Input type="number" min={0} max={100} value={value.y} onChange={(e) => setActivationStyle((s) => ({ ...s, [item]: { ...s[item], y: Number(e.target.value) } }))} /></label>
+                  </div>;
+                })}
+              </div>
+            </div>
+
             <div className="space-y-2">
               <Label htmlFor="splash-text">Texto de abertura</Label>
               <Input
@@ -174,28 +238,12 @@ export function BrandSettings() {
             <CardDescription>É assim que a abertura aparece nos aparelhos.</CardDescription>
           </CardHeader>
           <CardContent>
-            <div className="grid aspect-video place-items-center rounded-lg bg-black px-6 text-center">
-              <div className="space-y-4">
-                {branding.data?.logoUrl ? (
-                  <img
-                    src={branding.data.logoUrl}
-                    alt="Logo da marca"
-                    className="mx-auto max-h-20 object-contain"
-                  />
-                ) : (
-                  <div
-                    className="mx-auto size-12 rounded-xl"
-                    style={{ backgroundColor: brandColor }}
-                  />
-                )}
-                <p className="font-display text-lg font-semibold text-white">
-                  {splashText || branding.data?.organizationName || "Sua marca"}
-                </p>
-                <div
-                  className="mx-auto h-1 w-24 rounded-full"
-                  style={{ backgroundColor: brandColor }}
-                />
-              </div>
+            <div className="relative aspect-video overflow-hidden rounded-lg bg-black text-center" style={{ backgroundColor: activationStyle.backgroundColor, backgroundImage: previewBackground, backgroundPosition: "center", backgroundSize: "cover" }}>
+              <div className="absolute inset-0" style={{ background: previewOverlay, opacity: activationStyle.overlayMode === "none" ? 0 : 0.5 }} />
+              {activationStyle.logo.visible && branding.data?.logoUrl ? <img src={branding.data.logoUrl} alt="Logo da marca" className="absolute max-h-[25%] -translate-x-1/2 -translate-y-1/2 object-contain" style={{ left: `${activationStyle.logo.x}%`, top: `${activationStyle.logo.y}%`, width: `${activationStyle.logo.width}%` }} /> : null}
+              {activationStyle.title.visible ? <p className="absolute max-w-[90%] -translate-x-1/2 -translate-y-1/2 font-display font-semibold text-white" style={{ left: `${activationStyle.title.x}%`, top: `${activationStyle.title.y}%`, fontSize: `${Math.max(0.5, activationStyle.title.size / 4)}rem`, textAlign: activationStyle.title.align }}>{splashText || branding.data?.organizationName || "Sua marca"}</p> : null}
+              <p className="absolute max-w-[90%] -translate-x-1/2 -translate-y-1/2 font-mono font-bold" style={{ left: `${activationStyle.code.x}%`, top: `${activationStyle.code.y}%`, color: brandColor, fontSize: `${Math.max(0.8, activationStyle.code.size / 4)}rem`, textAlign: activationStyle.code.align }}>A B C 1 2 3</p>
+              {activationStyle.message.visible ? <p className="absolute max-w-[90%] -translate-x-1/2 -translate-y-1/2 text-xs text-white/70" style={{ left: `${activationStyle.message.x}%`, top: `${activationStyle.message.y}%`, fontSize: `${Math.max(0.45, activationStyle.message.size / 4)}rem`, textAlign: activationStyle.message.align }}>Aguardando vínculo</p> : null}
             </div>
           </CardContent>
         </Card>

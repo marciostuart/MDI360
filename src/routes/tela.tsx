@@ -48,6 +48,7 @@ type SyncResponse = {
     splashText: string | null;
     color: string | null;
     logoUrl: string | null;
+    activationStyle?: import("@/lib/settings/activation-branding").ActivationBrandStyle;
   } | null;
   commands: string[];
   syncIntervalMs: number;
@@ -263,6 +264,7 @@ function PlayerScreen() {
   const [linked, setLinked] = useState(false);
   const [ready, setReady] = useState(false);
   const [sync, setSync] = useState<SyncResponse | null>(null);
+  const [activationBranding, setActivationBranding] = useState<SyncResponse["branding"]>(null);
   const [error, setError] = useState<string | null>(null);
   const [index, setIndex] = useState(0);
   const [videoPlayingKey, setVideoPlayingKey] = useState<string | null>(null);
@@ -447,6 +449,7 @@ function PlayerScreen() {
     setHasPending(false);
     syncRef.current = data;
     setSync(data);
+    if (data.branding) setActivationBranding(data.branding);
     if (resetIndex) {
       beatRef.current = Date.now();
       mediaProgressRef.current = Date.now();
@@ -531,6 +534,7 @@ function PlayerScreen() {
           window.localStorage.getItem(CACHED_SYNC_KEY) ?? "null",
         ) as SyncResponse | null;
         if (cached?.device) {
+          setActivationBranding(cached.branding ?? null);
           const rule = cached.offlineSchedule?.activeRule;
           const timezone = cached.offlineSchedule?.timezone ?? "America/Sao_Paulo";
           const safe =
@@ -1273,7 +1277,7 @@ function PlayerScreen() {
 
   if (!ready) return <div className="min-h-screen bg-black" />;
 
-  if (!linked) return <ActivationScreen code={activationCode} message={error} />;
+  if (!linked) return <ActivationScreen code={activationCode} message={error} branding={activationBranding ?? sync?.branding} />;
 
   // The call is drawn ON TOP of the playlist: nothing is unmounted, so the
   // rotation keeps its place and simply resumes when the call disappears.
@@ -1552,8 +1556,16 @@ function FadeLayer({
 }
 
 /** Full-screen activation code, meant to be read from across a room. */
-function ActivationScreen({ code, message }: { code: string | null; message: string | null }) {
-  return <SharedActivationScreen code={code} message={message} />;
+function ActivationScreen({
+  code,
+  message,
+  branding,
+}: {
+  code: string | null;
+  message: string | null;
+  branding?: SyncResponse["branding"];
+}) {
+  return <SharedActivationScreen code={code} message={message} branding={branding} />;
 }
 
 /** Whitelabel splash: customer logo, text and accent colour. */

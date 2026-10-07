@@ -96,6 +96,11 @@ export const organizations = pgTable("organizations", {
   brandSplashText: text("brand_splash_text"),
   /** Whitelabel: accent colour (hex) used on the splash/activation screen. */
   brandColor: text("brand_color"),
+  /** Whitelabel: responsive layout and background for the activation screen. */
+  brandActivationStyle: jsonb("brand_activation_style")
+    .$type<import("@/lib/settings/activation-branding").ActivationBrandStyle>()
+    .notNull()
+    .default(sql`'{}'::jsonb`),
   /** Commercial plan, subscription state and per-account limit overrides. */
   planId: uuid("plan_id"),
   subscriptionStatus: text("subscription_status").notNull().default("trial"),

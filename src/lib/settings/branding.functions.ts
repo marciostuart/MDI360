@@ -1,5 +1,6 @@
 import { createServerFn } from "@tanstack/react-start";
 import { z } from "zod";
+import { normalizeActivationBranding, type ActivationBrandStyle } from "@/lib/settings/activation-branding";
 
 export type Branding = {
   organizationName: string;
@@ -7,6 +8,7 @@ export type Branding = {
   brandColor: string | null;
   logoUrl: string | null;
   hasLogo: boolean;
+  activationStyle: ActivationBrandStyle;
 };
 
 /** Branding of the caller's own organization. Never crosses tenants. */
@@ -44,6 +46,7 @@ export const getBranding = createServerFn({ method: "GET" }).handler(
       brandColor: org.brandColor,
       logoUrl,
       hasLogo: Boolean(org.brandLogoKey),
+      activationStyle: normalizeActivationBranding(org.brandActivationStyle),
     };
   },
 );
@@ -58,6 +61,7 @@ export const updateBranding = createServerFn({ method: "POST" })
           .trim()
           .regex(/^#[0-9a-fA-F]{6}$/, "Use uma cor no formato #RRGGBB")
           .nullable(),
+        activationStyle: z.unknown().optional(),
       })
       .parse(input),
   )
@@ -72,6 +76,7 @@ export const updateBranding = createServerFn({ method: "POST" })
       .set({
         brandSplashText: data.splashText && data.splashText.length > 0 ? data.splashText : null,
         brandColor: data.brandColor,
+        brandActivationStyle: normalizeActivationBranding(data.activationStyle),
       })
       .where(eq(schema.organizations.id, user.organizationId));
 

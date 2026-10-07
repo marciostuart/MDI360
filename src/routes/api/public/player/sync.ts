@@ -1,4 +1,5 @@
 import { createFileRoute } from "@tanstack/react-router";
+import { normalizeActivationBranding } from "@/lib/settings/activation-branding";
 import { z } from "zod";
 
 const bodySchema = z
@@ -95,6 +96,7 @@ export const Route = createFileRoute("/api/public/player/sync")({
           splashText: string | null;
           color: string | null;
           logoUrl: string | null;
+          activationStyle: ReturnType<typeof normalizeActivationBranding>;
         } | null = null;
         let suspended = false;
         if (device.organizationId) {
@@ -104,6 +106,7 @@ export const Route = createFileRoute("/api/public/player/sync")({
               splashText: schema.organizations.brandSplashText,
               color: schema.organizations.brandColor,
               logoKey: schema.organizations.brandLogoKey,
+              activationStyle: schema.organizations.brandActivationStyle,
               billingEnabled: schema.organizations.billingEnabled,
               subscriptionStatus: schema.organizations.subscriptionStatus,
             })
@@ -127,6 +130,7 @@ export const Route = createFileRoute("/api/public/player/sync")({
               splashText: org.splashText,
               color: org.color,
               logoUrl,
+              activationStyle: normalizeActivationBranding(org.activationStyle),
             };
           }
         }

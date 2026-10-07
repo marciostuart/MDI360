@@ -281,6 +281,20 @@
       "when": 1790812800000,
       "tag": "0039_organization_news_sources",
       "breakpoints": true
+    },
+    {
+      "idx": 40,
+      "version": "7",
+      "when": 1791331200000,
+      "tag": "0040_default_fade_transition",
+      "breakpoints": true
+    },
+    {
+      "idx": 41,
+      "version": "7",
+      "when": 1791331201000,
+      "tag": "0041_activation_branding",
+      "breakpoints": true
     }
   ]
-}
+}
