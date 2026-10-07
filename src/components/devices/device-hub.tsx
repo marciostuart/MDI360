@@ -139,7 +139,7 @@ export function DeviceHub({ deviceId }: { deviceId: string }) {
       name: d.name,
       defaultPlaylistId: d.defaultPlaylistId ?? "",
       audioEnabled: d.audioEnabled,
-      transitionEffect: d.transitionEffect === "fade" ? "fade" : "none",
+      transitionEffect: d.transitionEffect === "none" ? "none" : "fade",
       enabledModes: d.enabledModes.filter(
         (mode): mode is DeviceMode => mode === "display" || mode === "issuer" || mode === "caller",
       ),

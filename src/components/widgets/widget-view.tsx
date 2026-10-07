@@ -147,8 +147,14 @@ function Backdrop({
           />
         </>
       ) : null}
-      {/* Bottom scrim keeps credits and small text legible on any backdrop. */}
-      <div className="absolute inset-x-0 bottom-0 h-[28cqh] bg-gradient-to-t from-black/55 to-transparent" />
+      {/*
+       * An image backdrop is fully governed by its configurable overlay. Do
+       * not add a hidden black scrim over it: it would make the preview differ
+       * from the selected solid/gradient opacity, especially for lottery art.
+       */}
+      {theme.background !== "image" ? (
+        <div className="absolute inset-x-0 bottom-0 h-[28cqh] bg-gradient-to-t from-black/55 to-transparent" />
+      ) : null}
     </div>
   );
 }

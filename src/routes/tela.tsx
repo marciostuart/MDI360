@@ -316,7 +316,9 @@ function PlayerScreen() {
   // waiting for their turn. Calls never overlap: each one owns the screen for
   // its full display time before the next enters.
   const [activeCall, setActiveCall] = useState<QueueCallPayload | null>(null);
-  const fade = sync?.device?.transitionEffect === "fade";
+  // Fade is the platform default. A hard cut only happens when the terminal
+  // was explicitly configured with "none" in the Studio.
+  const fade = sync?.device?.transitionEffect !== "none";
   const activeCallRef = useRef<QueueCallPayload | null>(null);
   const waitingCallsRef = useRef<QueueCallPayload[]>([]);
   const seenCallIdsRef = useRef<Set<string>>(new Set());

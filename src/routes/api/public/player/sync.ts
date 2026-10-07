@@ -165,7 +165,9 @@ export const Route = createFileRoute("/api/public/player/sync")({
                 ? (device.enabledModes as string[])
                 : ["display"],
               audioEnabled: device.audioEnabled,
-              transitionEffect: device.transitionEffect,
+              // Old rows predate the fade default. Preserve an explicit hard
+              // cut, while every absent/legacy value adopts the platform fade.
+              transitionEffect: device.transitionEffect === "none" ? "none" : "fade",
               screenWidth: device.screenWidth,
               screenHeight: device.screenHeight,
             },

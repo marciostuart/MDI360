@@ -261,9 +261,9 @@ export const devices = pgTable(
     audioEnabled: boolean("audio_enabled").notNull().default(true),
     /**
      * Transition played between playlist items on this screen.
-     * "none" = corte seco (default), "fade" = crossfade suave.
+     * "none" = corte seco, "fade" = crossfade suave (padrÃ£o).
      */
-    transitionEffect: text("transition_effect").notNull().default("none"),
+    transitionEffect: text("transition_effect").notNull().default("fade"),
     /** Screen shape this TV/totem uses; drives which media fits it. */
     canvasPreset: text("canvas_preset").notNull().default("landscape-fhd"),
     /** Functions enabled on the unified Android app. Web and Roku continue to use display only. */
