@@ -86,7 +86,6 @@ export function PlatformWidgetPreferences({
   const [currencyTheme, setCurrencyTheme] = useState<WidgetTheme>(resolveWidgetTheme());
   const [gameIds, setGameIds] = useState<Extract<WidgetConfig, { type: "lottery" }>["gameIds"]>([]);
   const [lotteryRotateSeconds, setLotteryRotateSeconds] = useState(10);
-  const [lotteryFederalStyle, setLotteryFederalStyle] = useState<"list" | "receipt">("list");
   const [lotteryGameLayouts, setLotteryGameLayouts] =
     useState<Extract<WidgetConfig, { type: "lottery" }>["gameLayouts"]>();
   const [lotteryGameThemes, setLotteryGameThemes] =
@@ -107,7 +106,6 @@ export function PlatformWidgetPreferences({
     if (config?.type === "lottery") {
       setGameIds(config.gameIds);
       setLotteryRotateSeconds(config.rotateSeconds);
-      setLotteryFederalStyle(config.federalStyle);
       setLotteryGameLayouts(config.gameLayouts);
       setLotteryGameThemes(config.gameThemes);
       if (config.gameIds[0]) setLotteryTemplateGameId(config.gameIds[0]);
@@ -148,7 +146,6 @@ export function PlatformWidgetPreferences({
             assetId: item.id,
             gameIds,
             rotateSeconds: lotteryRotateSeconds,
-            federalStyle: lotteryFederalStyle,
             gameLayouts: lotteryGameLayouts,
             gameThemes: lotteryGameThemes,
           },
@@ -392,7 +389,7 @@ export function PlatformWidgetPreferences({
                 );
               })}
             </div>
-            <div className="grid gap-4 rounded-lg border border-border p-4 sm:grid-cols-2">
+            <div className="rounded-lg border border-border p-4">
               <div className="space-y-2">
                 <Label>Tempo de cada resultado: {lotteryRotateSeconds}s</Label>
                 <Slider
@@ -402,21 +399,6 @@ export function PlatformWidgetPreferences({
                   value={[lotteryRotateSeconds]}
                   onValueChange={([value]) => setLotteryRotateSeconds(value ?? 10)}
                 />
-              </div>
-              <div className="space-y-2">
-                <Label>Formato da Loteria Federal</Label>
-                <Select
-                  value={lotteryFederalStyle}
-                  onValueChange={(value) => setLotteryFederalStyle(value as "list" | "receipt")}
-                >
-                  <SelectTrigger>
-                    <SelectValue />
-                  </SelectTrigger>
-                  <SelectContent>
-                    <SelectItem value="list">Lista para TV</SelectItem>
-                    <SelectItem value="receipt">Comprovante visual</SelectItem>
-                  </SelectContent>
-                </Select>
               </div>
             </div>
             {gameIds.length ? (
@@ -511,16 +493,69 @@ export function PlatformWidgetPreferences({
                       </>
                     ) : null}
                     {selectedLotteryTheme.background === "image" ? (
-                      <div className="space-y-2 sm:col-span-2">
-                        <Label>Imagem de fundo desta modalidade (URL HTTPS)</Label>
-                        <Input
-                          placeholder="https://.../fundo-mega-sena.jpg"
-                          value={selectedLotteryTheme.backgroundImageUrl}
-                          onChange={(event) =>
-                            patchLotteryTheme({ backgroundImageUrl: event.target.value })
-                          }
-                        />
-                      </div>
+                      <>
+                        <div className="space-y-2 sm:col-span-2">
+                          <Label>Imagem de fundo desta modalidade (URL HTTPS)</Label>
+                          <Input
+                            placeholder="https://.../fundo-mega-sena.jpg"
+                            value={selectedLotteryTheme.backgroundImageUrl}
+                            onChange={(event) =>
+                              patchLotteryTheme({ backgroundImageUrl: event.target.value })
+                            }
+                          />
+                        </div>
+                        <div className="space-y-2">
+                          <Label>Sobreposição da imagem</Label>
+                          <Select
+                            value={selectedLotteryTheme.imageOverlayMode}
+                            onValueChange={(value) =>
+                              patchLotteryTheme({
+                                imageOverlayMode: value as LotteryGameTheme["imageOverlayMode"],
+                              })
+                            }
+                          >
+                            <SelectTrigger><SelectValue /></SelectTrigger>
+                            <SelectContent>
+                              <SelectItem value="none">Sem sobreposição</SelectItem>
+                              <SelectItem value="solid">Cor sólida</SelectItem>
+                              <SelectItem value="gradient">Degradê</SelectItem>
+                            </SelectContent>
+                          </Select>
+                        </div>
+                        {selectedLotteryTheme.imageOverlayMode === "solid" ? (
+                          <div className="grid grid-cols-[auto_1fr] items-end gap-2">
+                            <div className="space-y-2">
+                              <Label>Cor</Label>
+                              <Input type="color" className="h-10 w-16 cursor-pointer p-1" value={selectedLotteryTheme.imageOverlayColor} onChange={(event) => patchLotteryTheme({ imageOverlayColor: event.target.value })} />
+                            </div>
+                            <div className="space-y-2">
+                              <Label>Opacidade: {selectedLotteryTheme.imageOverlayOpacity}%</Label>
+                              <Slider min={0} max={100} step={1} value={[selectedLotteryTheme.imageOverlayOpacity]} onValueChange={([value]) => patchLotteryTheme({ imageOverlayOpacity: value ?? 45 })} />
+                            </div>
+                          </div>
+                        ) : null}
+                        {selectedLotteryTheme.imageOverlayMode === "gradient" ? (
+                          <div className="grid gap-4 rounded-md border border-border p-3 sm:col-span-2 sm:grid-cols-2">
+                            <div className="space-y-2">
+                              <Label>Início do degradê</Label>
+                              <div className="grid grid-cols-[auto_1fr] items-end gap-2">
+                                <Input type="color" className="h-10 w-16 cursor-pointer p-1" value={selectedLotteryTheme.imageOverlayGradientFrom} onChange={(event) => patchLotteryTheme({ imageOverlayGradientFrom: event.target.value })} />
+                                <div className="space-y-1"><Label className="text-xs">Opacidade: {selectedLotteryTheme.imageOverlayGradientFromOpacity}%</Label><Slider min={0} max={100} step={1} value={[selectedLotteryTheme.imageOverlayGradientFromOpacity]} onValueChange={([value]) => patchLotteryTheme({ imageOverlayGradientFromOpacity: value ?? 55 })} /></div>
+                              </div>
+                            </div>
+                            <div className="space-y-2">
+                              <Label>Fim do degradê</Label>
+                              <div className="grid grid-cols-[auto_1fr] items-end gap-2">
+                                <Input type="color" className="h-10 w-16 cursor-pointer p-1" value={selectedLotteryTheme.imageOverlayGradientTo} onChange={(event) => patchLotteryTheme({ imageOverlayGradientTo: event.target.value })} />
+                                <div className="space-y-1"><Label className="text-xs">Opacidade: {selectedLotteryTheme.imageOverlayGradientToOpacity}%</Label><Slider min={0} max={100} step={1} value={[selectedLotteryTheme.imageOverlayGradientToOpacity]} onValueChange={([value]) => patchLotteryTheme({ imageOverlayGradientToOpacity: value ?? 15 })} /></div>
+                              </div>
+                            </div>
+                            <div className="space-y-1"><Label className="text-xs">Ponto inicial (%)</Label><Input type="number" min={0} max={100} value={selectedLotteryTheme.imageOverlayGradientFromStop} onChange={(event) => patchLotteryTheme({ imageOverlayGradientFromStop: Number(event.target.value) || 0 })} /></div>
+                            <div className="space-y-1"><Label className="text-xs">Ponto final (%)</Label><Input type="number" min={0} max={100} value={selectedLotteryTheme.imageOverlayGradientToStop} onChange={(event) => patchLotteryTheme({ imageOverlayGradientToStop: Number(event.target.value) || 0 })} /></div>
+                            <div className="space-y-1 sm:col-span-2"><Label className="text-xs">Ângulo do degradê (graus)</Label><Input type="number" min={0} max={360} value={selectedLotteryTheme.imageOverlayGradientAngle} onChange={(event) => patchLotteryTheme({ imageOverlayGradientAngle: Number(event.target.value) || 0 })} /></div>
+                          </div>
+                        ) : null}
+                      </>
                     ) : null}
                     <div className="space-y-2">
                       <Label>Fundo das bolinhas</Label>
