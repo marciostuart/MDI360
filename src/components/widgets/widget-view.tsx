@@ -1,4 +1,4 @@
-import { useContext, useEffect, useMemo, useRef, useState } from "react";
+import { memo, useContext, useEffect, useMemo, useRef, useState } from "react";
 import { LocalWidgetData } from "./local-widget-data";
 
 import type {
@@ -99,6 +99,34 @@ function imageOverlay(theme: Pick<WidgetTheme, "imageOverlayMode" | "imageOverla
   return withOpacity(theme.imageOverlayColor, theme.imageOverlayOpacity);
 }
 
+/**
+ * Keeps the animated layer mounted while widget data changes. Re-rendering a
+ * full-screen image on every clock/data tick can restart the CSS animation and
+ * looks like a freeze on large TV images. The compositor-friendly class also
+ * keeps the zoom on its own GPU layer.
+ */
+const KenBurnsImage = memo(function KenBurnsImage({
+  src,
+  duration,
+  animate,
+  className = "absolute inset-0 size-full object-cover",
+}: {
+  src: string;
+  duration: number;
+  animate: boolean;
+  className?: string;
+}) {
+  return (
+    <img
+      src={src}
+      alt=""
+      decoding="async"
+      className={`${className} ${animate ? "mdi-kenburns-layer" : ""}`}
+      style={animate ? { animationDuration: `${duration}s` } : undefined}
+    />
+  );
+});
+
 function Backdrop({
   theme,
   scene,
@@ -131,15 +159,11 @@ function Backdrop({
       {theme.background === "scene" && scene ? scene : null}
       {theme.background === "image" && hasImage ? (
         <>
-          <img
+          <KenBurnsImage
+            key={theme.backgroundImageUrl}
             src={theme.backgroundImageUrl}
-            alt=""
-            className="absolute inset-0 size-full object-cover"
-            style={
-              theme.animations && theme.kenBurns
-                ? { animation: "mdi-kenburns 28s ease-in-out infinite alternate" }
-                : undefined
-            }
+            duration={28}
+            animate={theme.animations && theme.kenBurns}
           />
           <div
             className="absolute inset-0"
@@ -1313,16 +1337,11 @@ function NewsWidget({
   const sceneForNews =
     heroImage && theme.background !== "image" ? (
       <div className="absolute inset-0">
-        <img
+        <KenBurnsImage
           key={heroImage}
           src={heroImage}
-          alt=""
-          className="absolute inset-0 size-full object-cover"
-          style={
-            theme.animations && theme.kenBurns
-              ? { animation: "mdi-kenburns 24s ease-in-out infinite alternate" }
-              : undefined
-          }
+          duration={24}
+          animate={theme.animations && theme.kenBurns}
         />
         <div className="absolute inset-0 bg-gradient-to-t from-black/90 via-black/65 to-black/35" />
       </div>
@@ -1364,15 +1383,11 @@ function NewsWidget({
         <>
           {imageMode === "block" && current?.image ? (
             <Block block={layout.image} key={`image-${current.image}`}>
-              <img
+              <KenBurnsImage
                 src={current.image}
-                alt=""
                 className="size-full rounded-[1cqh] object-cover"
-                style={
-                  theme.animations && theme.kenBurns
-                    ? { animation: "mdi-kenburns 24s ease-in-out infinite alternate" }
-                    : undefined
-                }
+                duration={24}
+                animate={theme.animations && theme.kenBurns}
               />
             </Block>
           ) : null}

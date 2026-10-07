@@ -248,6 +248,24 @@
     transform: scale(1.14) translate3d(-1.5%, -1.5%, 0);
   }
 }
+
+/*
+ * Keep Ken Burns on a composited layer. Without this hint Chromium may
+ * repeatedly repaint a large background image when a widget re-renders,
+ * producing visible jumps or dropped frames on TV-sized canvases.
+ */
+.mdi-kenburns-layer {
+  transform-origin: 50% 50%;
+  backface-visibility: hidden;
+  -webkit-backface-visibility: hidden;
+  will-change: transform;
+  contain: paint;
+  animation-name: mdi-kenburns;
+  animation-timing-function: linear;
+  animation-iteration-count: infinite;
+  animation-direction: alternate;
+  animation-fill-mode: both;
+}
 @keyframes mdi-news-in {
   from {
     opacity: 0;
