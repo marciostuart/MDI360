@@ -10,6 +10,7 @@
 
 import { Route as rootRouteImport } from './routes/__root'
 import { Route as IndexRouteImport } from './routes/index'
+import { Route as AtivarRouteImport } from './routes/ativar'
 import { Route as EntrarRouteImport } from './routes/entrar'
 import { Route as RecuperarSenhaRouteImport } from './routes/recuperar-senha'
 import { Route as SenhasRouteImport } from './routes/senhas'
@@ -77,6 +78,11 @@ import { Route as StudioFaturamentoBoletoAttemptIdRouteImport } from './routes/s
 const IndexRoute = IndexRouteImport.update({
   id: '/',
   path: '/',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const AtivarRoute = AtivarRouteImport.update({
+  id: '/ativar',
+  path: '/ativar',
   getParentRoute: () => rootRouteImport,
 } as any)
 const EntrarRoute = EntrarRouteImport.update({
@@ -410,6 +416,7 @@ export interface FileRoutesByFullPath {
   '/': typeof IndexRoute
   '/studio': typeof StudioRouteRouteWithChildren
   '/torre': typeof TorreRouteRouteWithChildren
+  '/ativar': typeof AtivarRoute
   '/entrar': typeof EntrarRoute
   '/recuperar-senha': typeof RecuperarSenhaRoute
   '/senhas': typeof SenhasRoute
@@ -474,6 +481,7 @@ export interface FileRoutesByFullPath {
 }
 export interface FileRoutesByTo {
   '/': typeof IndexRoute
+  '/ativar': typeof AtivarRoute
   '/entrar': typeof EntrarRoute
   '/recuperar-senha': typeof RecuperarSenhaRoute
   '/senhas': typeof SenhasRoute
@@ -541,6 +549,7 @@ export interface FileRoutesById {
   '/': typeof IndexRoute
   '/studio': typeof StudioRouteRouteWithChildren
   '/torre': typeof TorreRouteRouteWithChildren
+  '/ativar': typeof AtivarRoute
   '/entrar': typeof EntrarRoute
   '/recuperar-senha': typeof RecuperarSenhaRoute
   '/senhas': typeof SenhasRoute
@@ -609,6 +618,7 @@ export interface FileRouteTypes {
     | '/'
     | '/studio'
     | '/torre'
+    | '/ativar'
     | '/entrar'
     | '/recuperar-senha'
     | '/senhas'
@@ -673,6 +683,7 @@ export interface FileRouteTypes {
   fileRoutesByTo: FileRoutesByTo
   to:
     | '/'
+    | '/ativar'
     | '/entrar'
     | '/recuperar-senha'
     | '/senhas'
@@ -739,6 +750,7 @@ export interface FileRouteTypes {
     | '/'
     | '/studio'
     | '/torre'
+    | '/ativar'
     | '/entrar'
     | '/recuperar-senha'
     | '/senhas'
@@ -806,6 +818,7 @@ export interface RootRouteChildren {
   IndexRoute: typeof IndexRoute
   StudioRouteRoute: typeof StudioRouteRouteWithChildren
   TorreRouteRoute: typeof TorreRouteRouteWithChildren
+  AtivarRoute: typeof AtivarRoute
   EntrarRoute: typeof EntrarRoute
   RecuperarSenhaRoute: typeof RecuperarSenhaRoute
   SenhasRoute: typeof SenhasRoute
@@ -846,6 +859,13 @@ declare module '@tanstack/react-router' {
       path: '/'
       fullPath: '/'
       preLoaderRoute: typeof IndexRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/ativar': {
+      id: '/ativar'
+      path: '/ativar'
+      fullPath: '/ativar'
+      preLoaderRoute: typeof AtivarRouteImport
       parentRoute: typeof rootRouteImport
     }
     '/entrar': {
@@ -1385,6 +1405,7 @@ const rootRouteChildren: RootRouteChildren = {
   IndexRoute: IndexRoute,
   StudioRouteRoute: StudioRouteRouteWithChildren,
   TorreRouteRoute: TorreRouteRouteWithChildren,
+  AtivarRoute: AtivarRoute,
   EntrarRoute: EntrarRoute,
   RecuperarSenhaRoute: RecuperarSenhaRoute,
   SenhasRoute: SenhasRoute,
