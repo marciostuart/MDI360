@@ -19,6 +19,9 @@ electron-emitter/release/
 *.local
 mdi360-roku.zip
 
+# Documentacao operacional local (nao sincronizar com o GitHub)
+docs/DAT.md
+
 # Wrangler / Cloudflare
 .wrangler/
 .dev.vars
