@@ -133,6 +133,8 @@ export const widgetThemeSchema = z.object({
   gradientToStop: z.number().int().min(0).max(100).default(100),
   /** Public https image used as backdrop (optional). */
   backgroundImageUrl: z.string().trim().max(600).default(""),
+  /** Private object-storage key for an uploaded backdrop. */
+  backgroundImageKey: z.string().trim().max(600).default(""),
   /** Dark veil over the image so text stays readable (0–90%). */
   overlay: z.number().int().min(0).max(90).default(45),
   imageOverlayMode: z.enum(["none", "solid", "gradient"]).default("solid"),
@@ -150,7 +152,7 @@ export const widgetThemeSchema = z.object({
   accentColor: z.union([hex, z.literal("")]).default(""),
   /** Motion: weather scenes, ken-burns on images, news transitions. */
   animations: z.boolean().default(true),
-  kenBurns: z.boolean().default(true),
+  kenBurns: z.boolean().default(false),
 });
 
 export type WidgetTheme = z.infer<typeof widgetThemeSchema>;
@@ -239,6 +241,7 @@ export const widgetBlockSchema = z.object({
   paddingLeft: z.number().min(0).max(20).default(0),
   /** Optional HTTPS image used only behind this item. */
   backgroundImageUrl: z.string().trim().max(600).default(""),
+  backgroundImageKey: z.string().trim().max(600).default(""),
   imageOverlayMode: z.enum(["none", "solid", "gradient"]).default("none"),
   imageOverlayColor: hex.default("#000000"),
   imageOverlayOpacity: z.number().int().min(0).max(100).default(45),

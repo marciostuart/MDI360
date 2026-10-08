@@ -11,6 +11,7 @@ import { Label } from "@/components/ui/label";
 import { Slider } from "@/components/ui/slider";
 import { Switch } from "@/components/ui/switch";
 import { WidgetLayoutEditor } from "@/components/widgets/widget-layout-editor";
+import { WidgetBackgroundUpload } from "@/components/widgets/widget-background-upload";
 import {
   Select,
   SelectContent,
@@ -282,19 +283,13 @@ export function PlatformWidgetPreferences({
                   />
                 </div>
                 {currencyTheme.background === "image" ? (
-                  <div className="space-y-2 sm:col-span-2">
-                    <Label>URL HTTPS da imagem de fundo</Label>
-                    <Input
-                      placeholder="https://.../fundo.jpg"
-                      value={currencyTheme.backgroundImageUrl}
-                      onChange={(event) =>
-                        setCurrencyTheme((current) => ({
-                          ...current,
-                          backgroundImageUrl: event.target.value,
-                        }))
-                      }
-                    />
-                  </div>
+                  <WidgetBackgroundUpload
+                    assetId={item.id}
+                    scope="theme"
+                    url={currencyTheme.backgroundImageUrl}
+                    imageKey={currencyTheme.backgroundImageKey}
+                    onChange={({ url, imageKey }) => setCurrencyTheme((current) => ({ ...current, backgroundImageUrl: url, backgroundImageKey: imageKey }))}
+                  />
                 ) : null}
                 {currencyTheme.background === "solid" ? (
                   <div className="space-y-2">
@@ -346,6 +341,7 @@ export function PlatformWidgetPreferences({
             {item.widgetConfig?.type === "currency" ? (
               <WidgetLayoutEditor
                 config={item.widgetConfig}
+                assetId={item.id}
                 layout={currencyLayout}
                 previewConfig={{
                   ...item.widgetConfig,
@@ -494,16 +490,13 @@ export function PlatformWidgetPreferences({
                     ) : null}
                     {selectedLotteryTheme.background === "image" ? (
                       <>
-                        <div className="space-y-2 sm:col-span-2">
-                          <Label>Imagem de fundo desta modalidade (URL HTTPS)</Label>
-                          <Input
-                            placeholder="https://.../fundo-mega-sena.jpg"
-                            value={selectedLotteryTheme.backgroundImageUrl}
-                            onChange={(event) =>
-                              patchLotteryTheme({ backgroundImageUrl: event.target.value })
-                            }
-                          />
-                        </div>
+                        <WidgetBackgroundUpload
+                          assetId={item.id}
+                          scope={`lottery:${lotteryTemplateGameId}`}
+                          url={selectedLotteryTheme.backgroundImageUrl}
+                          imageKey={selectedLotteryTheme.backgroundImageKey}
+                          onChange={({ url, imageKey }) => patchLotteryTheme({ backgroundImageUrl: url, backgroundImageKey: imageKey })}
+                        />
                         <div className="space-y-2">
                           <Label>Sobreposição da imagem</Label>
                           <Select
@@ -629,6 +622,7 @@ export function PlatformWidgetPreferences({
                   <WidgetLayoutEditor
                     key={lotteryTemplateGameId}
                     config={item.widgetConfig}
+                    assetId={item.id}
                     layout={resolveLotteryWidgetLayout(
                       lotteryTemplateGameId,
                       lotteryGameLayouts,
@@ -811,19 +805,13 @@ export function PlatformWidgetPreferences({
                   </>
                 ) : null}
                 {newsTheme.background === "image" ? (
-                  <div className="space-y-2 sm:col-span-2">
-                    <Label>Imagem de fundo das notícias (URL HTTPS)</Label>
-                    <Input
-                      placeholder="https://.../fundo-noticias.jpg"
-                      value={newsTheme.backgroundImageUrl}
-                      onChange={(event) =>
-                        setNewsTheme((current) => ({
-                          ...current,
-                          backgroundImageUrl: event.target.value,
-                        }))
-                      }
-                    />
-                  </div>
+                  <WidgetBackgroundUpload
+                    assetId={item.id}
+                    scope="theme"
+                    url={newsTheme.backgroundImageUrl}
+                    imageKey={newsTheme.backgroundImageKey}
+                    onChange={({ url, imageKey }) => setNewsTheme((current) => ({ ...current, backgroundImageUrl: url, backgroundImageKey: imageKey }))}
+                  />
                 ) : null}
               </div>
             </div>
@@ -926,6 +914,7 @@ export function PlatformWidgetPreferences({
             </div>
 
             <WidgetLayoutEditor
+              assetId={item.id}
               config={
                 item.widgetConfig?.type === "news"
                   ? item.widgetConfig

@@ -32,11 +32,13 @@ export function WidgetView({
   accentColor,
   onReady,
   deviceToken,
+  transitionEffect = "fade",
 }: {
   config: WidgetConfig;
   accentColor?: string | null;
   onReady?: () => void;
   deviceToken?: string | null;
+  transitionEffect?: "fade" | "none";
 }) {
   const theme = resolveWidgetTheme(config.theme);
   const accent = theme.accentColor || accentColor || "#38BDF8";
@@ -47,7 +49,15 @@ export function WidgetView({
   if (config.type === "currency")
     return <CurrencyWidget config={config} theme={theme} accent={accent} />;
   if (config.type === "lottery")
-    return <LotteryWidget config={config} theme={theme} accent={accent} onReady={onReady} />;
+    return (
+      <LotteryWidget
+        config={config}
+        theme={theme}
+        accent={accent}
+        onReady={onReady}
+        transitionEffect={transitionEffect}
+      />
+    );
   return (
     <NewsWidget
       config={config}
@@ -163,7 +173,7 @@ function Backdrop({
             key={theme.backgroundImageUrl}
             src={theme.backgroundImageUrl}
             duration={28}
-            animate={theme.animations && theme.kenBurns}
+            animate={false}
           />
           <div
             className="absolute inset-0"
@@ -349,18 +359,32 @@ function ClockWidget({
   accent: string;
 }) {
   const localClock = useContext(LocalWidgetData)?.now;
-  const [now, setNow] = useState(() => new Date(localClock?.() ?? Date.now()));
+  const [nowMs, setNowMs] = useState(() => localClock?.() ?? Date.now());
   const layout = resolveWidgetLayout("clock", config.layout as WidgetLayout | undefined);
   useEffect(() => {
-    const interval = window.setInterval(() => setNow(new Date(localClock?.() ?? Date.now())), 1000);
-    return () => window.clearInterval(interval);
+    let cancelled = false;
+    let timer: number | null = null;
+    const tick = () => {
+      if (cancelled) return;
+      const current = localClock?.() ?? Date.now();
+      setNowMs(current);
+      // Schedule against the real second boundary instead of accumulating the
+      // delay of setInterval. This keeps the seconds stable on TV WebViews.
+      const remainder = ((current % 1000) + 1000) % 1000;
+      timer = window.setTimeout(tick, Math.max(40, 1005 - remainder));
+    };
+    tick();
+    return () => {
+      cancelled = true;
+      if (timer !== null) window.clearTimeout(timer);
+    };
   }, [localClock]);
+  const now = new Date(nowMs);
 
   const time = new Intl.DateTimeFormat("pt-BR", {
     timeZone: config.timezone,
     hour: "2-digit",
     minute: "2-digit",
-    ...(config.showSeconds ? { second: "2-digit" as const } : {}),
     hour12: false,
   }).format(now);
 
@@ -1059,16 +1083,194 @@ function FederalPrizeBlocks({
   );
 }
 
+const LOTTERY_RESULT_FADE_MS = 700;
+
+function lotteryResultKey(result: NormalizedLotteryResult) {
+  return `${result.gameId}|${result.contestNumber}|${result.drawDate}`;
+}
+
+function LotteryResultLayer({
+  result,
+  layout,
+  theme,
+  accent,
+  data,
+}: {
+  result: NormalizedLotteryResult;
+  layout: WidgetLayout;
+  theme: LotteryGameTheme;
+  accent: string;
+  data: LotteryPayload | null;
+}) {
+  const specialDetails = [
+    result.luckyMonth ? `Mês da Sorte: ${result.luckyMonth}` : null,
+    result.heartTeam ? `Time do Coração: ${result.heartTeam}` : null,
+    result.clovers.length ? `Trevos: ${result.clovers.join(" • ")}` : null,
+  ].filter(Boolean);
+  const estimate = money(result.nextEstimate);
+  const lastCheckedLabel = data?.lastCheckedAt
+    ? new Intl.DateTimeFormat("pt-BR", { dateStyle: "short", timeStyle: "short" }).format(
+        new Date(data.lastCheckedAt),
+      )
+    : result.drawDate;
+
+  return (
+    <>
+      <Block block={layout.game} className="font-display font-bold">
+        {result.gameName}
+      </Block>
+      <Block block={layout.contest} className="uppercase tracking-[0.18em] opacity-70">
+        Concurso {result.contestNumber} • {result.drawDate}
+      </Block>
+      {result.gameId === "federal" ? (
+        <FederalPrizeBlocks result={result} layout={layout} accent={accent} placeholder={theme} />
+      ) : (
+        <Block block={layout.result} className="font-display leading-tight">
+          <LotteryResultBody
+            result={result}
+            accent={accent}
+            placeholder={theme}
+            federalStyle="list"
+          />
+        </Block>
+      )}
+      <Block block={layout.details}>
+        {specialDetails.length ? specialDetails.join("  •  ") : null}
+      </Block>
+      <Block block={layout.accumulated}>
+        {result.accumulated ? <strong>ACUMULOU</strong> : <span>Resultado confirmado</span>}
+      </Block>
+      <Block block={layout.nextPrize}>
+        {estimate ? <span>Próximo prêmio estimado: <strong>{estimate}</strong></span> : null}
+      </Block>
+      <Block block={layout.nextDraw}>
+        {result.nextDate ? <span>Próximo concurso: {result.nextDate}</span> : null}
+      </Block>
+      <Block block={{ ...layout.status, hidden: true }}>
+        <div
+          className={`flex flex-wrap items-center gap-[0.7em] ${
+            layout.status.align === "right"
+              ? "justify-end"
+              : layout.status.align === "center"
+                ? "justify-center"
+                : "justify-start"
+          }`}
+        >
+          {result.accumulated ? <strong>ACUMULOU</strong> : <span>Resultado confirmado</span>}
+          {estimate ? (
+            <span>
+              Próximo prêmio estimado: <strong>{estimate}</strong>
+            </span>
+          ) : null}
+          {result.nextDate ? <span>Próximo concurso: {result.nextDate}</span> : null}
+        </div>
+      </Block>
+      <Block block={layout.source} className="uppercase tracking-[0.18em] opacity-55">
+        Resultados oficiais — fonte: Loterias CAIXA
+        {data?.stale ? (
+          <span className="ml-[1em] normal-case tracking-normal">
+            Atualização temporariamente indisponível — último resultado confirmado em{" "}
+            {lastCheckedLabel}.
+          </span>
+        ) : null}
+      </Block>
+    </>
+  );
+}
+
+function LotteryResultLayerFixed({
+  result,
+  layout,
+  theme,
+  accent,
+  data,
+  specialDetails,
+}: {
+  result: NormalizedLotteryResult;
+  layout: WidgetLayout;
+  theme: LotteryGameTheme;
+  accent: string;
+  data: LotteryPayload | null;
+  specialDetails: string[];
+}) {
+  const estimate = money(result.nextEstimate);
+  const lastCheckedLabel = data?.lastCheckedAt
+    ? new Intl.DateTimeFormat("pt-BR", { dateStyle: "short", timeStyle: "short" }).format(
+        new Date(data.lastCheckedAt),
+      )
+    : result.drawDate;
+
+  return (
+    <>
+      <Block block={layout.game} className="font-display font-bold">
+        {result.gameName}
+      </Block>
+      <Block block={layout.contest} className="uppercase tracking-[0.18em] opacity-70">
+        {`Concurso ${result.contestNumber} \u2022 ${result.drawDate}`}
+      </Block>
+      {result.gameId === "federal" ? (
+        <FederalPrizeBlocks result={result} layout={layout} accent={accent} placeholder={theme} />
+      ) : (
+        <Block block={layout.result} className="font-display leading-tight">
+          <LotteryResultBody result={result} accent={accent} placeholder={theme} federalStyle="list" />
+        </Block>
+      )}
+      <Block block={layout.details}>
+        {specialDetails.length ? specialDetails.join("  \u2022  ") : null}
+      </Block>
+      <Block block={layout.accumulated}>
+        {result.accumulated ? <strong>ACUMULOU</strong> : <span>Resultado confirmado</span>}
+      </Block>
+      <Block block={layout.nextPrize}>
+        {estimate ? <span>{`Pr\u00f3ximo pr\u00eamio estimado: `}<strong>{estimate}</strong></span> : null}
+      </Block>
+      <Block block={layout.nextDraw}>
+        {result.nextDate ? <span>{`Pr\u00f3ximo concurso: ${result.nextDate}`}</span> : null}
+      </Block>
+      <Block block={{ ...layout.status, hidden: true }}>
+        <div
+          className={`flex flex-wrap items-center gap-[0.7em] ${
+            layout.status.align === "right"
+              ? "justify-end"
+              : layout.status.align === "center"
+                ? "justify-center"
+                : "justify-start"
+          }`}
+        >
+          {result.accumulated ? <strong>ACUMULOU</strong> : <span>Resultado confirmado</span>}
+          {estimate ? (
+            <span>
+              {`Pr\u00f3ximo pr\u00eamio estimado: `}<strong>{estimate}</strong>
+            </span>
+          ) : null}
+          {result.nextDate ? <span>{`Pr\u00f3ximo concurso: ${result.nextDate}`}</span> : null}
+        </div>
+      </Block>
+      <Block block={layout.source} className="uppercase tracking-[0.18em] opacity-55">
+        {`Resultados oficiais \u2014 fonte: Loterias CAIXA`}
+        {data?.stale ? (
+          <span className="ml-[1em] normal-case tracking-normal">
+            {`Atualiza\u00e7\u00e3o temporariamente indispon\u00edvel \u2014 \u00faltimo resultado confirmado em `}
+            {lastCheckedLabel}.
+          </span>
+        ) : null}
+      </Block>
+    </>
+  );
+}
+
 function LotteryWidget({
   config,
   theme,
   accent,
   onReady,
+  transitionEffect = "fade",
 }: {
   config: Extract<WidgetConfig, { type: "lottery" }>;
   theme: WidgetTheme;
   accent: string;
   onReady?: () => void;
+  transitionEffect?: "fade" | "none";
 }) {
   const query = useMemo(
     () => `type=lottery&games=${encodeURIComponent(config.gameIds.join(","))}`,
@@ -1077,6 +1279,11 @@ function LotteryWidget({
   const { data, failed } = useWidgetData<LotteryPayload>(query);
   const [index, setIndex] = useState(0);
   const results = data?.results ?? [];
+  const incomingResult = results[Math.min(index, Math.max(0, results.length - 1))];
+  const displayedKeyRef = useRef("");
+  const displayedResultRef = useRef<NormalizedLotteryResult | null>(null);
+  const [displayedResult, setDisplayedResult] = useState<NormalizedLotteryResult | null>(null);
+  const [leavingResult, setLeavingResult] = useState<NormalizedLotteryResult | null>(null);
 
   useEffect(() => setIndex(0), [query]);
   useEffect(() => {
@@ -1091,7 +1298,36 @@ function LotteryWidget({
     return () => window.clearInterval(interval);
   }, [config.rotateSeconds, results.length]);
 
-  const result = results[Math.min(index, Math.max(0, results.length - 1))];
+  useEffect(() => {
+    const previous = displayedResultRef.current;
+    if (!incomingResult) {
+      displayedKeyRef.current = "";
+      displayedResultRef.current = null;
+      setDisplayedResult(null);
+      setLeavingResult(null);
+      return;
+    }
+
+    const nextKey = lotteryResultKey(incomingResult);
+    displayedResultRef.current = incomingResult;
+    if (displayedKeyRef.current === nextKey) {
+      setDisplayedResult(incomingResult);
+      return;
+    }
+
+    displayedKeyRef.current = nextKey;
+    setDisplayedResult(incomingResult);
+    if (!previous || transitionEffect !== "fade") {
+      setLeavingResult(null);
+      return;
+    }
+
+    setLeavingResult(previous);
+    const timeout = window.setTimeout(() => setLeavingResult(null), LOTTERY_RESULT_FADE_MS);
+    return () => window.clearTimeout(timeout);
+  }, [incomingResult, transitionEffect]);
+
+  const result = displayedResult ?? incomingResult;
   const layout = resolveLotteryWidgetLayout(result?.gameId, config.gameLayouts, config.layout);
   const resultTheme = resolveLotteryGameTheme(result?.gameId, theme, config.gameThemes);
   const resultAccent = resultTheme.accentColor || accent;
@@ -1108,6 +1344,128 @@ function LotteryWidget({
         new Date(data.lastCheckedAt),
       )
     : result?.drawDate;
+  const leavingLayout = leavingResult
+    ? resolveLotteryWidgetLayout(leavingResult.gameId, config.gameLayouts, config.layout)
+    : null;
+  const leavingTheme = leavingResult
+    ? resolveLotteryGameTheme(leavingResult.gameId, theme, config.gameThemes)
+    : null;
+  const leavingAccent = leavingTheme?.accentColor || accent;
+
+  const fixedSpecialDetails = result
+    ? [
+        result.luckyMonth ? `M\u00eas da Sorte: ${result.luckyMonth}` : null,
+        result.heartTeam ? `Time do Cora\u00e7\u00e3o: ${result.heartTeam}` : null,
+        result.clovers.length ? `Trevos: ${result.clovers.join(" \u2022 ")}` : null,
+      ].filter(Boolean)
+    : [];
+  const leavingSpecialDetails = leavingResult
+    ? [
+        leavingResult.luckyMonth ? `M\u00eas da Sorte: ${leavingResult.luckyMonth}` : null,
+        leavingResult.heartTeam ? `Time do Cora\u00e7\u00e3o: ${leavingResult.heartTeam}` : null,
+        leavingResult.clovers.length ? `Trevos: ${leavingResult.clovers.join(" \u2022 ")}` : null,
+      ].filter(Boolean)
+    : [];
+
+  return (
+    <Shell
+      accent={resultAccent}
+      theme={resultTheme}
+      scene={<ClearScene accent={resultAccent} theme={resultTheme} />}
+      bottomBar={layout.bottomBar}
+    >
+      {!result ? (
+        <p className="absolute inset-x-[8%] top-[45%] text-center text-[4cqh] opacity-65">
+          {failed
+            ? "Resultados temporariamente indispon\u00edveis."
+            : "Carregando resultados oficiais\u2026"}
+        </p>
+      ) : (
+        <div className="absolute inset-0">
+          {leavingResult && leavingLayout && leavingTheme ? (
+            <div
+              className="absolute inset-0"
+              style={{ animation: `mdi-lottery-result-out ${LOTTERY_RESULT_FADE_MS}ms ease both` }}
+            >
+              <LotteryResultLayerFixed
+                result={leavingResult}
+                layout={leavingLayout}
+                theme={leavingTheme}
+                accent={leavingAccent}
+                data={data}
+                specialDetails={leavingSpecialDetails}
+              />
+            </div>
+          ) : null}
+          <div
+            className="absolute inset-0"
+            style={
+              leavingResult && transitionEffect === "fade"
+                ? { animation: `mdi-lottery-result-in ${LOTTERY_RESULT_FADE_MS}ms ease both` }
+                : undefined
+            }
+          >
+            <LotteryResultLayerFixed
+              result={result}
+              layout={layout}
+              theme={resultTheme}
+              accent={resultAccent}
+              data={data}
+              specialDetails={fixedSpecialDetails}
+            />
+          </div>
+        </div>
+      )}
+    </Shell>
+  );
+
+  return (
+    <Shell
+      accent={resultAccent}
+      theme={resultTheme}
+      scene={<ClearScene accent={resultAccent} theme={resultTheme} />}
+      bottomBar={layout.bottomBar}
+    >
+      {!result ? (
+        <p className="absolute inset-x-[8%] top-[45%] text-center text-[4cqh] opacity-65">
+          {failed ? "Resultados temporariamente indisponíveis." : "Carregando resultados oficiais…"}
+        </p>
+      ) : (
+        <div className="absolute inset-0">
+          {leavingResult && leavingLayout && leavingTheme ? (
+            <div
+              className="absolute inset-0"
+              style={{ animation: `mdi-lottery-result-out ${LOTTERY_RESULT_FADE_MS}ms ease both` }}
+            >
+              <LotteryResultLayer
+                result={leavingResult}
+                layout={leavingLayout}
+                theme={leavingTheme}
+                accent={leavingAccent}
+                data={data}
+              />
+            </div>
+          ) : null}
+          <div
+            className="absolute inset-0"
+            style={
+              leavingResult && transitionEffect === "fade"
+                ? { animation: `mdi-lottery-result-in ${LOTTERY_RESULT_FADE_MS}ms ease both` }
+                : undefined
+            }
+          >
+            <LotteryResultLayer
+              result={result}
+              layout={layout}
+              theme={resultTheme}
+              accent={resultAccent}
+              data={data}
+            />
+          </div>
+        </div>
+      )}
+    </Shell>
+  );
 
   return (
     <Shell
@@ -1341,7 +1699,7 @@ function NewsWidget({
           key={heroImage}
           src={heroImage}
           duration={24}
-          animate={theme.animations && theme.kenBurns}
+          animate={false}
         />
         <div className="absolute inset-0 bg-gradient-to-t from-black/90 via-black/65 to-black/35" />
       </div>
@@ -1387,7 +1745,7 @@ function NewsWidget({
                 src={current.image}
                 className="size-full rounded-[1cqh] object-cover"
                 duration={24}
-                animate={theme.animations && theme.kenBurns}
+                animate={false}
               />
             </Block>
           ) : null}

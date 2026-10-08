@@ -1,4 +1,4 @@
-import { useEffect, useRef, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import { createRoot } from "react-dom/client";
 import { WidgetView } from "@/components/widgets/widget-view";
 import { LocalWidgetData } from "@/components/widgets/local-widget-data";
@@ -36,12 +36,33 @@ export function LocalScreen() {
   const [frame, setFrame] = useState<Frame | null>(null);
   const [leavingWidget, setLeavingWidget] = useState<Frame | null>(null);
   const [calls, setCalls] = useState<QueueCallPayload[]>([]);
-  const previousWidget = useRef<Frame | null>(null);
+  const currentFrame = useRef<Frame | null>(null);
   const leaveTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
   const call = calls[0];
   useEffect(() => {
     const seen = new Set<string>();
-    window.__mdi360LocalFrame = setFrame;
+    window.__mdi360LocalFrame = (next) => {
+      const previous = currentFrame.current;
+      const isWidgetChange = Boolean(
+        next.fade &&
+        previous &&
+        previous.playbackId !== next.playbackId &&
+        previous.item.kind === "widget" &&
+        next.item.kind === "widget"
+      );
+      if (leaveTimer.current) window.clearTimeout(leaveTimer.current);
+      if (isWidgetChange) {
+        setLeavingWidget(previous);
+        leaveTimer.current = window.setTimeout(() => {
+          setLeavingWidget(null);
+          leaveTimer.current = null;
+        }, 360);
+      } else {
+        setLeavingWidget(null);
+      }
+      currentFrame.current = next;
+      setFrame(next);
+    };
     window.__mdi360QueueCalls = (incoming) => {
       const fresh = incoming.filter((item) => !seen.has(item.id));
       fresh.forEach((item) => seen.add(item.id));
@@ -78,24 +99,6 @@ export function LocalScreen() {
   }, [frame]);
   // Videos and images fade in the Android native surface. Widgets are drawn
   // by the WebView, so keep their last frame for the same transition window.
-  useEffect(() => {
-    const nextWidget = frame?.item.kind === "widget" && frame.item.widgetConfig ? frame : null;
-    const previous = previousWidget.current;
-    if (leaveTimer.current) window.clearTimeout(leaveTimer.current);
-    if (frame?.fade && previous && previous.playbackId !== frame.playbackId) {
-      setLeavingWidget(previous);
-      leaveTimer.current = window.setTimeout(() => {
-        setLeavingWidget(null);
-        leaveTimer.current = null;
-      }, 350);
-    } else {
-      setLeavingWidget(null);
-    }
-    previousWidget.current = nextWidget;
-    return () => {
-      if (leaveTimer.current) window.clearTimeout(leaveTimer.current);
-    };
-  }, [frame]);
   const item = frame?.item;
   return (
     <div className="relative h-screen w-screen overflow-hidden" style={{ background: "transparent" }}>
@@ -128,6 +131,13 @@ export function LocalScreen() {
 function ReadyWidget({ frame }: { frame: Frame }) {
   const [ready, setReady] = useState(false);
   const config = frame.item.widgetConfig!;
+  // The Android WebView/TV Box compositor drops frames on large Ken Burns
+  // layers. Keep the effect available in the web player, but disable only this
+  // animation in the local Android renderer so widgets remain fluid and stable.
+  const playerConfig = useMemo(() => {
+    if (!config.theme?.kenBurns) return config;
+    return { ...config, theme: { ...config.theme, kenBurns: false } } as WidgetConfig;
+  }, [config]);
   useEffect(() => {
     let cancelled = false;
     const images: HTMLImageElement[] = [];
@@ -165,16 +175,16 @@ function ReadyWidget({ frame }: { frame: Frame }) {
   }, [ready, config.type, frame.playbackId]);
   if (!ready) return null;
   return <LocalWidgetData.Provider value={{ payload: frame.item.widgetData ?? null, now: () => window.MDI360Native.clockNow(), imagesReady: true }}>
-    <WidgetView config={config} accentColor={frame.accentColor} onReady={() => window.MDI360Native.visualReady(frame.playbackId)} />
+            <WidgetView config={playerConfig} accentColor={frame.accentColor} transitionEffect={frame.fade ? "fade" : "none"} onReady={() => window.MDI360Native.visualReady(frame.playbackId)} />
   </LocalWidgetData.Provider>;
 }
 function LocalStream({ url, name, muted, onReady }: { url: string; name: string; muted: boolean; onReady: () => void }) {
   const youtube = parseYoutubeId(url);
   if (youtube) return <iframe title={name} src={buildYoutubeEmbedUrl(youtube, { muted, loop: true, origin: window.location.origin })}
-    className="pointer-events-none size-full border-0" allow="autoplay; encrypted-media" onLoad={onReady} />;
+     className="pointer-events-none size-full border-0 outline-none ring-0" tabIndex={-1} allow="autoplay; encrypted-media" onLoad={onReady} />;
   return <video src={url} autoPlay playsInline muted={muted} controls={false}
     poster="data:image/gif;base64,R0lGODlhAQABAIAAAAAAAP///ywAAAAAAQABAAACAUwAOw=="
-    className="size-full bg-black object-contain" onPlaying={onReady}
+     className="size-full border-0 bg-black object-contain outline-none ring-0" tabIndex={-1} onPlaying={onReady}
     onCanPlay={(event) => { void event.currentTarget.play().catch(() => undefined); }} />;
 }
 createRoot(document.getElementById("root")!).render(<LocalScreen />);

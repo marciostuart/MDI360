@@ -242,10 +242,10 @@
 }
 @keyframes mdi-kenburns {
   from {
-    transform: scale(1.02) translate3d(0, 0, 0);
+    transform: translate3d(0, 0, 0) scale(1.02);
   }
   to {
-    transform: scale(1.14) translate3d(-1.5%, -1.5%, 0);
+    transform: translate3d(-1.5%, -1.5%, 0) scale(1.14);
   }
 }
 
@@ -260,11 +260,22 @@
   -webkit-backface-visibility: hidden;
   will-change: transform;
   contain: paint;
+  transform: translate3d(0, 0, 0) scale(1.02);
+  animation-play-state: running;
+  -webkit-animation-play-state: running;
   animation-name: mdi-kenburns;
   animation-timing-function: linear;
   animation-iteration-count: infinite;
   animation-direction: alternate;
   animation-fill-mode: both;
+}
+@keyframes mdi-lottery-result-in {
+  from { opacity: 0; }
+  to { opacity: 1; }
+}
+@keyframes mdi-lottery-result-out {
+  from { opacity: 1; }
+  to { opacity: 0; }
 }
 @keyframes mdi-news-in {
   from {

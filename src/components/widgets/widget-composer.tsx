@@ -19,6 +19,7 @@ import { Slider } from "@/components/ui/slider";
 import { Switch } from "@/components/ui/switch";
 import { WidgetView } from "@/components/widgets/widget-view";
 import { WidgetLayoutEditor } from "@/components/widgets/widget-layout-editor";
+import { WidgetBackgroundUpload } from "@/components/widgets/widget-background-upload";
 import {
   CURRENCY_OPTIONS,
   NEWS_FEEDS,
@@ -49,7 +50,7 @@ const BACKGROUND_LABELS: { id: BackgroundMode; label: string; hint: string }[] =
   },
   { id: "gradient", label: "Degradê", hint: "Duas cores livres" },
   { id: "solid", label: "Cor sólida", hint: "Fundo chapado" },
-  { id: "image", label: "Imagem", hint: "URL pública (https) com zoom suave" },
+  { id: "image", label: "Imagem", hint: "Upload otimizado em WebP com qualidade de 75%" },
 ];
 
 function ColorOpacityField({
@@ -301,13 +302,6 @@ export function WidgetComposer({
                   onCheckedChange={(checked) => setConfig({ ...config, showDate: checked })}
                 />
                 Mostrar a data
-              </label>
-              <label className="flex items-center gap-2 text-sm">
-                <Switch
-                  checked={config.showSeconds}
-                  onCheckedChange={(checked) => setConfig({ ...config, showSeconds: checked })}
-                />
-                Mostrar os segundos
               </label>
             </div>
           ) : null}
@@ -817,12 +811,12 @@ export function WidgetComposer({
             {theme.background === "image" ? (
               <div className="grid gap-4 sm:grid-cols-2">
                 <div className="space-y-2 sm:col-span-2">
-                  <Label htmlFor="widget-bg">Imagem de fundo (URL https)</Label>
-                  <Input
-                    id="widget-bg"
-                    value={theme.backgroundImageUrl}
-                    onChange={(event) => patchTheme({ backgroundImageUrl: event.target.value })}
-                    placeholder="https://.../fundo.jpg"
+                  <WidgetBackgroundUpload
+                    assetId={editing?.assetId}
+                    scope="theme"
+                    url={theme.backgroundImageUrl}
+                    imageKey={theme.backgroundImageKey}
+                    onChange={({ url, imageKey }) => patchTheme({ backgroundImageUrl: url, backgroundImageKey: imageKey })}
                   />
                 </div>
                 <div className="space-y-2">
@@ -869,13 +863,7 @@ export function WidgetComposer({
                 />
                 Animações
               </label>
-              <label className="flex items-center gap-2 text-sm">
-                <Switch
-                  checked={theme.kenBurns}
-                  onCheckedChange={(checked) => patchTheme({ kenBurns: checked })}
-                />
-                Zoom suave na imagem
-              </label>
+              <span className="text-sm text-muted-foreground">Ken Burns removido para manter a reprodução estável.</span>
             </div>
           </div>
 
@@ -945,7 +933,13 @@ export function WidgetComposer({
                   ) : null}
                   {selectedLotteryTheme.background === "image" ? (
                     <>
-                      <div className="space-y-2 sm:col-span-2"><Label>Imagem de fundo (URL HTTPS)</Label><Input placeholder="https://.../fundo.jpg" value={selectedLotteryTheme.backgroundImageUrl} onChange={(event) => patchLotteryTheme({ backgroundImageUrl: event.target.value })} /></div>
+                      <WidgetBackgroundUpload
+                        assetId={editing?.assetId}
+                        scope={`lottery:${lotteryTemplateGameId}`}
+                        url={selectedLotteryTheme.backgroundImageUrl}
+                        imageKey={selectedLotteryTheme.backgroundImageKey}
+                        onChange={({ url, imageKey }) => patchLotteryTheme({ backgroundImageUrl: url, backgroundImageKey: imageKey })}
+                      />
                       <div className="space-y-2"><Label>Sobreposição</Label><Select value={selectedLotteryTheme.imageOverlayMode} onValueChange={(value) => patchLotteryTheme({ imageOverlayMode: value as LotteryGameTheme["imageOverlayMode"] })}><SelectTrigger><SelectValue /></SelectTrigger><SelectContent><SelectItem value="none">Sem sobreposição</SelectItem><SelectItem value="solid">Cor sólida</SelectItem><SelectItem value="gradient">Degradê</SelectItem></SelectContent></Select></div>
                       {selectedLotteryTheme.imageOverlayMode === "solid" ? <ColorOpacityField label="Cor da sobreposição" color={selectedLotteryTheme.imageOverlayColor} opacity={selectedLotteryTheme.imageOverlayOpacity} onColorChange={(imageOverlayColor) => patchLotteryTheme({ imageOverlayColor })} onOpacityChange={(imageOverlayOpacity) => patchLotteryTheme({ imageOverlayOpacity })} /> : null}
                       {selectedLotteryTheme.imageOverlayMode === "gradient" ? <><ColorOpacityField label="Início da sobreposição" color={selectedLotteryTheme.imageOverlayGradientFrom} opacity={selectedLotteryTheme.imageOverlayGradientFromOpacity} onColorChange={(imageOverlayGradientFrom) => patchLotteryTheme({ imageOverlayGradientFrom })} onOpacityChange={(imageOverlayGradientFromOpacity) => patchLotteryTheme({ imageOverlayGradientFromOpacity })} /><ColorOpacityField label="Fim da sobreposição" color={selectedLotteryTheme.imageOverlayGradientTo} opacity={selectedLotteryTheme.imageOverlayGradientToOpacity} onColorChange={(imageOverlayGradientTo) => patchLotteryTheme({ imageOverlayGradientTo })} onOpacityChange={(imageOverlayGradientToOpacity) => patchLotteryTheme({ imageOverlayGradientToOpacity })} /></> : null}
@@ -954,8 +948,7 @@ export function WidgetComposer({
                     {selectedLotteryTheme.background === "image" ? (
                       <div className="grid gap-3 rounded-md border border-border p-3 sm:col-span-2 sm:grid-cols-3">
                         <label className="flex items-center gap-2 text-sm sm:col-span-3">
-                          <Switch checked={selectedLotteryTheme.kenBurns} onCheckedChange={(kenBurns) => patchLotteryTheme({ kenBurns })} />
-                          Aplicar zoom suave (Ken Burns) nesta imagem
+                          Ken Burns removido para manter a reprodução estável.
                         </label>
                         {selectedLotteryTheme.imageOverlayMode === "gradient" ? <>
                           <div className="space-y-1"><Label className="text-xs">Ponto inicial</Label><Input type="number" min={0} max={100} value={selectedLotteryTheme.imageOverlayGradientFromStop} onChange={(event) => patchLotteryTheme({ imageOverlayGradientFromStop: Number(event.target.value) || 0 })} /></div>
@@ -980,6 +973,7 @@ export function WidgetComposer({
               <WidgetLayoutEditor
                 key={lotteryTemplateGameId}
                 config={config}
+                assetId={editing?.assetId}
                 title={`Template — ${LOTTERY_GAMES.find((game) => game.id === lotteryTemplateGameId)?.label ?? lotteryTemplateGameId}`}
                 layout={resolveLotteryWidgetLayout(
                   lotteryTemplateGameId,
@@ -1002,6 +996,7 @@ export function WidgetComposer({
           ) : (
             <WidgetLayoutEditor
               config={config}
+              assetId={editing?.assetId}
               onChange={(layout: WidgetLayout) => setConfig({ ...config, layout } as WidgetConfig)}
             />
           )}

@@ -17,6 +17,7 @@ import {
   readPlatformWidgetSettings,
   type PlatformWidgetSettings,
 } from "@/lib/widgets/platform-widgets.server";
+import { hydrateWidgetImageUrls } from "@/lib/widgets/background-storage.server";
 
 export type PlayerItem = {
   id: string;
@@ -181,9 +182,10 @@ async function resolveItems(
     if (isPlatformWidgetType(row.widgetType) && !platformWidgets[row.widgetType].active) continue;
     if (row.kind === "widget") {
       const storedConfig = (row.widgetConfig as WidgetConfig | null) ?? null;
-      const widgetConfig = isPlatformWidgetType(row.widgetType)
+      const rawWidgetConfig = isPlatformWidgetType(row.widgetType)
         ? mergePlatformWidgetConfig(row.widgetType, platformWidgets[row.widgetType], storedConfig)
         : storedConfig;
+      const widgetConfig = rawWidgetConfig ? await hydrateWidgetImageUrls(rawWidgetConfig) : null;
       items.push({
         id: `${prefix}${row.id}`,
         mediaAssetId: row.mediaAssetId,

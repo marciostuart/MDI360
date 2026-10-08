@@ -311,9 +311,6 @@ function PlayerScreen() {
     Number.isFinite(storedClockOffset) ? storedClockOffset : 0,
   );
   const playbackFlushRunningRef = useRef(false);
-  const leaveRef = useRef<number | null>(null);
-  /** True during the last FADE_MS of an item, so it fades out before swapping. */
-  const [leaving, setLeaving] = useState(false);
   const [widgetReadyKey, setWidgetReadyKey] = useState<string | null>(null);
   // Queue add-on: the call currently taking over the screen, plus the ones
   // waiting for their turn. Calls never overlap: each one owns the screen for
@@ -1158,11 +1155,6 @@ function PlayerScreen() {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [current?.id, index, sync?.playlist?.id, queuePlaybackReport]);
 
-  // Every new item starts fully visible again.
-  useEffect(() => {
-    setLeaving(false);
-  }, [index]);
-
   // A successful sync only proves that the server is reachable. It does not
   // prove that the current decoder or iframe is still advancing. Keep a
   // separate media watchdog so a frozen video cannot be kept alive forever by
@@ -1201,25 +1193,20 @@ function PlayerScreen() {
     advance,
   ]);
 
-  // Images advance on a timer; videos advance when they end. With the fade
-  // transition on, the outgoing item dims during its final FADE_MS so the
-  // effect happens at the end of the exhibition too, not only at the start.
+  // Images advance on a timer; videos advance when they end. FadeLayer keeps
+  // the outgoing item mounted and crossfades it with the next one, so there is
+  // no black gap between cached contents.
   useEffect(() => {
     if (NATIVE_SYNC_ONLY || nativeLocalPlayback) return;
     if (timerRef.current) window.clearTimeout(timerRef.current);
-    if (leaveRef.current) window.clearTimeout(leaveRef.current);
-    if (!current || items.length === 0) return;
-    if (current.kind === "video") return;
-    if (waitsForRemoteWidget) return;
-    const total = Math.max(1000, current.durationMs);
-    if (fade && total > FADE_MS * 2) {
-      leaveRef.current = window.setTimeout(() => setLeaving(true), total - FADE_MS);
-    }
-    timerRef.current = window.setTimeout(() => advance(), total);
-    return () => {
-      if (timerRef.current) window.clearTimeout(timerRef.current);
-      if (leaveRef.current) window.clearTimeout(leaveRef.current);
-    };
+     if (!current || items.length === 0) return;
+     if (current.kind === "video") return;
+     if (waitsForRemoteWidget) return;
+     const total = Math.max(1000, current.durationMs);
+     timerRef.current = window.setTimeout(() => advance(), total);
+     return () => {
+       if (timerRef.current) window.clearTimeout(timerRef.current);
+     };
     // Stable identity only: a re-signed link must not restart the exhibition.
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [
@@ -1343,12 +1330,13 @@ function PlayerScreen() {
       ) : nativeMediaActive ? (
         <div className="h-screen w-screen bg-transparent" aria-label="Vídeo nativo em reprodução" />
       ) : current?.kind === "video" ? (
-        <FadeLayer enabled={fade} step={index} leaving={leaving}>
+        <FadeLayer enabled={fade} step={index}>
           <div className="h-screen w-screen overflow-hidden bg-black">
             <video
               key={`${current.id}-${index}-${localSrc ? "local" : "remote"}`}
               src={localSrc ?? current.url ?? undefined}
-              className="h-screen w-screen object-contain"
+              className="h-screen w-screen border-0 object-contain outline-none ring-0"
+              tabIndex={-1}
               autoPlay
               muted={current.isMuted || sync.device?.audioEnabled === false || Boolean(activeCall)}
               playsInline
@@ -1380,11 +1368,10 @@ function PlayerScreen() {
               onTimeUpdate={(event) => {
                 beatRef.current = Date.now();
                 mediaProgressRef.current = Date.now();
-                if (!fade || leaving) return;
+                if (!fade) return;
                 const el = event.currentTarget;
                 if (!Number.isFinite(el.duration) || el.duration <= FADE_MS / 500) return;
                 if (items.length === 1 && !hasPending) return;
-                if (el.duration - el.currentTime <= FADE_MS / 1000) setLeaving(true);
               }}
               onEnded={() => {
                 setVideoPlayingKey(null);
@@ -1399,16 +1386,18 @@ function PlayerScreen() {
           </div>
         </FadeLayer>
       ) : current?.kind === "widget" && current.widgetConfig ? (
-        <FadeLayer enabled={fade} step={index} leaving={leaving} key={`${current.id}-${index}`}>
+        <FadeLayer enabled={fade} step={index}>
           <WidgetView
+            key={`${current.id}-${index}`}
             config={current.widgetConfig}
             accentColor={sync.branding?.color ?? null}
             deviceToken={token}
+            transitionEffect={fade ? "fade" : "none"}
             onReady={markWidgetReady}
           />
         </FadeLayer>
       ) : current?.kind === "stream" && current.url ? (
-        <FadeLayer enabled={fade} step={index} leaving={leaving}>
+        <FadeLayer enabled={fade} step={index}>
           <StreamLayer
             key={`${current.id}-${index}`}
             url={current.url}
@@ -1418,7 +1407,7 @@ function PlayerScreen() {
           />
         </FadeLayer>
       ) : current?.kind === "web" ? (
-        <FadeLayer enabled={fade} step={index} leaving={leaving}>
+        <FadeLayer enabled={fade} step={index}>
           <iframe
             key={`${current.id}-${index}`}
             src={current.url ?? undefined}
@@ -1428,7 +1417,7 @@ function PlayerScreen() {
           />
         </FadeLayer>
       ) : (
-        <FadeLayer enabled={fade} step={index} leaving={leaving}>
+        <FadeLayer enabled={fade} step={index}>
           <img
             key={`${current?.id}-${index}-${localSrc ? "local" : "remote"}`}
             src={imageSrc}
@@ -1483,7 +1472,8 @@ function StreamLayer({
           allow="autoplay; encrypted-media"
           // Sem interação não há hover, e o leve zoom corta qualquer borda da
           // interface do YouTube que apareça no início da reprodução.
-          className="pointer-events-none absolute left-1/2 top-1/2 h-[102%] w-[102%] -translate-x-1/2 -translate-y-1/2 border-0"
+            className="pointer-events-none absolute left-1/2 top-1/2 h-[102%] w-[102%] -translate-x-1/2 -translate-y-1/2 border-0 outline-none ring-0"
+            tabIndex={-1}
         />
       </div>
     );
@@ -1493,7 +1483,8 @@ function StreamLayer({
     <video
       key={url}
       src={url}
-      className="h-screen w-screen bg-black object-contain"
+      className="h-screen w-screen border-0 bg-black object-contain outline-none ring-0"
+      tabIndex={-1}
       autoPlay
       playsInline
       muted={muted}
@@ -1528,29 +1519,60 @@ function FadeLayer({
   leaving?: boolean;
   children: React.ReactNode;
 }) {
-  const [visible, setVisible] = useState(!enabled);
+  const previousStep = useRef(step);
+  const currentNode = useRef(children);
+  const [outgoing, setOutgoing] = useState<{ step: number; node: React.ReactNode } | null>(null);
+  const [entering, setEntering] = useState(false);
 
   useEffect(() => {
     if (!enabled) {
-      setVisible(true);
+      previousStep.current = step;
+      currentNode.current = children;
+      setOutgoing(null);
+      setEntering(false);
       return;
     }
-    setVisible(false);
-    const raf = window.requestAnimationFrame(() => setVisible(true));
-    return () => window.cancelAnimationFrame(raf);
-  }, [enabled, step]);
+    if (previousStep.current === step) {
+      currentNode.current = children;
+      return;
+    }
+
+    const oldNode = currentNode.current;
+    const oldStep = previousStep.current;
+    previousStep.current = step;
+    currentNode.current = children;
+    setOutgoing({ step: oldStep, node: oldNode });
+    setEntering(true);
+    const timer = window.setTimeout(() => {
+      setOutgoing(null);
+      setEntering(false);
+    }, FADE_MS);
+    return () => window.clearTimeout(timer);
+  }, [children, enabled, step]);
 
   if (!enabled) return <div className="h-screen w-screen">{children}</div>;
 
   return (
-    <div
-      className="h-screen w-screen"
-      style={{
-        opacity: visible && !leaving ? 1 : 0,
-        transition: `opacity ${FADE_MS}ms ease-in-out`,
-      }}
-    >
-      {children}
+    <div className="relative h-screen w-screen overflow-hidden">
+      {outgoing ? (
+        <div
+          key={`outgoing-${outgoing.step}`}
+          className="pointer-events-none absolute inset-0"
+          style={{ animation: `mdi-fade-out ${FADE_MS}ms ease-in-out both` }}
+        >
+          {outgoing.node}
+        </div>
+      ) : null}
+      <div
+        key={`current-${step}`}
+        className="absolute inset-0"
+        style={{
+          animation: entering ? `mdi-fade-in ${FADE_MS}ms ease-in-out both` : undefined,
+          opacity: leaving ? 0 : undefined,
+        }}
+      >
+        {children}
+      </div>
     </div>
   );
 }

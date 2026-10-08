@@ -136,7 +136,14 @@ export const listMediaAssets = createServerFn({ method: "GET" }).handler(
           createdAt: row.createdAt.toISOString(),
           previewUrl,
           widgetType: row.widgetType,
-          widgetConfig: (row.widgetConfig as WidgetConfig | null) ?? null,
+          widgetConfig: row.widgetConfig
+            ? await (async () => {
+                const { hydrateWidgetImageUrls } = await import(
+                  "@/lib/widgets/background-storage.server"
+                );
+                return hydrateWidgetImageUrls(row.widgetConfig as WidgetConfig, 900);
+              })()
+            : null,
           sourceUrl: row.sourceUrl,
           tags: row.tags ?? [],
           airStartAt: row.airStartAt ? row.airStartAt.toISOString() : null,

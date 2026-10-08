@@ -102,7 +102,7 @@ async function prepareImage(file: File, preset: CanvasPreset): Promise<PreparedU
   ctx.imageSmoothingQuality = "high";
   ctx.drawImage(image, 0, 0, width, height);
 
-  const blob = await canvasToBlob(canvas, "image/webp", 0.85);
+  const blob = await canvasToBlob(canvas, "image/webp", 0.75);
 
   if (scale < 1) {
     notes.push(`Redimensionada de ${image.width}x${image.height} para ${width}x${height}.`);
