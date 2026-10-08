@@ -856,13 +856,7 @@ function PlayerScreen() {
           // the server is far better than a screen stuck on "Baixando".
           const retry = await mediaCache.download(url);
           if (cancelled) return;
-          setReadyUrls((previous) => {
-            if (previous.has(key)) return previous;
-            const next = new Set(previous);
-            next.add(key);
-            return next;
-          });
-          if (!retry) console.warn("[player] sem cache local, tocando direto:", url);
+          if (!retry) console.warn("[player] download incompleto; mantendo fora da fila:", url);
         }
       }
     };
@@ -873,8 +867,20 @@ function PlayerScreen() {
     };
   }, [downloadKey, nativeLocalCacheRequired]);
 
+  const playlistMedia = allItems.filter(
+    (item) => (item.kind === "image" || item.kind === "video") && Boolean(item.url),
+  );
+  const playlistMediaReady = playlistMedia.every((item) =>
+    nativeLocalCacheRequired
+      ? nativeCachedKeys.has(item.mediaAssetId ?? item.id)
+      : readyUrls.has(mediaCache.keyFor(item.url as string)),
+  );
+  // Libera a playlist inteira de uma vez. Assim um download tardio nunca
+  // desloca o índice atual e reinicia o vídeo que já estava em reprodução.
+  const waitingForPlaylistMedia =
+    !nativeLocalPlayback && playlistMedia.length > 0 && !playlistMediaReady;
   // Widgets, páginas e streams não têm arquivo; só os arquivos esperam o cache.
-  const items = allItems.filter((item) => {
+  const items = waitingForPlaylistMedia ? [] : allItems.filter((item) => {
     if (item.kind === "widget" || item.kind === "web" || item.kind === "stream") return true;
     // APK 1.3.9+: arquivos so entram na rotacao depois que o cache nativo
     // confirma o download completo. Nao existe streaming como contingencia.
@@ -888,7 +894,6 @@ function PlayerScreen() {
     // Cache Storage aquece ou algum arquivo falha ao ser armazenado. O cache
     // continua sendo preenchido em segundo plano e passa a ser obrigatório
     // somente quando a tela estiver offline.
-    if (!IS_ANDROID_HYBRID && networkAvailable) return Boolean(item.url);
     if (IS_ANDROID_HYBRID && item.kind === "image") {
       return (
         Boolean(item.url) &&
@@ -980,7 +985,7 @@ function PlayerScreen() {
       if (revoked) URL.revokeObjectURL(revoked);
     };
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [currentKey, current?.kind, index, networkAvailable]);
+  }, [currentKey, current?.kind, index]);
 
   // No APK atualizado, vídeos deixam o decoder do WebView e passam ao
   // ExoPlayer nativo. A página segue acima dele para preservar chamadas e
@@ -1390,7 +1395,7 @@ function PlayerScreen() {
         <FadeLayer enabled={fade} step={index}>
           <div className="h-screen w-screen overflow-hidden bg-black">
             <video
-              key={`${current.id}-${index}-${localSrc ? "local" : "remote"}`}
+              key={`${sync.playlist?.id ?? ""}:${sync.playlist?.revision ?? 0}:${current.id}:${localSrc ? "local" : "remote"}`}
               src={localSrc ?? current.url ?? undefined}
               className="h-screen w-screen border-0 object-contain outline-none ring-0"
               tabIndex={-1}
