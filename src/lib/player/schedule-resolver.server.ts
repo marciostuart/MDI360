@@ -18,32 +18,8 @@ import {
   type PlatformWidgetSettings,
 } from "@/lib/widgets/platform-widgets.server";
 import { hydrateWidgetImageUrls } from "@/lib/widgets/background-storage.server";
-
-export type PlayerItem = {
-  id: string;
-  mediaAssetId: string | null;
-  kind: "image" | "video" | "web" | "widget" | "stream";
-  url: string | null;
-  durationMs: number;
-  isMuted: boolean;
-  name: string;
-  widgetType: string | null;
-  widgetConfig: WidgetConfig | null;
-  /** Stable content identity: a transcode/replacement must invalidate old APK files. */
-  cacheKey?: string;
-  /** Download progress fallback when an object response has no Content-Length. */
-  byteSize?: number | null;
-  airStartAt?: string | null;
-  airEndAt?: string | null;
-  scheduleConstraints?: ScheduleRule[][];
-};
-
-export type PlayerPlaylist = {
-  id: string;
-  name: string;
-  revision: number;
-  items: PlayerItem[];
-} | null;
+import type { PlayerItem, PlayerPlaylist } from "@/lib/player/contracts";
+export type { PlayerItem, PlayerPlaylist } from "@/lib/player/contracts";
 
 export type PlayerPlaybackPlan = {
   preparationPending: boolean;

@@ -53,21 +53,21 @@ export async function isCached(url: string): Promise<boolean> {
 
 /**
  * Downloads the file to the local cache. Resolves true only when the whole
- * body landed on the device.
+ * body landed completely in the device cache. Browsers without Cache API
+ * support are deliberately rejected so partial/network playback cannot enter
+ * the autonomous playlist.
  */
 export async function download(url: string): Promise<boolean> {
-  if (!supported()) return true; // No Cache API: fall back to direct streaming.
+  if (!supported()) return false;
   try {
     const cache = await openCache();
     const key = keyFor(url);
     if (await cache.match(key)) return true;
     const response = await fetch(url, { cache: "no-store" });
-    if (!response.ok) return false;
-    // Read the body fully before storing: a partial response must not count
-    // as "ready to play".
-    const blob = await response.blob();
-    if (blob.size === 0) return false;
-    await cache.put(key, new Response(blob, { headers: response.headers }));
+    // Cache.put consumes the complete body before resolving, while avoiding
+    // an extra full-size Blob copy of a video in JavaScript memory.
+    if (response.status !== 200 || !response.body) return false;
+    await cache.put(key, response);
     return true;
   } catch {
     return false;

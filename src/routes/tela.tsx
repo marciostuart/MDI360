@@ -5,22 +5,9 @@ import { WidgetView } from "@/components/widgets/widget-view";
 import { QueueCallOverlay, type QueueCallPayload } from "@/components/queue/queue-call-overlay";
 import { ActivationScreen as SharedActivationScreen } from "@/components/player/activation-screen";
 import * as mediaCache from "@/lib/player/media-cache";
+import type { PlayerItem, PlayerState } from "@/lib/player/contracts";
 import { buildYoutubeEmbedUrl, parseYoutubeId } from "@/lib/media/stream-url";
 import { matchesScheduleRule, type ScheduleRule } from "@/lib/schedules/rules";
-import type { WidgetConfig } from "@/lib/widgets/catalog";
-
-type PlayerItem = {
-  id: string;
-  mediaAssetId: string | null;
-  kind: "image" | "video" | "web" | "widget" | "stream";
-  url: string | null;
-  durationMs: number;
-  isMuted: boolean;
-  name: string;
-  widgetType: string | null;
-  widgetConfig: WidgetConfig | null;
-  cacheKey?: string;
-};
 
 type SyncResponse = {
   suspended?: boolean;
@@ -268,6 +255,7 @@ function PlayerScreen() {
   const [linked, setLinked] = useState(false);
   const [ready, setReady] = useState(false);
   const [sync, setSync] = useState<SyncResponse | null>(null);
+  const [playerState, setPlayerState] = useState<PlayerState>("UNLINKED");
   const [activationBranding, setActivationBranding] = useState<SyncResponse["branding"]>(null);
   const [error, setError] = useState<string | null>(null);
   const [index, setIndex] = useState(0);
@@ -285,6 +273,7 @@ function PlayerScreen() {
   const pendingSyncTimerRef = useRef<number | null>(null);
   const [hasPending, setHasPending] = useState(false);
   const syncRef = useRef<SyncResponse | null>(null);
+  const syncEtagRef = useRef<string | null>(null);
   // URLs already fully downloaded to this device. A file only enters the
   // rotation after its download finishes, so the TV never buffers on air.
   const [readyUrls, setReadyUrls] = useState<Set<string>>(new Set());
@@ -507,6 +496,7 @@ function PlayerScreen() {
       setToken(data.deviceToken);
       setActivationCode(data.activationCode);
       setLinked(false);
+      syncEtagRef.current = null;
       setError(null);
     } catch {
       setError("Sem conexão com o servidor. Tentando novamente…");
@@ -519,6 +509,7 @@ function PlayerScreen() {
     setToken(null);
     setSync(null);
     setLinked(false);
+    syncEtagRef.current = null;
     setActivationCode(null);
     await register();
   }, [register]);
@@ -615,12 +606,14 @@ function PlayerScreen() {
   const runSync = useCallback(
     async (deviceToken: string) => {
       try {
+        setPlayerState("SYNCING");
         nativeBridge()?.startupStage?.("Conectando ao servidor");
         const response = await fetch("/api/public/player/sync", {
           method: "POST",
           headers: {
             "content-type": "application/json",
             authorization: `Bearer ${deviceToken}`,
+            ...(syncEtagRef.current ? { "if-none-match": syncEtagRef.current } : {}),
           },
           body: JSON.stringify({ appVersion: APP_VERSION, deviceClockMs: Date.now() }),
         });
@@ -629,7 +622,13 @@ function PlayerScreen() {
           await resetDevice();
           return;
         }
+        if (response.status === 304) {
+          // The derived state effect below applies the current network/cache
+          // status without relying on a stale callback closure.
+          return;
+        }
         if (!response.ok) throw new Error(`sync ${response.status}`);
+        syncEtagRef.current = response.headers.get("etag") ?? syncEtagRef.current;
         const data = (await response.json()) as SyncResponse;
         const serverTime = Date.parse(data.offlineSchedule?.serverTime ?? "");
         if (Number.isFinite(serverTime)) {
@@ -700,6 +699,7 @@ function PlayerScreen() {
         setError(null);
       } catch (cause) {
         console.error("[player] falha ao sincronizar:", cause);
+        setPlayerState(syncRef.current ? "OFFLINE_PLAYING" : "SYNCING");
         setError("Sem conexão com o servidor. Tentando novamente…");
       }
     },
@@ -915,6 +915,22 @@ function PlayerScreen() {
     return Boolean(item.url) && readyUrls.has(mediaCache.keyFor(item.url as string));
   });
   const current = items[index % Math.max(items.length, 1)];
+  useEffect(() => {
+    if (!linked) {
+      setPlayerState("UNLINKED");
+      return;
+    }
+    if (waitingForPlaylistMedia) {
+      setPlayerState("DOWNLOADING");
+      return;
+    }
+    if (hasPending) {
+      setPlayerState("WAITING_FOR_UPDATE");
+      return;
+    }
+    if (current) setPlayerState(networkAvailable ? "PLAYING" : "OFFLINE_PLAYING");
+    else setPlayerState("READY");
+  }, [linked, waitingForPlaylistMedia, hasPending, current?.id, networkAvailable]);
   useEffect(() => {
     // Native video closes the startup layer only after ExoPlayer emits ready.
     // Other kinds are ready as soon as React can place their surface.
@@ -1369,6 +1385,7 @@ function PlayerScreen() {
 
   return (
     <div
+      data-player-state={playerState}
       className={`relative min-h-screen overflow-hidden ${nativeMediaActive ? "bg-transparent" : "bg-black"}`}
     >
       {sync.suspended ? (

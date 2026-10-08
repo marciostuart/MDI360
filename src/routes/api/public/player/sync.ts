@@ -68,6 +68,21 @@ export const Route = createFileRoute("/api/public/player/sync")({
           })
           .where(eq(schema.devices.id, device.id));
 
+        let revision = 0;
+        try {
+          const { effectiveRevisionFor } = await import("@/lib/player/realtime.server");
+          revision = await effectiveRevisionFor(device.id, device.organizationId);
+        } catch {
+          revision = 0;
+        }
+        const etag = `W/"mdi-${device.id}-${revision}"`;
+        if (request.headers.get("if-none-match") === etag) {
+          return new Response(null, {
+            status: 304,
+            headers: { etag, "cache-control": "no-store" },
+          });
+        }
+
         const playbackPlan = await resolvePlaybackPlanForDevice(device.id);
 
         // Queue add-on: pending ticket calls for this screen, oldest first. The
@@ -81,14 +96,6 @@ export const Route = createFileRoute("/api/public/player/sync")({
         }
         // Kept for players installed before the queue became a list.
         const queueCall = queueCalls.length > 0 ? queueCalls[queueCalls.length - 1] : null;
-
-        let revision = 0;
-        try {
-          const { effectiveRevisionFor } = await import("@/lib/player/realtime.server");
-          revision = await effectiveRevisionFor(device.id, device.organizationId);
-        } catch {
-          revision = 0;
-        }
 
         // Whitelabel branding of the organization that owns this screen.
         let branding: {
@@ -159,6 +166,25 @@ export const Route = createFileRoute("/api/public/player/sync")({
             );
         }
 
+        const contentRevision = playbackPlanRevision(playbackPlan);
+        const mediaInventory = [
+          ...(playbackPlan.playlist?.items ?? []),
+          ...(playbackPlan.fallbackPlaylist?.items ?? []),
+          ...playbackPlan.preloadItems,
+        ]
+          .filter(
+            (item) =>
+              (item.kind === "image" || item.kind === "video") &&
+              Boolean(item.mediaAssetId && item.cacheKey),
+          )
+          .map((item) => ({
+            mediaAssetId: item.mediaAssetId as string,
+            cacheKey: item.cacheKey as string,
+            kind: item.kind as "image" | "video",
+            byteSize: item.byteSize ?? null,
+            status: "ready" as const,
+          }));
+
         return Response.json(
           {
             device: {
@@ -190,14 +216,16 @@ export const Route = createFileRoute("/api/public/player/sync")({
             commands: commands.map((c) => c.kind),
             screenshotRequestIds: commands.filter((c) => c.kind === "screenshot").map((c) => c.id),
             syncIntervalMs: 60_000,
+            manifestRevision: { revision, contentRevision, etag },
+            mediaInventory,
             // Seed for the long-poll channel (/api/public/player/events).
             revision,
             // Database-derived companion to the in-memory realtime revision.
             // It remains valid when another Swarm replica serves the request.
-            contentRevision: playbackPlanRevision(playbackPlan),
+            contentRevision,
             suspended,
           },
-          { headers: { "cache-control": "no-store" } },
+          { headers: { etag, "cache-control": "no-store" } },
         );
         } catch (cause) {
           console.error("[player/sync] falha inesperada:", cause);
