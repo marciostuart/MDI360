@@ -233,8 +233,8 @@ async function wipeLocalCache() {
   }
 }
 
-/** Duration of the soft transition, used both on entry and on exit. */
-const FADE_MS = 700;
+/** The terminal transition is always a 500 ms black curtain. */
+const FADE_MS = 500;
 
 export const Route = createFileRoute("/tela")({
   head: () => ({
@@ -260,7 +260,10 @@ function PlayerScreen() {
   const [error, setError] = useState<string | null>(null);
   const [index, setIndex] = useState(0);
   const [videoPlayingKey, setVideoPlayingKey] = useState<string | null>(null);
-  const timerRef = useRef<number | null>(null);
+  const transitionTimerRef = useRef<number | null>(null);
+  const transitionFrameRef = useRef<number | null>(null);
+  const transitionInProgressRef = useRef(false);
+  const [transitionOpacity, setTransitionOpacity] = useState(1);
   /** Ultimo sinal de vida geral, usado quando ainda nao ha midia carregada. */
   const beatRef = useRef<number>(Date.now());
   /** Ultimo avanco real da midia atual. Sincronizacao nao renova este relogio. */
@@ -480,6 +483,39 @@ function PlayerScreen() {
     }
     setIndex((value) => value + 1);
   }, [applySync]);
+
+  /**
+   * Ends the current item behind the black curtain. The item is advanced only
+   * after the curtain is fully opaque, so the old video surface cannot paint
+   * its last decoded frame over the transition.
+   */
+  const beginBlackTransition = useCallback(() => {
+    if (!fade) {
+      advance();
+      return;
+    }
+    if (transitionInProgressRef.current) return;
+    transitionInProgressRef.current = true;
+    setTransitionOpacity(1);
+    if (transitionTimerRef.current !== null) window.clearTimeout(transitionTimerRef.current);
+    transitionTimerRef.current = window.setTimeout(() => {
+      transitionTimerRef.current = null;
+      transitionInProgressRef.current = false;
+      advance();
+    }, FADE_MS);
+  }, [advance, fade]);
+
+  const scheduleBlackTransition = useCallback(
+    (durationMs: number) => {
+      if (!fade || !Number.isFinite(durationMs) || durationMs <= 0) return;
+      if (transitionTimerRef.current !== null) window.clearTimeout(transitionTimerRef.current);
+      transitionTimerRef.current = window.setTimeout(
+        beginBlackTransition,
+        Math.max(0, durationMs - FADE_MS),
+      );
+    },
+    [beginBlackTransition, fade],
+  );
 
   /** Announces this screen to the server and reserves an activation code. */
   const register = useCallback(async () => {
@@ -915,6 +951,50 @@ function PlayerScreen() {
     return Boolean(item.url) && readyUrls.has(mediaCache.keyFor(item.url as string));
   });
   const current = items[index % Math.max(items.length, 1)];
+
+  // The black curtain is the only transition surface. Content is never
+  // cross-faded and the next item is mounted underneath the opaque curtain.
+  useEffect(() => {
+    if (transitionTimerRef.current !== null) window.clearTimeout(transitionTimerRef.current);
+    if (transitionFrameRef.current !== null) window.cancelAnimationFrame(transitionFrameRef.current);
+    transitionTimerRef.current = null;
+    transitionInProgressRef.current = false;
+
+    if (!fade || !current || items.length === 0 || nativeMediaActive || nativeLocalPlayback) {
+      setTransitionOpacity(0);
+      return;
+    }
+
+    setTransitionOpacity(1);
+    transitionFrameRef.current = window.requestAnimationFrame(() => {
+      transitionFrameRef.current = null;
+      setTransitionOpacity(0);
+    });
+
+    // A single looping item has no boundary. A widget is scheduled only after
+    // its data/image readiness gate is released.
+    if (waitsForRemoteWidget || (items.length === 1 && !hasPending)) return;
+    scheduleBlackTransition(Math.max(1_000, current.durationMs));
+
+    return () => {
+      if (transitionTimerRef.current !== null) window.clearTimeout(transitionTimerRef.current);
+      if (transitionFrameRef.current !== null) window.cancelAnimationFrame(transitionFrameRef.current);
+      transitionTimerRef.current = null;
+      transitionFrameRef.current = null;
+    };
+  }, [
+    current?.durationMs,
+    current?.id,
+    fade,
+    hasPending,
+    index,
+    items.length,
+    nativeLocalPlayback,
+    nativeMediaActive,
+    scheduleBlackTransition,
+    waitsForRemoteWidget,
+  ]);
+
   useEffect(() => {
     if (!linked) {
       setPlayerState("UNLINKED");
@@ -1283,33 +1363,6 @@ function PlayerScreen() {
     advance,
   ]);
 
-  // Images advance on a timer; videos advance when they end. FadeLayer keeps
-  // the outgoing item mounted and crossfades it with the next one, so there is
-  // no black gap between cached contents.
-  useEffect(() => {
-    if (NATIVE_SYNC_ONLY || nativeLocalPlayback) return;
-    if (timerRef.current) window.clearTimeout(timerRef.current);
-     if (!current || items.length === 0) return;
-     if (current.kind === "video") return;
-     if (waitsForRemoteWidget) return;
-     const total = Math.max(1000, current.durationMs);
-     timerRef.current = window.setTimeout(() => advance(), total);
-     return () => {
-       if (timerRef.current) window.clearTimeout(timerRef.current);
-     };
-    // Stable identity only: a re-signed link must not restart the exhibition.
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [
-    current?.id,
-    current?.kind,
-    current?.durationMs,
-    index,
-    items.length,
-    advance,
-    fade,
-    waitsForRemoteWidget,
-  ]);
-
   // Monitoramento remoto: o aplicativo Android devolve a captura por aqui e o
   // player apenas a entrega ao servidor.
   useEffect(() => {
@@ -1421,7 +1474,6 @@ function PlayerScreen() {
       ) : nativeMediaActive ? (
         <div className="h-screen w-screen bg-transparent" aria-label="Vídeo nativo em reprodução" />
       ) : current?.kind === "video" ? (
-        <FadeLayer enabled={fade} step={index}>
           <div className="h-screen w-screen overflow-hidden bg-black">
             <video
               key={`${sync.playlist?.id ?? ""}:${sync.playlist?.revision ?? 0}:${current.id}:${localSrc ? "local" : "remote"}`}
@@ -1439,11 +1491,8 @@ function PlayerScreen() {
               preload="auto"
               // Só revela o vídeo quando ele realmente começa a tocar: evita o
               // ícone de "Play" e qualquer interface do sistema no primeiro frame.
-              // The transition wrapper handles visual swaps. Do not depend on
-              // the browser firing "playing" after a background sync.
               style={{
                 opacity: videoPlayingKey === videoRenderKey ? 1 : 0,
-                transition: fade ? `opacity ${FADE_MS}ms ease-in-out` : undefined,
               }}
               onCanPlay={(event) => {
                 void playWithBrowserFallback(event.currentTarget);
@@ -1451,6 +1500,11 @@ function PlayerScreen() {
                 // has a frame available. Waiting for playing made a playlist
                 // change look like a black screen on slower browsers.
                 setVideoPlayingKey(videoRenderKey);
+              }}
+              onLoadedMetadata={(event) => {
+                if (Number.isFinite(event.currentTarget.duration)) {
+                  scheduleBlackTransition(event.currentTarget.duration * 1000);
+                }
               }}
               onPlaying={() => {
                 beatRef.current = Date.now();
@@ -1463,25 +1517,19 @@ function PlayerScreen() {
               onTimeUpdate={(event) => {
                 beatRef.current = Date.now();
                 mediaProgressRef.current = Date.now();
-                if (!fade) return;
-                const el = event.currentTarget;
-                if (!Number.isFinite(el.duration) || el.duration <= FADE_MS / 500) return;
-                if (items.length === 1 && !hasPending) return;
               }}
               onEnded={() => {
                 setVideoPlayingKey(null);
                 if (items.length === 1 && !hasPending) return;
-                advance();
+                beginBlackTransition();
               }}
               onError={() => {
                 setVideoPlayingKey(null);
-                advance();
+                beginBlackTransition();
               }}
             />
           </div>
-        </FadeLayer>
       ) : current?.kind === "widget" && current.widgetConfig ? (
-        <FadeLayer enabled={fade} step={index}>
           <WidgetView
             key={`${current.id}-${index}`}
             config={current.widgetConfig}
@@ -1493,9 +1541,7 @@ function PlayerScreen() {
             transitionEffect="none"
             onReady={markWidgetReady}
           />
-        </FadeLayer>
       ) : current?.kind === "stream" && current.url ? (
-        <FadeLayer enabled={fade} step={index}>
           <StreamLayer
             key={`${current.id}-${index}`}
             url={current.url}
@@ -1503,9 +1549,7 @@ function PlayerScreen() {
             muted={current.isMuted || sync.device?.audioEnabled === false || Boolean(activeCall)}
             loop={items.length === 1 && !hasPending}
           />
-        </FadeLayer>
       ) : current?.kind === "web" ? (
-        <FadeLayer enabled={fade} step={index}>
           <iframe
             key={`${current.id}-${index}`}
             src={current.url ?? undefined}
@@ -1513,9 +1557,7 @@ function PlayerScreen() {
             className="h-screen w-screen border-0"
             sandbox="allow-scripts allow-same-origin"
           />
-        </FadeLayer>
       ) : (
-        <FadeLayer enabled={fade} step={index}>
           <img
             key={`${current?.id}-${index}-${localSrc ? "local" : "remote"}`}
             src={imageSrc}
@@ -1526,9 +1568,16 @@ function PlayerScreen() {
               nativeBridge()?.startupComplete?.();
             }}
           />
-        </FadeLayer>
       )}
       {callOverlay}
+      <div
+        aria-hidden="true"
+        className="pointer-events-none fixed inset-0 z-[9999] bg-black"
+        style={{
+          opacity: fade ? transitionOpacity : 0,
+          transition: fade ? `opacity ${FADE_MS}ms linear` : "none",
+        }}
+      />
     </div>
   );
 }
@@ -1599,79 +1648,6 @@ function StreamLayer({
         void playWithBrowserFallback(event.currentTarget);
       }}
     />
-  );
-}
-
-/**
- * Optional soft transition (per screen). When disabled the child is rendered
- * as-is, so the cut stays instantaneous and costs nothing on weak hardware.
- */
-function FadeLayer({
-  enabled,
-  step,
-  leaving = false,
-  children,
-}: {
-  enabled: boolean;
-  step: number;
-  leaving?: boolean;
-  children: React.ReactNode;
-}) {
-  const previousStep = useRef(step);
-  const currentNode = useRef(children);
-  const [outgoing, setOutgoing] = useState<{ step: number; node: React.ReactNode } | null>(null);
-  const [entering, setEntering] = useState(false);
-
-  useEffect(() => {
-    if (!enabled) {
-      previousStep.current = step;
-      currentNode.current = children;
-      setOutgoing(null);
-      setEntering(false);
-      return;
-    }
-    if (previousStep.current === step) {
-      currentNode.current = children;
-      return;
-    }
-
-    const oldNode = currentNode.current;
-    const oldStep = previousStep.current;
-    previousStep.current = step;
-    currentNode.current = children;
-    setOutgoing({ step: oldStep, node: oldNode });
-    setEntering(true);
-    const timer = window.setTimeout(() => {
-      setOutgoing(null);
-      setEntering(false);
-    }, FADE_MS);
-    return () => window.clearTimeout(timer);
-  }, [children, enabled, step]);
-
-  if (!enabled) return <div className="h-screen w-screen">{children}</div>;
-
-  return (
-    <div className="relative h-screen w-screen overflow-hidden">
-      {outgoing ? (
-        <div
-          key={`outgoing-${outgoing.step}`}
-          className="pointer-events-none absolute inset-0"
-          style={{ animation: `mdi-fade-out ${FADE_MS}ms ease-in-out both` }}
-        >
-          {outgoing.node}
-        </div>
-      ) : null}
-      <div
-        key={`current-${step}`}
-        className="absolute inset-0"
-        style={{
-          animation: entering ? `mdi-fade-in ${FADE_MS}ms ease-in-out both` : undefined,
-          opacity: leaving ? 0 : undefined,
-        }}
-      >
-        {children}
-      </div>
-    </div>
   );
 }
 
