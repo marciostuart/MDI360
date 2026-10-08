@@ -28,6 +28,7 @@ sub init()
     ' still downloading. m.items holds only the ones ready to go on screen.
     m.allItems = []
     m.readyMap = {}
+    m.cachePaths = {}
     m.index = -1
     m.revision = -1
     ' Per-TV setting sent by the server: "none" (hard cut) or "fade".
@@ -263,7 +264,7 @@ sub applyPayload(payload as object)
         m.items = []
         m.allItems = []
         m.readyMap = {}
-        if m.prefetch <> invalid then m.prefetch.urls = []
+        if m.prefetch <> invalid then m.prefetch.entries = []
         ' Forget the revision: when the same playlist comes back (unchanged
         ' revision) we must accept it again instead of ignoring it below.
         m.revision = -1
@@ -310,19 +311,21 @@ sub applyPayload(payload as object)
     ' Ask the prefetch task about the files of this playlist. Anything that is
     ' not confirmed yet stays out of the rotation; the TV keeps playing what it
     ' already has and the file joins its position once it is ready.
-    urls = []
+    entries = []
     for each item in playable
-        if item.kind <> "widget" and item.isLive <> true and item.url <> invalid and item.url <> "" then urls.push(item.url)
+        if item.kind <> "widget" and item.isLive <> true and item.url <> invalid and item.url <> "" then
+            entries.push({ id: item.id, url: item.url, path: cachePathFor(item) })
+        end if
     end for
-    ' Drop files that left the playlist (deleted in the Studio) from the map,
-    ' so they are never shown again and are re-verified if they come back.
+    ' Drop files that left the playlist from the in-memory readiness map.
     fresh = {}
-    for each url in urls
-        if m.readyMap[url] = true then fresh[url] = true
+    for each item in playable
+        if m.readyMap[item.id] = true then fresh[item.id] = true
     end for
     m.readyMap = fresh
+    m.prefetch.entries = entries
     m.prefetch.ready = fresh
-    m.prefetch.urls = urls
+    m.prefetch.paths = m.cachePaths
 
     m.items = readyItems()
     m.index = -1
@@ -343,7 +346,8 @@ function readyItems() as object
         if item.kind = "widget" or item.isLive = true
             ' Widgets e transmissoes ao vivo nao dependem de download.
             result.push(item)
-        else if item.url <> invalid and m.readyMap[item.url] = true
+        else if item.url <> invalid and m.readyMap[item.id] = true and m.cachePaths[item.id] <> invalid
+            item.playUrl = m.cachePaths[item.id]
             result.push(item)
         end if
     end for
@@ -356,6 +360,7 @@ sub onPrefetchReady()
     ready = m.prefetch.ready
     if ready = invalid then return
     m.readyMap = ready
+    if m.prefetch.paths <> invalid then m.cachePaths = m.prefetch.paths
 
     currentId = invalid
     if m.index >= 0 and m.index < m.items.Count() then currentId = m.items[m.index].id
@@ -380,6 +385,10 @@ sub onPrefetchReady()
         playNext()
     end if
 end sub
+
+function cachePathFor(item as object) as string
+    return "tmp:/mdi360-cache/" + item.id + ".media"
+end function
 
 sub playNext()
     ' A newer playlist / settings payload waited for this exact moment.
@@ -454,7 +463,7 @@ sub advanceItem()
         ' before loading the content again — otherwise it stays on "finished".
         m.video.control = "stop"
         content = CreateObject("roSGNode", "ContentNode")
-        content.url = item.url
+        content.url = item.playUrl
         content.streamformat = streamFormatFor(item.url)
         ' No title / no description: Roku would flash the file name on screen.
         content.title = ""
@@ -479,7 +488,7 @@ sub advanceItem()
         m.video.control = "stop"
         m.video.visible = false
         m.widget.visible = false
-        m.slide.uri = item.url
+        m.slide.uri = item.playUrl
         m.slide.opacity = 1
         duration = 10000
         if item.durationMs <> invalid and item.durationMs > 1000 then duration = item.durationMs

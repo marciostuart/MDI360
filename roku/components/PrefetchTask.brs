@@ -1,57 +1,77 @@
-' Checks whether each media file is fully available for this TV before it is
-' allowed on screen. Roku streams from the server (its local storage quota is
-' too small for FullHD videos), so "ready" here means the server answered a
-' ranged request with the complete file size — enough to guarantee the item
-' will not stall on air. Files still being uploaded/optimised simply stay out
-' of the rotation until they are ready.
+' Downloads playlist media into the Roku local temporary filesystem before the
+' item is allowed on screen. Network I/O runs only in this Task, never on the
+' SceneGraph render thread.
 sub init()
     m.top.functionName = "loop"
+    CreateDirectory("tmp:/mdi360-cache")
 end sub
 
 sub loop()
     while true
-        urls = m.top.urls
-        if urls <> invalid and urls.Count() > 0
+        entries = m.top.entries
+        if entries <> invalid and entries.Count() > 0
             ready = m.top.ready
             if ready = invalid then ready = {}
+            paths = m.top.paths
+            if paths = invalid then paths = {}
             pending = 0
-            for each url in urls
-                if ready[url] <> true
-                    if probe(url)
-                        ready[url] = true
-                        ' Publish as soon as each file becomes usable.
+            desired = {}
+            for each entry in entries
+                if entry.id = invalid or entry.url = invalid or entry.path = invalid then continue for
+                desired[entry.path] = true
+                if ready[entry.id] <> true or not fileExists(entry.path)
+                    DeleteFile(entry.path)
+                    if download(entry.url, entry.path)
+                        ready[entry.id] = true
+                        paths[entry.id] = entry.path
                         m.top.ready = ready
+                        m.top.paths = paths
                     else
+                        ready[entry.id] = false
                         pending = pending + 1
                     end if
                 end if
             end for
+            pruneCache(desired)
             if pending = 0 then sleep(5000) else sleep(3000)
         else
+            pruneCache({})
             sleep(2000)
         end if
     end while
 end sub
 
-function probe(url as string) as boolean
+function fileExists(path as string) as boolean
+    fs = CreateObject("roFileSystem")
+    return fs.Stat(path) <> invalid
+end function
+
+function download(url as string, path as string) as boolean
     port = CreateObject("roMessagePort")
     transfer = CreateObject("roUrlTransfer")
     transfer.SetMessagePort(port)
     transfer.SetCertificatesFile("common:/certs/ca-bundle.crt")
     transfer.InitClientCertificates()
     transfer.SetUrl(url)
-    ' Ask for the first bytes only: cheap, yet proves the object exists and is
-    ' being served completely.
-    transfer.AddHeader("Range", "bytes=0-1023")
-    if not transfer.AsyncGetToString() then return false
+    if not transfer.AsyncGetToFile(path) then return false
 
-    msg = wait(12000, port)
+    ' Full files can be large; this wait runs in the Task and never blocks UI.
+    msg = wait(120000, port)
     if type(msg) = "roUrlEvent"
         code = msg.GetResponseCode()
-        if code = 200 or code = 206 then return true
-        return false
+        if code >= 200 and code < 300 and fileExists(path) then return true
     end if
 
     transfer.AsyncCancel()
+    DeleteFile(path)
     return false
 end function
+
+sub pruneCache(desired as object)
+    files = ListDir("tmp:/mdi360-cache")
+    if files = invalid then return
+    for each fileName in files
+        path = "tmp:/mdi360-cache/" + fileName
+        if desired[path] <> true then DeleteFile(path)
+    end for
+end sub

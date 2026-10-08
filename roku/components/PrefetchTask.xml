@@ -2,9 +2,11 @@
 <component name="PrefetchTask" extends="Task">
   <script type="text/brightscript" uri="pkg:/components/PrefetchTask.brs" />
   <interface>
-    <!-- URLs of the current playlist. -->
-    <field id="urls" type="array" />
-    <!-- { url: true } for every file already confirmed as playable. -->
+    <!-- Download entries: { id, url, path }. -->
+    <field id="entries" type="array" />
+    <!-- { itemId: true } for every file fully stored on this Roku. -->
     <field id="ready" type="assocarray" alwaysNotify="true" />
+    <!-- { itemId: localPath } for files stored on this Roku. -->
+    <field id="paths" type="assocarray" alwaysNotify="true" />
   </interface>
 </component>
