@@ -448,10 +448,7 @@ export function PlaybackReports() {
   const now = useQuery({
     queryKey: ["now-playing"],
     queryFn: () => nowFn({}),
-    staleTime: 5_000,
-    gcTime: 30_000,
-    refetchInterval: 15_000,
-    refetchIntervalInBackground: false,
+    refetchInterval: 5_000,
   });
 
   return (
