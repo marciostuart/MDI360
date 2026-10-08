@@ -295,6 +295,13 @@
       "when": 1791331201000,
       "tag": "0041_activation_branding",
       "breakpoints": true
+    },
+    {
+      "idx": 42,
+      "version": "7",
+      "when": 1791417600000,
+      "tag": "0042_player_revisions",
+      "breakpoints": true
     }
   ]
 }

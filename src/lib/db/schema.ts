@@ -123,6 +123,8 @@ export const organizations = pgTable("organizations", {
   /** Default WhatsApp recipient for device alerts; usable only after OTP verification. */
   alertWhatsapp: text("alert_whatsapp"),
   alertWhatsappVerifiedAt: timestamp("alert_whatsapp_verified_at", { withTimezone: true }),
+  /** Monotonic invalidation revision shared by every server replica. */
+  playerRevision: bigint("player_revision", { mode: "number" }).notNull().default(0),
   createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
 });
 
@@ -297,6 +299,8 @@ export const devices = pgTable(
     alertWhatsapp: text("alert_whatsapp"),
     alertWhatsappVerifiedAt: timestamp("alert_whatsapp_verified_at", { withTimezone: true }),
     offlineAlertSentAt: timestamp("offline_alert_sent_at", { withTimezone: true }),
+    /** Monotonic invalidation revision for changes scoped to this screen. */
+    playerRevision: bigint("player_revision", { mode: "number" }).notNull().default(0),
     createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
   },
   (t) => [

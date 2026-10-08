@@ -25,43 +25,25 @@ export const Route = createFileRoute("/api/public/player/events")({
         if (!device) return Response.json({ error: "Não autorizado." }, { status: 401 });
 
         let since = 0;
-        let contentRevision = "";
         try {
           const body = (await request.json()) as {
             revision?: unknown;
-            contentRevision?: unknown;
           };
           if (typeof body?.revision === "number" && Number.isFinite(body.revision)) {
             since = Math.max(0, Math.trunc(body.revision));
-          }
-          if (typeof body?.contentRevision === "string" && body.contentRevision.length <= 250_000) {
-            contentRevision = body.contentRevision;
           }
         } catch {
           since = 0;
         }
 
-        const { waitForChange, revisionFor } = await import("@/lib/player/realtime.server");
-        const revision = await waitForChange(device.id, device.organizationId, since);
-        // The in-memory bus wakes screens immediately when both requests hit
-        // the same process. After its regular long-poll timeout, compare the
-        // resolved database plan too: this makes updates reliable across Swarm
-        // replicas and after process restarts.
-        const { playbackPlanRevision, resolvePlaybackPlanForDevice } = await import(
-          "@/lib/player/schedule-resolver.server"
-        );
-        const currentContentRevision = playbackPlanRevision(
-          await resolvePlaybackPlanForDevice(device.id),
-        );
-        const realtimeChanged = revision > since;
-        const contentChanged = currentContentRevision !== contentRevision;
-
+        const { effectiveRevisionFor, waitForChange } = await import("@/lib/player/realtime.server");
+        await waitForChange(device.id, device.organizationId, since);
+        const revision = await effectiveRevisionFor(device.id, device.organizationId);
         return Response.json(
           {
             revision,
-            contentRevision: currentContentRevision,
-            changed: realtimeChanged || contentChanged,
-            serverRevision: revisionFor(device.id, device.organizationId),
+            changed: revision > since,
+            serverRevision: revision,
           },
           { headers: { "cache-control": "no-store" } },
         );

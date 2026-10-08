@@ -1,3 +1,5 @@
+import { eq, sql } from "drizzle-orm";
+
 /**
  * Tiny in-process broadcast bus used to push content changes to TVs.
  *
@@ -62,12 +64,57 @@ export function notifyOrganization(organizationId: string | null | undefined) {
   if (!organizationId) return;
   bus.orgRevision.set(organizationId, Date.now());
   releaseWaiters(`org:${organizationId}`);
+  void persistRevision("organization", organizationId);
 }
 
 /** Called when a single screen must react (command, playlist swap, unlink). */
 export function notifyDevice(deviceId: string) {
   bus.deviceRevision.set(deviceId, Date.now());
   releaseWaiters(`device:${deviceId}`);
+  void persistRevision("device", deviceId);
+}
+
+/**
+ * Stores the invalidation in PostgreSQL as a safety net for process restarts
+ * and multiple replicas. The in-memory bus still wakes connected screens
+ * immediately; this write is deliberately fire-and-forget and never blocks a
+ * Studio mutation if the database is temporarily unavailable.
+ */
+async function persistRevision(kind: "organization" | "device", id: string) {
+  try {
+    const { getDb, schema } = await import("@/lib/db/index.server");
+    const table = kind === "organization" ? schema.organizations : schema.devices;
+    await getDb()
+      .update(table)
+      .set({ playerRevision: sql`greatest(${table.playerRevision} + 1, ${Date.now()})` })
+      .where(eq(table.id, id));
+  } catch (error) {
+    console.warn("[player] nÃ£o foi possÃ­vel persistir a revisÃ£o de invalidaÃ§Ã£o", error);
+  }
+}
+
+/** Reads the persisted revision without resolving the complete playback plan. */
+export async function effectiveRevisionFor(deviceId: string, organizationId: string | null) {
+  try {
+    const { getDb, schema } = await import("@/lib/db/index.server");
+    const rows = await getDb()
+      .select({
+        deviceRevision: schema.devices.playerRevision,
+        organizationRevision: schema.organizations.playerRevision,
+      })
+      .from(schema.devices)
+      .leftJoin(schema.organizations, eq(schema.organizations.id, schema.devices.organizationId))
+      .where(eq(schema.devices.id, deviceId))
+      .limit(1);
+    const row = rows[0];
+    return Math.max(
+      revisionFor(deviceId, organizationId),
+      Number(row?.deviceRevision ?? 0),
+      Number(row?.organizationRevision ?? 0),
+    );
+  } catch {
+    return revisionFor(deviceId, organizationId);
+  }
 }
 
 /** Called whenever the waiting queue or the latest call of a panel changes. */

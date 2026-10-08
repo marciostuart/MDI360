@@ -728,10 +728,12 @@ function PlayerScreen() {
     if (!token || !linked) return;
     void runSync(token);
 
-    // Safety net: even if a different Swarm replica owns the push channel,
-    // the screen reconciles quickly. Applying a new plan still waits for an
-    // item boundary, so this never cuts the media currently on air.
-    const interval = window.setInterval(() => void runSync(token), 20_000);
+    // The push channel wakes the screen immediately after a Studio change.
+    // This periodic sync is only a recovery path for process restarts, network
+    // gaps, or an update handled by another server replica. It is deliberately
+    // aligned with the server heartbeat instead of rebuilding the full plan
+    // every few seconds on every terminal.
+    const interval = window.setInterval(() => void runSync(token), 60_000);
     // A screen that linked but never received its first payload must not sit on
     // the splash for a whole minute: retry fast until content arrives.
     const bootstrap = window.setInterval(() => {
@@ -1074,37 +1076,44 @@ function PlayerScreen() {
       const nativeRaw = nativeBridge()?.drainOfflinePlaybackReports?.();
       const nativeRows = nativeRaw ? (JSON.parse(nativeRaw) as unknown) : [];
       if (Array.isArray(nativeRows)) {
-        for (const nativeItem of nativeRows) {
-          const valid = nativeItem as Partial<NativePlaybackOutboxItem>;
-          if (
-            typeof valid._nativeReportId !== "number" ||
-            typeof valid.startedAt !== "string" ||
-            typeof valid.durationMs !== "number"
+        const validRows = nativeRows
+          .map((nativeItem) => nativeItem as Partial<NativePlaybackOutboxItem>)
+          .filter(
+            (item): item is NativePlaybackOutboxItem =>
+              typeof item._nativeReportId === "number" &&
+              typeof item.startedAt === "string" &&
+              typeof item.durationMs === "number",
           )
-            continue;
+          .slice(0, 100);
+        if (validRows.length > 0) {
           const response = await fetch("/api/public/player/playback", {
             method: "POST",
             headers: { "content-type": "application/json", authorization: `Bearer ${token}` },
             body: JSON.stringify({
-              playlistId: valid.playlistId ?? null,
-              mediaAssetId: valid.mediaAssetId ?? null,
-              durationMs: valid.durationMs,
-              startedAt: valid.startedAt,
+              events: validRows.map((item) => ({
+                playlistId: item.playlistId ?? null,
+                mediaAssetId: item.mediaAssetId ?? null,
+                durationMs: item.durationMs,
+                startedAt: item.startedAt,
+              })),
             }),
           });
-          if (!response.ok) break;
-          nativeBridge()?.acknowledgeOfflinePlaybackReportsThrough?.(valid._nativeReportId);
+          if (response.ok) {
+            nativeBridge()?.acknowledgeOfflinePlaybackReportsThrough?.(
+              validRows[validRows.length - 1]._nativeReportId,
+            );
+          }
         }
       }
       while (playbackOutboxRef.current.length > 0) {
-        const item = playbackOutboxRef.current[0];
+        const batch = playbackOutboxRef.current.slice(0, 100);
         const response = await fetch("/api/public/player/playback", {
           method: "POST",
           headers: { "content-type": "application/json", authorization: `Bearer ${token}` },
-          body: JSON.stringify(item),
+          body: JSON.stringify({ events: batch }),
         });
         if (!response.ok) break;
-        playbackOutboxRef.current.shift();
+        playbackOutboxRef.current.splice(0, batch.length);
         persistPlaybackOutbox(playbackOutboxRef.current);
       }
     } catch {

@@ -84,8 +84,8 @@ export const Route = createFileRoute("/api/public/player/sync")({
 
         let revision = 0;
         try {
-          const { revisionFor } = await import("@/lib/player/realtime.server");
-          revision = revisionFor(device.id, device.organizationId);
+          const { effectiveRevisionFor } = await import("@/lib/player/realtime.server");
+          revision = await effectiveRevisionFor(device.id, device.organizationId);
         } catch {
           revision = 0;
         }
