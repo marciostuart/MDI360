@@ -45,7 +45,7 @@ export const getDeviceHub = createServerFn({ method: "GET" })
   .inputValidator((input: unknown) => deviceIdSchema.parse(input))
   .handler(async ({ data }) => {
     const { db, schema, user, device } = await context(data.deviceId);
-    const { asc, desc, eq, and, gte, lte } = await import("drizzle-orm");
+    const { asc, desc, eq, and, gte, lte, sql } = await import("drizzle-orm");
     const playlists = await db
       .select({ id: schema.playlists.id, name: schema.playlists.name })
       .from(schema.playlists)
@@ -75,8 +75,8 @@ export const getDeviceHub = createServerFn({ method: "GET" })
         id: schema.playbackEvents.id,
         startedAt: schema.playbackEvents.startedAt,
         durationMs: schema.playbackEvents.durationMs,
-        playlistName: schema.playlists.name,
-        mediaName: schema.mediaAssets.name,
+        playlistName: sql<string | null>`coalesce(${schema.playbackEvents.playlistName}, ${schema.playlists.name})`,
+        mediaName: sql<string | null>`coalesce(${schema.playbackEvents.mediaName}, ${schema.mediaAssets.name})`,
         mediaKind: schema.mediaAssets.kind,
       })
       .from(schema.playbackEvents)

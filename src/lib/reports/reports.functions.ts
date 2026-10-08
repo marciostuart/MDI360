@@ -355,8 +355,10 @@ export const getNowPlaying = createServerFn({ method: "GET" }).handler(
       const last = await db
         .select({
           startedAt: schema.playbackEvents.startedAt,
-          playlistName: schema.playlists.name,
-          mediaName: schema.mediaAssets.name,
+          // Snapshot labels are kept in the event so widgets and deleted or
+          // replaced assets remain identifiable in "No ar agora".
+          playlistName: sql<string | null>`coalesce(${schema.playbackEvents.playlistName}, ${schema.playlists.name})`,
+          mediaName: sql<string | null>`coalesce(${schema.playbackEvents.mediaName}, ${schema.mediaAssets.name})`,
           mediaKind: schema.mediaAssets.kind,
         })
         .from(schema.playbackEvents)

@@ -521,6 +521,26 @@ function PlayerScreen() {
     [beginBlackTransition, fade],
   );
 
+  // Imagens, widgets, páginas e streams não disparam onEnded de forma
+  // confiável. Eles precisam de um relógio próprio para avançar a playlist;
+  // no corte direto o avanço ocorre no fim da duração, sem aguardar a
+  // cortina, e no fade a cortina começa FADE_MS antes do fim.
+  const scheduleTimedItem = useCallback(
+    (durationMs: number) => {
+      if (!Number.isFinite(durationMs) || durationMs <= 0) return;
+      if (transitionTimerRef.current !== null) window.clearTimeout(transitionTimerRef.current);
+      const delay = fade
+        ? Math.max(0, durationMs - FADE_MS)
+        : Math.max(1_000, durationMs);
+      transitionTimerRef.current = window.setTimeout(() => {
+        transitionTimerRef.current = null;
+        if (fade) beginBlackTransition();
+        else advance();
+      }, delay);
+    },
+    [advance, beginBlackTransition, fade],
+  );
+
   /** Announces this screen to the server and reserves an activation code. */
   const register = useCallback(async () => {
     try {
@@ -1005,7 +1025,11 @@ function PlayerScreen() {
     // its data/image readiness gate is released, but it still fades in while
     // loading so the screen never looks like a frozen black panel.
     if (waitsForRemoteWidget || (items.length === 1 && !hasPending)) return;
-    scheduleBlackTransition(Math.max(1_000, current.durationMs));
+    if (current.kind === "video") {
+      scheduleBlackTransition(Math.max(1_000, current.durationMs));
+    } else {
+      scheduleTimedItem(Math.max(1_000, current.durationMs));
+    }
 
     return () => {
       if (transitionTimerRef.current !== null) window.clearTimeout(transitionTimerRef.current);
@@ -1023,6 +1047,7 @@ function PlayerScreen() {
     nativeLocalPlayback,
     nativeMediaActive,
     scheduleBlackTransition,
+    scheduleTimedItem,
     waitsForRemoteWidget,
   ]);
 
