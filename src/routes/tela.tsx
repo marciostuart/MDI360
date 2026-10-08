@@ -960,6 +960,12 @@ function PlayerScreen() {
     setLocalSrc(null);
     const url = current?.url;
     if (!url || (current?.kind !== "image" && current?.kind !== "video")) return;
+    // Cache Storage is the offline layer. When the network is healthy, keep
+    // the media on the browser's streaming path instead of reading the whole
+    // cached video into a Blob/Object URL. That duplicated large videos in
+    // RAM and eventually crashed Chrome with "Out of Memory" after a few
+    // playlist rotations.
+    if (networkAvailable) return;
     void mediaCache.localUrl(url).then((objectUrl) => {
       if (!objectUrl) return;
       if (cancelled) {
@@ -974,7 +980,7 @@ function PlayerScreen() {
       if (revoked) URL.revokeObjectURL(revoked);
     };
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [currentKey, current?.kind, index]);
+  }, [currentKey, current?.kind, index, networkAvailable]);
 
   // No APK atualizado, vídeos deixam o decoder do WebView e passam ao
   // ExoPlayer nativo. A página segue acima dele para preservar chamadas e
