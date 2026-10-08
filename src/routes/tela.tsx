@@ -1062,11 +1062,12 @@ function PlayerScreen() {
   // payload is still loading. A bounded fallback prevents a provider outage
   // from holding the whole playlist forever.
   useEffect(() => {
-    if (
-      current?.kind !== "widget" ||
-      (current.widgetConfig?.type !== "lottery" && current.widgetConfig?.type !== "news")
-    )
+    if (current?.kind !== "widget") return;
+    if (current.widgetConfig?.type !== "lottery" && current.widgetConfig?.type !== "news") {
+      // Clock, weather and currency do not need a remote readiness gate.
+      if (videoRenderKey) setWidgetReadyKey(videoRenderKey);
       return;
+    }
     const fallback = window.setTimeout(() => {
       if (videoRenderKey) setWidgetReadyKey(videoRenderKey);
     }, 20_000);
@@ -1341,6 +1342,26 @@ function PlayerScreen() {
     sync?.playlist?.id,
     sync?.offlineSchedule?.fallbackPlaylist?.id,
     queuePlaybackReport,
+  ]);
+
+  // Widgets can finish loading their remote data after they are mounted. The
+  // initial event must not be the only proof-of-play record: report the same
+  // item again at the moment the widget becomes renderable, so Studio knows
+  // exactly what is on screen instead of showing an empty initial event.
+  useEffect(() => {
+    if (NATIVE_SYNC_ONLY || nativeLocalPlayback) return;
+    if (current?.kind !== "widget" || widgetReadyKey !== videoRenderKey) return;
+    queuePlaybackReport(
+      current,
+      sync?.playlist?.id ?? sync?.offlineSchedule?.fallbackPlaylist?.id ?? null,
+    );
+  }, [
+    current?.id,
+    queuePlaybackReport,
+    sync?.offlineSchedule?.fallbackPlaylist?.id,
+    sync?.playlist?.id,
+    videoRenderKey,
+    widgetReadyKey,
   ]);
 
   // A successful sync only proves that the server is reachable. It does not
