@@ -451,7 +451,7 @@ export function PlaylistEditorDialog({
                           ) : null}
                           {item.kind === "video" ? (
                             <Badge variant="secondary" className="shrink-0">
-                              duraÃ§Ã£o do arquivo Â· {formatDuration(item.durationMs)}
+                              {Math.max(1, Math.round(item.durationMs / 1000))}s
                             </Badge>
                           ) : item.widgetType === "lottery" ? (
                             <Badge variant="secondary" className="shrink-0">

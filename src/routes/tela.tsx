@@ -1015,7 +1015,9 @@ function PlayerScreen() {
   useEffect(() => {
     const playlist = activePlaylist;
     if (!current || !playlist) {
-      currentPlaybackStateRef.current = null;
+      // A troca de item pode produzir um render intermediário sem `current`.
+      // Não publique esse intervalo vazio: o heartbeat não deve apagar do
+      // Studio o último item confirmado antes do primeiro frame seguinte.
       return;
     }
     const currentState: CurrentPlaybackState = {
