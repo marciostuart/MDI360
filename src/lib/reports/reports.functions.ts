@@ -357,6 +357,8 @@ export const getNowPlaying = createServerFn({ method: "GET" }).handler(
           startedAt: schema.playbackEvents.startedAt,
           playlistName: schema.playlists.name,
           mediaName: schema.mediaAssets.name,
+          playlistSnapshotName: schema.playbackEvents.playlistName,
+          mediaSnapshotName: schema.playbackEvents.mediaName,
           mediaKind: schema.mediaAssets.kind,
         })
         .from(schema.playbackEvents)
@@ -373,8 +375,8 @@ export const getNowPlaying = createServerFn({ method: "GET" }).handler(
         deviceName: device.name,
         online: Date.now() - seen < DEVICE_ONLINE_WINDOW_MS,
         lastSeenAt: device.lastSeenAt ? new Date(device.lastSeenAt).toISOString() : null,
-        playlistName: row?.playlistName ?? null,
-        mediaName: row?.mediaName ?? null,
+        playlistName: row?.playlistName ?? row?.playlistSnapshotName ?? null,
+        mediaName: row?.mediaName ?? row?.mediaSnapshotName ?? null,
         mediaKind: row?.mediaKind ?? null,
         startedAt: row?.startedAt ? new Date(row.startedAt).toISOString() : null,
       });

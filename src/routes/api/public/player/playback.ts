@@ -142,6 +142,8 @@ export const Route = createFileRoute("/api/public/player/playback")({
               deviceId: device.id,
               playlistId: normalized.playlistId ?? null,
               mediaAssetId: normalized.mediaAssetId ?? null,
+              mediaName: normalized.mediaName ?? null,
+              playlistName: normalized.playlistName ?? null,
               startedAt,
               durationMs: normalized.durationMs ?? 0,
               completed: normalized.completed ?? true,

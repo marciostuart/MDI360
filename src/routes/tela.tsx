@@ -110,6 +110,8 @@ type PlaybackOutboxItem = {
   eventId?: string;
   playlistId: string | null;
   mediaAssetId: string | null;
+  mediaName?: string | null;
+  playlistName?: string | null;
   durationMs: number;
   startedAt: string;
 };
@@ -694,12 +696,13 @@ function PlayerScreen() {
 
         const previous = syncRef.current;
         const playing = (previous?.playlist?.items?.length ?? 0) > 0;
-        const changed =
-          previous?.playlist?.revision !== data.playlist?.revision ||
-          previous?.device?.audioEnabled !== data.device?.audioEnabled ||
-          previous?.device?.transitionEffect !== data.device?.transitionEffect;
-        if (!playing || !changed) {
-          applySync(data, changed);
+        const playlistChanged = previous?.playlist?.revision !== data.playlist?.revision;
+        const devicePlaybackChanged =
+          previous?.device?.audioEnabled !== data.device?.audioEnabled;
+        // Transition preference is not content: apply it immediately instead
+        // of waiting for the current item boundary.
+        if (!playing || (!playlistChanged && !devicePlaybackChanged)) {
+          applySync(data, false);
         } else {
           // Finish the current item when possible, but never leave a long
           // video/widgets waiting minutes after a Studio update.
@@ -1291,6 +1294,11 @@ function PlayerScreen() {
             : undefined,
         playlistId,
         mediaAssetId: item.mediaAssetId ?? null,
+        mediaName: item.name ?? null,
+        playlistName:
+          syncRef.current?.playlist?.name ??
+          syncRef.current?.offlineSchedule?.fallbackPlaylist?.name ??
+          null,
         durationMs: item.durationMs,
         // Usa a diferenca medida contra o servidor para que um relogio de TV
         // incorreto nao faca o endpoint rejeitar os relatórios de exibicao.

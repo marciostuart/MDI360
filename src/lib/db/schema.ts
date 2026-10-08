@@ -501,6 +501,9 @@ export const playbackEvents = pgTable(
       onDelete: "set null",
     }),
     playlistId: uuid("playlist_id").references(() => playlists.id, { onDelete: "set null" }),
+    // Keep report labels readable after an asset or playlist is deleted.
+    mediaName: text("media_name"),
+    playlistName: text("playlist_name"),
     startedAt: timestamp("started_at", { withTimezone: true }).notNull(),
     durationMs: integer("duration_ms").notNull().default(0),
     completed: boolean("completed").notNull().default(true),
