@@ -24,6 +24,22 @@ export const Route = createFileRoute("/api/public/player/events")({
         const device = await authenticateDevice(request);
         if (!device) return Response.json({ error: "Não autorizado." }, { status: 401 });
 
+        // The long-poll itself is a heartbeat. A Roku/browser can remain
+        // connected here for several cycles without calling /sync, so using
+        // only /sync for presence makes a healthy terminal appear offline.
+        try {
+          const { getDb, schema } = await import("@/lib/db/index.server");
+          const { eq } = await import("drizzle-orm");
+          await getDb()
+            .update(schema.devices)
+            .set({ lastSeenAt: new Date() })
+            .where(eq(schema.devices.id, device.id));
+        } catch (error) {
+          // Presence must never turn a healthy long-poll into a playback
+          // failure when the optional monitoring write is unavailable.
+          console.warn("[player/events] heartbeat indisponivel", error);
+        }
+
         let since = 0;
         try {
           const body = (await request.json()) as {

@@ -52,7 +52,9 @@ end function
 
 sub runLoop()
     baseUrl = m.top.baseUrl
-    intervalMs = 60000
+    ' Keep the complete sync cadence below the 90s online window even when a
+    ' proxy closes a long-poll unexpectedly.
+    intervalMs = 30000
     linked = false
     revision = 0
     ' First status check of a waiting cycle is instant; the rest long-poll.
@@ -137,6 +139,7 @@ sub runLoop()
                 if res.body.revision <> invalid then revision = res.body.revision
                 if res.body.syncIntervalMs <> invalid and res.body.syncIntervalMs > 10000
                     intervalMs = res.body.syncIntervalMs
+                    if intervalMs > 30000 then intervalMs = 30000
                 end if
 
                 ' Push channel: hold one request open; the server answers the

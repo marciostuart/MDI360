@@ -29,6 +29,7 @@ sub init()
     m.allItems = []
     m.readyMap = {}
     m.cachePaths = {}
+    m.cacheSignatures = {}
     m.index = -1
     m.revision = -1
     ' Per-TV setting sent by the server: "none" (hard cut) or "fade".
@@ -314,15 +315,21 @@ sub applyPayload(payload as object)
     entries = []
     for each item in playable
         if item.kind <> "widget" and item.isLive <> true and item.url <> invalid and item.url <> "" then
-            entries.push({ id: item.id, url: item.url, path: cachePathFor(item) })
+            entries.push({ id: item.id, url: item.url, path: cachePathFor(item), signature: cacheSignatureFor(item) })
         end if
     end for
     ' Drop files that left the playlist from the in-memory readiness map.
     fresh = {}
     for each item in playable
-        if m.readyMap[item.id] = true then fresh[item.id] = true
+        if m.readyMap[item.id] = true and m.cacheSignatures[item.id] = cacheSignatureFor(item) then
+            fresh[item.id] = true
+        end if
     end for
     m.readyMap = fresh
+    m.cacheSignatures = {}
+    for each item in playable
+        if fresh[item.id] = true then m.cacheSignatures[item.id] = cacheSignatureFor(item)
+    end for
     m.prefetch.entries = entries
     m.prefetch.ready = fresh
     m.prefetch.paths = m.cachePaths
@@ -388,6 +395,11 @@ end sub
 
 function cachePathFor(item as object) as string
     return "tmp:/mdi360-cache/" + item.id + ".media"
+end function
+
+function cacheSignatureFor(item as object) as string
+    if item.cacheKey <> invalid and item.cacheKey <> "" then return item.cacheKey
+    return item.url
 end function
 
 sub playNext()

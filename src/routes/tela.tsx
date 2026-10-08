@@ -19,6 +19,7 @@ type PlayerItem = {
   name: string;
   widgetType: string | null;
   widgetConfig: WidgetConfig | null;
+  cacheKey?: string;
 };
 
 type SyncResponse = {
@@ -906,7 +907,9 @@ function PlayerScreen() {
   }, [items.length, current?.kind]);
   // Identity that survives a re-sign of the media link, used for React keys and
   // effect dependencies so the file on screen is never remounted mid-playback.
-  const currentKey = current?.url ? mediaCache.keyFor(current.url) : null;
+  const currentKey = current?.url
+    ? `${sync?.playlist?.id ?? ""}:${sync?.playlist?.revision ?? 0}:${mediaCache.keyFor(current.url)}`
+    : null;
   // Once offline, never point an image at the remote signed link. localSrc is
   // created from Cache Storage and keeps the visible playlist independent of
   // the server connection.
@@ -1404,6 +1407,10 @@ function PlayerScreen() {
               }}
               onCanPlay={(event) => {
                 void playWithBrowserFallback(event.currentTarget);
+                // canplay is the first reliable point at which the decoder
+                // has a frame available. Waiting for playing made a playlist
+                // change look like a black screen on slower browsers.
+                setVideoPlayingKey(videoRenderKey);
               }}
               onPlaying={() => {
                 beatRef.current = Date.now();
