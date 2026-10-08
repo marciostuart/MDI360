@@ -951,6 +951,16 @@ function PlayerScreen() {
     return Boolean(item.url) && readyUrls.has(mediaCache.keyFor(item.url as string));
   });
   const current = items[index % Math.max(items.length, 1)];
+  const videoRenderKey = current ? `${current.id}-${index}` : null;
+  const nativeMediaActive =
+    canUseNativeMedia() &&
+    nativeLocalCacheRequired &&
+    (current?.kind === "video" || current?.kind === "image") &&
+    Boolean(current?.url);
+  const waitsForRemoteWidget =
+    current?.kind === "widget" &&
+    (current.widgetConfig?.type === "lottery" || current.widgetConfig?.type === "news") &&
+    widgetReadyKey !== videoRenderKey;
 
   // The black curtain is the only transition surface. Content is never
   // cross-faded and the next item is mounted underneath the opaque curtain.
@@ -1027,18 +1037,8 @@ function PlayerScreen() {
   // created from Cache Storage and keeps the visible playlist independent of
   // the server connection.
   const imageSrc = localSrc ?? (networkAvailable ? current?.url ?? undefined : undefined);
-  const videoRenderKey = current ? `${current.id}-${index}` : null;
-  const nativeMediaActive =
-    canUseNativeMedia() &&
-    nativeLocalCacheRequired &&
-    (current?.kind === "video" || current?.kind === "image") &&
-    Boolean(current.url);
   const nativeMediaItemId = nativeMediaActive && videoRenderKey ? `native:${videoRenderKey}` : null;
   const nativeMediaCacheKey = current?.mediaAssetId ?? current?.id ?? "";
-  const waitsForRemoteWidget =
-    current?.kind === "widget" &&
-    (current.widgetConfig?.type === "lottery" || current.widgetConfig?.type === "news") &&
-    widgetReadyKey !== videoRenderKey;
   const markWidgetReady = useCallback(() => {
     if (videoRenderKey) setWidgetReadyKey(videoRenderKey);
     nativeBridge()?.startupStage?.("Conteúdos prontos");
