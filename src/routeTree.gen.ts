@@ -66,6 +66,7 @@ import { Route as ApiPublicPlayerAnnounceRouteImport } from './routes/api/public
 import { Route as ApiPublicPlayerChimeRouteImport } from './routes/api/public/player/chime'
 import { Route as ApiPublicPlayerEventsRouteImport } from './routes/api/public/player/events'
 import { Route as ApiPublicPlayerPlaybackRouteImport } from './routes/api/public/player/playback'
+import { Route as ApiPublicPlayerPresenceRouteImport } from './routes/api/public/player/presence'
 import { Route as ApiPublicPlayerRegisterRouteImport } from './routes/api/public/player/register'
 import { Route as ApiPublicPlayerScreenshotRouteImport } from './routes/api/public/player/screenshot'
 import { Route as ApiPublicPlayerStatusRouteImport } from './routes/api/public/player/status'
@@ -368,6 +369,11 @@ const ApiPublicPlayerPlaybackRoute = ApiPublicPlayerPlaybackRouteImport.update({
   path: '/api/public/player/playback',
   getParentRoute: () => rootRouteImport,
 } as any)
+const ApiPublicPlayerPresenceRoute = ApiPublicPlayerPresenceRouteImport.update({
+  id: '/api/public/player/presence',
+  path: '/api/public/player/presence',
+  getParentRoute: () => rootRouteImport,
+} as any)
 const ApiPublicPlayerRegisterRoute = ApiPublicPlayerRegisterRouteImport.update({
   id: '/api/public/player/register',
   path: '/api/public/player/register',
@@ -476,6 +482,7 @@ export interface FileRoutesByFullPath {
   '/api/public/player/chime': typeof ApiPublicPlayerChimeRoute
   '/api/public/player/events': typeof ApiPublicPlayerEventsRoute
   '/api/public/player/playback': typeof ApiPublicPlayerPlaybackRoute
+  '/api/public/player/presence': typeof ApiPublicPlayerPresenceRoute
   '/api/public/player/register': typeof ApiPublicPlayerRegisterRoute
   '/api/public/player/screenshot': typeof ApiPublicPlayerScreenshotRoute
   '/api/public/player/status': typeof ApiPublicPlayerStatusRoute
@@ -542,6 +549,7 @@ export interface FileRoutesByTo {
   '/api/public/player/chime': typeof ApiPublicPlayerChimeRoute
   '/api/public/player/events': typeof ApiPublicPlayerEventsRoute
   '/api/public/player/playback': typeof ApiPublicPlayerPlaybackRoute
+  '/api/public/player/presence': typeof ApiPublicPlayerPresenceRoute
   '/api/public/player/register': typeof ApiPublicPlayerRegisterRoute
   '/api/public/player/screenshot': typeof ApiPublicPlayerScreenshotRoute
   '/api/public/player/status': typeof ApiPublicPlayerStatusRoute
@@ -611,6 +619,7 @@ export interface FileRoutesById {
   '/api/public/player/chime': typeof ApiPublicPlayerChimeRoute
   '/api/public/player/events': typeof ApiPublicPlayerEventsRoute
   '/api/public/player/playback': typeof ApiPublicPlayerPlaybackRoute
+  '/api/public/player/presence': typeof ApiPublicPlayerPresenceRoute
   '/api/public/player/register': typeof ApiPublicPlayerRegisterRoute
   '/api/public/player/screenshot': typeof ApiPublicPlayerScreenshotRoute
   '/api/public/player/status': typeof ApiPublicPlayerStatusRoute
@@ -681,6 +690,7 @@ export interface FileRouteTypes {
     | '/api/public/player/chime'
     | '/api/public/player/events'
     | '/api/public/player/playback'
+    | '/api/public/player/presence'
     | '/api/public/player/register'
     | '/api/public/player/screenshot'
     | '/api/public/player/status'
@@ -747,6 +757,7 @@ export interface FileRouteTypes {
     | '/api/public/player/chime'
     | '/api/public/player/events'
     | '/api/public/player/playback'
+    | '/api/public/player/presence'
     | '/api/public/player/register'
     | '/api/public/player/screenshot'
     | '/api/public/player/status'
@@ -815,6 +826,7 @@ export interface FileRouteTypes {
     | '/api/public/player/chime'
     | '/api/public/player/events'
     | '/api/public/player/playback'
+    | '/api/public/player/presence'
     | '/api/public/player/register'
     | '/api/public/player/screenshot'
     | '/api/public/player/status'
@@ -856,6 +868,7 @@ export interface RootRouteChildren {
   ApiPublicPlayerChimeRoute: typeof ApiPublicPlayerChimeRoute
   ApiPublicPlayerEventsRoute: typeof ApiPublicPlayerEventsRoute
   ApiPublicPlayerPlaybackRoute: typeof ApiPublicPlayerPlaybackRoute
+  ApiPublicPlayerPresenceRoute: typeof ApiPublicPlayerPresenceRoute
   ApiPublicPlayerRegisterRoute: typeof ApiPublicPlayerRegisterRoute
   ApiPublicPlayerScreenshotRoute: typeof ApiPublicPlayerScreenshotRoute
   ApiPublicPlayerStatusRoute: typeof ApiPublicPlayerStatusRoute
@@ -1266,6 +1279,13 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof ApiPublicPlayerPlaybackRouteImport
       parentRoute: typeof rootRouteImport
     }
+    '/api/public/player/presence': {
+      id: '/api/public/player/presence'
+      path: '/api/public/player/presence'
+      fullPath: '/api/public/player/presence'
+      preLoaderRoute: typeof ApiPublicPlayerPresenceRouteImport
+      parentRoute: typeof rootRouteImport
+    }
     '/api/public/player/register': {
       id: '/api/public/player/register'
       path: '/api/public/player/register'
@@ -1451,6 +1471,7 @@ const rootRouteChildren: RootRouteChildren = {
   ApiPublicPlayerChimeRoute: ApiPublicPlayerChimeRoute,
   ApiPublicPlayerEventsRoute: ApiPublicPlayerEventsRoute,
   ApiPublicPlayerPlaybackRoute: ApiPublicPlayerPlaybackRoute,
+  ApiPublicPlayerPresenceRoute: ApiPublicPlayerPresenceRoute,
   ApiPublicPlayerRegisterRoute: ApiPublicPlayerRegisterRoute,
   ApiPublicPlayerScreenshotRoute: ApiPublicPlayerScreenshotRoute,
   ApiPublicPlayerStatusRoute: ApiPublicPlayerStatusRoute,

@@ -865,7 +865,11 @@ function PlayerScreen() {
     };
   }, [token, linked, runSync, resetDevice]);
 
-  const allItems = sync?.playlist?.items ?? [];
+  // A playlist scheduled for the current time is preferred. When the server
+  // is between revisions (or offline), the fallback playlist is the actual
+  // playable source and must also drive the current item/report state.
+  const activePlaylist = sync?.playlist ?? sync?.offlineSchedule?.fallbackPlaylist ?? null;
+  const allItems = activePlaylist?.items ?? [];
   const fallbackItems = sync?.offlineSchedule?.fallbackPlaylist?.items ?? [];
   const preloadItems = sync?.offlineSchedule?.preloadItems ?? [];
   const downloadUrls = [...allItems, ...fallbackItems, ...preloadItems]
@@ -1009,7 +1013,7 @@ function PlayerScreen() {
   // playback outbox is offline or still waiting for retry. This snapshot is
   // sent with the long-poll heartbeat and is not used to control playback.
   useEffect(() => {
-    const playlist = sync?.playlist ?? sync?.offlineSchedule?.fallbackPlaylist ?? null;
+    const playlist = activePlaylist;
     if (!current || !playlist) {
       currentPlaybackStateRef.current = null;
       return;
@@ -1029,6 +1033,29 @@ function PlayerScreen() {
     index,
     sync?.offlineSchedule?.fallbackPlaylist?.id,
     sync?.playlist?.id,
+    activePlaylist?.id,
+  ]);
+
+  // Atualiza o monitor imediatamente ao trocar de item. O long-poll continua
+  // servindo para invalidaÃ§Ãµes, mas nÃ£o Ã© mais responsÃ¡vel por refletir o
+  // conteÃºdo atual no Studio.
+  useEffect(() => {
+    const currentState = currentPlaybackStateRef.current;
+    if (!token || !currentState) return;
+    void fetch("/api/public/player/presence", {
+      method: "POST",
+      headers: { "content-type": "application/json", authorization: `Bearer ${token}` },
+      body: JSON.stringify(currentState),
+    }).catch(() => {
+      // O heartbeat seguinte e a outbox continuam tentando sem interromper a tela.
+    });
+  }, [
+    token,
+    current?.id,
+    index,
+    sync?.offlineSchedule?.fallbackPlaylist?.id,
+    sync?.playlist?.id,
+    activePlaylist?.id,
   ]);
   const nativeMediaActive =
     canUseNativeMedia() &&
