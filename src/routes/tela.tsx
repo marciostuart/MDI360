@@ -883,8 +883,11 @@ function PlayerScreen() {
     // O APK possui um cache persistente proprio para arquivos. Nao espere a
     // Cache API do WebView (que alguns fabricantes limpam ao perder rede).
     if (canUseNativeMedia() && item.kind === "video") return Boolean(item.url);
-    // Online, a new image may enter while Cache Storage warms up. Offline it
-    // only enters the rotation after the local copy is complete.
+    // No navegador, a rede ativa nunca deve bloquear a playlist enquanto o
+    // Cache Storage aquece ou algum arquivo falha ao ser armazenado. O cache
+    // continua sendo preenchido em segundo plano e passa a ser obrigatório
+    // somente quando a tela estiver offline.
+    if (!IS_ANDROID_HYBRID && networkAvailable) return Boolean(item.url);
     if (IS_ANDROID_HYBRID && item.kind === "image") {
       return (
         Boolean(item.url) &&
@@ -1187,9 +1190,18 @@ function PlayerScreen() {
   useEffect(() => {
     if (NATIVE_SYNC_ONLY || nativeLocalPlayback) return;
     if (!current) return;
-    queuePlaybackReport(current, sync?.playlist?.id ?? null);
+    queuePlaybackReport(
+      current,
+      sync?.playlist?.id ?? sync?.offlineSchedule?.fallbackPlaylist?.id ?? null,
+    );
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [current?.id, index, sync?.playlist?.id, queuePlaybackReport]);
+  }, [
+    current?.id,
+    index,
+    sync?.playlist?.id,
+    sync?.offlineSchedule?.fallbackPlaylist?.id,
+    queuePlaybackReport,
+  ]);
 
   // A successful sync only proves that the server is reachable. It does not
   // prove that the current decoder or iframe is still advancing. Keep a
