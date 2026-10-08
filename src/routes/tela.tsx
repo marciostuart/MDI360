@@ -119,6 +119,7 @@ type NativeBridge = {
 };
 
 type PlaybackOutboxItem = {
+  eventId?: string;
   playlistId: string | null;
   mediaAssetId: string | null;
   durationMs: number;
@@ -135,7 +136,9 @@ function loadPlaybackOutbox(): PlaybackOutboxItem[] {
     return Array.isArray(value)
       ? value.filter(
           (item): item is PlaybackOutboxItem =>
-            typeof item?.startedAt === "string" && typeof item?.durationMs === "number",
+            typeof item?.startedAt === "string" &&
+            typeof item?.durationMs === "number" &&
+            (item?.eventId === undefined || typeof item.eventId === "string"),
         )
       : [];
   } catch {
@@ -1113,7 +1116,27 @@ function PlayerScreen() {
           body: JSON.stringify({ events: batch }),
         });
         if (!response.ok) break;
-        playbackOutboxRef.current.splice(0, batch.length);
+        const result = (await response.json().catch(() => null)) as
+          | { accepted?: number; acceptedEventIds?: string[] }
+          | null;
+        const acceptedIds = new Set(
+          Array.isArray(result?.acceptedEventIds) ? result.acceptedEventIds : [],
+        );
+        if (acceptedIds.size > 0 && batch.some((item) => item.eventId)) {
+          playbackOutboxRef.current = playbackOutboxRef.current.filter(
+            (item, position) =>
+              position >= batch.length || !item.eventId || !acceptedIds.has(item.eventId),
+          );
+        } else if (
+          typeof result?.accepted !== "number" ||
+          result.accepted >= batch.length
+        ) {
+          playbackOutboxRef.current.splice(0, batch.length);
+        } else {
+          // Partial legacy batches have no per-event identity. Keep them for a
+          // retry instead of silently losing the report.
+          break;
+        }
         persistPlaybackOutbox(playbackOutboxRef.current);
       }
     } catch {
@@ -1127,6 +1150,10 @@ function PlayerScreen() {
     (item: PlayerItem, playlistId: string | null) => {
       if (!token) return;
       playbackOutboxRef.current.push({
+        eventId:
+          typeof crypto !== "undefined" && typeof crypto.randomUUID === "function"
+            ? crypto.randomUUID()
+            : undefined,
         playlistId,
         mediaAssetId: item.mediaAssetId ?? null,
         durationMs: item.durationMs,
@@ -1401,7 +1428,10 @@ function PlayerScreen() {
             config={current.widgetConfig}
             accentColor={sync.branding?.color ?? null}
             deviceToken={token}
-            transitionEffect={fade ? "fade" : "none"}
+            // The playlist FadeLayer owns transitions between widgets/media.
+            // Lottery results inside one widget change by hard cut, avoiding a
+            // second cross-fade nested inside the playlist transition system.
+            transitionEffect="none"
             onReady={markWidgetReady}
           />
         </FadeLayer>

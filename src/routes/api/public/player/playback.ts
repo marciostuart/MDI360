@@ -44,6 +44,7 @@ export const Route = createFileRoute("/api/public/player/playback")({
         const db = getDb();
         let accepted = 0;
         let rejected = 0;
+        const acceptedEventIds: string[] = [];
 
         for (const event of events) {
           const startedAt = event.startedAt ? new Date(event.startedAt) : new Date();
@@ -121,6 +122,7 @@ export const Route = createFileRoute("/api/public/player/playback")({
               continue;
             }
             accepted += 1;
+            acceptedEventIds.push(normalized.eventId);
             continue;
           }
 
@@ -149,7 +151,7 @@ export const Route = createFileRoute("/api/public/player/playback")({
         }
 
         return Response.json(
-          { ok: true, accepted, rejected },
+          { ok: true, accepted, rejected, acceptedEventIds },
           { headers: { "cache-control": "no-store" } },
         );
       },
