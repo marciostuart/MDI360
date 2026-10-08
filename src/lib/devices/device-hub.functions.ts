@@ -77,8 +77,6 @@ export const getDeviceHub = createServerFn({ method: "GET" })
         durationMs: schema.playbackEvents.durationMs,
         playlistName: schema.playlists.name,
         mediaName: schema.mediaAssets.name,
-        playlistSnapshotName: schema.playbackEvents.playlistName,
-        mediaSnapshotName: schema.playbackEvents.mediaName,
         mediaKind: schema.mediaAssets.kind,
       })
       .from(schema.playbackEvents)
@@ -139,12 +137,7 @@ export const getDeviceHub = createServerFn({ method: "GET" })
         ruleConfig: item.ruleConfig as Omit<ScheduleRule, "type">,
         createdAt: item.createdAt.toISOString(),
       })),
-      playback: playback.map((item) => ({
-        ...item,
-        playlistName: item.playlistName ?? item.playlistSnapshotName,
-        mediaName: item.mediaName ?? item.mediaSnapshotName,
-        startedAt: item.startedAt.toISOString(),
-      })),
+      playback: playback.map((item) => ({ ...item, startedAt: item.startedAt.toISOString() })),
       organization: {
         alertWhatsapp: organization?.alertWhatsapp ?? null,
         alertWhatsappVerifiedAt: organization?.alertWhatsappVerifiedAt?.toISOString() ?? null,
