@@ -926,7 +926,10 @@ function PlayerScreen() {
   // Libera a playlist inteira de uma vez. Assim um download tardio nunca
   // desloca o índice atual e reinicia o vídeo que já estava em reprodução.
   const waitingForPlaylistMedia =
-    !nativeLocalPlayback && playlistMedia.length > 0 && !playlistMediaReady;
+    !nativeLocalPlayback &&
+    !networkAvailable &&
+    playlistMedia.length > 0 &&
+    !playlistMediaReady;
   // Widgets, páginas e streams não têm arquivo; só os arquivos esperam o cache.
   const items = waitingForPlaylistMedia ? [] : allItems.filter((item) => {
     if (item.kind === "widget" || item.kind === "web" || item.kind === "stream") return true;
@@ -942,6 +945,7 @@ function PlayerScreen() {
     // Cache Storage aquece ou algum arquivo falha ao ser armazenado. O cache
     // continua sendo preenchido em segundo plano e passa a ser obrigatório
     // somente quando a tela estiver offline.
+    if (networkAvailable) return Boolean(item.url);
     if (IS_ANDROID_HYBRID && item.kind === "image") {
       return (
         Boolean(item.url) &&
