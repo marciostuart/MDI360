@@ -172,10 +172,18 @@ async function resolveItems(
       const fallbackConfig = WIDGET_TYPES.includes(row.widgetType as (typeof WIDGET_TYPES)[number])
         ? getWidgetDefinition(row.widgetType as (typeof WIDGET_TYPES)[number]).defaultConfig
         : null;
+      // A widget without a catalog definition cannot be rendered safely by a
+      // player. Do not publish it as an apparently valid playlist item that
+      // later falls through to the empty media branch.
+      if (!fallbackConfig) continue;
       const parsedWidgetConfig = widgetConfigSchema.safeParse(rawWidgetConfig ?? fallbackConfig);
-      const widgetConfig = parsedWidgetConfig.success
-        ? await hydrateWidgetImageUrls(parsedWidgetConfig.data)
-        : null;
+      // Existing rows may contain a legacy or partially invalid JSON shape.
+      // In that case publish a complete catalog default instead of null: the
+      // manifest contract guarantees that every widget is renderable.
+      const normalizedWidgetConfig = parsedWidgetConfig.success
+        ? parsedWidgetConfig.data
+        : fallbackConfig;
+      const widgetConfig = await hydrateWidgetImageUrls(normalizedWidgetConfig);
       items.push({
         id: `${prefix}${row.id}`,
         mediaAssetId: row.mediaAssetId,
