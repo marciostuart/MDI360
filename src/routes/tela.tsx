@@ -827,9 +827,11 @@ function PlayerScreen() {
     // files. Do not duplicate downloads in the WebView cache.
     if (nativeLocalCacheRequired) return;
     let cancelled = false;
+    let retryTimer: number | null = null;
     const urls = downloadUrlsRef.current.slice();
 
     const run = async () => {
+      let retryNeeded = false;
       const removed = await mediaCache.prune(urls);
       if (removed.length && !cancelled) {
         setReadyUrls((previous) => {
@@ -856,14 +858,24 @@ function PlayerScreen() {
           // the server is far better than a screen stuck on "Baixando".
           const retry = await mediaCache.download(url);
           if (cancelled) return;
-          if (!retry) console.warn("[player] download incompleto; mantendo fora da fila:", url);
+          if (!retry) {
+            retryNeeded = true;
+            console.warn("[player] download incompleto; mantendo fora da fila:", url);
+          }
         }
+      }
+      if (retryNeeded && !cancelled) {
+        retryTimer = window.setTimeout(() => {
+          retryTimer = null;
+          void run();
+        }, 10_000);
       }
     };
 
     void run();
     return () => {
       cancelled = true;
+      if (retryTimer !== null) window.clearTimeout(retryTimer);
     };
   }, [downloadKey, nativeLocalCacheRequired]);
 
