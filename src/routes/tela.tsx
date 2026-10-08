@@ -8,6 +8,7 @@ import * as mediaCache from "@/lib/player/media-cache";
 import type { PlayerItem, PlayerState } from "@/lib/player/contracts";
 import { buildYoutubeEmbedUrl, parseYoutubeId } from "@/lib/media/stream-url";
 import { matchesScheduleRule, type ScheduleRule } from "@/lib/schedules/rules";
+import { WIDGET_TYPES, getWidgetDefinition, type WidgetConfig } from "@/lib/widgets/catalog";
 
 type SyncResponse = {
   suspended?: boolean;
@@ -964,6 +965,13 @@ function PlayerScreen() {
   });
   const current = items[index % Math.max(items.length, 1)];
   const videoRenderKey = current ? `${current.id}-${index}` : null;
+  const currentWidgetConfig: WidgetConfig | null =
+    current?.kind === "widget"
+      ? current.widgetConfig ??
+        (WIDGET_TYPES.includes(current.widgetType as (typeof WIDGET_TYPES)[number])
+          ? getWidgetDefinition(current.widgetType as (typeof WIDGET_TYPES)[number]).defaultConfig
+          : null)
+      : null;
   const nativeMediaActive =
     canUseNativeMedia() &&
     nativeLocalCacheRequired &&
@@ -971,7 +979,7 @@ function PlayerScreen() {
     Boolean(current?.url);
   const waitsForRemoteWidget =
     current?.kind === "widget" &&
-    (current.widgetConfig?.type === "lottery" || current.widgetConfig?.type === "news") &&
+    (currentWidgetConfig?.type === "lottery" || currentWidgetConfig?.type === "news") &&
     widgetReadyKey !== videoRenderKey;
 
   // The black curtain is the only transition surface. Content is never
@@ -1063,7 +1071,7 @@ function PlayerScreen() {
   // from holding the whole playlist forever.
   useEffect(() => {
     if (current?.kind !== "widget") return;
-    if (current.widgetConfig?.type !== "lottery" && current.widgetConfig?.type !== "news") {
+    if (currentWidgetConfig?.type !== "lottery" && currentWidgetConfig?.type !== "news") {
       // Clock, weather and currency do not need a remote readiness gate.
       if (videoRenderKey) setWidgetReadyKey(videoRenderKey);
       return;
@@ -1072,7 +1080,7 @@ function PlayerScreen() {
       if (videoRenderKey) setWidgetReadyKey(videoRenderKey);
     }, 20_000);
     return () => window.clearTimeout(fallback);
-  }, [current?.kind, current?.widgetConfig?.type, videoRenderKey]);
+  }, [current?.kind, currentWidgetConfig?.type, videoRenderKey]);
 
   // Keep the surface black until the video really starts. This prevents the
   // Android WebView default play artwork from ever becoming visible.
@@ -1573,10 +1581,10 @@ function PlayerScreen() {
               }}
             />
           </div>
-      ) : current?.kind === "widget" && current.widgetConfig ? (
+      ) : current?.kind === "widget" && currentWidgetConfig ? (
           <WidgetView
             key={`${current.id}-${index}`}
-            config={current.widgetConfig}
+            config={currentWidgetConfig}
             accentColor={sync.branding?.color ?? null}
             deviceToken={token}
             // The playlist FadeLayer owns transitions between widgets/media.
