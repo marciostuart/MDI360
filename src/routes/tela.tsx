@@ -1018,7 +1018,7 @@ function PlayerScreen() {
       currentPlaybackStateRef.current = null;
       return;
     }
-    currentPlaybackStateRef.current = {
+    const currentState: CurrentPlaybackState = {
       playlistId: playlist.id,
       playlistName: playlist.name,
       mediaAssetId: current.mediaAssetId,
@@ -1026,32 +1026,24 @@ function PlayerScreen() {
       mediaKind: current.kind,
       startedAt: new Date(Date.now() + serverClockOffsetRef.current).toISOString(),
     };
-  }, [
-    current?.id,
-    current?.kind,
-    current?.mediaAssetId,
-    index,
-    sync?.offlineSchedule?.fallbackPlaylist?.id,
-    sync?.playlist?.id,
-    activePlaylist?.id,
-  ]);
-
-  // Atualiza o monitor imediatamente ao trocar de item. O long-poll continua
-  // servindo para invalidaÃ§Ãµes, mas nÃ£o Ã© mais responsÃ¡vel por refletir o
-  // conteÃºdo atual no Studio.
-  useEffect(() => {
-    const currentState = currentPlaybackStateRef.current;
-    if (!token || !currentState) return;
-    void fetch("/api/public/player/presence", {
-      method: "POST",
-      headers: { "content-type": "application/json", authorization: `Bearer ${token}` },
-      body: JSON.stringify(currentState),
-    }).catch(() => {
-      // O heartbeat seguinte e a outbox continuam tentando sem interromper a tela.
-    });
+    // Store and publish in the same committed effect. This removes the first
+    // frame race where the long-poll could run before the monitor received the
+    // new item.
+    currentPlaybackStateRef.current = currentState;
+    if (token) {
+      void fetch("/api/public/player/presence", {
+        method: "POST",
+        headers: { "content-type": "application/json", authorization: `Bearer ${token}` },
+        body: JSON.stringify(currentState),
+      }).catch(() => {
+        // The heartbeat and playback outbox remain the retry path.
+      });
+    }
   }, [
     token,
     current?.id,
+    current?.kind,
+    current?.mediaAssetId,
     index,
     sync?.offlineSchedule?.fallbackPlaylist?.id,
     sync?.playlist?.id,

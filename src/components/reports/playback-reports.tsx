@@ -448,7 +448,10 @@ export function PlaybackReports() {
   const now = useQuery({
     queryKey: ["now-playing"],
     queryFn: () => nowFn({}),
-    refetchInterval: 5_000,
+    // The player publishes the snapshot immediately after committing the
+    // first frame. Keep the Studio view close to real time as well.
+    refetchInterval: 1_000,
+    refetchIntervalInBackground: true,
   });
 
   return (
