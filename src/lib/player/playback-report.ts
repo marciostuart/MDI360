@@ -5,6 +5,7 @@ export const playbackReportSchema = z.object({
   playlistId: z.string().uuid().nullish(),
   mediaAssetId: z.string().uuid().nullish(),
   mediaName: z.string().trim().max(500).nullish(),
+  mediaKind: z.string().trim().max(32).nullish(),
   playlistName: z.string().trim().max(240).nullish(),
   durationMs: z.number().int().min(0).max(24 * 3600 * 1000).optional(),
   completed: z.boolean().optional(),

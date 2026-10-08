@@ -112,9 +112,19 @@ type PlaybackOutboxItem = {
   playlistId: string | null;
   mediaAssetId: string | null;
   mediaName?: string | null;
+  mediaKind?: string | null;
   playlistName?: string | null;
   durationMs: number;
   startedAt: string;
+};
+
+type CurrentPlaybackState = {
+  playlistId: string | null;
+  playlistName: string | null;
+  mediaAssetId: string | null;
+  mediaName: string | null;
+  mediaKind: string | null;
+  startedAt: string | null;
 };
 
 type NativePlaybackOutboxItem = PlaybackOutboxItem & {
@@ -311,6 +321,7 @@ function PlayerScreen() {
     Number.isFinite(storedClockOffset) ? storedClockOffset : 0,
   );
   const playbackFlushRunningRef = useRef(false);
+  const currentPlaybackStateRef = useRef<CurrentPlaybackState | null>(null);
   const [widgetReadyKey, setWidgetReadyKey] = useState<string | null>(null);
   // Queue add-on: the call currently taking over the screen, plus the ones
   // waiting for their turn. Calls never overlap: each one owns the screen for
@@ -820,6 +831,7 @@ function PlayerScreen() {
             body: JSON.stringify({
               revision: revisionRef.current,
               contentRevision: contentRevisionRef.current,
+              current: currentPlaybackStateRef.current,
             }),
           });
           if (stopped) return;
@@ -992,6 +1004,32 @@ function PlayerScreen() {
           ? getWidgetDefinition(current.widgetType as (typeof WIDGET_TYPES)[number]).defaultConfig
           : null)
       : null;
+
+  // The live monitor must know what is on screen even when the historical
+  // playback outbox is offline or still waiting for retry. This snapshot is
+  // sent with the long-poll heartbeat and is not used to control playback.
+  useEffect(() => {
+    const playlist = sync?.playlist ?? sync?.offlineSchedule?.fallbackPlaylist ?? null;
+    if (!current || !playlist) {
+      currentPlaybackStateRef.current = null;
+      return;
+    }
+    currentPlaybackStateRef.current = {
+      playlistId: playlist.id,
+      playlistName: playlist.name,
+      mediaAssetId: current.mediaAssetId,
+      mediaName: current.name,
+      mediaKind: current.kind,
+      startedAt: new Date(Date.now() + serverClockOffsetRef.current).toISOString(),
+    };
+  }, [
+    current?.id,
+    current?.kind,
+    current?.mediaAssetId,
+    index,
+    sync?.offlineSchedule?.fallbackPlaylist?.id,
+    sync?.playlist?.id,
+  ]);
   const nativeMediaActive =
     canUseNativeMedia() &&
     nativeLocalCacheRequired &&
@@ -1329,6 +1367,7 @@ function PlayerScreen() {
         playlistId,
         mediaAssetId: item.mediaAssetId ?? null,
         mediaName: item.name ?? null,
+        mediaKind: item.kind,
         playlistName:
           syncRef.current?.playlist?.name ??
           syncRef.current?.offlineSchedule?.fallbackPlaylist?.name ??

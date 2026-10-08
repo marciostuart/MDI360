@@ -286,6 +286,13 @@ export const devices = pgTable(
     screenHeight: integer("screen_height"),
     appVersion: text("app_version"),
     lastSeenAt: timestamp("last_seen_at", { withTimezone: true }),
+    /** Current playback snapshot used by Studio's live monitor. */
+    currentPlaylistId: uuid("current_playlist_id"),
+    currentPlaylistName: text("current_playlist_name"),
+    currentMediaAssetId: uuid("current_media_asset_id"),
+    currentMediaName: text("current_media_name"),
+    currentMediaKind: text("current_media_kind"),
+    currentPlaybackStartedAt: timestamp("current_playback_started_at", { withTimezone: true }),
     lastScreenshotKey: text("last_screenshot_key"),
     lastScreenshotAt: timestamp("last_screenshot_at", { withTimezone: true }),
     /** Weekly windows when this screen is expected to be online (monitoring only). */

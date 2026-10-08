@@ -309,6 +309,13 @@
       "when": 1791482400000,
       "tag": "0043_playback_label_snapshots",
       "breakpoints": true
+    },
+    {
+      "idx": 44,
+      "version": "7",
+      "when": 1791482401000,
+      "tag": "0044_current_playback_state",
+      "breakpoints": true
     }
   ]
 }

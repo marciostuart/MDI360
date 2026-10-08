@@ -114,6 +114,7 @@ async function resolveItems(
       isMuted: schema.playlistItems.isMuted,
       kind: schema.mediaAssets.kind,
       name: schema.mediaAssets.name,
+      assetDurationMs: schema.mediaAssets.durationMs,
       storageKey: schema.mediaAssets.storageKey,
       byteSize: schema.mediaAssets.byteSize,
       checksum: schema.mediaAssets.checksum,
@@ -219,7 +220,12 @@ async function resolveItems(
       mediaAssetId: row.mediaAssetId,
       kind: row.kind,
       url,
-      durationMs: row.durationMs,
+      // Video duration is intrinsic to the normalized file. The playlist
+      // editor duration is intentionally ignored for videos.
+      durationMs:
+        row.kind === "video" && row.assetDurationMs
+          ? row.assetDurationMs
+          : row.durationMs,
       isMuted: row.isMuted,
       name: row.name,
       widgetType: null,

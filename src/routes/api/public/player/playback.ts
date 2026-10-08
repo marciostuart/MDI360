@@ -45,6 +45,19 @@ export const Route = createFileRoute("/api/public/player/playback")({
         let accepted = 0;
         let rejected = 0;
         const acceptedEventIds: string[] = [];
+        const updateCurrentState = async (event: z.infer<typeof playbackReportSchema>, startedAt: Date) => {
+          await db
+            .update(schema.devices)
+            .set({
+              currentPlaylistId: event.playlistId ?? null,
+              currentPlaylistName: event.playlistName ?? null,
+              currentMediaAssetId: event.mediaAssetId ?? null,
+              currentMediaName: event.mediaName ?? null,
+              currentMediaKind: event.mediaKind ?? (event.mediaAssetId ? "media" : "widget"),
+              currentPlaybackStartedAt: startedAt,
+            })
+            .where(eq(schema.devices.id, device.id));
+        };
 
         for (const event of events) {
           const startedAt = event.startedAt ? new Date(event.startedAt) : new Date();
@@ -123,6 +136,7 @@ export const Route = createFileRoute("/api/public/player/playback")({
             }
             accepted += 1;
             acceptedEventIds.push(normalized.eventId);
+            await updateCurrentState(normalized, startedAt);
             continue;
           }
 
@@ -150,6 +164,7 @@ export const Route = createFileRoute("/api/public/player/playback")({
             });
           }
           accepted += 1;
+          await updateCurrentState(normalized, startedAt);
         }
 
         return Response.json(

@@ -449,7 +449,11 @@ export function PlaylistEditorDialog({
                               }
                             />
                           ) : null}
-                          {item.widgetType === "lottery" ? (
+                          {item.kind === "video" ? (
+                            <Badge variant="secondary" className="shrink-0">
+                              duraÃ§Ã£o do arquivo Â· {formatDuration(item.durationMs)}
+                            </Badge>
+                          ) : item.widgetType === "lottery" ? (
                             <Badge variant="secondary" className="shrink-0">
                               ciclo completo · {formatDuration(item.durationMs)}
                             </Badge>

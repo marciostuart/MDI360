@@ -149,6 +149,7 @@ export const getPlaylist = createServerFn({ method: "GET" })
         isMuted: schema.playlistItems.isMuted,
         name: schema.mediaAssets.name,
         kind: schema.mediaAssets.kind,
+        assetDurationMs: schema.mediaAssets.durationMs,
         canvasPreset: schema.mediaAssets.canvasPreset,
         storageKey: schema.mediaAssets.storageKey,
         widgetType: schema.mediaAssets.widgetType,
@@ -174,6 +175,10 @@ export const getPlaylist = createServerFn({ method: "GET" })
         }
         return {
           ...row,
+          durationMs:
+            row.kind === "video" && row.assetDurationMs
+              ? row.assetDurationMs
+              : row.durationMs,
           name: row.nestedName ?? row.name ?? "Lista de reprodução",
           kind: row.nestedPlaylistId ? ("playlist" as const) : row.kind!,
           scheduleRules: (row.scheduleRules as ScheduleRule[]) ?? [],
@@ -340,6 +345,22 @@ export const setPlaylistItems = createServerFn({ method: "POST" })
       if (assets.length !== assetIds.length) throw new Error("Conteúdo inválido na playlist.");
     }
 
+    const videoDurations = new Map<string, number>();
+    if (assetIds.length > 0) {
+      const assetRows = await db
+        .select({ id: schema.mediaAssets.id, kind: schema.mediaAssets.kind, durationMs: schema.mediaAssets.durationMs })
+        .from(schema.mediaAssets)
+        .where(
+          and(
+            inArray(schema.mediaAssets.id, assetIds),
+            eq(schema.mediaAssets.organizationId, user.organizationId),
+          ),
+        );
+      for (const asset of assetRows) {
+        if (asset.kind === "video" && asset.durationMs) videoDurations.set(asset.id, asset.durationMs);
+      }
+    }
+
     const nestedIds = [
       ...new Set(
         data.items.flatMap((item) => (item.nestedPlaylistId ? [item.nestedPlaylistId] : [])),
@@ -394,7 +415,9 @@ export const setPlaylistItems = createServerFn({ method: "POST" })
             nestedPlaylistId: item.nestedPlaylistId,
             scheduleRules: item.scheduleRules,
             position: index,
-            durationMs: item.durationMs,
+            durationMs: item.mediaAssetId && videoDurations.has(item.mediaAssetId)
+              ? videoDurations.get(item.mediaAssetId)!
+              : item.durationMs,
             isMuted: item.isMuted,
           })),
         );

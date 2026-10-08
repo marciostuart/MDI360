@@ -1,4 +1,17 @@
 import { createFileRoute } from "@tanstack/react-router";
+import { z } from "zod";
+
+const playbackStateSchema = z
+  .object({
+    playlistId: z.string().uuid().nullable(),
+    playlistName: z.string().trim().max(240).nullable(),
+    mediaAssetId: z.string().uuid().nullable(),
+    mediaName: z.string().trim().max(500).nullable(),
+    mediaKind: z.string().trim().max(32).nullable(),
+    startedAt: z.string().datetime({ offset: true }).nullable(),
+  })
+  .nullable()
+  .optional();
 
 /**
  * Long-poll "broadcast" channel for paired screens.
@@ -42,11 +55,38 @@ export const Route = createFileRoute("/api/public/player/events")({
 
         let since = 0;
         try {
-          const body = (await request.json()) as {
-            revision?: unknown;
-          };
+          const body = (await request.json()) as { revision?: unknown; current?: unknown };
           if (typeof body?.revision === "number" && Number.isFinite(body.revision)) {
             since = Math.max(0, Math.trunc(body.revision));
+          }
+          const current = playbackStateSchema.safeParse(body?.current);
+          if (current.success && current.data !== undefined) {
+            const { getDb, schema } = await import("@/lib/db/index.server");
+            const { eq } = await import("drizzle-orm");
+            await getDb()
+              .update(schema.devices)
+              .set(
+                current.data
+                  ? {
+                      currentPlaylistId: current.data.playlistId,
+                      currentPlaylistName: current.data.playlistName,
+                      currentMediaAssetId: current.data.mediaAssetId,
+                      currentMediaName: current.data.mediaName,
+                      currentMediaKind: current.data.mediaKind,
+                      currentPlaybackStartedAt: current.data.startedAt
+                        ? new Date(current.data.startedAt)
+                        : null,
+                    }
+                  : {
+                      currentPlaylistId: null,
+                      currentPlaylistName: null,
+                      currentMediaAssetId: null,
+                      currentMediaName: null,
+                      currentMediaKind: null,
+                      currentPlaybackStartedAt: null,
+                    },
+              )
+              .where(eq(schema.devices.id, device.id));
           }
         } catch {
           since = 0;

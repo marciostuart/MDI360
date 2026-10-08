@@ -339,6 +339,10 @@ export const getNowPlaying = createServerFn({ method: "GET" }).handler(
         id: schema.devices.id,
         name: schema.devices.name,
         lastSeenAt: schema.devices.lastSeenAt,
+        currentPlaylistName: schema.devices.currentPlaylistName,
+        currentMediaName: schema.devices.currentMediaName,
+        currentMediaKind: schema.devices.currentMediaKind,
+        currentPlaybackStartedAt: schema.devices.currentPlaybackStartedAt,
       })
       .from(schema.devices)
       .where(
@@ -369,16 +373,24 @@ export const getNowPlaying = createServerFn({ method: "GET" }).handler(
         .limit(1);
 
       const row = last[0];
+      const current = device.currentMediaName || device.currentPlaylistName
+        ? {
+            playlistName: device.currentPlaylistName,
+            mediaName: device.currentMediaName,
+            mediaKind: device.currentMediaKind,
+            startedAt: device.currentPlaybackStartedAt,
+          }
+        : row;
       const seen = device.lastSeenAt ? new Date(device.lastSeenAt).getTime() : 0;
       items.push({
         deviceId: device.id,
         deviceName: device.name,
         online: Date.now() - seen < DEVICE_ONLINE_WINDOW_MS,
         lastSeenAt: device.lastSeenAt ? new Date(device.lastSeenAt).toISOString() : null,
-        playlistName: row?.playlistName ?? null,
-        mediaName: row?.mediaName ?? null,
-        mediaKind: row?.mediaKind ?? null,
-        startedAt: row?.startedAt ? new Date(row.startedAt).toISOString() : null,
+        playlistName: current?.playlistName ?? null,
+        mediaName: current?.mediaName ?? null,
+        mediaKind: current?.mediaKind ?? null,
+        startedAt: current?.startedAt ? new Date(current.startedAt).toISOString() : null,
       });
     }
 
