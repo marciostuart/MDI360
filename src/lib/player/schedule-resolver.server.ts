@@ -9,7 +9,12 @@ import {
   type ScheduleRule,
 } from "@/lib/schedules/rules";
 import { createDownloadUrl, isStorageConfigured } from "@/lib/storage.server";
-import type { WidgetConfig } from "@/lib/widgets/catalog";
+import {
+  WIDGET_TYPES,
+  getWidgetDefinition,
+  widgetConfigSchema,
+  type WidgetConfig,
+} from "@/lib/widgets/catalog";
 import { isPlatformWidgetType } from "@/lib/widgets/platform-widgets";
 import {
   mergePlatformWidgetConfig,
@@ -161,7 +166,16 @@ async function resolveItems(
       const rawWidgetConfig = isPlatformWidgetType(row.widgetType)
         ? mergePlatformWidgetConfig(row.widgetType, platformWidgets[row.widgetType], storedConfig)
         : storedConfig;
-      const widgetConfig = rawWidgetConfig ? await hydrateWidgetImageUrls(rawWidgetConfig) : null;
+      // Older widget rows can have a missing or partially invalid JSON config
+      // after relinking. Never send a widget with a null config: the browser
+      // would fall through to the empty image branch and remain black.
+      const fallbackConfig = WIDGET_TYPES.includes(row.widgetType as (typeof WIDGET_TYPES)[number])
+        ? getWidgetDefinition(row.widgetType as (typeof WIDGET_TYPES)[number]).defaultConfig
+        : null;
+      const parsedWidgetConfig = widgetConfigSchema.safeParse(rawWidgetConfig ?? fallbackConfig);
+      const widgetConfig = parsedWidgetConfig.success
+        ? await hydrateWidgetImageUrls(parsedWidgetConfig.data)
+        : null;
       items.push({
         id: `${prefix}${row.id}`,
         mediaAssetId: row.mediaAssetId,
