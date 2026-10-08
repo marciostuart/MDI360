@@ -280,6 +280,7 @@ function PlayerScreen() {
   // URLs already fully downloaded to this device. A file only enters the
   // rotation after its download finishes, so the TV never buffers on air.
   const [readyUrls, setReadyUrls] = useState<Set<string>>(new Set());
+  const [downloadProgress, setDownloadProgress] = useState({ completed: 0, total: 0 });
   // Confirmacoes emitidas pelo APK depois que o arquivo inteiro foi gravado
   // no cache nativo. A partir da versao 1.3.9, nenhum arquivo e reproduzido
   // antes desta confirmacao.
@@ -865,9 +866,11 @@ function PlayerScreen() {
     let cancelled = false;
     let retryTimer: number | null = null;
     const urls = downloadUrlsRef.current.slice();
+    setDownloadProgress({ completed: 0, total: urls.length });
 
     const run = async () => {
       let retryNeeded = false;
+      let completed = 0;
       const removed = await mediaCache.prune(urls);
       if (removed.length && !cancelled) {
         setReadyUrls((previous) => {
@@ -882,6 +885,8 @@ function PlayerScreen() {
         const ok = (await mediaCache.isCached(url)) || (await mediaCache.download(url));
         if (cancelled) return;
         if (ok) {
+          completed += 1;
+          setDownloadProgress({ completed, total: urls.length });
           setReadyUrls((previous) => {
             if (previous.has(key)) return previous;
             const next = new Set(previous);
@@ -986,7 +991,8 @@ function PlayerScreen() {
     });
 
     // A single looping item has no boundary. A widget is scheduled only after
-    // its data/image readiness gate is released.
+    // its data/image readiness gate is released, but it still fades in while
+    // loading so the screen never looks like a frozen black panel.
     if (waitsForRemoteWidget || (items.length === 1 && !hasPending)) return;
     scheduleBlackTransition(Math.max(1_000, current.durationMs));
 
@@ -1474,6 +1480,11 @@ function PlayerScreen() {
               ? "Baixando conteúdo para esta tela…"
               : "Nenhuma playlist programada para este horário.")
           }
+          loadingProgress={
+            allItems.length > 0 && downloadProgress.total > 0
+              ? downloadProgress
+              : undefined
+          }
         />
       ) : nativeMediaActive ? (
         <div className="h-screen w-screen bg-transparent" aria-label="Vídeo nativo em reprodução" />
@@ -1672,11 +1683,16 @@ function ActivationScreen({
 function SplashScreen({
   branding,
   message,
+  loadingProgress,
 }: {
   branding: SyncResponse["branding"];
   message?: string;
+  loadingProgress?: { completed: number; total: number };
 }) {
   const color = branding?.color ?? "#ffffff";
+  const progress = loadingProgress
+    ? Math.min(100, Math.round((loadingProgress.completed / Math.max(1, loadingProgress.total)) * 100))
+    : null;
   return (
     <div className="grid min-h-screen place-items-center bg-black px-8 text-center">
       <div className="space-y-6">
@@ -1692,6 +1708,23 @@ function SplashScreen({
         </p>
         <div className="mx-auto h-1 w-32 rounded-full" style={{ backgroundColor: color }} />
         {message ? <p className="text-sm text-white/60">{message}</p> : null}
+        {progress !== null ? (
+          <div className="mx-auto w-72 max-w-[75vw] space-y-2 text-left">
+            <div className="flex justify-between text-xs text-white/60">
+              <span>Preparando conteúdos</span>
+              <span>{progress}%</span>
+            </div>
+            <div className="h-2 overflow-hidden rounded-full bg-white/15">
+              <div
+                className="h-full rounded-full transition-[width] duration-300"
+                style={{ width: `${progress}%`, backgroundColor: color }}
+              />
+            </div>
+            <p className="text-center text-xs text-white/45">
+              {loadingProgress.completed} de {loadingProgress.total} arquivos prontos
+            </p>
+          </div>
+        ) : null}
       </div>
     </div>
   );
