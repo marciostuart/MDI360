@@ -11,6 +11,8 @@ export type PlayerState =
 
 export type PlayerItem = {
   id: string;
+  /** Stable playlist row identity; unlike `id`, it is never prefixed for nested lists. */
+  playlistItemId: string;
   mediaAssetId: string | null;
   kind: "image" | "video" | "web" | "widget" | "stream";
   url: string | null;
@@ -59,6 +61,7 @@ export type PlaybackEvent = {
   eventId: string;
   deviceId?: string;
   playlistId: string | null;
+  playlistItemId: string | null;
   playlistRevision?: number;
   mediaAssetId: string | null;
   durationMs: number;

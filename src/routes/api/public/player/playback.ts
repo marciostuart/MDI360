@@ -50,11 +50,13 @@ export const Route = createFileRoute("/api/public/player/playback")({
             .update(schema.devices)
             .set({
               currentPlaylistId: event.playlistId ?? null,
+              currentPlaylistItemId: event.playlistItemId ?? null,
               currentPlaylistName: event.playlistName ?? null,
               currentMediaAssetId: event.mediaAssetId ?? null,
               currentMediaName: event.mediaName ?? null,
               currentMediaKind: event.mediaKind ?? (event.mediaAssetId ? "media" : "widget"),
               currentPlaybackStartedAt: startedAt,
+              currentPlaybackEndedAt: event.endedAt ? new Date(event.endedAt) : null,
             })
             .where(eq(schema.devices.id, device.id));
         };
@@ -155,6 +157,7 @@ export const Route = createFileRoute("/api/public/player/playback")({
               organizationId: device.organizationId,
               deviceId: device.id,
               playlistId: normalized.playlistId ?? null,
+              playlistItemId: normalized.playlistItemId ?? null,
               mediaAssetId: normalized.mediaAssetId ?? null,
               mediaName: normalized.mediaName ?? null,
               playlistName: normalized.playlistName ?? null,

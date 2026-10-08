@@ -339,12 +339,21 @@ export const getNowPlaying = createServerFn({ method: "GET" }).handler(
         id: schema.devices.id,
         name: schema.devices.name,
         lastSeenAt: schema.devices.lastSeenAt,
+        currentPlaylistId: schema.devices.currentPlaylistId,
+        currentPlaylistItemId: schema.devices.currentPlaylistItemId,
+        currentMediaAssetId: schema.devices.currentMediaAssetId,
         currentPlaylistName: schema.devices.currentPlaylistName,
         currentMediaName: schema.devices.currentMediaName,
         currentMediaKind: schema.devices.currentMediaKind,
         currentPlaybackStartedAt: schema.devices.currentPlaybackStartedAt,
+        currentPlaybackEndedAt: schema.devices.currentPlaybackEndedAt,
+        resolvedPlaylistName: schema.playlists.name,
+        resolvedMediaName: schema.mediaAssets.name,
+        resolvedMediaKind: schema.mediaAssets.kind,
       })
       .from(schema.devices)
+      .leftJoin(schema.playlists, eq(schema.playlists.id, schema.devices.currentPlaylistId))
+      .leftJoin(schema.mediaAssets, eq(schema.mediaAssets.id, schema.devices.currentMediaAssetId))
       .where(
         and(
           eq(schema.devices.organizationId, user.organizationId),
@@ -356,29 +365,40 @@ export const getNowPlaying = createServerFn({ method: "GET" }).handler(
 
     const items: NowPlayingRow[] = [];
     for (const device of devices) {
-      const last = await db
-        .select({
-          startedAt: schema.playbackEvents.startedAt,
-          // Snapshot labels are kept in the event so widgets and deleted or
-          // replaced assets remain identifiable in "No ar agora".
-          playlistName: sql<string | null>`coalesce(${schema.playbackEvents.playlistName}, ${schema.playlists.name})`,
-          mediaName: sql<string | null>`coalesce(${schema.playbackEvents.mediaName}, ${schema.mediaAssets.name})`,
-          mediaKind: schema.mediaAssets.kind,
-        })
-        .from(schema.playbackEvents)
-        .leftJoin(schema.playlists, eq(schema.playlists.id, schema.playbackEvents.playlistId))
-        .leftJoin(schema.mediaAssets, eq(schema.mediaAssets.id, schema.playbackEvents.mediaAssetId))
-        .where(eq(schema.playbackEvents.deviceId, device.id))
-        .orderBy(desc(schema.playbackEvents.startedAt))
-        .limit(1);
-
-      const row = last[0];
-      const current = device.currentMediaName || device.currentPlaylistName
+      const hasCurrentIdentity = Boolean(
+        device.currentPlaylistId || device.currentPlaylistItemId || device.currentMediaAssetId,
+      );
+      // New players have a complete current snapshot. Avoid an extra query
+      // per device in that case; only legacy clients need the event fallback.
+      let row: {
+        startedAt: Date;
+        playlistName: string | null;
+        mediaName: string | null;
+        mediaKind: string | null;
+      } | undefined;
+      if (!hasCurrentIdentity && !device.currentMediaName && !device.currentPlaylistName) {
+        const last = await db
+          .select({
+            startedAt: schema.playbackEvents.startedAt,
+            playlistName: sql<string | null>`coalesce(${schema.playbackEvents.playlistName}, ${schema.playlists.name})`,
+            mediaName: sql<string | null>`coalesce(${schema.playbackEvents.mediaName}, ${schema.mediaAssets.name})`,
+            mediaKind: schema.mediaAssets.kind,
+          })
+          .from(schema.playbackEvents)
+          .leftJoin(schema.playlists, eq(schema.playlists.id, schema.playbackEvents.playlistId))
+          .leftJoin(schema.mediaAssets, eq(schema.mediaAssets.id, schema.playbackEvents.mediaAssetId))
+          .where(eq(schema.playbackEvents.deviceId, device.id))
+          .orderBy(desc(schema.playbackEvents.startedAt))
+          .limit(1);
+        row = last[0];
+      }
+      const current = hasCurrentIdentity || device.currentMediaName || device.currentPlaylistName
         ? {
-            playlistName: device.currentPlaylistName,
-            mediaName: device.currentMediaName,
-            mediaKind: device.currentMediaKind,
+            playlistName: device.resolvedPlaylistName ?? device.currentPlaylistName,
+            mediaName: device.resolvedMediaName ?? device.currentMediaName,
+            mediaKind: device.resolvedMediaKind ?? device.currentMediaKind,
             startedAt: device.currentPlaybackStartedAt,
+            endedAt: device.currentPlaybackEndedAt,
           }
         : row;
       const seen = device.lastSeenAt ? new Date(device.lastSeenAt).getTime() : 0;

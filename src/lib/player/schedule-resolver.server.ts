@@ -187,6 +187,7 @@ async function resolveItems(
       const widgetConfig = await hydrateWidgetImageUrls(normalizedWidgetConfig);
       items.push({
         id: `${prefix}${row.id}`,
+        playlistItemId: row.id,
         mediaAssetId: row.mediaAssetId,
         kind: "widget",
         url: null,
@@ -217,6 +218,7 @@ async function resolveItems(
     if (!url) continue;
     items.push({
       id: `${prefix}${row.id}`,
+      playlistItemId: row.id,
       mediaAssetId: row.mediaAssetId,
       kind: row.kind,
       url,

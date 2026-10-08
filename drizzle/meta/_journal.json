@@ -316,6 +316,13 @@
       "when": 1791482401000,
       "tag": "0044_current_playback_state",
       "breakpoints": true
+    },
+    {
+      "idx": 45,
+      "version": "7",
+      "when": 1791482402000,
+      "tag": "0045_playback_identity_ids",
+      "breakpoints": true
     }
   ]
 }

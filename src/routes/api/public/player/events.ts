@@ -4,11 +4,15 @@ import { z } from "zod";
 const playbackStateSchema = z
   .object({
     playlistId: z.string().uuid().nullable(),
-    playlistName: z.string().trim().max(240).nullable(),
+    playlistItemId: z.string().uuid().nullable(),
+    // Legacy labels are accepted for Android/Roku compatibility. The Web
+    // player no longer sends them.
+    playlistName: z.string().trim().max(240).nullable().optional(),
     mediaAssetId: z.string().uuid().nullable(),
-    mediaName: z.string().trim().max(500).nullable(),
+    mediaName: z.string().trim().max(500).nullable().optional(),
     mediaKind: z.string().trim().max(32).nullable(),
     startedAt: z.string().datetime({ offset: true }).nullable(),
+    endedAt: z.string().datetime({ offset: true }).nullable(),
   })
   .nullable()
   .optional();
@@ -69,21 +73,25 @@ export const Route = createFileRoute("/api/public/player/events")({
                 current.data
                   ? {
                       currentPlaylistId: current.data.playlistId,
-                      currentPlaylistName: current.data.playlistName,
+                      currentPlaylistItemId: current.data.playlistItemId,
+                      currentPlaylistName: current.data.playlistName ?? null,
                       currentMediaAssetId: current.data.mediaAssetId,
-                      currentMediaName: current.data.mediaName,
+                      currentMediaName: current.data.mediaName ?? null,
                       currentMediaKind: current.data.mediaKind,
                       currentPlaybackStartedAt: current.data.startedAt
                         ? new Date(current.data.startedAt)
                         : null,
+                      currentPlaybackEndedAt: current.data.endedAt
+                        ? new Date(current.data.endedAt)
+                        : null,
                     }
                   : {
                       currentPlaylistId: null,
-                      currentPlaylistName: null,
+                      currentPlaylistItemId: null,
                       currentMediaAssetId: null,
-                      currentMediaName: null,
                       currentMediaKind: null,
                       currentPlaybackStartedAt: null,
+                      currentPlaybackEndedAt: null,
                     },
               )
               .where(eq(schema.devices.id, device.id));

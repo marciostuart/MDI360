@@ -110,21 +110,21 @@ type NativeBridge = {
 type PlaybackOutboxItem = {
   eventId?: string;
   playlistId: string | null;
+  playlistItemId: string | null;
   mediaAssetId: string | null;
-  mediaName?: string | null;
   mediaKind?: string | null;
-  playlistName?: string | null;
   durationMs: number;
   startedAt: string;
+  endedAt: string | null;
 };
 
 type CurrentPlaybackState = {
   playlistId: string | null;
-  playlistName: string | null;
+  playlistItemId: string | null;
   mediaAssetId: string | null;
-  mediaName: string | null;
   mediaKind: string | null;
   startedAt: string | null;
+  endedAt: string | null;
 };
 
 type NativePlaybackOutboxItem = PlaybackOutboxItem & {
@@ -1022,11 +1022,13 @@ function PlayerScreen() {
     }
     const currentState: CurrentPlaybackState = {
       playlistId: playlist.id,
-      playlistName: playlist.name,
+      playlistItemId: current.playlistItemId,
       mediaAssetId: current.mediaAssetId,
-      mediaName: current.name,
       mediaKind: current.kind,
       startedAt: new Date(Date.now() + serverClockOffsetRef.current).toISOString(),
+      endedAt: current.durationMs > 0
+        ? new Date(Date.now() + serverClockOffsetRef.current + current.durationMs).toISOString()
+        : null,
     };
     // Store and publish in the same committed effect. This removes the first
     // frame race where the long-poll could run before the monitor received the
@@ -1386,17 +1388,16 @@ function PlayerScreen() {
             ? crypto.randomUUID()
             : undefined,
         playlistId,
+        playlistItemId: item.playlistItemId,
         mediaAssetId: item.mediaAssetId ?? null,
-        mediaName: item.name ?? null,
         mediaKind: item.kind,
-        playlistName:
-          syncRef.current?.playlist?.name ??
-          syncRef.current?.offlineSchedule?.fallbackPlaylist?.name ??
-          null,
         durationMs: item.durationMs,
         // Usa a diferenca medida contra o servidor para que um relogio de TV
         // incorreto nao faca o endpoint rejeitar os relatórios de exibicao.
         startedAt: new Date(Date.now() + serverClockOffsetRef.current).toISOString(),
+        endedAt: item.durationMs > 0
+          ? new Date(Date.now() + serverClockOffsetRef.current + item.durationMs).toISOString()
+          : null,
       });
       if (playbackOutboxRef.current.length > MAX_PLAYBACK_OUTBOX_ITEMS) {
         playbackOutboxRef.current.splice(0, playbackOutboxRef.current.length - MAX_PLAYBACK_OUTBOX_ITEMS);

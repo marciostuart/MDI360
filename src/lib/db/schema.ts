@@ -288,11 +288,13 @@ export const devices = pgTable(
     lastSeenAt: timestamp("last_seen_at", { withTimezone: true }),
     /** Current playback snapshot used by Studio's live monitor. */
     currentPlaylistId: uuid("current_playlist_id"),
+    currentPlaylistItemId: uuid("current_playlist_item_id"),
     currentPlaylistName: text("current_playlist_name"),
     currentMediaAssetId: uuid("current_media_asset_id"),
     currentMediaName: text("current_media_name"),
     currentMediaKind: text("current_media_kind"),
     currentPlaybackStartedAt: timestamp("current_playback_started_at", { withTimezone: true }),
+    currentPlaybackEndedAt: timestamp("current_playback_ended_at", { withTimezone: true }),
     lastScreenshotKey: text("last_screenshot_key"),
     lastScreenshotAt: timestamp("last_screenshot_at", { withTimezone: true }),
     /** Weekly windows when this screen is expected to be online (monitoring only). */
@@ -507,11 +509,13 @@ export const playbackEvents = pgTable(
     mediaAssetId: uuid("media_asset_id").references(() => mediaAssets.id, {
       onDelete: "set null",
     }),
+    playlistItemId: uuid("playlist_item_id"),
     playlistId: uuid("playlist_id").references(() => playlists.id, { onDelete: "set null" }),
     // Keep report labels readable after an asset or playlist is deleted.
     mediaName: text("media_name"),
     playlistName: text("playlist_name"),
     startedAt: timestamp("started_at", { withTimezone: true }).notNull(),
+    endedAt: timestamp("ended_at", { withTimezone: true }),
     durationMs: integer("duration_ms").notNull().default(0),
     completed: boolean("completed").notNull().default(true),
   },
