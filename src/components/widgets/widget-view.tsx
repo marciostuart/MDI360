@@ -78,6 +78,7 @@ export function WidgetView({
       accent={accent}
       onReady={onReady}
       deviceToken={deviceToken}
+      isActive={isActive}
     />
   );
 }
@@ -1307,13 +1308,15 @@ function LotteryWidget({
     if (results.length > 0 || failed) onReady?.();
   }, [failed, onReady, results.length]);
   useEffect(() => {
-    if (!isActive || results.length <= 1) return;
-    const interval = window.setInterval(
-      () => setIndex((current) => (current + 1) % results.length),
+    // Do not wrap within one playlist window. Re-arm only while there is a
+    // following result, then stop the timer completely on the last card.
+    if (!isActive || results.length <= 1 || index >= results.length - 1) return;
+    const timer = window.setTimeout(
+      () => setIndex((current) => Math.min(current + 1, results.length - 1)),
       config.rotateSeconds * 1000,
     );
-    return () => window.clearInterval(interval);
-  }, [config.rotateSeconds, isActive, results.length]);
+    return () => window.clearTimeout(timer);
+  }, [config.rotateSeconds, index, isActive, results.length]);
 
   useEffect(() => {
     const previous = displayedResultRef.current;
@@ -1580,12 +1583,14 @@ function NewsWidget({
   accent,
   onReady,
   deviceToken,
+  isActive = true,
 }: {
   config: Extract<WidgetConfig, { type: "news" }>;
   theme: WidgetTheme;
   accent: string;
   onReady?: () => void;
   deviceToken?: string | null;
+  isActive?: boolean;
 }) {
   const { data, failed } = useWidgetData<NewsPayload>(
     "type=news&feedId=" + encodeURIComponent(config.feedId),
@@ -1694,13 +1699,13 @@ function NewsWidget({
   }, [batchStart, config.headlines, renderableItems]);
 
   useEffect(() => {
-    if (!config.oneAtATime || batchItems.length <= 1) return;
-    const interval = window.setInterval(
+    if (!isActive || !config.oneAtATime || batchItems.length <= 1 || index >= batchItems.length - 1) return;
+    const timer = window.setTimeout(
       () => setIndex((current) => Math.min(current + 1, batchItems.length - 1)),
       config.rotateSeconds * 1000,
     );
-    return () => window.clearInterval(interval);
-  }, [batchItems.length, config.oneAtATime, config.rotateSeconds]);
+    return () => window.clearTimeout(timer);
+  }, [batchItems.length, config.oneAtATime, config.rotateSeconds, index, isActive]);
 
   const current = batchItems[Math.min(index, Math.max(batchItems.length - 1, 0))];
   const layout = resolveWidgetLayout("news", config.layout as WidgetLayout | undefined);
