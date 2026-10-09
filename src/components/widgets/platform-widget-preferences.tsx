@@ -660,7 +660,7 @@ export function PlatformWidgetPreferences({
         ) : null}
 
         {item.widgetType === "news" ? (
-          <div className="max-w-2xl space-y-4">
+          <div className="w-full space-y-4">
             <div className="space-y-2">
               <Label>Fonte de notícias</Label>
               <Select value={feedId} onValueChange={setFeedId}>
@@ -683,6 +683,27 @@ export function PlatformWidgetPreferences({
 
             <div className="space-y-4 rounded-lg border border-border p-4">
               <p className="text-sm font-medium">Como a notícia aparece</p>
+              <div className="grid gap-4 sm:grid-cols-[minmax(0,1fr)_12rem] sm:items-end">
+                <p className="text-xs text-muted-foreground">
+                  Defina quantas notícias serão exibidas simultaneamente em cada bloco.
+                </p>
+                <div className="space-y-2">
+                  <Label htmlFor="managed-news-headlines">Notícias por bloco</Label>
+                  <Input
+                    id="managed-news-headlines"
+                    type="number"
+                    min={1}
+                    max={10}
+                    value={newsSettings.headlines}
+                    onChange={(event) =>
+                      setNewsSettings((current) => ({
+                        ...current,
+                        headlines: Math.min(10, Math.max(1, Number(event.target.value) || 1)),
+                      }))
+                    }
+                  />
+                </div>
+              </div>
               <div className="flex flex-wrap gap-6">
                 <label className="flex items-center gap-2 text-sm">
                   <Switch
@@ -822,22 +843,6 @@ export function PlatformWidgetPreferences({
               </summary>
               <div className="mt-4 space-y-4">
                 <div className="grid gap-4 sm:grid-cols-2">
-                  <div className="space-y-2">
-                    <Label htmlFor="managed-news-headlines">Manchetes por exibição</Label>
-                    <Input
-                      id="managed-news-headlines"
-                      type="number"
-                      min={1}
-                      max={10}
-                      value={newsSettings.headlines}
-                      onChange={(event) =>
-                        setNewsSettings((current) => ({
-                          ...current,
-                          headlines: Math.min(10, Math.max(1, Number(event.target.value) || 1)),
-                        }))
-                      }
-                    />
-                  </div>
                   <div className="space-y-2">
                     <Label>Tempo de cada notícia: {newsSettings.rotateSeconds}s</Label>
                     <Slider

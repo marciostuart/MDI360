@@ -37,7 +37,7 @@ async function readLotterySourceSettings(): Promise<LotterySourceSettings> {
   const values = (root as Record<string, unknown>).lotteryRelay;
   const refreshMinutes =
     values && typeof values === "object" && !Array.isArray(values)
-      ? normalizeRefreshMinutes((values as Record<string, unknown>).refreshMinutes)
+      ? Math.min(10, normalizeRefreshMinutes((values as Record<string, unknown>).refreshMinutes))
       : 10;
   return { refreshMinutes };
 }
@@ -337,14 +337,17 @@ export async function syncOfficialLotteryResults(
         const aggregateEntry = aggregate
           ? aggregateEntrySchema.parse(aggregate[aggregateKeys[game.id]])
           : null;
-        if (aggregateEntry && (latest.get(game.id) ?? 0) >= aggregateEntry.numeroDoConcurso) {
-          continue;
-        }
 
         const sourcePath = `/portaldeloterias/api/${game.id}`;
         const individual = await fetchOfficial(sourcePath, settings);
         const normalized = normalizeIndividual(game.id, individual);
-        if (aggregateEntry) verifyAgainstAggregate(normalized, aggregateEntry);
+        // The aggregate endpoint can lag behind the individual endpoint. It
+        // is used for cross-checking only when both advertise the same
+        // contest; it must never prevent a newer individual result from being
+        // persisted.
+        if (aggregateEntry && normalized.contestNumber <= aggregateEntry.numeroDoConcurso) {
+          verifyAgainstAggregate(normalized, aggregateEntry);
+        }
         if ((latest.get(game.id) ?? 0) >= normalized.contestNumber) continue;
         const now = new Date();
         await db
