@@ -15,7 +15,6 @@ import {
 } from "@/lib/widgets/lottery-polling";
 
 const CAIXA_ORIGIN = "https://servicebus2.caixa.gov.br";
-const AGGREGATE_PATH = "/portaldeloterias/api/home/ultimos-resultados";
 const MAX_RESPONSE_BYTES = 2_000_000;
 const REQUEST_TIMEOUT_MS = 8_000;
 const LEASE_MS = 4 * 60_000;
@@ -42,27 +41,7 @@ async function readLotterySourceSettings(): Promise<LotterySourceSettings> {
   return { refreshMinutes };
 }
 
-const aggregateKeys: Record<LotteryGameId, string> = {
-  megasena: "megasena",
-  lotofacil: "lotofacil",
-  quina: "quina",
-  lotomania: "lotomania",
-  timemania: "timemania",
-  duplasena: "duplasena",
-  federal: "federal",
-  loteca: "loteca",
-  diadesorte: "diaDeSorte",
-  supersete: "superSete",
-  maismilionaria: "maisMilionaria",
-};
-
 const sourceRecordSchema = z.record(z.string(), z.unknown());
-const aggregateEntrySchema = sourceRecordSchema.and(
-  z.object({
-    numeroDoConcurso: z.number().int().positive(),
-    dataApuracao: z.string().regex(/^\d{2}\/\d{2}\/\d{4}$/),
-  }),
-);
 
 function cleanText(value: unknown): string | null {
   if (typeof value !== "string") return null;
@@ -210,44 +189,6 @@ export function normalizeIndividual(
   });
 }
 
-function arraysEqual(left: string[], right: string[]) {
-  return left.length === right.length && left.every((item, index) => item === right[index]);
-}
-
-export function verifyAgainstAggregate(
-  result: NormalizedLotteryResult,
-  aggregate: Record<string, unknown>,
-) {
-  const contest = aggregateEntrySchema.parse(aggregate);
-  if (
-    contest.numeroDoConcurso !== result.contestNumber ||
-    contest.dataApuracao !== result.drawDate
-  ) {
-    throw new Error(`${result.gameId}: divergência entre os endpoints oficiais`);
-  }
-  const aggregateNumbers = stringList(aggregate.dezenas);
-  if (result.gameId !== "loteca" && !arraysEqual(aggregateNumbers, result.numbers)) {
-    throw new Error(`${result.gameId}: resultado divergente entre os endpoints oficiais`);
-  }
-  if (
-    result.gameId === "duplasena" &&
-    !arraysEqual(stringList(aggregate.dezenasSegundoSorteio), result.secondDraw)
-  ) {
-    throw new Error("duplasena: segundo sorteio divergente");
-  }
-  if (
-    result.gameId === "maismilionaria" &&
-    !arraysEqual(stringList(aggregate.trevosSorteados), result.clovers)
-  ) {
-    throw new Error("maismilionaria: trevos divergentes");
-  }
-  if (result.gameId === "loteca") {
-    const aggregateMatches = sourceArray(aggregate.resultadoJogos);
-    if (aggregateMatches.length !== result.matches.length)
-      throw new Error("loteca: jogos divergentes");
-  }
-}
-
 async function acquireLease(refreshMinutes: number, force: boolean) {
   const db = getDb();
   await db.insert(schema.lotterySyncState).values({ id: "caixa" }).onConflictDoNothing();
@@ -307,18 +248,6 @@ export async function syncOfficialLotteryResults(
 
   const db = getDb();
   try {
-    let aggregate: Record<string, unknown> | null = null;
-    try {
-      aggregate = await fetchOfficial(AGGREGATE_PATH, settings);
-    } catch (error) {
-      // The aggregate CAIXA endpoint can fail independently of the individual
-      // endpoints. Keep syncing each modality instead of freezing the cache.
-      console.warn(
-        `[lottery-sync] agregado indisponível; usando endpoints individuais: ${
-          error instanceof Error ? error.message : "falha desconhecida"
-        }`,
-      );
-    }
     const stored = await db
       .selectDistinctOn([schema.lotteryResults.gameId], {
         gameId: schema.lotteryResults.gameId,
@@ -331,23 +260,14 @@ export async function syncOfficialLotteryResults(
       latest.set(row.gameId, Math.max(latest.get(row.gameId) ?? 0, row.contest));
 
     let updated = 0;
+    let successfulQueries = 0;
     const gameErrors: string[] = [];
     for (const game of LOTTERY_GAMES) {
       try {
-        const aggregateEntry = aggregate
-          ? aggregateEntrySchema.parse(aggregate[aggregateKeys[game.id]])
-          : null;
-
         const sourcePath = `/portaldeloterias/api/${game.id}`;
         const individual = await fetchOfficial(sourcePath, settings);
         const normalized = normalizeIndividual(game.id, individual);
-        // The aggregate endpoint can lag behind the individual endpoint. It
-        // is used for cross-checking only when both advertise the same
-        // contest; it must never prevent a newer individual result from being
-        // persisted.
-        if (aggregateEntry && normalized.contestNumber <= aggregateEntry.numeroDoConcurso) {
-          verifyAgainstAggregate(normalized, aggregateEntry);
-        }
+        successfulQueries += 1;
         if ((latest.get(game.id) ?? 0) >= normalized.contestNumber) continue;
         const now = new Date();
         await db
@@ -379,11 +299,20 @@ export async function syncOfficialLotteryResults(
     }
 
     const now = new Date();
+    const errorMessage =
+      successfulQueries === 0
+        ? gameErrors.join(" | ").slice(0, 1000) || "Nenhuma modalidade retornou resultado válido"
+        : gameErrors.length
+          ? gameErrors.join(" | ").slice(0, 1000)
+          : null;
     await db
       .update(schema.lotterySyncState)
       .set({
-        lastSuccessAt: now,
-        lastError: gameErrors.length ? gameErrors.join(" | ").slice(0, 1000) : null,
+        // A cycle in which every individual official endpoint failed is not a
+        // successful refresh. Keep the previous success timestamp truthful
+        // and record the upstream cause for diagnosis.
+        ...(successfulQueries > 0 ? { lastSuccessAt: now } : {}),
+        lastError: errorMessage,
         leaseUntil: null,
         updatedAt: now,
       })
