@@ -42,6 +42,10 @@ export function WidgetView({
 }) {
   const theme = resolveWidgetTheme(config.theme);
   const accent = theme.accentColor || accentColor || "#38BDF8";
+  const waitsForRemoteData = config.type === "lottery" || config.type === "news";
+  useEffect(() => {
+    if (!waitsForRemoteData) onReady?.();
+  }, [onReady, waitsForRemoteData]);
 
   if (config.type === "clock") return <ClockWidget config={config} theme={theme} accent={accent} />;
   if (config.type === "weather")
@@ -287,6 +291,8 @@ function Block({
     <div
       className={`absolute ${className ?? ""}`}
       style={{
+        boxSizing: "border-box",
+        minWidth: 0,
         left: `${block.x}%`,
         top: `${block.y}%`,
         width: `${block.w}%`,

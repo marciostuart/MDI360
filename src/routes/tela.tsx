@@ -322,6 +322,7 @@ function PlayerScreen() {
   );
   const playbackFlushRunningRef = useRef(false);
   const currentPlaybackStateRef = useRef<CurrentPlaybackState | null>(null);
+  const pendingPlaybackStateRef = useRef<CurrentPlaybackState | null>(null);
   const [widgetReadyKey, setWidgetReadyKey] = useState<string | null>(null);
   // Queue add-on: the call currently taking over the screen, plus the ones
   // waiting for their turn. Calls never overlap: each one owns the screen for
@@ -336,6 +337,19 @@ function PlayerScreen() {
   const nativePlaybackReceiverRef = useRef<(event: string, itemId: string, detail: string) => void>(
     () => {},
   );
+
+  const publishCurrentPresence = useCallback(() => {
+    const currentState = pendingPlaybackStateRef.current;
+    if (!token || !currentState) return;
+    currentPlaybackStateRef.current = currentState;
+    void fetch("/api/public/player/presence", {
+      method: "POST",
+      headers: { "content-type": "application/json", authorization: `Bearer ${token}` },
+      body: JSON.stringify(currentState),
+    }).catch(() => {
+      // The heartbeat remains the retry path when the screen is offline.
+    });
+  }, [token]);
 
   useEffect(() => {
     const receiver = (event: string, itemId: string, detail: string) => {
@@ -1030,21 +1044,10 @@ function PlayerScreen() {
         ? new Date(Date.now() + serverClockOffsetRef.current + current.durationMs).toISOString()
         : null,
     };
-    // Store and publish in the same committed effect. This removes the first
-    // frame race where the long-poll could run before the monitor received the
-    // new item.
-    currentPlaybackStateRef.current = currentState;
-    if (token) {
-      void fetch("/api/public/player/presence", {
-        method: "POST",
-        headers: { "content-type": "application/json", authorization: `Bearer ${token}` },
-        body: JSON.stringify(currentState),
-      }).catch(() => {
-        // The heartbeat and playback outbox remain the retry path.
-      });
-    }
+    // Keep the candidate separate until the renderer confirms the first
+    // frame. The heartbeat must never publish an item that is still loading.
+    pendingPlaybackStateRef.current = currentState;
   }, [
-    token,
     current?.id,
     current?.kind,
     current?.mediaAssetId,
@@ -1148,9 +1151,10 @@ function PlayerScreen() {
   const nativeMediaCacheKey = current?.mediaAssetId ?? current?.id ?? "";
   const markWidgetReady = useCallback(() => {
     if (videoRenderKey) setWidgetReadyKey(videoRenderKey);
+    publishCurrentPresence();
     nativeBridge()?.startupStage?.("Conteúdos prontos");
     nativeBridge()?.startupComplete?.();
-  }, [videoRenderKey]);
+  }, [publishCurrentPresence, videoRenderKey]);
 
   // The playlist clock must not consume the lottery cycle while the first
   // payload is still loading. A bounded fallback prevents a provider outage
@@ -1638,6 +1642,7 @@ function PlayerScreen() {
                 // has a frame available. Waiting for playing made a playlist
                 // change look like a black screen on slower browsers.
                 setVideoPlayingKey(videoRenderKey);
+                publishCurrentPresence();
               }}
               onLoadedMetadata={(event) => {
                 if (Number.isFinite(event.currentTarget.duration)) {
@@ -1668,6 +1673,7 @@ function PlayerScreen() {
             />
           </div>
       ) : current?.kind === "widget" && currentWidgetConfig ? (
+          <div className="relative h-screen w-screen overflow-hidden">
           <WidgetView
             key={`${current.id}-${index}`}
             config={currentWidgetConfig}
@@ -1679,6 +1685,7 @@ function PlayerScreen() {
             transitionEffect="none"
             onReady={markWidgetReady}
           />
+          </div>
       ) : current?.kind === "stream" && current.url ? (
           <StreamLayer
             key={`${current.id}-${index}`}
@@ -1686,6 +1693,7 @@ function PlayerScreen() {
             name={current.name}
             muted={current.isMuted || sync.device?.audioEnabled === false || Boolean(activeCall)}
             loop={items.length === 1 && !hasPending}
+            onReady={publishCurrentPresence}
           />
       ) : current?.kind === "web" ? (
           <iframe
@@ -1694,6 +1702,7 @@ function PlayerScreen() {
             title={current.name}
             className="h-screen w-screen border-0"
             sandbox="allow-scripts allow-same-origin"
+            onLoad={publishCurrentPresence}
           />
       ) : (
           <img
@@ -1702,6 +1711,7 @@ function PlayerScreen() {
             alt={current?.name ?? ""}
             className="h-screen w-screen object-contain"
             onLoad={() => {
+              publishCurrentPresence();
               nativeBridge()?.startupStage?.("Conteúdos prontos");
               nativeBridge()?.startupComplete?.();
             }}
@@ -1734,11 +1744,13 @@ function StreamLayer({
   name,
   muted,
   loop,
+  onReady,
 }: {
   url: string;
   name: string;
   muted: boolean;
   loop: boolean;
+  onReady?: () => void;
 }) {
   const youtubeId = parseYoutubeId(url);
 
@@ -1755,6 +1767,7 @@ function StreamLayer({
           src={src}
           title={name}
           allow="autoplay; encrypted-media"
+          onLoad={onReady}
           // Sem interação não há hover, e o leve zoom corta qualquer borda da
           // interface do YouTube que apareça no início da reprodução.
             className="pointer-events-none absolute left-1/2 top-1/2 h-[102%] w-[102%] -translate-x-1/2 -translate-y-1/2 border-0 outline-none ring-0"
@@ -1784,6 +1797,7 @@ function StreamLayer({
       style={{ opacity: 1 }}
       onCanPlay={(event) => {
         void playWithBrowserFallback(event.currentTarget);
+        onReady?.();
       }}
     />
   );
