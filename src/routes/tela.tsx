@@ -280,6 +280,8 @@ function PlayerScreen() {
   const transitionTimerRef = useRef<number | null>(null);
   const transitionFrameRef = useRef<number | null>(null);
   const transitionInProgressRef = useRef(false);
+  const timedItemKeyRef = useRef<string | null>(null);
+  const timedItemStartedAtRef = useRef(0);
   const [transitionOpacity, setTransitionOpacity] = useState(1);
   /** Ultimo sinal de vida geral, usado quando ainda nao ha midia carregada. */
   const beatRef = useRef<number>(Date.now());
@@ -555,12 +557,24 @@ function PlayerScreen() {
   // no corte direto o avanço ocorre no fim da duração, sem aguardar a
   // cortina, e no fade a cortina começa FADE_MS antes do fim.
   const scheduleTimedItem = useCallback(
-    (durationMs: number) => {
+    (durationMs: number, elapsedMs = 0) => {
       if (!Number.isFinite(durationMs) || durationMs <= 0) return;
       if (transitionTimerRef.current !== null) window.clearTimeout(transitionTimerRef.current);
+      const remainingMs = Math.max(0, durationMs - Math.max(0, elapsedMs));
+      if (fade && remainingMs <= FADE_MS) {
+        // The item was already inside its final fade window when React
+        // re-rendered. Do not restart the full timer; keep the curtain closed
+        // and advance at the original deadline.
+        setTransitionOpacity(1);
+        transitionTimerRef.current = window.setTimeout(() => {
+          transitionTimerRef.current = null;
+          advance();
+        }, remainingMs);
+        return;
+      }
       const delay = fade
-        ? Math.max(0, durationMs - FADE_MS)
-        : Math.max(1_000, durationMs);
+        ? Math.max(0, remainingMs - FADE_MS)
+        : Math.max(1_000, remainingMs);
       transitionTimerRef.current = window.setTimeout(() => {
         transitionTimerRef.current = null;
         if (fade) beginBlackTransition();
@@ -1098,7 +1112,15 @@ function PlayerScreen() {
     if (current.kind === "video") {
       scheduleBlackTransition(Math.max(1_000, current.durationMs));
     } else {
-      scheduleTimedItem(Math.max(1_000, current.durationMs));
+      const timedItemKey = `${current.id}:${index}`;
+      if (timedItemKeyRef.current !== timedItemKey) {
+        timedItemKeyRef.current = timedItemKey;
+        timedItemStartedAtRef.current = Date.now();
+      }
+      scheduleTimedItem(
+        Math.max(1_000, current.durationMs),
+        Date.now() - timedItemStartedAtRef.current,
+      );
     }
 
     return () => {
