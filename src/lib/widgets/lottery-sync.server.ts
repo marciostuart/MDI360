@@ -20,6 +20,7 @@ const REQUEST_TIMEOUT_MS = 8_000;
 const LEASE_MS = 4 * 60_000;
 type LotterySourceSettings = {
   refreshMinutes: number;
+  relay: { url: string; token: string } | null;
 };
 
 async function readLotterySourceSettings(): Promise<LotterySourceSettings> {
@@ -31,14 +32,36 @@ async function readLotterySourceSettings(): Promise<LotterySourceSettings> {
     .limit(1);
   const root = row?.value;
   if (!root || typeof root !== "object" || Array.isArray(root)) {
-    return { refreshMinutes: 10 };
+    return { refreshMinutes: 10, relay: null };
   }
   const values = (root as Record<string, unknown>).lotteryRelay;
-  const refreshMinutes =
-    values && typeof values === "object" && !Array.isArray(values)
-      ? Math.min(10, normalizeRefreshMinutes((values as Record<string, unknown>).refreshMinutes))
-      : 10;
-  return { refreshMinutes };
+  if (!values || typeof values !== "object" || Array.isArray(values)) {
+    return { refreshMinutes: 10, relay: null };
+  }
+
+  const relay = values as Record<string, unknown>;
+  const refreshMinutes = Math.min(10, normalizeRefreshMinutes(relay.refreshMinutes));
+  if (relay.enabled === false) return { refreshMinutes, relay: null };
+
+  const relayUrl = String(relay.url ?? "").trim();
+  const encryptedToken = String(relay.token ?? "").trim();
+  if (!relayUrl && !encryptedToken) return { refreshMinutes, relay: null };
+  if (!relayUrl || !encryptedToken) {
+    throw new Error("Relay de loterias incompleto: informe URL e token na Torre");
+  }
+
+  const parsedUrl = new URL(relayUrl);
+  if (
+    parsedUrl.protocol !== "https:" ||
+    !(parsedUrl.hostname.endsWith(".workers.dev") || parsedUrl.hostname === "mdi.360bh.com.br")
+  ) {
+    throw new Error("Relay de loterias fora da infraestrutura permitida");
+  }
+  const { decryptCredential } = await import("@/lib/billing/mercado-pago-config.server");
+  const token = decryptCredential(encryptedToken).trim();
+  if (!token) throw new Error("Token do relay de loterias indisponível");
+
+  return { refreshMinutes, relay: { url: parsedUrl.toString(), token } };
 }
 
 const sourceRecordSchema = z.record(z.string(), z.unknown());
@@ -68,7 +91,7 @@ function sourceArray(value: unknown): Record<string, unknown>[] {
 
 async function fetchOfficial(
   path: string,
-  _settings: LotterySourceSettings,
+  settings: LotterySourceSettings,
 ): Promise<Record<string, unknown>> {
   const officialUrl = new URL(path, CAIXA_ORIGIN);
   if (
@@ -78,10 +101,16 @@ async function fetchOfficial(
     throw new Error("Fonte não permitida");
   }
 
+  // The CAIXA service is protected by an anti-bot WAF. In production the
+  // private Worker is the single, authenticated transport to that official
+  // endpoint; players always consume only our persisted cache.
+  const targetUrl = settings.relay ? new URL(settings.relay.url) : officialUrl;
+  if (settings.relay) targetUrl.searchParams.set("path", officialUrl.pathname);
+
   const controller = new AbortController();
   const timer = setTimeout(() => controller.abort(), REQUEST_TIMEOUT_MS);
   try {
-    const response = await fetch(officialUrl, {
+    const response = await fetch(targetUrl, {
       signal: controller.signal,
       headers: {
         accept: "application/json, text/plain, */*",
@@ -89,6 +118,7 @@ async function fetchOfficial(
         referer: "https://loterias.caixa.gov.br/",
         "user-agent":
           "Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/140.0.0.0 Safari/537.36",
+        ...(settings.relay ? { authorization: `Bearer ${settings.relay.token}` } : {}),
       },
     });
     if (!response.ok) throw new Error(`CAIXA HTTP ${response.status}`);
