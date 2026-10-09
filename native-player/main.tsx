@@ -28,6 +28,7 @@ declare global {
   interface Window {
     MDI360Native: Bridge;
     __mdi360LocalFrame?: (frame: Frame) => void;
+    __mdi360LocalFreeze?: (playbackId: string) => void;
     __mdi360QueueCalls?: (calls: QueueCallPayload[]) => void;
   }
 }
@@ -35,6 +36,7 @@ declare global {
 export function LocalScreen() {
   const [frame, setFrame] = useState<Frame | null>(null);
   const [widgetFrames, setWidgetFrames] = useState<Frame[]>([]);
+  const [frozenWidgetIds, setFrozenWidgetIds] = useState<Set<string>>(() => new Set());
   const [calls, setCalls] = useState<QueueCallPayload[]>([]);
   const currentFrame = useRef<Frame | null>(null);
   const call = calls[0];
@@ -47,6 +49,9 @@ export function LocalScreen() {
   useEffect(() => {
     const seen = new Set<string>();
     window.__mdi360LocalFrame = (next) => {
+      // A freeze belongs only to the outgoing frame. The next playlist item
+      // always starts with an active internal state.
+      setFrozenWidgetIds((current) => current.size ? new Set() : current);
       if (next.item.kind === "widget" && next.item.widgetConfig) {
         setWidgetFrames((current) =>
           current.some((entry) => entry.playbackId === next.playbackId) ? current : [...current, next],
@@ -57,6 +62,14 @@ export function LocalScreen() {
       currentFrame.current = next;
       setFrame(next);
     };
+    window.__mdi360LocalFreeze = (playbackId) => {
+      setFrozenWidgetIds((current) => {
+        if (current.has(playbackId)) return current;
+        const next = new Set(current);
+        next.add(playbackId);
+        return next;
+      });
+    };
     window.__mdi360QueueCalls = (incoming) => {
       const fresh = incoming.filter((item) => !seen.has(item.id));
       fresh.forEach((item) => seen.add(item.id));
@@ -65,7 +78,7 @@ export function LocalScreen() {
       setCalls((previous) => [...previous, ...fresh]);
     };
     window.MDI360Native.rendererReady();
-    return () => { delete window.__mdi360LocalFrame; delete window.__mdi360QueueCalls; };
+    return () => { delete window.__mdi360LocalFrame; delete window.__mdi360LocalFreeze; delete window.__mdi360QueueCalls; };
   }, []);
   const callActive = Boolean(call);
   useEffect(() => {
@@ -99,7 +112,7 @@ export function LocalScreen() {
         : item?.kind === "widget" && item.widgetConfig ? (
           widgetFrames.map((widget, index) => (
             <div key={widget.playbackId} className="absolute inset-0" style={{ zIndex: index }}>
-              <ReadyWidget frame={widget} active={index === widgetFrames.length - 1} onPrepared={promotePreparedWidget} />
+              <ReadyWidget frame={widget} active={index === widgetFrames.length - 1 && !frozenWidgetIds.has(widget.playbackId)} onPrepared={promotePreparedWidget} />
             </div>
           ))
         ) : item?.kind === "stream" && item.url ? (
