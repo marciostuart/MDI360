@@ -3,7 +3,7 @@ import { useCallback, useEffect, useRef, useState } from "react";
 
 import { WidgetView } from "@/components/widgets/widget-view";
 import { QueueCallOverlay, type QueueCallPayload } from "@/components/queue/queue-call-overlay";
-import { ActivationScreen as SharedActivationScreen } from "@/components/player/activation-screen";
+import { ActivationScreen as SharedActivationScreen, PlayerStateScreen } from "@/components/player/activation-screen";
 import * as mediaCache from "@/lib/player/media-cache";
 import type { PlayerItem, PlayerState } from "@/lib/player/contracts";
 import { buildYoutubeEmbedUrl, parseYoutubeId } from "@/lib/media/stream-url";
@@ -113,6 +113,8 @@ type PlaybackOutboxItem = {
   playlistItemId: string | null;
   mediaAssetId: string | null;
   mediaKind?: string | null;
+  mediaName?: string | null;
+  playlistName?: string | null;
   durationMs: number;
   startedAt: string;
   endedAt: string | null;
@@ -123,6 +125,8 @@ type CurrentPlaybackState = {
   playlistItemId: string | null;
   mediaAssetId: string | null;
   mediaKind: string | null;
+  mediaName: string | null;
+  playlistName: string | null;
   startedAt: string | null;
   endedAt: string | null;
 };
@@ -1039,6 +1043,8 @@ function PlayerScreen() {
       playlistItemId: current.playlistItemId,
       mediaAssetId: current.mediaAssetId,
       mediaKind: current.kind,
+      mediaName: current.name ?? null,
+      playlistName: playlist.name ?? null,
       startedAt: new Date(Date.now() + serverClockOffsetRef.current).toISOString(),
       endedAt: current.durationMs > 0
         ? new Date(Date.now() + serverClockOffsetRef.current + current.durationMs).toISOString()
@@ -1384,7 +1390,7 @@ function PlayerScreen() {
   }, [token]);
 
   const queuePlaybackReport = useCallback(
-    (item: PlayerItem, playlistId: string | null) => {
+    (item: PlayerItem, playlistId: string | null, playlistName: string | null) => {
       if (!token) return;
       playbackOutboxRef.current.push({
         eventId:
@@ -1395,6 +1401,8 @@ function PlayerScreen() {
         playlistItemId: item.playlistItemId,
         mediaAssetId: item.mediaAssetId ?? null,
         mediaKind: item.kind,
+        mediaName: item.name ?? null,
+        playlistName: playlistName,
         durationMs: item.durationMs,
         // Usa a diferenca medida contra o servidor para que um relogio de TV
         // incorreto nao faca o endpoint rejeitar os relatórios de exibicao.
@@ -1432,6 +1440,7 @@ function PlayerScreen() {
     queuePlaybackReport(
       current,
       sync?.playlist?.id ?? sync?.offlineSchedule?.fallbackPlaylist?.id ?? null,
+      activePlaylist?.name ?? null,
     );
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [
@@ -1452,6 +1461,7 @@ function PlayerScreen() {
     queuePlaybackReport(
       current,
       sync?.playlist?.id ?? sync?.offlineSchedule?.fallbackPlaylist?.id ?? null,
+      activePlaylist?.name ?? null,
     );
   }, [
     current?.id,
@@ -1826,6 +1836,10 @@ function SplashScreen({
   message?: string;
   loadingProgress?: { completed: number; total: number };
 }) {
+  const state = loadingProgress || /conectando|baixando|preparando|recuperando/i.test(message ?? "") ? "loading" : "empty";
+  return <PlayerStateScreen state={state} branding={branding} message={message ?? (state === "loading" ? "Preparando conteúdos…" : "Nenhum conteúdo disponível para este horário.")} accent={branding?.color} />;
+  /* Legacy fallback retained below for source compatibility with older snapshots. */
+  /*
   const color = branding?.color ?? "#ffffff";
   const progress = loadingProgress
     ? Math.min(100, Math.round((loadingProgress.completed / Math.max(1, loadingProgress.total)) * 100))
@@ -1864,6 +1878,6 @@ function SplashScreen({
         ) : null}
       </div>
     </div>
-  );
+  ); */
 }
 
