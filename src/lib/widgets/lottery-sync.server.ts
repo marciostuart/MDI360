@@ -429,17 +429,22 @@ export async function readLotteryResults(gameIds: LotteryGameId[]) {
   }
   const state = states[0];
   const lastCheckedAt = state?.lastSuccessAt ?? null;
-  const stale = !lastCheckedAt || Date.now() - lastCheckedAt.getTime() > 6 * 60 * 60 * 1000;
+  const results = gameIds.flatMap((gameId) => {
+    const row = latest.get(gameId);
+    if (!row) return [];
+    const parsed = normalizedLotteryResultSchema.safeParse(row.payload);
+    return parsed.success ? [parsed.data] : [];
+  });
+
+  // A valid cached result remains usable even when there has been no new
+  // contest for several hours or the upstream source is temporarily offline.
+  // "stale" describes the absence of usable data, not the age of the contest.
+  const stale = results.length === 0;
   return {
     source: "Loterias CAIXA",
     sourceUrl: `${CAIXA_ORIGIN}/loterias`,
     lastCheckedAt: lastCheckedAt?.toISOString() ?? null,
     stale,
-    results: gameIds.flatMap((gameId) => {
-      const row = latest.get(gameId);
-      if (!row) return [];
-      const parsed = normalizedLotteryResultSchema.safeParse(row.payload);
-      return parsed.success ? [parsed.data] : [];
-    }),
+    results,
   };
 }

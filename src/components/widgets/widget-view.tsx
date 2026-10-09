@@ -1178,7 +1178,7 @@ function LotteryResultLayer({
       </Block>
       <Block block={layout.source} className="uppercase tracking-[0.18em] opacity-55">
         Resultados oficiais — fonte: Loterias CAIXA
-        {data?.stale ? (
+        {data?.stale && !result ? (
           <span className="ml-[1em] normal-case tracking-normal">
             Atualização temporariamente indisponível — último resultado confirmado em{" "}
             {lastCheckedLabel}.
@@ -1259,7 +1259,7 @@ function LotteryResultLayerFixed({
       </Block>
       <Block block={layout.source} className="uppercase tracking-[0.18em] opacity-55">
         {`Resultados oficiais \u2014 fonte: Loterias CAIXA`}
-        {data?.stale ? (
+        {data?.stale && !result ? (
           <span className="ml-[1em] normal-case tracking-normal">
             {`Atualiza\u00e7\u00e3o temporariamente indispon\u00edvel \u2014 \u00faltimo resultado confirmado em `}
             {lastCheckedLabel}.
@@ -1546,7 +1546,7 @@ function LotteryWidget({
           </Block>
           <Block block={layout.source} className="uppercase tracking-[0.18em] opacity-55">
             Resultados oficiais — fonte: Loterias CAIXA
-            {data?.stale ? (
+            {data?.stale && !result ? (
               <span className="ml-[1em] normal-case tracking-normal">
                 Atualização temporariamente indisponível — último resultado confirmado em{" "}
                 {lastCheckedLabel}.
