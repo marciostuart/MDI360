@@ -10,6 +10,7 @@ import "@/styles.css";
 type Frame = {
   playbackId: string;
   item: { kind: string; name: string; url?: string; isMuted?: boolean; widgetConfig?: WidgetConfig; widgetData?: unknown };
+  nextItem?: { kind: string; name: string; url?: string; isMuted?: boolean; widgetConfig?: WidgetConfig; widgetData?: unknown } | null;
   accentColor?: string;
   fade?: boolean;
   issuer?: boolean;
@@ -29,6 +30,7 @@ declare global {
     MDI360Native: Bridge;
     __mdi360LocalFrame?: (frame: Frame) => void;
     __mdi360LocalFreeze?: (playbackId: string) => void;
+    __mdi360LocalWidgetCommitted?: (playbackId: string) => void;
     __mdi360QueueCalls?: (calls: QueueCallPayload[]) => void;
   }
 }
@@ -85,6 +87,10 @@ export function LocalScreen() {
     window.MDI360Native.setCallAudio(callActive);
     return () => window.MDI360Native.setCallAudio(false);
   }, [callActive]);
+  const announceWidgetReady = useCallback((playbackId: string) => {
+    window.__mdi360LocalWidgetCommitted?.(playbackId);
+    window.MDI360Native.visualReady(playbackId);
+  }, []);
   useEffect(() => {
     if (!frame) return;
     if (frame.item.kind === "stream") return;
@@ -96,14 +102,14 @@ export function LocalScreen() {
     const ready = () => {
       if (reported) return;
       reported = true;
-      window.MDI360Native.visualReady(frame.playbackId);
+      announceWidgetReady(frame.playbackId);
     };
     const id = window.requestAnimationFrame(ready);
     // Some TV WebViews delay animation frames; never wait indefinitely after
     // a fully local widget has committed its layout.
     const timeout = window.setTimeout(ready, 250);
     return () => { window.cancelAnimationFrame(id); window.clearTimeout(timeout); };
-  }, [frame]);
+  }, [announceWidgetReady, frame]);
   const item = frame?.item;
   return (
     <div className="relative h-screen w-screen overflow-hidden" style={{ background: "transparent" }}>
@@ -112,7 +118,7 @@ export function LocalScreen() {
         : item?.kind === "widget" && item.widgetConfig ? (
           widgetFrames.map((widget, index) => (
             <div key={widget.playbackId} className="absolute inset-0" style={{ zIndex: index }}>
-              <ReadyWidget frame={widget} active={index === widgetFrames.length - 1 && !frozenWidgetIds.has(widget.playbackId)} onPrepared={promotePreparedWidget} />
+              <ReadyWidget frame={widget} active={index === widgetFrames.length - 1 && !frozenWidgetIds.has(widget.playbackId)} onPrepared={promotePreparedWidget} onVisualReady={announceWidgetReady} />
             </div>
           ))
         ) : item?.kind === "stream" && item.url ? (
@@ -129,7 +135,7 @@ export function LocalScreen() {
 }
 
 /** Decode prepared local images before mounting any news/weather layout. */
-function ReadyWidget({ frame, active = true, onPrepared }: { frame: Frame; active?: boolean; onPrepared?: (playbackId: string) => void }) {
+function ReadyWidget({ frame, active = true, onPrepared, onVisualReady }: { frame: Frame; active?: boolean; onPrepared?: (playbackId: string) => void; onVisualReady: (playbackId: string) => void }) {
   const [ready, setReady] = useState(false);
   const config = frame.item.widgetConfig!;
   // The Android WebView/TV Box compositor drops frames on large Ken Burns
@@ -174,12 +180,12 @@ function ReadyWidget({ frame, active = true, onPrepared }: { frame: Frame; activ
   }, [ready, frame.playbackId, onPrepared]);
   useEffect(() => {
     if (!ready || config.type === "news" || config.type === "lottery") return;
-    const timer = setTimeout(() => window.MDI360Native.visualReady(frame.playbackId), 100);
+    const timer = setTimeout(() => onVisualReady(frame.playbackId), 100);
     return () => clearTimeout(timer);
-  }, [ready, config.type, frame.playbackId]);
+  }, [ready, config.type, frame.playbackId, onVisualReady]);
   if (!ready) return null;
   return <LocalWidgetData.Provider value={{ payload: frame.item.widgetData ?? null, now: () => window.MDI360Native.clockNow(), imagesReady: true }}>
-            <WidgetView config={playerConfig} accentColor={frame.accentColor} transitionEffect={frame.fade ? "fade" : "none"} isActive={active} onReady={() => window.MDI360Native.visualReady(frame.playbackId)} />
+            <WidgetView config={playerConfig} accentColor={frame.accentColor} transitionEffect={frame.fade ? "fade" : "none"} isActive={active} onReady={() => onVisualReady(frame.playbackId)} />
   </LocalWidgetData.Provider>;
 }
 function LocalStream({ url, name, muted, onReady }: { url: string; name: string; muted: boolean; onReady: () => void }) {
