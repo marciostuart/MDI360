@@ -328,7 +328,18 @@ export async function syncOfficialLotteryResults(
 
   const db = getDb();
   try {
-    const aggregate = await fetchOfficial(AGGREGATE_PATH, settings);
+    let aggregate: Record<string, unknown> | null = null;
+    try {
+      aggregate = await fetchOfficial(AGGREGATE_PATH, settings);
+    } catch (error) {
+      // The aggregate CAIXA endpoint can fail independently of the individual
+      // endpoints. Keep syncing each modality instead of freezing the cache.
+      console.warn(
+        `[lottery-sync] agregado indisponível; usando endpoints individuais: ${
+          error instanceof Error ? error.message : "falha desconhecida"
+        }`,
+      );
+    }
     const stored = await db
       .selectDistinctOn([schema.lotteryResults.gameId], {
         gameId: schema.lotteryResults.gameId,
@@ -344,13 +355,18 @@ export async function syncOfficialLotteryResults(
     const gameErrors: string[] = [];
     for (const game of LOTTERY_GAMES) {
       try {
-        const aggregateEntry = aggregateEntrySchema.parse(aggregate[aggregateKeys[game.id]]);
-        if ((latest.get(game.id) ?? 0) >= aggregateEntry.numeroDoConcurso) continue;
+        const aggregateEntry = aggregate
+          ? aggregateEntrySchema.parse(aggregate[aggregateKeys[game.id]])
+          : null;
+        if (aggregateEntry && (latest.get(game.id) ?? 0) >= aggregateEntry.numeroDoConcurso) {
+          continue;
+        }
 
         const sourcePath = `/portaldeloterias/api/${game.id}`;
         const individual = await fetchOfficial(sourcePath, settings);
         const normalized = normalizeIndividual(game.id, individual);
-        verifyAgainstAggregate(normalized, aggregateEntry);
+        if (aggregateEntry) verifyAgainstAggregate(normalized, aggregateEntry);
+        if ((latest.get(game.id) ?? 0) >= normalized.contestNumber) continue;
         const now = new Date();
         await db
           .insert(schema.lotteryResults)
