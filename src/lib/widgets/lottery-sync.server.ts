@@ -2,7 +2,6 @@ import { and, desc, eq, isNull, lt, or } from "drizzle-orm";
 import { z } from "zod";
 
 import { getDb, isDatabaseConfigured, schema } from "@/lib/db/index.server";
-import { decryptCredential } from "@/lib/billing/mercado-pago-config.server";
 import {
   LOTTERY_GAMES,
   type LotteryGameId,
@@ -22,7 +21,6 @@ const REQUEST_TIMEOUT_MS = 8_000;
 const LEASE_MS = 4 * 60_000;
 type LotterySourceSettings = {
   refreshMinutes: number;
-  relay: { url: string; token: string } | null;
 };
 
 async function readLotterySourceSettings(): Promise<LotterySourceSettings> {
@@ -34,26 +32,14 @@ async function readLotterySourceSettings(): Promise<LotterySourceSettings> {
     .limit(1);
   const root = row?.value;
   if (!root || typeof root !== "object" || Array.isArray(root)) {
-    return { refreshMinutes: 30, relay: null };
+    return { refreshMinutes: 10 };
   }
-  const relay = (root as Record<string, unknown>).lotteryRelay;
-  if (!relay || typeof relay !== "object" || Array.isArray(relay)) {
-    return { refreshMinutes: 30, relay: null };
-  }
-  const values = relay as Record<string, unknown>;
-  const refreshMinutes = normalizeRefreshMinutes(values.refreshMinutes);
-  if (values.enabled === false) return { refreshMinutes, relay: null };
-  const url = String(values.url ?? "").trim();
-  const token = decryptCredential(String(values.token ?? "")).trim();
-  if (!url || !token) throw new Error("Relay de loterias incompleto");
-  const parsed = new URL(url);
-  if (
-    parsed.protocol !== "https:" ||
-    !(parsed.hostname.endsWith(".workers.dev") || parsed.hostname === "mdi.360bh.com.br")
-  ) {
-    throw new Error("Relay de loterias fora da infraestrutura permitida");
-  }
-  return { refreshMinutes, relay: { url: parsed.toString(), token } };
+  const values = (root as Record<string, unknown>).lotteryRelay;
+  const refreshMinutes =
+    values && typeof values === "object" && !Array.isArray(values)
+      ? normalizeRefreshMinutes((values as Record<string, unknown>).refreshMinutes)
+      : 10;
+  return { refreshMinutes };
 }
 
 const aggregateKeys: Record<LotteryGameId, string> = {
@@ -103,7 +89,7 @@ function sourceArray(value: unknown): Record<string, unknown>[] {
 
 async function fetchOfficial(
   path: string,
-  settings: LotterySourceSettings,
+  _settings: LotterySourceSettings,
 ): Promise<Record<string, unknown>> {
   const officialUrl = new URL(path, CAIXA_ORIGIN);
   if (
@@ -113,59 +99,28 @@ async function fetchOfficial(
     throw new Error("Fonte não permitida");
   }
 
-  const relay = settings.relay;
-  const targets = [
-    { url: officialUrl, name: "CAIXA", token: null as string | null },
-    ...(relay
-      ? [{
-          url: (() => {
-            const url = new URL(relay.url);
-            url.searchParams.set("path", officialUrl.pathname);
-            return url;
-          })(),
-          name: "Relay",
-          token: relay.token,
-        }]
-      : []),
-  ];
-  let lastError: unknown = new Error("Nenhuma fonte de loteria configurada");
-
-  for (const target of targets) {
-    const controller = new AbortController();
-    const timer = setTimeout(() => controller.abort(), REQUEST_TIMEOUT_MS);
-    try {
-      const response = await fetch(target.url, {
-        signal: controller.signal,
-        headers: {
-          accept: "application/json, text/plain, */*",
-          "accept-language": "pt-BR,pt;q=0.9,en;q=0.7",
-          referer: "https://loterias.caixa.gov.br/",
-          "user-agent":
-            "Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/140.0.0.0 Safari/537.36",
-          ...(target.token ? { authorization: `Bearer ${target.token}` } : {}),
-        },
-      });
-      if (!response.ok) throw new Error(`${target.name} HTTP ${response.status}`);
-      const declaredLength = Number(response.headers.get("content-length") ?? 0);
-      if (declaredLength > MAX_RESPONSE_BYTES) throw new Error(`Resposta ${target.name} excedeu o limite`);
-      const bytes = new Uint8Array(await response.arrayBuffer());
-      if (bytes.byteLength > MAX_RESPONSE_BYTES) throw new Error(`Resposta ${target.name} excedeu o limite`);
-      return sourceRecordSchema.parse(JSON.parse(new TextDecoder().decode(bytes)));
-    } catch (error) {
-      lastError = error;
-      if (target.name === "CAIXA" && relay) {
-        console.warn(
-          `[lottery-sync] CAIXA indisponível para ${officialUrl.pathname}; tentando relay: ${
-            error instanceof Error ? error.message : "falha desconhecida"
-          }`,
-        );
-      }
-    } finally {
-      clearTimeout(timer);
-    }
+  const controller = new AbortController();
+  const timer = setTimeout(() => controller.abort(), REQUEST_TIMEOUT_MS);
+  try {
+    const response = await fetch(officialUrl, {
+      signal: controller.signal,
+      headers: {
+        accept: "application/json, text/plain, */*",
+        "accept-language": "pt-BR,pt;q=0.9,en;q=0.7",
+        referer: "https://loterias.caixa.gov.br/",
+        "user-agent":
+          "Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/140.0.0.0 Safari/537.36",
+      },
+    });
+    if (!response.ok) throw new Error(`CAIXA HTTP ${response.status}`);
+    const declaredLength = Number(response.headers.get("content-length") ?? 0);
+    if (declaredLength > MAX_RESPONSE_BYTES) throw new Error("Resposta CAIXA excedeu o limite");
+    const bytes = new Uint8Array(await response.arrayBuffer());
+    if (bytes.byteLength > MAX_RESPONSE_BYTES) throw new Error("Resposta CAIXA excedeu o limite");
+    return sourceRecordSchema.parse(JSON.parse(new TextDecoder().decode(bytes)));
+  } finally {
+    clearTimeout(timer);
   }
-
-  throw lastError;
 }
 
 function expectedNumberCount(gameId: LotteryGameId) {
@@ -449,6 +404,19 @@ export async function syncOfficialLotteryResults(
 }
 
 export async function readLotteryResults(gameIds: LotteryGameId[]) {
+  // The background loop is the normal path. This guarded call also covers
+  // serverless/restarted processes where the loop has not fired yet; the DB
+  // lease and refresh interval prevent one request per terminal from hitting
+  // the CAIXA endpoints.
+  try {
+    await syncOfficialLotteryResults();
+  } catch (error) {
+    console.error(
+      `[lottery-sync] leitura preservou o cache após falha: ${
+        error instanceof Error ? error.message : "falha desconhecida"
+      }`,
+    );
+  }
   const db = getDb();
   const [rows, states] = await Promise.all([
     db
