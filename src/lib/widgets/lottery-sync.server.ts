@@ -114,34 +114,58 @@ async function fetchOfficial(
   }
 
   const relay = settings.relay;
-  const url = relay ? new URL(relay.url) : officialUrl;
-  if (relay) url.searchParams.set("path", officialUrl.pathname);
+  const targets = [
+    { url: officialUrl, name: "CAIXA", token: null as string | null },
+    ...(relay
+      ? [{
+          url: (() => {
+            const url = new URL(relay.url);
+            url.searchParams.set("path", officialUrl.pathname);
+            return url;
+          })(),
+          name: "Relay",
+          token: relay.token,
+        }]
+      : []),
+  ];
+  let lastError: unknown = new Error("Nenhuma fonte de loteria configurada");
 
-  const controller = new AbortController();
-  const timer = setTimeout(() => controller.abort(), REQUEST_TIMEOUT_MS);
-  try {
-    const response = await fetch(url, {
-      signal: controller.signal,
-      headers: {
-        accept: "application/json, text/plain, */*",
-        "accept-language": "pt-BR,pt;q=0.9,en;q=0.7",
-        referer: "https://loterias.caixa.gov.br/",
-        "user-agent":
-          "Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/140.0.0.0 Safari/537.36",
-        ...(relay ? { authorization: `Bearer ${relay.token}` } : {}),
-      },
-    });
-    if (!response.ok) {
-      throw new Error(`${relay ? "Relay" : "CAIXA"} HTTP ${response.status}`);
+  for (const target of targets) {
+    const controller = new AbortController();
+    const timer = setTimeout(() => controller.abort(), REQUEST_TIMEOUT_MS);
+    try {
+      const response = await fetch(target.url, {
+        signal: controller.signal,
+        headers: {
+          accept: "application/json, text/plain, */*",
+          "accept-language": "pt-BR,pt;q=0.9,en;q=0.7",
+          referer: "https://loterias.caixa.gov.br/",
+          "user-agent":
+            "Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/140.0.0.0 Safari/537.36",
+          ...(target.token ? { authorization: `Bearer ${target.token}` } : {}),
+        },
+      });
+      if (!response.ok) throw new Error(`${target.name} HTTP ${response.status}`);
+      const declaredLength = Number(response.headers.get("content-length") ?? 0);
+      if (declaredLength > MAX_RESPONSE_BYTES) throw new Error(`Resposta ${target.name} excedeu o limite`);
+      const bytes = new Uint8Array(await response.arrayBuffer());
+      if (bytes.byteLength > MAX_RESPONSE_BYTES) throw new Error(`Resposta ${target.name} excedeu o limite`);
+      return sourceRecordSchema.parse(JSON.parse(new TextDecoder().decode(bytes)));
+    } catch (error) {
+      lastError = error;
+      if (target.name === "CAIXA" && relay) {
+        console.warn(
+          `[lottery-sync] CAIXA indisponível para ${officialUrl.pathname}; tentando relay: ${
+            error instanceof Error ? error.message : "falha desconhecida"
+          }`,
+        );
+      }
+    } finally {
+      clearTimeout(timer);
     }
-    const declaredLength = Number(response.headers.get("content-length") ?? 0);
-    if (declaredLength > MAX_RESPONSE_BYTES) throw new Error("Resposta CAIXA excedeu o limite");
-    const bytes = new Uint8Array(await response.arrayBuffer());
-    if (bytes.byteLength > MAX_RESPONSE_BYTES) throw new Error("Resposta CAIXA excedeu o limite");
-    return sourceRecordSchema.parse(JSON.parse(new TextDecoder().decode(bytes)));
-  } finally {
-    clearTimeout(timer);
   }
+
+  throw lastError;
 }
 
 function expectedNumberCount(gameId: LotteryGameId) {

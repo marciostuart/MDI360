@@ -37,8 +37,9 @@ function run(args: string[], timeoutMs: number) {
 
 /**
  * Normalizes ANY uploaded video into one single standard: MP4 container,
- * H.264 Main profile, yuv420p, 30 fps, AAC-LC stereo audio, moov atom at the
- * front (faststart) and never larger than the screen preset. Main profile is
+ * H.264 Main profile, yuv420p, original frame cadence, AAC-LC stereo audio,
+ * moov atom at the front (faststart) and never larger than the screen preset.
+ * Main profile is
  * intentionally used instead of High: older Android TV Box decoders can
  * accept the former reliably while failing after a few seconds on the latter.
  *
@@ -95,8 +96,11 @@ export async function transcodeVideoToStandardMp4(
         "12M",
         "-pix_fmt",
         "yuv420p",
-        "-r",
-        "30",
+        // Preserve the source timestamps/cadence. Forcing every upload to
+        // 30 FPS duplicates or drops frames in 24/25/29.97/60 FPS material,
+        // which is visible as judder on the player.
+        "-fps_mode",
+        "passthrough",
         "-g",
         "60",
         "-c:a",
