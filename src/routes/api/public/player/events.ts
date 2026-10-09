@@ -64,36 +64,29 @@ export const Route = createFileRoute("/api/public/player/events")({
             since = Math.max(0, Math.trunc(body.revision));
           }
           const current = playbackStateSchema.safeParse(body?.current);
-          if (current.success && current.data !== undefined) {
+          // A reconnecting browser sends `current: null` before its first
+          // frame is ready. That is not an unlink operation and must never
+          // erase the last confirmed item from "No ar agora". Unlinking uses
+          // the explicit device reset flow instead.
+          if (current.success && current.data) {
             const { getDb, schema } = await import("@/lib/db/index.server");
             const { eq } = await import("drizzle-orm");
             await getDb()
               .update(schema.devices)
-              .set(
-                current.data
-                  ? {
-                      currentPlaylistId: current.data.playlistId,
-                      currentPlaylistItemId: current.data.playlistItemId,
-                      currentPlaylistName: current.data.playlistName ?? null,
-                      currentMediaAssetId: current.data.mediaAssetId,
-                      currentMediaName: current.data.mediaName ?? null,
-                      currentMediaKind: current.data.mediaKind,
-                      currentPlaybackStartedAt: current.data.startedAt
-                        ? new Date(current.data.startedAt)
-                        : null,
-                      currentPlaybackEndedAt: current.data.endedAt
-                        ? new Date(current.data.endedAt)
-                        : null,
-                    }
-                  : {
-                      currentPlaylistId: null,
-                      currentPlaylistItemId: null,
-                      currentMediaAssetId: null,
-                      currentMediaKind: null,
-                      currentPlaybackStartedAt: null,
-                      currentPlaybackEndedAt: null,
-                    },
-              )
+              .set({
+                currentPlaylistId: current.data.playlistId,
+                currentPlaylistItemId: current.data.playlistItemId,
+                currentPlaylistName: current.data.playlistName ?? null,
+                currentMediaAssetId: current.data.mediaAssetId,
+                currentMediaName: current.data.mediaName ?? null,
+                currentMediaKind: current.data.mediaKind,
+                currentPlaybackStartedAt: current.data.startedAt
+                  ? new Date(current.data.startedAt)
+                  : null,
+                currentPlaybackEndedAt: current.data.endedAt
+                  ? new Date(current.data.endedAt)
+                  : null,
+              })
               .where(eq(schema.devices.id, device.id));
           }
         } catch {
