@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useRef, useState } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { createRoot } from "react-dom/client";
 import { WidgetView } from "@/components/widgets/widget-view";
 import { LocalWidgetData } from "@/components/widgets/local-widget-data";
@@ -34,31 +34,25 @@ declare global {
 
 export function LocalScreen() {
   const [frame, setFrame] = useState<Frame | null>(null);
-  const [leavingWidget, setLeavingWidget] = useState<Frame | null>(null);
+  const [widgetFrames, setWidgetFrames] = useState<Frame[]>([]);
   const [calls, setCalls] = useState<QueueCallPayload[]>([]);
   const currentFrame = useRef<Frame | null>(null);
-  const leaveTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
   const call = calls[0];
+  const promotePreparedWidget = useCallback((playbackId: string) => {
+    setWidgetFrames((current) => {
+      const incoming = current.at(-1);
+      return incoming?.playbackId === playbackId ? [incoming] : current;
+    });
+  }, []);
   useEffect(() => {
     const seen = new Set<string>();
     window.__mdi360LocalFrame = (next) => {
-      const previous = currentFrame.current;
-      const isWidgetChange = Boolean(
-        next.fade &&
-        previous &&
-        previous.playbackId !== next.playbackId &&
-        previous.item.kind === "widget" &&
-        next.item.kind === "widget"
-      );
-      if (leaveTimer.current) window.clearTimeout(leaveTimer.current);
-      if (isWidgetChange) {
-        setLeavingWidget(previous);
-        leaveTimer.current = window.setTimeout(() => {
-          setLeavingWidget(null);
-          leaveTimer.current = null;
-        }, 360);
+      if (next.item.kind === "widget" && next.item.widgetConfig) {
+        setWidgetFrames((current) =>
+          current.some((entry) => entry.playbackId === next.playbackId) ? current : [...current, next],
+        );
       } else {
-        setLeavingWidget(null);
+        setWidgetFrames([]);
       }
       currentFrame.current = next;
       setFrame(next);
@@ -97,22 +91,17 @@ export function LocalScreen() {
     const timeout = window.setTimeout(ready, 250);
     return () => { window.cancelAnimationFrame(id); window.clearTimeout(timeout); };
   }, [frame]);
-  // Videos and images fade in the Android native surface. Widgets are drawn
-  // by the WebView, so keep their last frame for the same transition window.
   const item = frame?.item;
   return (
     <div className="relative h-screen w-screen overflow-hidden" style={{ background: "transparent" }}>
-      {leavingWidget ? (
-        <div className="pointer-events-none absolute inset-0" style={{ animation: "mdi-local-leave 350ms ease-in both" }}>
-          <ReadyWidget frame={leavingWidget} />
-        </div>
-      ) : null}
       {frame?.suspended ? <div className="grid size-full place-items-center bg-black text-3xl text-white">Serviço temporariamente suspenso</div>
         : frame?.issuer ? <iframe title="Emissor de senhas" src="/emitir/dispositivo?desktop=1" className="size-full border-0" allow="autoplay" />
         : item?.kind === "widget" && item.widgetConfig ? (
-          <div key={frame?.playbackId} className="size-full" style={{ animation: frame?.fade ? "mdi-local-enter 350ms ease-out" : undefined }}>
-            <ReadyWidget frame={frame!} />
-          </div>
+          widgetFrames.map((widget, index) => (
+            <div key={widget.playbackId} className="absolute inset-0" style={{ zIndex: index }}>
+              <ReadyWidget frame={widget} onPrepared={promotePreparedWidget} />
+            </div>
+          ))
         ) : item?.kind === "stream" && item.url ? (
           <LocalStream url={item.url} name={item.name} muted={item.isMuted !== false || frame?.audioEnabled === false || callActive}
             onReady={() => window.MDI360Native.visualReady(frame!.playbackId)} />
@@ -122,13 +111,12 @@ export function LocalScreen() {
           <div className="grid size-full place-items-center bg-black text-xl text-white/70">Nenhum conteúdo local disponível para este horário.</div>
         ) : null}
       {call ? <QueueCallOverlay call={call} onDone={() => setCalls((previous) => previous.slice(1))} /> : null}
-      <style>{"@keyframes mdi-local-enter { from {opacity:0} to {opacity:1} } @keyframes mdi-local-leave { from {opacity:1} to {opacity:0} }"}</style>
     </div>
   );
 }
 
 /** Decode prepared local images before mounting any news/weather layout. */
-function ReadyWidget({ frame }: { frame: Frame }) {
+function ReadyWidget({ frame, onPrepared }: { frame: Frame; onPrepared?: (playbackId: string) => void }) {
   const [ready, setReady] = useState(false);
   const config = frame.item.widgetConfig!;
   // The Android WebView/TV Box compositor drops frames on large Ken Burns
@@ -168,6 +156,9 @@ function ReadyWidget({ frame }: { frame: Frame }) {
     });
     return () => { cancelled = true; timers.forEach(clearTimeout); images.forEach((image) => { image.onload = null; image.onerror = null; }); };
   }, [frame, config]);
+  useEffect(() => {
+    if (ready) onPrepared?.(frame.playbackId);
+  }, [ready, frame.playbackId, onPrepared]);
   useEffect(() => {
     if (!ready || config.type === "news" || config.type === "lottery") return;
     const timer = setTimeout(() => window.MDI360Native.visualReady(frame.playbackId), 100);
