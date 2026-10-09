@@ -45,7 +45,7 @@ export const getDeviceHub = createServerFn({ method: "GET" })
   .inputValidator((input: unknown) => deviceIdSchema.parse(input))
   .handler(async ({ data }) => {
     const { db, schema, user, device } = await context(data.deviceId);
-    const { asc, desc, eq, and, gte, lte, sql } = await import("drizzle-orm");
+    const { asc, desc, eq, and, gte, lte, or, isNotNull, sql } = await import("drizzle-orm");
     const playlists = await db
       .select({ id: schema.playlists.id, name: schema.playlists.name })
       .from(schema.playlists)
@@ -87,6 +87,14 @@ export const getDeviceHub = createServerFn({ method: "GET" })
           eq(schema.playbackEvents.deviceId, device.id),
           gte(schema.playbackEvents.startedAt, reportFrom),
           lte(schema.playbackEvents.startedAt, reportTo),
+          // Ignore legacy heartbeat rows that carried no playback identity.
+          or(
+            isNotNull(schema.playbackEvents.playlistId),
+            isNotNull(schema.playbackEvents.playlistItemId),
+            isNotNull(schema.playbackEvents.mediaAssetId),
+            isNotNull(schema.playbackEvents.mediaName),
+            isNotNull(schema.playbackEvents.playlistName),
+          ),
         ),
       )
       .orderBy(desc(schema.playbackEvents.startedAt))

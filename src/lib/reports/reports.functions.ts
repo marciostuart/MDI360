@@ -171,7 +171,7 @@ export const queryPlaybackReport = createServerFn({ method: "GET" })
     }
 
     const { requireUser } = await import("@/lib/auth/session.server");
-    const { and, eq, gte, lte, sql } = await import("drizzle-orm");
+    const { and, eq, gte, isNotNull, lte, or, sql } = await import("drizzle-orm");
     const user = await requireUser();
     const db = getDb();
 
@@ -185,6 +185,13 @@ export const queryPlaybackReport = createServerFn({ method: "GET" })
       eq(schema.playbackEvents.organizationId, user.organizationId),
       gte(schema.playbackEvents.startedAt, parsedFrom),
       lte(schema.playbackEvents.startedAt, parsedTo),
+      or(
+        isNotNull(schema.playbackEvents.playlistId),
+        isNotNull(schema.playbackEvents.playlistItemId),
+        isNotNull(schema.playbackEvents.mediaAssetId),
+        isNotNull(schema.playbackEvents.mediaName),
+        isNotNull(schema.playbackEvents.playlistName),
+      ),
       data.group === "media" && data.mediaAssetId
         ? eq(schema.playbackEvents.mediaAssetId, data.mediaAssetId)
         : undefined,
@@ -265,7 +272,7 @@ export const queryPlaybackDailyReport = createServerFn({ method: "GET" })
     if (!isDatabaseConfigured()) return empty(rowLabel);
 
     const { requireUser } = await import("@/lib/auth/session.server");
-    const { and, eq, gte, isNotNull, lte, sql } = await import("drizzle-orm");
+    const { and, eq, gte, isNotNull, lte, or, sql } = await import("drizzle-orm");
     const user = await requireUser();
     const dimensionId = rowLabel === "Arquivo" ? schema.mediaAssets.id : schema.devices.id;
     const dimensionName = rowLabel === "Arquivo" ? schema.mediaAssets.name : schema.devices.name;
@@ -283,6 +290,13 @@ export const queryPlaybackDailyReport = createServerFn({ method: "GET" })
           eq(schema.playbackEvents.organizationId, user.organizationId),
           gte(schema.playbackEvents.startedAt, parsedFrom),
           lte(schema.playbackEvents.startedAt, parsedTo),
+          or(
+            isNotNull(schema.playbackEvents.playlistId),
+            isNotNull(schema.playbackEvents.playlistItemId),
+            isNotNull(schema.playbackEvents.mediaAssetId),
+            isNotNull(schema.playbackEvents.mediaName),
+            isNotNull(schema.playbackEvents.playlistName),
+          ),
           data.group === "media" ? isNotNull(schema.playbackEvents.mediaAssetId) : undefined,
           data.group === "media" && data.mediaAssetId
             ? eq(schema.playbackEvents.mediaAssetId, data.mediaAssetId)

@@ -88,6 +88,22 @@ export const Route = createFileRoute("/api/public/player/playback")({
             continue;
           }
 
+          const hasIdentity = Boolean(
+            event.playlistId ||
+              event.playlistItemId ||
+              event.mediaAssetId ||
+              event.mediaName ||
+              event.playlistName,
+          );
+          if (!hasIdentity) {
+            // A legacy/empty outbox row is acknowledged so it leaves the
+            // device queue, but it is not a playback event and must not pollute
+            // reports with blank rows and zero seconds.
+            accepted += 1;
+            if (event.eventId) acceptedEventIds.push(event.eventId);
+            continue;
+          }
+
           const normalized = { ...event };
           if (normalized.mediaAssetId) {
             const asset = await db
