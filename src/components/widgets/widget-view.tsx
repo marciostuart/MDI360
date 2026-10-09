@@ -379,10 +379,10 @@ function ClockWidget({
       if (cancelled) return;
       const current = localClock?.() ?? Date.now();
       setNowMs(current);
-      // Schedule against the real second boundary instead of accumulating the
-      // delay of setInterval. This keeps the seconds stable on TV WebViews.
-      const remainder = ((current % 1000) + 1000) % 1000;
-      timer = window.setTimeout(tick, Math.max(40, 1005 - remainder));
+      // The clock presents only hours and minutes. Updating at the next minute
+      // boundary removes needless per-second re-renders on constrained TVs.
+      const remainder = ((current % 60_000) + 60_000) % 60_000;
+      timer = window.setTimeout(tick, Math.max(100, 60_005 - remainder));
     };
     tick();
     return () => {
