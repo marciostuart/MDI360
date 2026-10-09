@@ -34,6 +34,13 @@ export const Route = createFileRoute("/api/public/player/presence")({
 
         const startedAt = body.startedAt ? new Date(body.startedAt) : null;
         const db = getDb();
+        const hasIdentity = Boolean(
+          body.playlistId ||
+            body.playlistItemId ||
+            body.mediaAssetId ||
+            body.mediaName ||
+            body.playlistName,
+        );
         // lastSeen is a heartbeat and must always advance. The current item,
         // however, is monotonic: a delayed request from the previous item is
         // not allowed to replace the item currently on screen.
@@ -49,7 +56,7 @@ export const Route = createFileRoute("/api/public/player/presence")({
             ),
           );
 
-        if (startedAt && Number.isFinite(startedAt.getTime())) {
+        if (startedAt && Number.isFinite(startedAt.getTime()) && hasIdentity) {
           await db
             .update(schema.devices)
             .set({
@@ -72,6 +79,41 @@ export const Route = createFileRoute("/api/public/player/presence")({
                 ),
               ),
             );
+
+          // Presence is emitted only after the browser has rendered the first
+          // frame. Persist that confirmation as proof-of-play as well, using
+          // the stable start timestamp as its idempotency key. This closes the
+          // gap where the live monitor was correct but the playback outbox was
+          // delayed or unavailable, especially for weather/clock widgets.
+          const existing = await db
+            .select({ id: schema.playbackEvents.id })
+            .from(schema.playbackEvents)
+            .where(
+              and(
+                eq(schema.playbackEvents.deviceId, device.id),
+                eq(schema.playbackEvents.startedAt, startedAt),
+              ),
+            )
+            .limit(1);
+          if (existing.length === 0) {
+            const endedAt = body.endedAt ? new Date(body.endedAt) : null;
+            const durationMs = endedAt && Number.isFinite(endedAt.getTime())
+              ? Math.max(0, Math.min(24 * 3600 * 1000, endedAt.getTime() - startedAt.getTime()))
+              : 0;
+            await db.insert(schema.playbackEvents).values({
+              organizationId: device.organizationId,
+              deviceId: device.id,
+              playlistId: body.playlistId,
+              playlistItemId: body.playlistItemId,
+              mediaAssetId: body.mediaAssetId,
+              mediaName: body.mediaName ?? null,
+              playlistName: body.playlistName ?? null,
+              startedAt,
+              endedAt,
+              durationMs,
+              completed: false,
+            });
+          }
         }
 
         return Response.json({ ok: true }, { headers: { "cache-control": "no-store" } });
