@@ -558,9 +558,13 @@ function PlayerScreen() {
   // cortina, e no fade a cortina começa FADE_MS antes do fim.
   const scheduleTimedItem = useCallback(
     (durationMs: number, deadlineMs?: number) => {
-      if (!Number.isFinite(durationMs) || durationMs <= 0) return;
+      // Cached manifests created before durationMs was mandatory may contain
+      // null/invalid values. Never let that turn an image into an item that
+      // stays on screen forever; valid configured values are kept unchanged.
+      const safeDurationMs =
+        Number.isFinite(durationMs) && durationMs > 0 ? durationMs : 10_000;
       if (transitionTimerRef.current !== null) window.clearTimeout(transitionTimerRef.current);
-      const deadline = deadlineMs ?? Date.now() + durationMs;
+      const deadline = deadlineMs ?? Date.now() + safeDurationMs;
       const remainingMs = Math.max(0, deadline - Date.now());
       if (fade && remainingMs <= FADE_MS) {
         // The item was already inside its final fade window when React
@@ -1109,17 +1113,24 @@ function PlayerScreen() {
     // A single looping item has no boundary. A widget is scheduled only after
     // its data/image readiness gate is released, but it still fades in while
     // loading so the screen never looks like a frozen black panel.
-    if (waitsForRemoteWidget || (items.length === 1 && !hasPending)) return;
+    if (
+      waitsForRemoteWidget ||
+      (items.length === 1 && !hasPending && current.kind === "video")
+    ) return;
     if (current.kind === "video") {
       scheduleBlackTransition(Math.max(1_000, current.durationMs));
     } else {
       const timedItemKey = `${current.id}:${index}`;
+      const safeDurationMs =
+        Number.isFinite(current.durationMs) && current.durationMs > 0
+          ? current.durationMs
+          : 10_000;
       if (timedItemKeyRef.current !== timedItemKey) {
         timedItemKeyRef.current = timedItemKey;
-        timedItemDeadlineRef.current = Date.now() + Math.max(1_000, current.durationMs);
+        timedItemDeadlineRef.current = Date.now() + Math.max(1_000, safeDurationMs);
       }
       scheduleTimedItem(
-        Math.max(1_000, current.durationMs),
+        Math.max(1_000, safeDurationMs),
         timedItemDeadlineRef.current,
       );
     }
