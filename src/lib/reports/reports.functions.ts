@@ -376,7 +376,11 @@ export const getNowPlaying = createServerFn({ method: "GET" }).handler(
         mediaName: string | null;
         mediaKind: string | null;
       } | undefined;
-      if (!hasCurrentIdentity && !device.currentMediaName && !device.currentPlaylistName) {
+      const needsEventFallback =
+        !hasCurrentIdentity ||
+        (!device.resolvedMediaName && !device.currentMediaName) ||
+        (!device.resolvedPlaylistName && !device.currentPlaylistName);
+      if (needsEventFallback) {
         const last = await db
           .select({
             startedAt: schema.playbackEvents.startedAt,
@@ -394,10 +398,15 @@ export const getNowPlaying = createServerFn({ method: "GET" }).handler(
       }
       const current = hasCurrentIdentity || device.currentMediaName || device.currentPlaylistName
         ? {
-            playlistName: device.resolvedPlaylistName ?? device.currentPlaylistName,
-            mediaName: device.resolvedMediaName ?? device.currentMediaName,
-            mediaKind: device.resolvedMediaKind ?? device.currentMediaKind,
-            startedAt: device.currentPlaybackStartedAt,
+            // The live snapshot remains authoritative. The event is only a
+            // compatibility/name fallback for older or partially populated
+            // snapshots, never a replacement for a newer startedAt.
+            playlistName:
+              device.resolvedPlaylistName ?? device.currentPlaylistName ?? row?.playlistName ?? null,
+            mediaName:
+              device.resolvedMediaName ?? device.currentMediaName ?? row?.mediaName ?? null,
+            mediaKind: device.resolvedMediaKind ?? device.currentMediaKind ?? row?.mediaKind ?? null,
+            startedAt: device.currentPlaybackStartedAt ?? row?.startedAt ?? null,
             endedAt: device.currentPlaybackEndedAt,
           }
         : row;

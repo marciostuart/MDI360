@@ -46,6 +46,16 @@ export const Route = createFileRoute("/api/public/player/playback")({
         let rejected = 0;
         const acceptedEventIds: string[] = [];
         const updateCurrentState = async (event: z.infer<typeof playbackReportSchema>, startedAt: Date) => {
+          // Keep accepting anonymous legacy rows for the historical report,
+          // but never let one of them erase the live item in Studio.
+          const hasIdentity = Boolean(
+            event.playlistId ||
+              event.playlistItemId ||
+              event.mediaAssetId ||
+              event.mediaName ||
+              event.playlistName,
+          );
+          if (!hasIdentity) return;
           await db
             .update(schema.devices)
             .set({

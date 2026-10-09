@@ -68,7 +68,16 @@ export const Route = createFileRoute("/api/public/player/events")({
           // frame is ready. That is not an unlink operation and must never
           // erase the last confirmed item from "No ar agora". Unlinking uses
           // the explicit device reset flow instead.
-          if (current.success && current.data && current.data.startedAt) {
+          if (
+            current.success &&
+            current.data &&
+            current.data.startedAt &&
+            (current.data.playlistId ||
+              current.data.playlistItemId ||
+              current.data.mediaAssetId ||
+              current.data.mediaName ||
+              current.data.playlistName)
+          ) {
             const { getDb, schema } = await import("@/lib/db/index.server");
             const { and, eq, isNull, lt, or } = await import("drizzle-orm");
             const startedAt = new Date(current.data.startedAt);
