@@ -99,7 +99,7 @@ export function LocalScreen() {
         : item?.kind === "widget" && item.widgetConfig ? (
           widgetFrames.map((widget, index) => (
             <div key={widget.playbackId} className="absolute inset-0" style={{ zIndex: index }}>
-              <ReadyWidget frame={widget} onPrepared={promotePreparedWidget} />
+              <ReadyWidget frame={widget} active={index === widgetFrames.length - 1} onPrepared={promotePreparedWidget} />
             </div>
           ))
         ) : item?.kind === "stream" && item.url ? (
@@ -116,7 +116,7 @@ export function LocalScreen() {
 }
 
 /** Decode prepared local images before mounting any news/weather layout. */
-function ReadyWidget({ frame, onPrepared }: { frame: Frame; onPrepared?: (playbackId: string) => void }) {
+function ReadyWidget({ frame, active = true, onPrepared }: { frame: Frame; active?: boolean; onPrepared?: (playbackId: string) => void }) {
   const [ready, setReady] = useState(false);
   const config = frame.item.widgetConfig!;
   // The Android WebView/TV Box compositor drops frames on large Ken Burns
@@ -166,7 +166,7 @@ function ReadyWidget({ frame, onPrepared }: { frame: Frame; onPrepared?: (playba
   }, [ready, config.type, frame.playbackId]);
   if (!ready) return null;
   return <LocalWidgetData.Provider value={{ payload: frame.item.widgetData ?? null, now: () => window.MDI360Native.clockNow(), imagesReady: true }}>
-            <WidgetView config={playerConfig} accentColor={frame.accentColor} transitionEffect={frame.fade ? "fade" : "none"} onReady={() => window.MDI360Native.visualReady(frame.playbackId)} />
+            <WidgetView config={playerConfig} accentColor={frame.accentColor} transitionEffect={frame.fade ? "fade" : "none"} isActive={active} onReady={() => window.MDI360Native.visualReady(frame.playbackId)} />
   </LocalWidgetData.Provider>;
 }
 function LocalStream({ url, name, muted, onReady }: { url: string; name: string; muted: boolean; onReady: () => void }) {

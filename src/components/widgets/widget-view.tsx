@@ -33,12 +33,15 @@ export function WidgetView({
   onReady,
   deviceToken,
   transitionEffect = "fade",
+  isActive = true,
 }: {
   config: WidgetConfig;
   accentColor?: string | null;
   onReady?: () => void;
   deviceToken?: string | null;
   transitionEffect?: "fade" | "none";
+  /** Local players keep an outgoing widget visible while the successor is prepared. */
+  isActive?: boolean;
 }) {
   const theme = resolveWidgetTheme(config.theme);
   const accent = theme.accentColor || accentColor || "#38BDF8";
@@ -65,6 +68,7 @@ export function WidgetView({
         accent={accent}
         onReady={onReady}
         transitionEffect={transitionEffect}
+        isActive={isActive}
       />
     );
   return (
@@ -1276,12 +1280,14 @@ function LotteryWidget({
   accent,
   onReady,
   transitionEffect = "fade",
+  isActive = true,
 }: {
   config: Extract<WidgetConfig, { type: "lottery" }>;
   theme: WidgetTheme;
   accent: string;
   onReady?: () => void;
   transitionEffect?: "fade" | "none";
+  isActive?: boolean;
 }) {
   const query = useMemo(
     () => `type=lottery&games=${encodeURIComponent(config.gameIds.join(","))}`,
@@ -1301,13 +1307,13 @@ function LotteryWidget({
     if (results.length > 0 || failed) onReady?.();
   }, [failed, onReady, results.length]);
   useEffect(() => {
-    if (results.length <= 1) return;
+    if (!isActive || results.length <= 1) return;
     const interval = window.setInterval(
       () => setIndex((current) => (current + 1) % results.length),
       config.rotateSeconds * 1000,
     );
     return () => window.clearInterval(interval);
-  }, [config.rotateSeconds, results.length]);
+  }, [config.rotateSeconds, isActive, results.length]);
 
   useEffect(() => {
     const previous = displayedResultRef.current;
