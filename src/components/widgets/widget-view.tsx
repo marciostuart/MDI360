@@ -44,7 +44,12 @@ export function WidgetView({
   const accent = theme.accentColor || accentColor || "#38BDF8";
   const waitsForRemoteData = config.type === "lottery" || config.type === "news";
   useEffect(() => {
-    if (!waitsForRemoteData) onReady?.();
+    if (waitsForRemoteData || !onReady) return;
+    // Child effects run before the PlayerScreen effects that publish the
+    // current item into pendingPlaybackStateRef. Defer one task so clock,
+    // weather and currency do not signal readiness before that identity exists.
+    const timer = window.setTimeout(onReady, 0);
+    return () => window.clearTimeout(timer);
   }, [onReady, waitsForRemoteData]);
 
   if (config.type === "clock") return <ClockWidget config={config} theme={theme} accent={accent} />;
