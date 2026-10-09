@@ -68,9 +68,11 @@ export const Route = createFileRoute("/api/public/player/events")({
           // frame is ready. That is not an unlink operation and must never
           // erase the last confirmed item from "No ar agora". Unlinking uses
           // the explicit device reset flow instead.
-          if (current.success && current.data) {
+          if (current.success && current.data && current.data.startedAt) {
             const { getDb, schema } = await import("@/lib/db/index.server");
-            const { eq } = await import("drizzle-orm");
+            const { and, eq, isNull, lt, or } = await import("drizzle-orm");
+            const startedAt = new Date(current.data.startedAt);
+            if (!Number.isFinite(startedAt.getTime())) throw new Error("startedAt invalido");
             await getDb()
               .update(schema.devices)
               .set({
@@ -80,14 +82,20 @@ export const Route = createFileRoute("/api/public/player/events")({
                 currentMediaAssetId: current.data.mediaAssetId,
                 currentMediaName: current.data.mediaName ?? null,
                 currentMediaKind: current.data.mediaKind,
-                currentPlaybackStartedAt: current.data.startedAt
-                  ? new Date(current.data.startedAt)
-                  : null,
+                currentPlaybackStartedAt: startedAt,
                 currentPlaybackEndedAt: current.data.endedAt
                   ? new Date(current.data.endedAt)
                   : null,
               })
-              .where(eq(schema.devices.id, device.id));
+              .where(
+                and(
+                  eq(schema.devices.id, device.id),
+                  or(
+                    isNull(schema.devices.currentPlaybackStartedAt),
+                    lt(schema.devices.currentPlaybackStartedAt, startedAt),
+                  ),
+                ),
+              );
           }
         } catch {
           since = 0;

@@ -1,5 +1,5 @@
 import { createFileRoute } from "@tanstack/react-router";
-import { and, eq, sql } from "drizzle-orm";
+import { and, eq, isNull, lt, or, sql } from "drizzle-orm";
 import { z } from "zod";
 
 import {
@@ -58,7 +58,17 @@ export const Route = createFileRoute("/api/public/player/playback")({
               currentPlaybackStartedAt: startedAt,
               currentPlaybackEndedAt: event.endedAt ? new Date(event.endedAt) : null,
             })
-            .where(eq(schema.devices.id, device.id));
+            // Historical reports can arrive out of order after an offline
+            // retry. They must never move the live monitor backwards.
+            .where(
+              and(
+                eq(schema.devices.id, device.id),
+                or(
+                  isNull(schema.devices.currentPlaybackStartedAt),
+                  lt(schema.devices.currentPlaybackStartedAt, startedAt),
+                ),
+              ),
+            );
         };
 
         for (const event of events) {

@@ -281,7 +281,7 @@ function PlayerScreen() {
   const transitionFrameRef = useRef<number | null>(null);
   const transitionInProgressRef = useRef(false);
   const timedItemKeyRef = useRef<string | null>(null);
-  const timedItemStartedAtRef = useRef(0);
+  const timedItemDeadlineRef = useRef(0);
   const [transitionOpacity, setTransitionOpacity] = useState(1);
   /** Ultimo sinal de vida geral, usado quando ainda nao ha midia carregada. */
   const beatRef = useRef<number>(Date.now());
@@ -557,10 +557,11 @@ function PlayerScreen() {
   // no corte direto o avanço ocorre no fim da duração, sem aguardar a
   // cortina, e no fade a cortina começa FADE_MS antes do fim.
   const scheduleTimedItem = useCallback(
-    (durationMs: number, elapsedMs = 0) => {
+    (durationMs: number, deadlineMs?: number) => {
       if (!Number.isFinite(durationMs) || durationMs <= 0) return;
       if (transitionTimerRef.current !== null) window.clearTimeout(transitionTimerRef.current);
-      const remainingMs = Math.max(0, durationMs - Math.max(0, elapsedMs));
+      const deadline = deadlineMs ?? Date.now() + durationMs;
+      const remainingMs = Math.max(0, deadline - Date.now());
       if (fade && remainingMs <= FADE_MS) {
         // The item was already inside its final fade window when React
         // re-rendered. Do not restart the full timer; keep the curtain closed
@@ -1115,11 +1116,11 @@ function PlayerScreen() {
       const timedItemKey = `${current.id}:${index}`;
       if (timedItemKeyRef.current !== timedItemKey) {
         timedItemKeyRef.current = timedItemKey;
-        timedItemStartedAtRef.current = Date.now();
+        timedItemDeadlineRef.current = Date.now() + Math.max(1_000, current.durationMs);
       }
       scheduleTimedItem(
         Math.max(1_000, current.durationMs),
-        Date.now() - timedItemStartedAtRef.current,
+        timedItemDeadlineRef.current,
       );
     }
 
