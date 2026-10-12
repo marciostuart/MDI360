@@ -122,6 +122,9 @@ export function QueueAddonManager() {
     ...QUEUE_SOUND_DEFAULTS,
     ...KIOSK_THEME_DEFAULTS,
     themeLayout: CALL_LAYOUT_DEFAULT,
+    themeOverlayColor: "#000000",
+    themeOverlayOpacity: 0,
+    themeOverlayGradient: false,
     kioskLayout: KIOSK_LAYOUT_DEFAULT,
     printerFooterText: "",
   });
@@ -169,7 +172,7 @@ export function QueueAddonManager() {
 
   const [uploadingKioskMedia, setUploadingKioskMedia] = useState<string | null>(null);
 
-  type ExclusiveMediaSlot = "logo" | "background" | "call-background";
+  type ExclusiveMediaSlot = "logo" | "background" | "call-background" | "call-image";
 
   const uploadKioskMedia = async (deviceId: string, slot: ExclusiveMediaSlot, file: File) => {
     setUploadingKioskMedia(`${deviceId}:${slot}`);
@@ -191,6 +194,8 @@ export function QueueAddonManager() {
           ? "Logo do emissor atualizada."
           : slot === "call-background"
             ? "Fundo da chamada atualizado."
+            : slot === "call-image"
+              ? "Imagem do bloco atualizada."
             : "Fundo do emissor atualizado.",
       );
       await invalidate();
@@ -240,6 +245,9 @@ export function QueueAddonManager() {
       themeTextColor: string;
       themeHistoryColor: string;
       themeLayout: import("@/lib/queue/queue-layout").QueueLayout;
+      themeOverlayColor: string;
+      themeOverlayOpacity: number;
+      themeOverlayGradient: boolean;
       kioskBgColor: string;
       kioskBgMediaId: string | null;
       kioskCardColor: string;
@@ -311,6 +319,9 @@ export function QueueAddonManager() {
       themeTextColor: panel.themeTextColor || QUEUE_THEME_DEFAULTS.themeTextColor,
       themeHistoryColor: panel.themeHistoryColor || QUEUE_THEME_DEFAULTS.themeHistoryColor,
       themeLayout: resolveQueueLayout(panel.themeLayout, CALL_LAYOUT_DEFAULT),
+      themeOverlayColor: panel.themeOverlayColor || "#000000",
+      themeOverlayOpacity: panel.themeOverlayOpacity ?? 0,
+      themeOverlayGradient: panel.themeOverlayGradient ?? false,
       kioskBgColor: panel.kioskBgColor || KIOSK_THEME_DEFAULTS.kioskBgColor,
       kioskBgMediaId: panel.kioskBgMediaId ?? null,
       kioskCardColor: panel.kioskCardColor || KIOSK_THEME_DEFAULTS.kioskCardColor,
@@ -537,6 +548,9 @@ export function QueueAddonManager() {
                       themeTextColor: form.themeTextColor,
                       themeHistoryColor: form.themeHistoryColor,
                       themeLayout: form.themeLayout,
+                      themeOverlayColor: form.themeOverlayColor,
+                      themeOverlayOpacity: form.themeOverlayOpacity,
+                      themeOverlayGradient: form.themeOverlayGradient,
                       kioskBgColor: form.kioskBgColor,
                       kioskBgMediaId: form.kioskBgMediaId,
                       kioskCardColor: form.kioskCardColor,
@@ -924,10 +938,16 @@ export function QueueAddonManager() {
                             das playlists.
                           </p>
                         </div>
+                        <ColorField id={`call-overlay-${panel.deviceId}`} label="Cor da sobreposição do fundo" value={form.themeOverlayColor} onChange={(value) => setForm((prev) => ({ ...prev, themeOverlayColor: value }))} />
+                        <div className="space-y-1.5">
+                          <Label htmlFor={`call-overlay-opacity-${panel.deviceId}`}>Transparência da sobreposição ({form.themeOverlayOpacity}%)</Label>
+                          <Input id={`call-overlay-opacity-${panel.deviceId}`} type="range" min={0} max={100} step={1} value={form.themeOverlayOpacity} onChange={(event) => setForm((prev) => ({ ...prev, themeOverlayOpacity: Number(event.target.value) }))} />
+                          <label className="flex items-center gap-2 text-sm"><Switch checked={form.themeOverlayGradient} onCheckedChange={(themeOverlayGradient) => setForm((prev) => ({ ...prev, themeOverlayGradient }))} />Usar gradiente</label>
+                        </div>
                       </div>
 
                       <div
-                        className="relative aspect-video grid place-items-center overflow-hidden rounded-md bg-cover bg-center p-6 text-center"
+                        className="hidden"
                         style={{
                           backgroundColor: form.themeBgColor,
                           ...(panel.themeBgImagePreviewUrl || form.themeBgMediaId
@@ -982,7 +1002,9 @@ export function QueueAddonManager() {
                           { id: "history", label: "Últimas senhas", sample: "A011  A010  A009" },
                           { id: "image", label: "Bloco de imagem", sample: "", kind: "image" },
                         ]}
-                        background={<div className="absolute inset-0 bg-cover bg-center" style={{ backgroundColor: form.themeBgColor, ...(panel.themeBgImagePreviewUrl ? { backgroundImage: `url(${JSON.stringify(panel.themeBgImagePreviewUrl)})` } : {}) }} />}
+                        imageUrl={panel.themeImagePreviewUrl}
+                        imageControls={<div className="space-y-2"><Label className="text-xs">Imagem do bloco</Label><Input type="file" accept="image/jpeg,image/png,image/webp,image/avif" disabled={uploadingKioskMedia === `${panel.deviceId}:call-image`} onChange={(event) => { const file = event.target.files?.[0]; if (file) void uploadKioskMedia(panel.deviceId, "call-image", file); event.currentTarget.value = ""; }} />{panel.hasThemeImage ? <Button type="button" variant="outline" size="sm" onClick={() => void removeKioskMedia(panel.deviceId, "call-image")}>Remover imagem</Button> : null}<p className="text-xs text-muted-foreground">Envie a imagem e posicione/redimensione o bloco no preview.</p></div>}
+                        background={<><div className="absolute inset-0 bg-cover bg-center" style={{ backgroundColor: form.themeBgColor, ...(panel.themeBgImagePreviewUrl ? { backgroundImage: `url(${JSON.stringify(panel.themeBgImagePreviewUrl)})` } : {}) }} /><div className="absolute inset-0" style={{ background: form.themeOverlayGradient ? `linear-gradient(135deg, ${form.themeOverlayColor} 0%, transparent 100%)` : form.themeOverlayColor, opacity: form.themeOverlayOpacity / 100 }} /></>}
                       />
                     </div>
                   </div>
@@ -1203,7 +1225,7 @@ export function QueueAddonManager() {
                       </div>
 
                       <div
-                        className="relative grid aspect-video place-items-center overflow-hidden rounded-md bg-cover bg-center p-6 text-center"
+                        className="hidden"
                         style={{
                           backgroundColor: form.kioskBgColor,
                           ...(panel.kioskBgImagePreviewUrl || form.kioskBgMediaId
@@ -1274,7 +1296,14 @@ export function QueueAddonManager() {
                         description="Canvas 16:9 proporcional ao emissor. Os controles podem ser movidos e redimensionados individualmente."
                         layout={form.kioskLayout}
                         defaults={KIOSK_LAYOUT_DEFAULT}
-                        onChange={(kioskLayout) => setForm((prev) => ({ ...prev, kioskLayout }))}
+                        onChange={(kioskLayout) => setForm((prev) => ({
+                          ...prev,
+                          kioskLayout,
+                          kioskNormalButtonColor: kioskLayout.normalButton?.backgroundColor ?? prev.kioskNormalButtonColor,
+                          kioskNormalButtonTextColor: kioskLayout.normalButton?.color ?? prev.kioskNormalButtonTextColor,
+                          kioskPriorityButtonColor: kioskLayout.priorityButton?.backgroundColor ?? prev.kioskPriorityButtonColor,
+                          kioskPriorityButtonTextColor: kioskLayout.priorityButton?.color ?? prev.kioskPriorityButtonTextColor,
+                        }))}
                         items={[
                           { id: "logo", label: "Logo", sample: "LOGO", kind: "image" },
                           { id: "title", label: "Título", sample: form.kioskTitle.trim() || "RETIRE SUA SENHA" },

@@ -576,6 +576,11 @@ export const queuePanels = pgTable(
     themeHistoryColor: text("theme_history_color").notNull().default("#ffffff"),
     /** Layout percentual do aviso de chamada; compartilhado por Web e Android. */
     themeLayout: jsonb("theme_layout").notNull().default(sql`'{}'::jsonb`),
+    /** Imagem livre posicionada no layout da chamada e opções da sobreposição. */
+    themeImageKey: text("theme_image_key"),
+    themeOverlayColor: text("theme_overlay_color").notNull().default("#000000"),
+    themeOverlayOpacity: integer("theme_overlay_opacity").notNull().default(0),
+    themeOverlayGradient: boolean("theme_overlay_gradient").notNull().default(false),
     /** Aparência da tela de emissão (totem/celular), personalizável no Studio. */
     kioskBgColor: text("kiosk_bg_color").notNull().default("#0b1220"),
     kioskBgMediaId: uuid("kiosk_bg_media_id").references(() => mediaAssets.id, {

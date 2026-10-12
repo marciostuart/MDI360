@@ -330,6 +330,13 @@
       "when": 1791844080000,
       "tag": "0046_queue_layout_editor",
       "breakpoints": true
+    },
+    {
+      "idx": 47,
+      "version": "7",
+      "when": 1791850000000,
+      "tag": "0047_queue_call_visual_assets",
+      "breakpoints": true
     }
   ]
 }

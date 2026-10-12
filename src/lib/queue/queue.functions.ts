@@ -217,6 +217,10 @@ export const listQueuePanels = createServerFn({ method: "GET" }).handler(
           themeTextColor: schema.queuePanels.themeTextColor,
           themeHistoryColor: schema.queuePanels.themeHistoryColor,
           themeLayout: schema.queuePanels.themeLayout,
+          themeImageKey: schema.queuePanels.themeImageKey,
+          themeOverlayColor: schema.queuePanels.themeOverlayColor,
+          themeOverlayOpacity: schema.queuePanels.themeOverlayOpacity,
+          themeOverlayGradient: schema.queuePanels.themeOverlayGradient,
           kioskBgColor: schema.queuePanels.kioskBgColor,
           kioskBgMediaId: schema.queuePanels.kioskBgMediaId,
           kioskCardColor: schema.queuePanels.kioskCardColor,
@@ -321,14 +325,14 @@ export const listQueuePanels = createServerFn({ method: "GET" }).handler(
       const now = Date.now();
       const kioskPreviewUrls = new Map<
         string,
-        { logo: string | null; background: string | null; callBackground: string | null }
+        { logo: string | null; background: string | null; callBackground: string | null; callImage: string | null }
       >();
       try {
         const { createDownloadUrl, isStorageConfigured } = await import("@/lib/storage.server");
         if (isStorageConfigured()) {
           await Promise.all(
             uniqueRows.map(async (row) => {
-              const [logo, background, callBackground] = await Promise.all([
+              const [logo, background, callBackground, callImage] = await Promise.all([
                 row.kioskLogoKey ? createDownloadUrl(row.kioskLogoKey, 900) : Promise.resolve(null),
                 row.kioskBgImageKey
                   ? createDownloadUrl(row.kioskBgImageKey, 900)
@@ -336,8 +340,11 @@ export const listQueuePanels = createServerFn({ method: "GET" }).handler(
                 row.themeBgImageKey
                   ? createDownloadUrl(row.themeBgImageKey, 900)
                   : Promise.resolve(null),
+                row.themeImageKey
+                  ? createDownloadUrl(row.themeImageKey, 900)
+                  : Promise.resolve(null),
               ]);
-              kioskPreviewUrls.set(row.deviceId, { logo, background, callBackground });
+              kioskPreviewUrls.set(row.deviceId, { logo, background, callBackground, callImage });
             }),
           );
         }
@@ -381,6 +388,11 @@ export const listQueuePanels = createServerFn({ method: "GET" }).handler(
             hasThemeBgImage: Boolean(row.themeBgImageKey),
             themeBgImagePreviewUrl:
               kioskPreviewUrls.get(row.deviceId)?.callBackground ?? null,
+            themeImagePreviewUrl: kioskPreviewUrls.get(row.deviceId)?.callImage ?? null,
+            hasThemeImage: Boolean(row.themeImageKey),
+            themeOverlayColor: row.themeOverlayColor ?? "#000000",
+            themeOverlayOpacity: Math.max(0, Math.min(100, row.themeOverlayOpacity ?? 0)),
+            themeOverlayGradient: row.themeOverlayGradient ?? false,
             themeTicketColor: row.themeTicketColor ?? QUEUE_THEME_DEFAULTS.themeTicketColor,
             themeTextColor: row.themeTextColor ?? QUEUE_THEME_DEFAULTS.themeTextColor,
             themeHistoryColor: row.themeHistoryColor ?? QUEUE_THEME_DEFAULTS.themeHistoryColor,
@@ -471,6 +483,9 @@ export const saveQueuePanel = createServerFn({ method: "POST" })
         themeTextColor: hexColor.default(QUEUE_THEME_DEFAULTS.themeTextColor),
         themeHistoryColor: hexColor.default(QUEUE_THEME_DEFAULTS.themeHistoryColor),
         themeLayout: z.unknown().optional(),
+        themeOverlayColor: hexColor.default("#000000"),
+        themeOverlayOpacity: z.number().int().min(0).max(100).default(0),
+        themeOverlayGradient: z.boolean().default(false),
         kioskBgColor: hexColor.default(KIOSK_THEME_DEFAULTS.kioskBgColor),
         kioskBgMediaId: z.preprocess(
           (value) => (typeof value === "string" && value.trim() === "" ? null : value),
@@ -574,6 +589,9 @@ export const saveQueuePanel = createServerFn({ method: "POST" })
       themeTextColor: data.themeTextColor,
       themeHistoryColor: data.themeHistoryColor,
       themeLayout: resolveQueueLayout(data.themeLayout, CALL_LAYOUT_DEFAULT),
+      themeOverlayColor: data.themeOverlayColor,
+      themeOverlayOpacity: data.themeOverlayOpacity,
+      themeOverlayGradient: data.themeOverlayGradient,
       kioskBgColor: data.kioskBgColor,
       kioskBgMediaId,
       kioskCardColor: data.kioskCardColor,
@@ -829,6 +847,7 @@ export const deleteQueuePanel = createServerFn({ method: "POST" })
       .select({
         id: schema.queuePanels.id,
         themeBgImageKey: schema.queuePanels.themeBgImageKey,
+        themeImageKey: schema.queuePanels.themeImageKey,
         kioskLogoKey: schema.queuePanels.kioskLogoKey,
         kioskBgImageKey: schema.queuePanels.kioskBgImageKey,
       })
@@ -847,6 +866,7 @@ export const deleteQueuePanel = createServerFn({ method: "POST" })
 
     const storedKeys = [
       panel[0].themeBgImageKey,
+      panel[0].themeImageKey,
       panel[0].kioskLogoKey,
       panel[0].kioskBgImageKey,
     ].filter((key): key is string => Boolean(key));

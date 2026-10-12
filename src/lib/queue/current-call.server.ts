@@ -9,6 +9,10 @@ export type QueueCallHistoryItem = { label: string; sectorName: string | null };
 export type QueueCallTheme = {
   bgColor: string;
   bgImageUrl: string | null;
+  imageUrl: string | null;
+  overlayColor: string;
+  overlayOpacity: number;
+  overlayGradient: boolean;
   ticketColor: string;
   textColor: string;
   historyColor: string;
@@ -59,6 +63,10 @@ export async function recentQueueCalls(deviceId: string): Promise<QueueCallPaylo
       themeTextColor: schema.queuePanels.themeTextColor,
       themeHistoryColor: schema.queuePanels.themeHistoryColor,
       themeLayout: schema.queuePanels.themeLayout,
+      themeImageKey: schema.queuePanels.themeImageKey,
+      themeOverlayColor: schema.queuePanels.themeOverlayColor,
+      themeOverlayOpacity: schema.queuePanels.themeOverlayOpacity,
+      themeOverlayGradient: schema.queuePanels.themeOverlayGradient,
       chimeStorageKey: schema.queuePanels.chimeStorageKey,
       chimeVolume: schema.queuePanels.chimeVolume,
       voiceVolume: schema.queuePanels.voiceVolume,
@@ -74,7 +82,8 @@ export async function recentQueueCalls(deviceId: string): Promise<QueueCallPaylo
   // O arquivo exclusivo tem prioridade. A mídia antiga fica apenas como
   // compatibilidade para clientes que ainda não substituíram a configuração.
   let bgImageUrl: string | null = null;
-  if (panel.themeBgImageKey || panel.themeBgMediaId) {
+  let imageUrl: string | null = null;
+  if (panel.themeBgImageKey || panel.themeBgMediaId || panel.themeImageKey) {
     try {
       const { isStorageConfigured, createDownloadUrl } = await import("@/lib/storage.server");
       let key = panel.themeBgImageKey;
@@ -87,6 +96,7 @@ export async function recentQueueCalls(deviceId: string): Promise<QueueCallPaylo
         key = asset[0]?.status === "ready" ? asset[0]?.storageKey : null;
       }
       if (key && isStorageConfigured()) bgImageUrl = await createDownloadUrl(key, 3600);
+      if (panel.themeImageKey && isStorageConfigured()) imageUrl = await createDownloadUrl(panel.themeImageKey, 3600);
     } catch {
       bgImageUrl = null;
     }
@@ -95,6 +105,10 @@ export async function recentQueueCalls(deviceId: string): Promise<QueueCallPaylo
   const theme: QueueCallTheme = {
     bgColor: panel.themeBgColor || "#000000",
     bgImageUrl,
+    imageUrl,
+    overlayColor: panel.themeOverlayColor || "#000000",
+    overlayOpacity: Math.max(0, Math.min(100, panel.themeOverlayOpacity ?? 0)),
+    overlayGradient: panel.themeOverlayGradient ?? false,
     ticketColor: panel.themeTicketColor || "#ffffff",
     textColor: panel.themeTextColor || "#38bdf8",
     historyColor: panel.themeHistoryColor || "#ffffff",

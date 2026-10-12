@@ -249,6 +249,9 @@ export function QueueCallOverlay({
   const historyColor = call.theme?.historyColor || "#ffffff";
   const bgColor = call.theme?.bgColor || "#000000";
   const bgImageUrl = call.theme?.bgImageUrl || null;
+  const imageUrl = call.theme?.imageUrl || null;
+  const overlayColor = call.theme?.overlayColor || "#000000";
+  const overlayOpacity = Math.max(0, Math.min(100, call.theme?.overlayOpacity ?? 0));
   const history = (call.history ?? []).slice(0, 3);
   const layout = resolveQueueLayout(call.theme?.layout, CALL_LAYOUT_DEFAULT);
   const absolute = (id: keyof typeof layout, content: string, fallback: string, extra?: CSSProperties) => {
@@ -265,12 +268,14 @@ export function QueueCallOverlay({
         ...(bgImageUrl ? { backgroundImage: `url(${JSON.stringify(bgImageUrl)})` } : {}),
       }}
     >
+      <div className="absolute inset-0" style={{ background: call.theme?.overlayGradient ? `linear-gradient(135deg, ${overlayColor} 0%, transparent 100%)` : overlayColor, opacity: overlayOpacity / 100 }} />
       {call.theme?.layout ? <>
         {absolute("heading", "SENHA CHAMADA", accent)}
         {absolute("ticket", call.label, ticketColor, { opacity: (layout.ticket.opacity / 100) * (flash ? 1 : 0.45), transition: "opacity 300ms linear" })}
         {absolute("sector", call.sectorName ?? "", accent)}
         {history.length ? absolute("historyTitle", "ÚLTIMAS CHAMADAS", historyColor) : null}
         {history.length ? absolute("history", history.map((item) => item.sectorName ? `${item.label} - ${item.sectorName}` : item.label).join("     "), historyColor) : null}
+        {layout.image && !layout.image.hidden && imageUrl ? <img src={imageUrl} alt="" className="absolute object-contain" style={{ left: `${layout.image.x}%`, top: `${layout.image.y}%`, width: `${layout.image.w}%`, height: `${layout.image.h}%`, opacity: layout.image.opacity / 100 }} /> : null}
       </> : <div>
         <p
           className="text-[2.7vw] font-semibold uppercase tracking-[0.35em]"
