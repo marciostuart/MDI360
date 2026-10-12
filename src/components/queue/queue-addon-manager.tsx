@@ -35,6 +35,8 @@ import {
 import { QueuePanelConfig } from "@/components/queue/queue-panel-config";
 import { DEFAULT_CANVAS_PRESET } from "@/lib/media/presets";
 import { prepareUpload } from "@/lib/media/optimize-client";
+import { QueueLayoutEditor } from "@/components/queue/queue-layout-editor";
+import { CALL_LAYOUT_DEFAULT, KIOSK_LAYOUT_DEFAULT, resolveQueueLayout } from "@/lib/queue/queue-layout";
 
 function repairMojibake(value: string) {
   let result = value;
@@ -119,6 +121,8 @@ export function QueueAddonManager() {
     ...QUEUE_THEME_DEFAULTS,
     ...QUEUE_SOUND_DEFAULTS,
     ...KIOSK_THEME_DEFAULTS,
+    themeLayout: CALL_LAYOUT_DEFAULT,
+    kioskLayout: KIOSK_LAYOUT_DEFAULT,
     printerFooterText: "",
   });
 
@@ -235,6 +239,7 @@ export function QueueAddonManager() {
       themeTicketColor: string;
       themeTextColor: string;
       themeHistoryColor: string;
+      themeLayout: import("@/lib/queue/queue-layout").QueueLayout;
       kioskBgColor: string;
       kioskBgMediaId: string | null;
       kioskCardColor: string;
@@ -247,6 +252,7 @@ export function QueueAddonManager() {
       kioskTitle: string | null;
       kioskShowLogo: boolean;
       kioskLogoHeight: number;
+      kioskLayout: import("@/lib/queue/queue-layout").QueueLayout;
       printerFooterText: string | null;
       chimeVolume: number;
       voiceVolume: number;
@@ -304,6 +310,7 @@ export function QueueAddonManager() {
       themeTicketColor: panel.themeTicketColor || QUEUE_THEME_DEFAULTS.themeTicketColor,
       themeTextColor: panel.themeTextColor || QUEUE_THEME_DEFAULTS.themeTextColor,
       themeHistoryColor: panel.themeHistoryColor || QUEUE_THEME_DEFAULTS.themeHistoryColor,
+      themeLayout: resolveQueueLayout(panel.themeLayout, CALL_LAYOUT_DEFAULT),
       kioskBgColor: panel.kioskBgColor || KIOSK_THEME_DEFAULTS.kioskBgColor,
       kioskBgMediaId: panel.kioskBgMediaId ?? null,
       kioskCardColor: panel.kioskCardColor || KIOSK_THEME_DEFAULTS.kioskCardColor,
@@ -320,6 +327,7 @@ export function QueueAddonManager() {
       kioskTitle: panel.kioskTitle ?? "",
       kioskShowLogo: panel.kioskShowLogo ?? true,
       kioskLogoHeight: panel.kioskLogoHeight ?? KIOSK_THEME_DEFAULTS.kioskLogoHeight,
+      kioskLayout: resolveQueueLayout(panel.kioskLayout, KIOSK_LAYOUT_DEFAULT),
       printerFooterText: panel.printerFooterText ?? "",
       chimeVolume: panel.chimeVolume ?? QUEUE_SOUND_DEFAULTS.chimeVolume,
       voiceVolume: panel.voiceVolume ?? QUEUE_SOUND_DEFAULTS.voiceVolume,
@@ -528,6 +536,7 @@ export function QueueAddonManager() {
                       themeTicketColor: form.themeTicketColor,
                       themeTextColor: form.themeTextColor,
                       themeHistoryColor: form.themeHistoryColor,
+                      themeLayout: form.themeLayout,
                       kioskBgColor: form.kioskBgColor,
                       kioskBgMediaId: form.kioskBgMediaId,
                       kioskCardColor: form.kioskCardColor,
@@ -540,6 +549,7 @@ export function QueueAddonManager() {
                       kioskTitle: form.kioskTitle.trim() || null,
                       kioskShowLogo: form.kioskShowLogo,
                       kioskLogoHeight: form.kioskLogoHeight,
+                      kioskLayout: form.kioskLayout,
                       printerFooterText: form.printerFooterText.trim() || null,
                       chimeVolume: form.chimeVolume,
                       voiceVolume: form.voiceVolume,
@@ -958,6 +968,22 @@ export function QueueAddonManager() {
                           </p>
                         </div>
                       </div>
+                      <QueueLayoutEditor
+                        title="Editor da chamada na TV"
+                        description="Preview fiel em 16:9. Selecione, arraste, redimensione e estilize cada item sem alterar os editores de widgets."
+                        layout={form.themeLayout}
+                        defaults={CALL_LAYOUT_DEFAULT}
+                        onChange={(themeLayout) => setForm((prev) => ({ ...prev, themeLayout }))}
+                        items={[
+                          { id: "heading", label: "Senha chamada", sample: "SENHA CHAMADA" },
+                          { id: "ticket", label: "Número", sample: "A012" },
+                          { id: "sector", label: "Guichê", sample: "GUICHÊ 2" },
+                          { id: "historyTitle", label: "Título do histórico", sample: "ÚLTIMAS CHAMADAS" },
+                          { id: "history", label: "Últimas senhas", sample: "A011  A010  A009" },
+                          { id: "image", label: "Bloco de imagem", sample: "", kind: "image" },
+                        ]}
+                        background={<div className="absolute inset-0 bg-cover bg-center" style={{ backgroundColor: form.themeBgColor, ...(panel.themeBgImagePreviewUrl ? { backgroundImage: `url(${JSON.stringify(panel.themeBgImagePreviewUrl)})` } : {}) }} />}
+                      />
                     </div>
                   </div>
 
@@ -1243,6 +1269,21 @@ export function QueueAddonManager() {
                           </div>
                         </div>
                       </div>
+                      <QueueLayoutEditor
+                        title="Editor da tela de emissão"
+                        description="Canvas 16:9 proporcional ao emissor. Os controles podem ser movidos e redimensionados individualmente."
+                        layout={form.kioskLayout}
+                        defaults={KIOSK_LAYOUT_DEFAULT}
+                        onChange={(kioskLayout) => setForm((prev) => ({ ...prev, kioskLayout }))}
+                        items={[
+                          { id: "logo", label: "Logo", sample: "LOGO", kind: "image" },
+                          { id: "title", label: "Título", sample: form.kioskTitle.trim() || "RETIRE SUA SENHA" },
+                          { id: "normalButton", label: "Botão normal", sample: "SENHA NORMAL", kind: "button" },
+                          { id: "priorityButton", label: "Botão preferencial", sample: "PREFERENCIAL", kind: "button" },
+                          { id: "image", label: "Bloco de imagem", sample: "", kind: "image" },
+                        ]}
+                        background={<div className="absolute inset-0 bg-cover bg-center" style={{ backgroundColor: form.kioskBgColor, ...(panel.kioskBgImagePreviewUrl ? { backgroundImage: `url(${JSON.stringify(panel.kioskBgImagePreviewUrl)})` } : {}) }} />}
+                      />
                     </div>
                   </div>
 

@@ -1,5 +1,6 @@
 import { createServerFn } from "@tanstack/react-start";
 import { z } from "zod";
+import { CALL_LAYOUT_DEFAULT, KIOSK_LAYOUT_DEFAULT, resolveQueueLayout, type QueueLayout } from "@/lib/queue/queue-layout";
 
 /** Add-on config as the customer sees it in the Studio (one row per screen). */
 export type QueuePanelSummary = {
@@ -34,6 +35,7 @@ export type QueuePanelSummary = {
   themeTicketColor: string;
   themeTextColor: string;
   themeHistoryColor: string;
+  themeLayout: QueueLayout;
   /** Aparência da tela de emissão de senhas (totem). */
   kioskBgColor: string;
   kioskBgMediaId: string | null;
@@ -47,6 +49,7 @@ export type QueuePanelSummary = {
   kioskTitle: string | null;
   kioskShowLogo: boolean;
   kioskLogoHeight: number;
+  kioskLayout: QueueLayout;
   hasKioskLogo: boolean;
   hasKioskBgImage: boolean;
   kioskLogoPreviewUrl: string | null;
@@ -213,6 +216,7 @@ export const listQueuePanels = createServerFn({ method: "GET" }).handler(
           themeTicketColor: schema.queuePanels.themeTicketColor,
           themeTextColor: schema.queuePanels.themeTextColor,
           themeHistoryColor: schema.queuePanels.themeHistoryColor,
+          themeLayout: schema.queuePanels.themeLayout,
           kioskBgColor: schema.queuePanels.kioskBgColor,
           kioskBgMediaId: schema.queuePanels.kioskBgMediaId,
           kioskCardColor: schema.queuePanels.kioskCardColor,
@@ -225,6 +229,7 @@ export const listQueuePanels = createServerFn({ method: "GET" }).handler(
           kioskTitle: schema.queuePanels.kioskTitle,
           kioskShowLogo: schema.queuePanels.kioskShowLogo,
           kioskLogoHeight: schema.queuePanels.kioskLogoHeight,
+          kioskLayout: schema.queuePanels.kioskLayout,
           kioskLogoKey: schema.queuePanels.kioskLogoKey,
           kioskBgImageKey: schema.queuePanels.kioskBgImageKey,
           printerFooterText: schema.queuePanels.printerFooterText,
@@ -379,6 +384,7 @@ export const listQueuePanels = createServerFn({ method: "GET" }).handler(
             themeTicketColor: row.themeTicketColor ?? QUEUE_THEME_DEFAULTS.themeTicketColor,
             themeTextColor: row.themeTextColor ?? QUEUE_THEME_DEFAULTS.themeTextColor,
             themeHistoryColor: row.themeHistoryColor ?? QUEUE_THEME_DEFAULTS.themeHistoryColor,
+            themeLayout: resolveQueueLayout(row.themeLayout, CALL_LAYOUT_DEFAULT),
             kioskBgColor: row.kioskBgColor ?? KIOSK_THEME_DEFAULTS.kioskBgColor,
             kioskBgMediaId: row.kioskBgMediaId ?? null,
             kioskCardColor: row.kioskCardColor ?? KIOSK_THEME_DEFAULTS.kioskCardColor,
@@ -395,6 +401,7 @@ export const listQueuePanels = createServerFn({ method: "GET" }).handler(
             kioskTitle: row.kioskTitle ?? null,
             kioskShowLogo: row.kioskShowLogo ?? true,
             kioskLogoHeight: row.kioskLogoHeight ?? KIOSK_THEME_DEFAULTS.kioskLogoHeight,
+            kioskLayout: resolveQueueLayout(row.kioskLayout, KIOSK_LAYOUT_DEFAULT),
             hasKioskLogo: Boolean(row.kioskLogoKey),
             hasKioskBgImage: Boolean(row.kioskBgImageKey),
             kioskLogoPreviewUrl: kioskPreviewUrls.get(row.deviceId)?.logo ?? null,
@@ -463,6 +470,7 @@ export const saveQueuePanel = createServerFn({ method: "POST" })
         themeTicketColor: hexColor.default(QUEUE_THEME_DEFAULTS.themeTicketColor),
         themeTextColor: hexColor.default(QUEUE_THEME_DEFAULTS.themeTextColor),
         themeHistoryColor: hexColor.default(QUEUE_THEME_DEFAULTS.themeHistoryColor),
+        themeLayout: z.unknown().optional(),
         kioskBgColor: hexColor.default(KIOSK_THEME_DEFAULTS.kioskBgColor),
         kioskBgMediaId: z.preprocess(
           (value) => (typeof value === "string" && value.trim() === "" ? null : value),
@@ -490,6 +498,7 @@ export const saveQueuePanel = createServerFn({ method: "POST" })
           .min(40)
           .max(400)
           .default(KIOSK_THEME_DEFAULTS.kioskLogoHeight),
+        kioskLayout: z.unknown().optional(),
         printerFooterText: z.preprocess(
           (value) => (typeof value === "string" && value.trim() === "" ? null : value),
           z.string().trim().max(240).nullable().default(null),
@@ -564,6 +573,7 @@ export const saveQueuePanel = createServerFn({ method: "POST" })
       themeTicketColor: data.themeTicketColor,
       themeTextColor: data.themeTextColor,
       themeHistoryColor: data.themeHistoryColor,
+      themeLayout: resolveQueueLayout(data.themeLayout, CALL_LAYOUT_DEFAULT),
       kioskBgColor: data.kioskBgColor,
       kioskBgMediaId,
       kioskCardColor: data.kioskCardColor,
@@ -576,6 +586,7 @@ export const saveQueuePanel = createServerFn({ method: "POST" })
       kioskTitle: data.kioskTitle,
       kioskShowLogo: data.kioskShowLogo,
       kioskLogoHeight: data.kioskLogoHeight,
+      kioskLayout: resolveQueueLayout(data.kioskLayout, KIOSK_LAYOUT_DEFAULT),
       printerFooterText: data.printerFooterText,
     };
 

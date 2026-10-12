@@ -1,5 +1,6 @@
 import { createServerFn } from "@tanstack/react-start";
 import { z } from "zod";
+import { KIOSK_LAYOUT_DEFAULT, resolveQueueLayout, type QueueLayout } from "@/lib/queue/queue-layout";
 
 export type KioskTheme = {
   bgColor: string;
@@ -16,6 +17,7 @@ export type KioskTheme = {
   logoUrl: string | null;
   logoVersion: string | null;
   logoHeight: number;
+  layout: QueueLayout;
 };
 
 export type KioskPanel = {
@@ -58,6 +60,7 @@ export const getKioskPanel = createServerFn({ method: "POST" })
         kioskTitle: schema.queuePanels.kioskTitle,
         kioskShowLogo: schema.queuePanels.kioskShowLogo,
         kioskLogoHeight: schema.queuePanels.kioskLogoHeight,
+        kioskLayout: schema.queuePanels.kioskLayout,
         kioskLogoKey: schema.queuePanels.kioskLogoKey,
         kioskBgImageKey: schema.queuePanels.kioskBgImageKey,
         brandLogoKey: schema.organizations.brandLogoKey,
@@ -157,6 +160,7 @@ export const getKioskPanel = createServerFn({ method: "POST" })
         logoUrl,
         logoVersion,
         logoHeight: panel.kioskLogoHeight ?? 96,
+        layout: resolveQueueLayout(panel.kioskLayout, KIOSK_LAYOUT_DEFAULT),
       },
     };
   });

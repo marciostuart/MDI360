@@ -1,4 +1,5 @@
-import { useEffect, useRef, useState } from "react";
+import { useEffect, useRef, useState, type CSSProperties } from "react";
+import { CALL_LAYOUT_DEFAULT, resolveQueueLayout, type QueueLayout } from "@/lib/queue/queue-layout";
 
 export type QueueCallPayload = {
   id: string;
@@ -18,6 +19,7 @@ export type QueueCallPayload = {
     ticketColor?: string | null;
     textColor?: string | null;
     historyColor?: string | null;
+    layout?: QueueLayout | null;
   } | null;
   /** Volumes e tom de chamada configurados pelo cliente. */
   sound?: {
@@ -248,6 +250,12 @@ export function QueueCallOverlay({
   const bgColor = call.theme?.bgColor || "#000000";
   const bgImageUrl = call.theme?.bgImageUrl || null;
   const history = (call.history ?? []).slice(0, 3);
+  const layout = resolveQueueLayout(call.theme?.layout, CALL_LAYOUT_DEFAULT);
+  const absolute = (id: keyof typeof layout, content: string, fallback: string, extra?: CSSProperties) => {
+    const item = layout[id];
+    if (!item || item.hidden || !content) return null;
+    return <p key={id} className="absolute flex items-center font-semibold leading-none" style={{ left: `${item.x}%`, top: `${item.y}%`, width: `${item.w}%`, height: `${item.h}%`, color: item.color || fallback, opacity: item.opacity / 100, fontSize: `${item.fontSize}vw`, justifyContent: item.align === "left" ? "flex-start" : item.align === "right" ? "flex-end" : "center", textAlign: item.align, whiteSpace: "nowrap", ...extra }}>{content}</p>;
+  };
 
   return (
     <div
@@ -257,7 +265,13 @@ export function QueueCallOverlay({
         ...(bgImageUrl ? { backgroundImage: `url(${JSON.stringify(bgImageUrl)})` } : {}),
       }}
     >
-      <div>
+      {call.theme?.layout ? <>
+        {absolute("heading", "SENHA CHAMADA", accent)}
+        {absolute("ticket", call.label, ticketColor, { opacity: (layout.ticket.opacity / 100) * (flash ? 1 : 0.45), transition: "opacity 300ms linear" })}
+        {absolute("sector", call.sectorName ?? "", accent)}
+        {history.length ? absolute("historyTitle", "ÚLTIMAS CHAMADAS", historyColor) : null}
+        {history.length ? absolute("history", history.map((item) => item.sectorName ? `${item.label} - ${item.sectorName}` : item.label).join("     "), historyColor) : null}
+      </> : <div>
         <p
           className="text-[2.7vw] font-semibold uppercase tracking-[0.35em]"
           style={{ color: accent }}
@@ -302,7 +316,7 @@ export function QueueCallOverlay({
             </p>
           </div>
         ) : null}
-      </div>
+      </div>}
     </div>
   );
 }

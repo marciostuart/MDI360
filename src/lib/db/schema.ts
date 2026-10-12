@@ -574,6 +574,8 @@ export const queuePanels = pgTable(
     themeTicketColor: text("theme_ticket_color").notNull().default("#ffffff"),
     themeTextColor: text("theme_text_color").notNull().default("#38bdf8"),
     themeHistoryColor: text("theme_history_color").notNull().default("#ffffff"),
+    /** Layout percentual do aviso de chamada; compartilhado por Web e Android. */
+    themeLayout: jsonb("theme_layout").notNull().default(sql`'{}'::jsonb`),
     /** Aparência da tela de emissão (totem/celular), personalizável no Studio. */
     kioskBgColor: text("kiosk_bg_color").notNull().default("#0b1220"),
     kioskBgMediaId: uuid("kiosk_bg_media_id").references(() => mediaAssets.id, {
@@ -593,6 +595,8 @@ export const queuePanels = pgTable(
     kioskShowLogo: boolean("kiosk_show_logo").notNull().default(true),
     /** Altura da logo na tela de emissão, em pixels. */
     kioskLogoHeight: integer("kiosk_logo_height").notNull().default(96),
+    /** Layout percentual da tela de emissao; nunca depende do tamanho do preview. */
+    kioskLayout: jsonb("kiosk_layout").notNull().default(sql`'{}'::jsonb`),
     /** Arquivos exclusivos do emissor, fora da biblioteca geral de mÃ­dias. */
     kioskLogoKey: text("kiosk_logo_key"),
     kioskBgImageKey: text("kiosk_bg_image_key"),

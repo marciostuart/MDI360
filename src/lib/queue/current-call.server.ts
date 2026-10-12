@@ -1,6 +1,7 @@
 import { desc, eq } from "drizzle-orm";
 
 import { getDb, schema } from "@/lib/db/index.server";
+import { CALL_LAYOUT_DEFAULT, resolveQueueLayout, type QueueLayout } from "@/lib/queue/queue-layout";
 
 export type QueueCallHistoryItem = { label: string; sectorName: string | null };
 
@@ -11,6 +12,7 @@ export type QueueCallTheme = {
   ticketColor: string;
   textColor: string;
   historyColor: string;
+  layout: QueueLayout;
 };
 
 export type QueueCallPayload = {
@@ -56,6 +58,7 @@ export async function recentQueueCalls(deviceId: string): Promise<QueueCallPaylo
       themeTicketColor: schema.queuePanels.themeTicketColor,
       themeTextColor: schema.queuePanels.themeTextColor,
       themeHistoryColor: schema.queuePanels.themeHistoryColor,
+      themeLayout: schema.queuePanels.themeLayout,
       chimeStorageKey: schema.queuePanels.chimeStorageKey,
       chimeVolume: schema.queuePanels.chimeVolume,
       voiceVolume: schema.queuePanels.voiceVolume,
@@ -95,6 +98,7 @@ export async function recentQueueCalls(deviceId: string): Promise<QueueCallPaylo
     ticketColor: panel.themeTicketColor || "#ffffff",
     textColor: panel.themeTextColor || "#38bdf8",
     historyColor: panel.themeHistoryColor || "#ffffff",
+    layout: resolveQueueLayout(panel.themeLayout, CALL_LAYOUT_DEFAULT),
   };
 
   const sound = {
