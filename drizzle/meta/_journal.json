@@ -323,6 +323,13 @@
       "when": 1791482402000,
       "tag": "0045_playback_identity_ids",
       "breakpoints": true
+    },
+    {
+      "idx": 46,
+      "version": "7",
+      "when": 1791844080000,
+      "tag": "0046_queue_layout_editor",
+      "breakpoints": true
     }
   ]
 }
