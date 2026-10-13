@@ -12,7 +12,7 @@ export type IssuedTicket = {
   sectorId: string | null;
   sectorName: string | null;
   number: number;
-  waitingAhead: number;
+  waitingAhead?: number;
 };
 
 type PanelForIssue = {
@@ -32,7 +32,13 @@ type PanelForIssue = {
  */
 export async function issueTicket(
   panel: PanelForIssue,
-  input: { sectorId?: string | null; kind: TicketKind; printEligible?: boolean },
+  input: {
+    sectorId?: string | null;
+    kind: TicketKind;
+    printEligible?: boolean;
+    sectorRecord?: typeof schema.queueSectors.$inferSelect;
+    includeWaitingAhead?: boolean;
+  },
 ): Promise<IssuedTicket> {
   const db = getDb();
   const kind = input.kind;
@@ -44,7 +50,7 @@ export async function issueTicket(
   let prefix: string | null;
 
   if (input.sectorId) {
-    const sector = (
+    const sector = input.sectorRecord ?? (
       await db
         .select()
         .from(schema.queueSectors)
@@ -111,12 +117,14 @@ export async function issueTicket(
     })
     .returning({ id: schema.queueTickets.id });
 
-  const ahead = await db
-    .select({ total: sql<number>`count(*)::int` })
-    .from(schema.queueTickets)
-    .where(
-      and(eq(schema.queueTickets.panelId, panel.id), eq(schema.queueTickets.status, "waiting")),
-    );
+  const ahead = input.includeWaitingAhead === false
+    ? null
+    : await db
+        .select({ total: sql<number>`count(*)::int` })
+        .from(schema.queueTickets)
+        .where(
+          and(eq(schema.queueTickets.panelId, panel.id), eq(schema.queueTickets.status, "waiting")),
+        );
 
   // Atualiza os contadores dos operadores sem polling frequente no banco.
   const { notifyQueuePanel } = await import("@/lib/player/realtime.server");
@@ -129,7 +137,7 @@ export async function issueTicket(
     sectorId,
     sectorName,
     number,
-    waitingAhead: Math.max(0, Number(ahead[0]?.total ?? 1) - 1),
+    waitingAhead: ahead ? Math.max(0, Number(ahead[0]?.total ?? 1) - 1) : undefined,
   };
 }
 

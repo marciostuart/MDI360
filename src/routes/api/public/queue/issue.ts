@@ -72,7 +72,7 @@ export const Route = createFileRoute("/api/public/queue/issue")({
           return Response.json({ error: "Terminal de emissão inválido." }, { status: 404 });
 
         const available = await db
-          .select({ id: schema.queueSectors.id })
+          .select()
           .from(schema.queueSectors)
           .where(
             and(
@@ -88,7 +88,8 @@ export const Route = createFileRoute("/api/public/queue/issue")({
               : (body.data.sectorId ?? null);
         if (available.length > 1 && !sectorId)
           return Response.json({ error: "Escolha o atendimento." }, { status: 409 });
-        if (sectorId && !available.some((item) => item.id === sectorId)) {
+        const sectorRecord = sectorId ? available.find((item) => item.id === sectorId) : undefined;
+        if (sectorId && !sectorRecord) {
           return Response.json({ error: "Esta fila não está disponível." }, { status: 409 });
         }
         const { issueTicket } = await import("@/lib/queue/tickets.server");
@@ -96,6 +97,8 @@ export const Route = createFileRoute("/api/public/queue/issue")({
           sectorId,
           kind: body.data.kind,
           printEligible: body.data.printEligible,
+          sectorRecord,
+          includeWaitingAhead: false,
         });
         return Response.json({ ok: true, ticket }, { headers: { "cache-control": "no-store" } });
       },
