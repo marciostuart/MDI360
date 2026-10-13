@@ -239,6 +239,7 @@ function KioskPage() {
   });
 
   const [pendingKind, setPendingKind] = useState<"normal" | "priority" | null>(null);
+  const [isGenerating, setIsGenerating] = useState(false);
   const [issued, setIssued] = useState<{
     id: string;
     label: string;
@@ -287,9 +288,17 @@ function KioskPage() {
         printerConnected?: boolean;
         ticketId?: string;
       };
-      if (message?.type === "mdi360-ticket-issued" && message.ticket?.id && message.ticket.label) {
+      if (message?.type === "mdi360-ticket-generating") {
+        issuedId.current = null;
+        setIssued(null);
+        setIsPrinting(false);
+        setIsGenerating(true);
+      } else if (message?.type === "mdi360-ticket-generation-failed") {
+        setIsGenerating(false);
+      } else if (message?.type === "mdi360-ticket-issued" && message.ticket?.id && message.ticket.label) {
         const printerConnected = message.printerConnected === true;
         issuedId.current = message.ticket.id;
+        setIsGenerating(false);
         setIssued({
           id: message.ticket.id,
           label: message.ticket.label,
@@ -393,7 +402,7 @@ function KioskPage() {
     />
   ) : null;
 
-  if (issued) {
+  if (issued || isGenerating) {
     return (
       <main className="relative grid h-dvh place-items-center overflow-hidden" style={surface}>
         <div
@@ -429,7 +438,7 @@ function KioskPage() {
               style={{ ...blockStyle(layout.image), objectPosition: layout.image.align }}
             />
           ) : null}
-          {!layout.issuedTitle.hidden ? (
+          {!isGenerating && !layout.issuedTitle.hidden ? (
             <div
               className="absolute z-10 flex items-center overflow-hidden"
               style={{ ...blockStyle(layout.issuedTitle), ...contentAlignment(layout.issuedTitle) }}
@@ -444,9 +453,9 @@ function KioskPage() {
               ...contentAlignment(layout.issuedTicket),
             }}
           >
-            {issued.label}
+            {isGenerating ? "Gerando senha..." : issued?.label}
           </div>
-          {!layout.issuedSector.hidden && issued.sectorName ? (
+          {!isGenerating && !layout.issuedSector.hidden && issued?.sectorName ? (
             <div
               className="absolute z-10 flex items-center overflow-hidden"
               style={{
@@ -454,10 +463,10 @@ function KioskPage() {
                 ...contentAlignment(layout.issuedSector),
               }}
             >
-              {issued.sectorName}
+                {issued.sectorName}
             </div>
           ) : null}
-          {issued.printerConnected && !layout.issuedPrinting.hidden ? (
+          {!isGenerating && issued?.printerConnected && !layout.issuedPrinting.hidden ? (
             <div
               className="absolute z-10 flex items-center overflow-hidden"
               style={{
