@@ -514,6 +514,12 @@ function KioskPage() {
         }}
       >
         {backgroundLayer}
+        {queueLayoutOverlayCss(layout.background) ? (
+          <div
+            className="pointer-events-none absolute inset-0 z-[1]"
+            style={{ background: queueLayoutOverlayCss(layout.background) }}
+          />
+        ) : null}
         {stableImageUrl && !layout.image.hidden ? (
           <img
             src={stableImageUrl}
