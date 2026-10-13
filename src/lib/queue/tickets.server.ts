@@ -37,7 +37,7 @@ export async function issueTicket(
     kind: TicketKind;
     printEligible?: boolean;
     sectorRecord?: typeof schema.queueSectors.$inferSelect;
-    includeWaitingAhead?: boolean;
+  includeWaitingAhead?: boolean;
   },
 ): Promise<IssuedTicket> {
   const db = getDb();
@@ -117,14 +117,14 @@ export async function issueTicket(
     })
     .returning({ id: schema.queueTickets.id });
 
-  const ahead = input.includeWaitingAhead === false
-    ? null
-    : await db
+  const ahead = input.includeWaitingAhead
+    ? await db
         .select({ total: sql<number>`count(*)::int` })
         .from(schema.queueTickets)
         .where(
           and(eq(schema.queueTickets.panelId, panel.id), eq(schema.queueTickets.status, "waiting")),
-        );
+        )
+    : null;
 
   // Atualiza os contadores dos operadores sem polling frequente no banco.
   const { notifyQueuePanel } = await import("@/lib/player/realtime.server");
