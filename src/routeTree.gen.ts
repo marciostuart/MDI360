@@ -73,6 +73,7 @@ import { Route as ApiPublicPlayerStatusRouteImport } from './routes/api/public/p
 import { Route as ApiPublicPlayerSyncRouteImport } from './routes/api/public/player/sync'
 import { Route as ApiPublicQueueCallRouteImport } from './routes/api/public/queue/call'
 import { Route as ApiPublicQueueIssueRouteImport } from './routes/api/public/queue/issue'
+import { Route as ApiPublicQueueOperatorsRouteImport } from './routes/api/public/queue/operators'
 import { Route as ApiPublicQueuePrintSpoolRouteImport } from './routes/api/public/queue/print-spool'
 import { Route as StudioFaturamentoFaturaInvoiceIdRouteImport } from './routes/studio/faturamento/fatura/$invoiceId'
 import { Route as StudioFaturamentoBoletoAttemptIdRouteImport } from './routes/studio/faturamento_.boleto.$attemptId'
@@ -405,6 +406,11 @@ const ApiPublicQueueIssueRoute = ApiPublicQueueIssueRouteImport.update({
   path: '/api/public/queue/issue',
   getParentRoute: () => rootRouteImport,
 } as any)
+const ApiPublicQueueOperatorsRoute = ApiPublicQueueOperatorsRouteImport.update({
+  id: '/api/public/queue/operators',
+  path: '/api/public/queue/operators',
+  getParentRoute: () => rootRouteImport,
+} as any)
 const ApiPublicQueuePrintSpoolRoute =
   ApiPublicQueuePrintSpoolRouteImport.update({
     id: '/api/public/queue/print-spool',
@@ -489,6 +495,7 @@ export interface FileRoutesByFullPath {
   '/api/public/player/sync': typeof ApiPublicPlayerSyncRoute
   '/api/public/queue/call': typeof ApiPublicQueueCallRoute
   '/api/public/queue/issue': typeof ApiPublicQueueIssueRoute
+  '/api/public/queue/operators': typeof ApiPublicQueueOperatorsRoute
   '/api/public/queue/print-spool': typeof ApiPublicQueuePrintSpoolRoute
   '/studio/faturamento/fatura/$invoiceId': typeof StudioFaturamentoFaturaInvoiceIdRoute
   '/studio/faturamento/boleto/$attemptId': typeof StudioFaturamentoBoletoAttemptIdRoute
@@ -556,6 +563,7 @@ export interface FileRoutesByTo {
   '/api/public/player/sync': typeof ApiPublicPlayerSyncRoute
   '/api/public/queue/call': typeof ApiPublicQueueCallRoute
   '/api/public/queue/issue': typeof ApiPublicQueueIssueRoute
+  '/api/public/queue/operators': typeof ApiPublicQueueOperatorsRoute
   '/api/public/queue/print-spool': typeof ApiPublicQueuePrintSpoolRoute
   '/studio/faturamento/fatura/$invoiceId': typeof StudioFaturamentoFaturaInvoiceIdRoute
   '/studio/faturamento/boleto/$attemptId': typeof StudioFaturamentoBoletoAttemptIdRoute
@@ -626,6 +634,7 @@ export interface FileRoutesById {
   '/api/public/player/sync': typeof ApiPublicPlayerSyncRoute
   '/api/public/queue/call': typeof ApiPublicQueueCallRoute
   '/api/public/queue/issue': typeof ApiPublicQueueIssueRoute
+  '/api/public/queue/operators': typeof ApiPublicQueueOperatorsRoute
   '/api/public/queue/print-spool': typeof ApiPublicQueuePrintSpoolRoute
   '/studio/faturamento/fatura/$invoiceId': typeof StudioFaturamentoFaturaInvoiceIdRoute
   '/studio/faturamento_/boleto/$attemptId': typeof StudioFaturamentoBoletoAttemptIdRoute
@@ -697,6 +706,7 @@ export interface FileRouteTypes {
     | '/api/public/player/sync'
     | '/api/public/queue/call'
     | '/api/public/queue/issue'
+    | '/api/public/queue/operators'
     | '/api/public/queue/print-spool'
     | '/studio/faturamento/fatura/$invoiceId'
     | '/studio/faturamento/boleto/$attemptId'
@@ -764,6 +774,7 @@ export interface FileRouteTypes {
     | '/api/public/player/sync'
     | '/api/public/queue/call'
     | '/api/public/queue/issue'
+    | '/api/public/queue/operators'
     | '/api/public/queue/print-spool'
     | '/studio/faturamento/fatura/$invoiceId'
     | '/studio/faturamento/boleto/$attemptId'
@@ -833,6 +844,7 @@ export interface FileRouteTypes {
     | '/api/public/player/sync'
     | '/api/public/queue/call'
     | '/api/public/queue/issue'
+    | '/api/public/queue/operators'
     | '/api/public/queue/print-spool'
     | '/studio/faturamento/fatura/$invoiceId'
     | '/studio/faturamento_/boleto/$attemptId'
@@ -875,6 +887,7 @@ export interface RootRouteChildren {
   ApiPublicPlayerSyncRoute: typeof ApiPublicPlayerSyncRoute
   ApiPublicQueueCallRoute: typeof ApiPublicQueueCallRoute
   ApiPublicQueueIssueRoute: typeof ApiPublicQueueIssueRoute
+  ApiPublicQueueOperatorsRoute: typeof ApiPublicQueueOperatorsRoute
   ApiPublicQueuePrintSpoolRoute: typeof ApiPublicQueuePrintSpoolRoute
 }
 
@@ -1328,6 +1341,13 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof ApiPublicQueueIssueRouteImport
       parentRoute: typeof rootRouteImport
     }
+    '/api/public/queue/operators': {
+      id: '/api/public/queue/operators'
+      path: '/api/public/queue/operators'
+      fullPath: '/api/public/queue/operators'
+      preLoaderRoute: typeof ApiPublicQueueOperatorsRouteImport
+      parentRoute: typeof rootRouteImport
+    }
     '/api/public/queue/print-spool': {
       id: '/api/public/queue/print-spool'
       path: '/api/public/queue/print-spool'
@@ -1478,6 +1498,7 @@ const rootRouteChildren: RootRouteChildren = {
   ApiPublicPlayerSyncRoute: ApiPublicPlayerSyncRoute,
   ApiPublicQueueCallRoute: ApiPublicQueueCallRoute,
   ApiPublicQueueIssueRoute: ApiPublicQueueIssueRoute,
+  ApiPublicQueueOperatorsRoute: ApiPublicQueueOperatorsRoute,
   ApiPublicQueuePrintSpoolRoute: ApiPublicQueuePrintSpoolRoute,
 }
 export const routeTree = rootRouteImport

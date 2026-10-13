@@ -221,9 +221,14 @@ export function QueueCallOverlay({
 
   useEffect(() => {
     let cancelled = false;
-    void (async () => {
-      if (!cancelled) await announce(call);
-    })();
+    // Let the browser paint the ticket before starting audio decode / speech.
+    // On Android TV, starting both in the same frame as the full-screen overlay
+    // can starve the WebView compositor and make the ticket pulse appear frozen.
+    const announceFrame = window.requestAnimationFrame(() => {
+      window.setTimeout(() => {
+        if (!cancelled) void announce(call);
+      }, 120);
+    });
 
     const timer = window.setTimeout(
       () => doneRef.current(),
@@ -232,6 +237,7 @@ export function QueueCallOverlay({
 
     return () => {
       cancelled = true;
+      window.cancelAnimationFrame(announceFrame);
       window.clearTimeout(timer);
       try {
         window.speechSynthesis?.cancel();
@@ -323,8 +329,11 @@ export function QueueCallOverlay({
           {absolute("heading", "SENHA CHAMADA", accent)}
           {absolute("ticket", call.label, ticketColor, {
             opacity: layout.ticket.opacity / 100,
-            animation: "mdi-queue-ticket-pulse 1.4s ease-in-out infinite",
+            animation: "mdi-queue-ticket-pulse 1.4s linear infinite",
             willChange: "opacity",
+            transform: "translateZ(0)",
+            backfaceVisibility: "hidden",
+            contain: "paint",
           })}
           {absolute("sector", call.sectorName ?? "", accent)}
           {history.length ? absolute("historyTitle", "ÚLTIMAS CHAMADAS", historyColor) : null}
