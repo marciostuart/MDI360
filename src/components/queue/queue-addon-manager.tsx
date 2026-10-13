@@ -773,7 +773,7 @@ export function QueueAddonManager() {
                     />
                   </div>
                   <div className="flex gap-2 sm:col-span-2">
-                    <div className="w-full space-y-3 rounded-lg border border-border p-4">
+                    <div className="hidden">
                       <p className="text-sm font-medium">Som da chamada</p>
                       <div className="grid gap-4 sm:grid-cols-2">
                         <div className="space-y-1.5">
@@ -988,6 +988,8 @@ export function QueueAddonManager() {
                           </p>
                         </div>
                       </div>
+                    </div>
+                    <div className="w-full">
                       <QueueLayoutEditor
                         title="Editor da chamada na TV"
                         description="Preview fiel em 16:9. Selecione, arraste, redimensione e estilize cada item sem alterar os editores de widgets."
@@ -1012,7 +1014,7 @@ export function QueueAddonManager() {
                   </div>
 
                   <div className="flex gap-2 sm:col-span-2">
-                    <div className="w-full space-y-3 rounded-lg border border-border p-4">
+                    <div className="hidden">
                       <p className="text-sm font-medium">Aparência da tela de emissão (totem)</p>
                       <div className="grid gap-3 sm:grid-cols-2">
                         <div className="space-y-1.5 sm:col-span-2">
@@ -1293,6 +1295,8 @@ export function QueueAddonManager() {
                           </div>
                         </div>
                       </div>
+                    </div>
+                    <div className="w-full">
                       <QueueLayoutEditor
                         title="Editor da tela de emissão"
                         description="Canvas 16:9 proporcional ao emissor. Os controles podem ser movidos e redimensionados individualmente."
