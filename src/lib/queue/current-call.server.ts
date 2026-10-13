@@ -10,6 +10,8 @@ export type QueueCallTheme = {
   bgColor: string;
   bgImageUrl: string | null;
   imageUrl: string | null;
+  /** Stable storage key used by native players to cache the free image. */
+  imageKey: string | null;
   overlayColor: string;
   overlayOpacity: number;
   overlayGradient: boolean;
@@ -48,7 +50,9 @@ export type QueueCallPayload = {
  * time, respecting the configured display time of each one, so a burst of
  * sector calls becomes a queue instead of overlapping announcements.
  */
-export async function recentQueueCalls(deviceId: string): Promise<QueueCallPayload[]> {
+export type QueueCallState = { theme: QueueCallTheme | null; calls: QueueCallPayload[] };
+
+export async function queueCallStateForDevice(deviceId: string): Promise<QueueCallState> {
   const db = getDb();
 
   const panels = await db
@@ -77,7 +81,7 @@ export async function recentQueueCalls(deviceId: string): Promise<QueueCallPaylo
     .limit(1);
 
   const panel = panels[0];
-  if (!panel || !panel.isEnabled) return [];
+  if (!panel || !panel.isEnabled) return { theme: null, calls: [] };
 
   // O arquivo exclusivo tem prioridade. A mídia antiga fica apenas como
   // compatibilidade para clientes que ainda não substituíram a configuração.
@@ -106,6 +110,7 @@ export async function recentQueueCalls(deviceId: string): Promise<QueueCallPaylo
     bgColor: panel.themeBgColor || "#000000",
     bgImageUrl,
     imageUrl,
+    imageKey: panel.themeImageKey ?? null,
     overlayColor: panel.themeOverlayColor || "#000000",
     overlayOpacity: Math.max(0, Math.min(100, panel.themeOverlayOpacity ?? 0)),
     overlayGradient: panel.themeOverlayGradient ?? false,
@@ -165,7 +170,9 @@ export async function recentQueueCalls(deviceId: string): Promise<QueueCallPaylo
   const sectorOf = (call: (typeof fresh)[number]): string | null =>
     call.sectorName ?? (call.sectorId ? (sectorNames.get(call.sectorId) ?? null) : null);
 
-  return fresh
+  return {
+    theme,
+    calls: fresh
     .map((call, index) => ({
       id: `${call.id}:${call.repeatCount}`,
       label: call.label,
@@ -182,5 +189,6 @@ export async function recentQueueCalls(deviceId: string): Promise<QueueCallPaylo
         .slice(0, 3)
         .map((prev) => ({ label: prev.label, sectorName: sectorOf(prev) })),
     }))
-    .reverse();
+      .reverse(),
+  };
 }

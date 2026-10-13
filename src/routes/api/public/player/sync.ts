@@ -87,10 +87,13 @@ export const Route = createFileRoute("/api/public/player/sync")({
 
         // Queue add-on: pending ticket calls for this screen, oldest first. The
         // player plays them one at a time, respecting each display time.
-        const { recentQueueCalls } = await import("@/lib/queue/current-call.server");
-        let queueCalls: Awaited<ReturnType<typeof recentQueueCalls>> = [];
+        const { queueCallStateForDevice } = await import("@/lib/queue/current-call.server");
+        let queueCallTheme: Awaited<ReturnType<typeof queueCallStateForDevice>>["theme"] = null;
+        let queueCalls: Awaited<ReturnType<typeof queueCallStateForDevice>>["calls"] = [];
         try {
-          queueCalls = await recentQueueCalls(device.id);
+          const queueState = await queueCallStateForDevice(device.id);
+          queueCallTheme = queueState.theme;
+          queueCalls = queueState.calls;
         } catch {
           queueCalls = [];
         }
@@ -213,6 +216,7 @@ export const Route = createFileRoute("/api/public/player/sync")({
             branding,
             queueCall,
             queueCalls,
+            queueCallTheme,
             commands: commands.map((c) => c.kind),
             screenshotRequestIds: commands.filter((c) => c.kind === "screenshot").map((c) => c.id),
             syncIntervalMs: 60_000,
