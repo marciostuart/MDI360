@@ -4,7 +4,7 @@ import { z } from "zod";
 const bodySchema = z.object({
   action: z.enum(["next", "repeat"]).default("next"),
   sectorId: z.string().uuid().nullable().optional(),
-  operatorId: z.string().uuid(),
+  operatorId: z.string().uuid().nullable().optional(),
 });
 
 /** Calls queue tickets from an authenticated Android hybrid terminal. */
@@ -47,18 +47,18 @@ export const Route = createFileRoute("/api/public/queue/call")({
         )[0];
         if (!link) return Response.json({ error: "Fila não configurada." }, { status: 404 });
 
-        const operator = await db.query.queueOperators.findFirst({
+        const operator = parsed.data.operatorId ? await db.query.queueOperators.findFirst({
           where: and(
             eq(schema.queueOperators.id, parsed.data.operatorId),
             eq(schema.queueOperators.panelId, link.panelId),
             eq(schema.queueOperators.isEnabled, true),
           ),
-        });
-        if (!operator) return Response.json({ error: "Operador inválido ou inativo." }, { status: 400 });
-        const allowedSectors = await db
+        }) : null;
+        if (parsed.data.operatorId && !operator) return Response.json({ error: "Invalid operator" }, { status: 400 });
+        const allowedSectors = operator ? await db
           .select({ sectorId: schema.queueOperatorSectors.sectorId })
           .from(schema.queueOperatorSectors)
-          .where(eq(schema.queueOperatorSectors.operatorId, operator.id));
+          .where(eq(schema.queueOperatorSectors.operatorId, operator.id)) : [];
         const allowedSectorIds = allowedSectors.map((row) => row.sectorId);
         if (
           parsed.data.sectorId &&
@@ -67,7 +67,7 @@ export const Route = createFileRoute("/api/public/queue/call")({
         ) {
           return Response.json({ error: "Operador sem acesso a este setor." }, { status: 403 });
         }
-        const operatorSectorFilter = allowedSectorIds.length
+        const operatorSectorFilter = operator && allowedSectorIds.length
           ? inArray(schema.queueTickets.sectorId, allowedSectorIds)
           : undefined;
 
@@ -83,7 +83,7 @@ export const Route = createFileRoute("/api/public/queue/call")({
               .where(
                 and(
                   eq(schema.queueCalls.panelId, link.panelId),
-                  eq(schema.queueCalls.operatorId, operator.id),
+                  operator ? eq(schema.queueCalls.operatorId, operator.id) : undefined,
                 ),
               )
               .orderBy(desc(schema.queueCalls.calledAt))
@@ -92,12 +92,12 @@ export const Route = createFileRoute("/api/public/queue/call")({
           if (!last) {
             return Response.json({ ok: false, empty: true, message: "Nenhuma senha foi chamada." });
           }
-          const deskLabel = operator.deskLabel?.trim() || operator.name;
+          const deskLabel = operator?.deskLabel?.trim() || operator?.name || device.name;
           const { buildSpokenText } = await import("@/lib/queue/queue-auth.server");
           await db
             .update(schema.queueCalls)
             .set({
-              operatorId: operator.id,
+              operatorId: operator?.id ?? null,
               deskLabel,
               sectorName: deskLabel,
               spokenText: buildSpokenText(deskLabel, last.label, last.kind),
@@ -156,7 +156,7 @@ export const Route = createFileRoute("/api/public/queue/call")({
           ticket = (
             await db
               .update(schema.queueTickets)
-              .set({ status: "called", calledAt: new Date(), calledByOperatorId: operator.id })
+              .set({ status: "called", calledAt: new Date(), calledByOperatorId: operator?.id ?? null })
               .where(
                 and(
                   eq(schema.queueTickets.id, candidate.id),
@@ -170,7 +170,7 @@ export const Route = createFileRoute("/api/public/queue/call")({
           return Response.json({ ok: false, empty: true, message: "Nenhuma senha aguardando." });
         }
 
-        const deskLabel = operator.deskLabel?.trim() || operator.name;
+        const deskLabel = operator?.deskLabel?.trim() || operator?.name || device.name;
         const { buildSpokenText } = await import("@/lib/queue/queue-auth.server");
         await db
           .update(schema.queuePanels)
@@ -182,7 +182,7 @@ export const Route = createFileRoute("/api/public/queue/call")({
             panelId: panel.id,
             sectorId: ticket.sectorId,
             sectorName: ticket.sectorName,
-            operatorId: operator.id,
+            operatorId: operator?.id ?? null,
             deskLabel,
             number: ticket.number,
             label: ticket.label,
