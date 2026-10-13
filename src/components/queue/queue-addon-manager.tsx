@@ -36,7 +36,11 @@ import { QueuePanelConfig } from "@/components/queue/queue-panel-config";
 import { DEFAULT_CANVAS_PRESET } from "@/lib/media/presets";
 import { prepareUpload } from "@/lib/media/optimize-client";
 import { QueueLayoutEditor } from "@/components/queue/queue-layout-editor";
-import { CALL_LAYOUT_DEFAULT, KIOSK_LAYOUT_DEFAULT, resolveQueueLayout } from "@/lib/queue/queue-layout";
+import {
+  CALL_LAYOUT_DEFAULT,
+  KIOSK_LAYOUT_DEFAULT,
+  resolveQueueLayout,
+} from "@/lib/queue/queue-layout";
 
 function repairMojibake(value: string) {
   let result = value;
@@ -125,6 +129,13 @@ export function QueueAddonManager() {
     themeOverlayColor: "#000000",
     themeOverlayOpacity: 0,
     themeOverlayGradient: false,
+    themeOverlayStartColor: "#000000",
+    themeOverlayStartFrom: 0,
+    themeOverlayStartTo: 0,
+    themeOverlayEndColor: "#000000",
+    themeOverlayEndFrom: 100,
+    themeOverlayEndTo: 100,
+    themeOverlayAngle: 135,
     kioskLayout: KIOSK_LAYOUT_DEFAULT,
     printerFooterText: "",
   });
@@ -172,7 +183,8 @@ export function QueueAddonManager() {
 
   const [uploadingKioskMedia, setUploadingKioskMedia] = useState<string | null>(null);
 
-  type ExclusiveMediaSlot = "logo" | "background" | "kiosk-image" | "call-background" | "call-image";
+  type ExclusiveMediaSlot =
+    "logo" | "background" | "kiosk-image" | "call-background" | "call-image";
 
   const uploadKioskMedia = async (deviceId: string, slot: ExclusiveMediaSlot, file: File) => {
     setUploadingKioskMedia(`${deviceId}:${slot}`);
@@ -196,7 +208,7 @@ export function QueueAddonManager() {
             ? "Fundo da chamada atualizado."
             : slot === "call-image" || slot === "kiosk-image"
               ? "Imagem do bloco atualizada."
-            : "Fundo do emissor atualizado.",
+              : "Fundo do emissor atualizado.",
       );
       await invalidate();
     } catch (error) {
@@ -248,6 +260,13 @@ export function QueueAddonManager() {
       themeOverlayColor: string;
       themeOverlayOpacity: number;
       themeOverlayGradient: boolean;
+      themeOverlayStartColor: string;
+      themeOverlayStartFrom: number;
+      themeOverlayStartTo: number;
+      themeOverlayEndColor: string;
+      themeOverlayEndFrom: number;
+      themeOverlayEndTo: number;
+      themeOverlayAngle: number;
       kioskBgColor: string;
       kioskBgMediaId: string | null;
       kioskCardColor: string;
@@ -322,6 +341,13 @@ export function QueueAddonManager() {
       themeOverlayColor: panel.themeOverlayColor || "#000000",
       themeOverlayOpacity: panel.themeOverlayOpacity ?? 0,
       themeOverlayGradient: panel.themeOverlayGradient ?? false,
+      themeOverlayStartColor: panel.themeOverlayStartColor ?? panel.themeOverlayColor ?? "#000000",
+      themeOverlayStartFrom: panel.themeOverlayStartFrom ?? 0,
+      themeOverlayStartTo: panel.themeOverlayStartTo ?? 0,
+      themeOverlayEndColor: panel.themeOverlayEndColor ?? panel.themeOverlayColor ?? "#000000",
+      themeOverlayEndFrom: panel.themeOverlayEndFrom ?? 100,
+      themeOverlayEndTo: panel.themeOverlayEndTo ?? 100,
+      themeOverlayAngle: panel.themeOverlayAngle ?? 135,
       kioskBgColor: panel.kioskBgColor || KIOSK_THEME_DEFAULTS.kioskBgColor,
       kioskBgMediaId: panel.kioskBgMediaId ?? null,
       kioskCardColor: panel.kioskCardColor || KIOSK_THEME_DEFAULTS.kioskCardColor,
@@ -551,6 +577,13 @@ export function QueueAddonManager() {
                       themeOverlayColor: form.themeOverlayColor,
                       themeOverlayOpacity: form.themeOverlayOpacity,
                       themeOverlayGradient: form.themeOverlayGradient,
+                      themeOverlayStartColor: form.themeOverlayStartColor,
+                      themeOverlayStartFrom: form.themeOverlayStartFrom,
+                      themeOverlayStartTo: form.themeOverlayStartTo,
+                      themeOverlayEndColor: form.themeOverlayEndColor,
+                      themeOverlayEndFrom: form.themeOverlayEndFrom,
+                      themeOverlayEndTo: form.themeOverlayEndTo,
+                      themeOverlayAngle: form.themeOverlayAngle,
                       kioskBgColor: form.kioskBgColor,
                       kioskBgMediaId: form.kioskBgMediaId,
                       kioskCardColor: form.kioskCardColor,
@@ -873,14 +906,240 @@ export function QueueAddonManager() {
                           { id: "heading", label: "Senha chamada", sample: "SENHA CHAMADA" },
                           { id: "ticket", label: "Número", sample: "A012" },
                           { id: "sector", label: "Guichê", sample: "GUICHÊ 2" },
-                          { id: "historyTitle", label: "Título do histórico", sample: "ÚLTIMAS CHAMADAS" },
+                          {
+                            id: "historyTitle",
+                            label: "Título do histórico",
+                            sample: "ÚLTIMAS CHAMADAS",
+                          },
                           { id: "history", label: "Últimas senhas", sample: "A011  A010  A009" },
                           { id: "image", label: "Bloco de imagem", sample: "", kind: "image" },
                         ]}
                         imageUrls={{ image: panel.themeImagePreviewUrl }}
-                        backgroundControls={<div className="space-y-3"><ColorField id={`editor-bg-${panel.deviceId}`} label="Cor de fundo" value={form.themeBgColor} onChange={(themeBgColor) => setForm((prev) => ({ ...prev, themeBgColor }))} /><Label className="text-xs">Imagem de fundo</Label><Input type="file" accept="image/jpeg,image/png,image/webp,image/avif" disabled={uploadingKioskMedia === `${panel.deviceId}:call-background`} onChange={(event) => { const file = event.target.files?.[0]; if (file) void uploadKioskMedia(panel.deviceId, "call-background", file); event.currentTarget.value = ""; }} />{panel.hasThemeBgImage ? <Button type="button" size="sm" variant="outline" onClick={() => void removeKioskMedia(panel.deviceId, "call-background")}>Remover imagem</Button> : null}<ColorField id={`editor-overlay-${panel.deviceId}`} label="Cor da sobreposição" value={form.themeOverlayColor} onChange={(themeOverlayColor) => setForm((prev) => ({ ...prev, themeOverlayColor }))} /><Label className="text-xs">Transparência ({form.themeOverlayOpacity}%)</Label><Input type="range" min={0} max={100} step={1} value={form.themeOverlayOpacity} onChange={(event) => setForm((prev) => ({ ...prev, themeOverlayOpacity: Number(event.target.value) }))} /><label className="flex items-center gap-2 text-sm"><Switch checked={form.themeOverlayGradient} onCheckedChange={(themeOverlayGradient) => setForm((prev) => ({ ...prev, themeOverlayGradient }))} />Usar gradiente</label></div>}
-                        imageControls={() => <div className="space-y-2"><Label className="text-xs">Imagem do bloco</Label><Input type="file" accept="image/jpeg,image/png,image/webp,image/avif" disabled={uploadingKioskMedia === `${panel.deviceId}:call-image`} onChange={(event) => { const file = event.target.files?.[0]; if (file) void uploadKioskMedia(panel.deviceId, "call-image", file); event.currentTarget.value = ""; }} />{panel.hasThemeImage ? <Button type="button" variant="outline" size="sm" onClick={() => void removeKioskMedia(panel.deviceId, "call-image")}>Remover imagem</Button> : null}<p className="text-xs text-muted-foreground">Envie a imagem e posicione/redimensione o bloco no preview.</p></div>}
-                        background={<><div className="absolute inset-0 bg-cover bg-center" style={{ backgroundColor: form.themeBgColor, ...(panel.themeBgImagePreviewUrl ? { backgroundImage: `url(${JSON.stringify(panel.themeBgImagePreviewUrl)})` } : {}) }} /><div className="absolute inset-0" style={{ background: form.themeOverlayGradient ? `linear-gradient(135deg, ${form.themeOverlayColor} 0%, transparent 100%)` : form.themeOverlayColor, opacity: form.themeOverlayOpacity / 100 }} /></>}
+                        backgroundControls={
+                          <div className="space-y-3">
+                            <ColorField
+                              id={`editor-bg-${panel.deviceId}`}
+                              label="Cor de fundo"
+                              value={form.themeBgColor}
+                              onChange={(themeBgColor) =>
+                                setForm((prev) => ({ ...prev, themeBgColor }))
+                              }
+                            />
+                            <Label className="text-xs">Imagem de fundo</Label>
+                            <Input
+                              type="file"
+                              accept="image/jpeg,image/png,image/webp,image/avif"
+                              disabled={uploadingKioskMedia === `${panel.deviceId}:call-background`}
+                              onChange={(event) => {
+                                const file = event.target.files?.[0];
+                                if (file)
+                                  void uploadKioskMedia(panel.deviceId, "call-background", file);
+                                event.currentTarget.value = "";
+                              }}
+                            />
+                            {panel.hasThemeBgImage ? (
+                              <Button
+                                type="button"
+                                size="sm"
+                                variant="outline"
+                                onClick={() =>
+                                  void removeKioskMedia(panel.deviceId, "call-background")
+                                }
+                              >
+                                Remover imagem
+                              </Button>
+                            ) : null}
+                            <ColorField
+                              id={`editor-overlay-${panel.deviceId}`}
+                              label="Cor da sobreposição"
+                              value={form.themeOverlayColor}
+                              onChange={(themeOverlayColor) =>
+                                setForm((prev) => ({ ...prev, themeOverlayColor }))
+                              }
+                            />
+                            <Label className="text-xs">
+                              Transparência ({form.themeOverlayOpacity}%)
+                            </Label>
+                            <Input
+                              type="range"
+                              min={0}
+                              max={100}
+                              step={1}
+                              value={form.themeOverlayOpacity}
+                              onChange={(event) =>
+                                setForm((prev) => ({
+                                  ...prev,
+                                  themeOverlayOpacity: Number(event.target.value),
+                                }))
+                              }
+                            />
+                            <label className="flex items-center gap-2 text-sm">
+                              <Switch
+                                checked={form.themeOverlayGradient}
+                                onCheckedChange={(themeOverlayGradient) =>
+                                  setForm((prev) => ({ ...prev, themeOverlayGradient }))
+                                }
+                              />
+                              Usar gradiente
+                            </label>
+                            {form.themeOverlayGradient ? (
+                              <div className="space-y-3 border-t border-border pt-3">
+                                <ColorField
+                                  id={`editor-gradient-start-${panel.deviceId}`}
+                                  label="Cor inicial"
+                                  value={form.themeOverlayStartColor}
+                                  onChange={(themeOverlayStartColor) =>
+                                    setForm((prev) => ({ ...prev, themeOverlayStartColor }))
+                                  }
+                                />
+                                <div className="grid grid-cols-2 gap-2">
+                                  <div className="space-y-1">
+                                    <Label className="text-xs">Início (%)</Label>
+                                    <Input
+                                      type="number"
+                                      min={0}
+                                      max={100}
+                                      step={1}
+                                      value={form.themeOverlayStartFrom}
+                                      onChange={(event) =>
+                                        setForm((prev) => ({
+                                          ...prev,
+                                          themeOverlayStartFrom: Number(event.target.value),
+                                        }))
+                                      }
+                                    />
+                                  </div>
+                                  <div className="space-y-1">
+                                    <Label className="text-xs">Final (%)</Label>
+                                    <Input
+                                      type="number"
+                                      min={0}
+                                      max={100}
+                                      step={1}
+                                      value={form.themeOverlayStartTo}
+                                      onChange={(event) =>
+                                        setForm((prev) => ({
+                                          ...prev,
+                                          themeOverlayStartTo: Number(event.target.value),
+                                        }))
+                                      }
+                                    />
+                                  </div>
+                                </div>
+                                <ColorField
+                                  id={`editor-gradient-end-${panel.deviceId}`}
+                                  label="Cor final"
+                                  value={form.themeOverlayEndColor}
+                                  onChange={(themeOverlayEndColor) =>
+                                    setForm((prev) => ({ ...prev, themeOverlayEndColor }))
+                                  }
+                                />
+                                <div className="grid grid-cols-2 gap-2">
+                                  <div className="space-y-1">
+                                    <Label className="text-xs">Início (%)</Label>
+                                    <Input
+                                      type="number"
+                                      min={0}
+                                      max={100}
+                                      step={1}
+                                      value={form.themeOverlayEndFrom}
+                                      onChange={(event) =>
+                                        setForm((prev) => ({
+                                          ...prev,
+                                          themeOverlayEndFrom: Number(event.target.value),
+                                        }))
+                                      }
+                                    />
+                                  </div>
+                                  <div className="space-y-1">
+                                    <Label className="text-xs">Final (%)</Label>
+                                    <Input
+                                      type="number"
+                                      min={0}
+                                      max={100}
+                                      step={1}
+                                      value={form.themeOverlayEndTo}
+                                      onChange={(event) =>
+                                        setForm((prev) => ({
+                                          ...prev,
+                                          themeOverlayEndTo: Number(event.target.value),
+                                        }))
+                                      }
+                                    />
+                                  </div>
+                                </div>
+                                <div className="space-y-1">
+                                  <Label className="text-xs">Direção (°)</Label>
+                                  <Input
+                                    type="number"
+                                    min={0}
+                                    max={360}
+                                    step={1}
+                                    value={form.themeOverlayAngle}
+                                    onChange={(event) =>
+                                      setForm((prev) => ({
+                                        ...prev,
+                                        themeOverlayAngle: Number(event.target.value),
+                                      }))
+                                    }
+                                  />
+                                </div>
+                              </div>
+                            ) : null}
+                          </div>
+                        }
+                        imageControls={() => (
+                          <div className="space-y-2">
+                            <Label className="text-xs">Imagem do bloco</Label>
+                            <Input
+                              type="file"
+                              accept="image/jpeg,image/png,image/webp,image/avif"
+                              disabled={uploadingKioskMedia === `${panel.deviceId}:call-image`}
+                              onChange={(event) => {
+                                const file = event.target.files?.[0];
+                                if (file) void uploadKioskMedia(panel.deviceId, "call-image", file);
+                                event.currentTarget.value = "";
+                              }}
+                            />
+                            {panel.hasThemeImage ? (
+                              <Button
+                                type="button"
+                                variant="outline"
+                                size="sm"
+                                onClick={() => void removeKioskMedia(panel.deviceId, "call-image")}
+                              >
+                                Remover imagem
+                              </Button>
+                            ) : null}
+                            <p className="text-xs text-muted-foreground">
+                              Envie a imagem e posicione/redimensione o bloco no preview.
+                            </p>
+                          </div>
+                        )}
+                        background={
+                          <>
+                            <div
+                              className="absolute inset-0 bg-cover bg-center"
+                              style={{
+                                backgroundColor: form.themeBgColor,
+                                ...(panel.themeBgImagePreviewUrl
+                                  ? {
+                                      backgroundImage: `url(${JSON.stringify(panel.themeBgImagePreviewUrl)})`,
+                                    }
+                                  : {}),
+                              }}
+                            />
+                            <div
+                              className="absolute inset-0"
+                              style={{
+                                background: form.themeOverlayGradient
+                                  ? `linear-gradient(${Math.max(0, Math.min(360, form.themeOverlayAngle))}deg, ${form.themeOverlayStartColor} ${Math.max(0, Math.min(100, form.themeOverlayStartFrom))}%, ${form.themeOverlayStartColor} ${Math.max(0, Math.min(100, form.themeOverlayStartTo))}%, ${form.themeOverlayEndColor} ${Math.max(0, Math.min(100, form.themeOverlayEndFrom))}%, ${form.themeOverlayEndColor} ${Math.max(0, Math.min(100, form.themeOverlayEndTo))}%)`
+                                  : form.themeOverlayColor,
+                                opacity: form.themeOverlayOpacity / 100,
+                              }}
+                            />
+                          </>
+                        }
                       />
                     </div>
                   </div>
@@ -1174,27 +1433,215 @@ export function QueueAddonManager() {
                         description="Canvas 16:9 proporcional ao emissor. Os controles podem ser movidos e redimensionados individualmente."
                         layout={form.kioskLayout}
                         defaults={KIOSK_LAYOUT_DEFAULT}
-                        onChange={(kioskLayout) => setForm((prev) => ({
-                          ...prev,
-                          kioskLayout,
-                          kioskNormalButtonColor: kioskLayout.normalButton?.backgroundColor ?? prev.kioskNormalButtonColor,
-                          kioskNormalButtonTextColor: kioskLayout.normalButton?.color ?? prev.kioskNormalButtonTextColor,
-                          kioskPriorityButtonColor: kioskLayout.priorityButton?.backgroundColor ?? prev.kioskPriorityButtonColor,
-                          kioskPriorityButtonTextColor: kioskLayout.priorityButton?.color ?? prev.kioskPriorityButtonTextColor,
-                        }))}
+                        onChange={(kioskLayout) =>
+                          setForm((prev) => ({
+                            ...prev,
+                            kioskLayout,
+                            kioskNormalButtonColor:
+                              kioskLayout.normalButton?.backgroundColor ??
+                              prev.kioskNormalButtonColor,
+                            kioskNormalButtonTextColor:
+                              kioskLayout.normalButton?.color ?? prev.kioskNormalButtonTextColor,
+                            kioskPriorityButtonColor:
+                              kioskLayout.priorityButton?.backgroundColor ??
+                              prev.kioskPriorityButtonColor,
+                            kioskPriorityButtonTextColor:
+                              kioskLayout.priorityButton?.color ??
+                              prev.kioskPriorityButtonTextColor,
+                          }))
+                        }
                         items={[
                           { id: "background", label: "Fundo", sample: "", kind: "background" },
                           { id: "logo", label: "Logo", sample: "LOGO", kind: "image" },
-                          { id: "title", label: "Título", sample: form.kioskTitle.trim() || "RETIRE SUA SENHA" },
-                          { id: "normalButton", label: "Botão normal", sample: "SENHA NORMAL", kind: "button" },
-                          { id: "priorityButton", label: "Botão preferencial", sample: "PREFERENCIAL", kind: "button" },
+                          {
+                            id: "title",
+                            label: "Título",
+                            sample: form.kioskTitle.trim() || "RETIRE SUA SENHA",
+                          },
+                          {
+                            id: "normalButton",
+                            label: "Botão normal",
+                            sample: "SENHA NORMAL",
+                            kind: "button",
+                          },
+                          {
+                            id: "priorityButton",
+                            label: "Botão preferencial",
+                            sample: "PREFERENCIAL",
+                            kind: "button",
+                          },
                           { id: "image", label: "Bloco de imagem", sample: "", kind: "image" },
                         ]}
-                        imageUrls={{ logo: panel.kioskLogoPreviewUrl, image: panel.kioskImagePreviewUrl }}
-                        backgroundControls={<div className="space-y-3"><ColorField id={`editor-kbg-${panel.deviceId}`} label="Cor de fundo" value={form.kioskBgColor} onChange={(kioskBgColor) => setForm((prev) => ({ ...prev, kioskBgColor }))} /><ColorField id={`editor-kcard-${panel.deviceId}`} label="Cor do painel dos botões" value={form.kioskCardColor} onChange={(kioskCardColor) => setForm((prev) => ({ ...prev, kioskCardColor }))} /><Label className="text-xs">Imagem de fundo</Label><Input type="file" accept="image/jpeg,image/png,image/webp,image/avif" disabled={uploadingKioskMedia === `${panel.deviceId}:background`} onChange={(event) => { const file = event.target.files?.[0]; if (file) void uploadKioskMedia(panel.deviceId, "background", file); event.currentTarget.value = ""; }} />{panel.hasKioskBgImage ? <Button type="button" size="sm" variant="outline" onClick={() => void removeKioskMedia(panel.deviceId, "background")}>Remover imagem</Button> : null}<div className="space-y-1"><Label className="text-xs">Rodapé do comprovante</Label><Textarea value={form.printerFooterText} maxLength={240} rows={3} placeholder="Ex.: Obrigado pela preferência\nAguarde ser chamado" onChange={(event) => setForm((prev) => ({ ...prev, printerFooterText: event.target.value }))} /></div></div>}
-                        itemControls={(item) => item.id === "title" ? <div className="space-y-1"><Label className="text-xs">Título da tela</Label><Input value={form.kioskTitle} maxLength={60} placeholder="Retire sua senha" onChange={(event) => setForm((prev) => ({ ...prev, kioskTitle: event.target.value }))} /></div> : null}
-                        imageControls={(item) => item.id === "logo" ? <div className="space-y-2"><label className="flex items-center gap-2 text-sm"><Switch checked={form.kioskShowLogo} onCheckedChange={(kioskShowLogo) => setForm((prev) => ({ ...prev, kioskShowLogo }))} />Exibir logo</label><Label className="text-xs">Logo exclusiva</Label><Input type="file" accept="image/jpeg,image/png,image/webp,image/avif" disabled={uploadingKioskMedia === `${panel.deviceId}:logo`} onChange={(event) => { const file = event.target.files?.[0]; if (file) void uploadKioskMedia(panel.deviceId, "logo", file); event.currentTarget.value = ""; }} />{panel.hasKioskLogo ? <Button type="button" variant="outline" size="sm" onClick={() => void removeKioskMedia(panel.deviceId, "logo")}>Remover imagem</Button> : null}<Label className="text-xs">Altura da logo · {form.kioskLogoHeight}px</Label><Input type="range" min={40} max={400} step={4} value={form.kioskLogoHeight} onChange={(event) => setForm((prev) => ({ ...prev, kioskLogoHeight: Number(event.target.value) }))} /></div> : <div className="space-y-2"><Label className="text-xs">Imagem do bloco</Label><Input type="file" accept="image/jpeg,image/png,image/webp,image/avif" disabled={uploadingKioskMedia === `${panel.deviceId}:kiosk-image`} onChange={(event) => { const file = event.target.files?.[0]; if (file) void uploadKioskMedia(panel.deviceId, "kiosk-image", file); event.currentTarget.value = ""; }} />{panel.hasKioskImage ? <Button type="button" variant="outline" size="sm" onClick={() => void removeKioskMedia(panel.deviceId, "kiosk-image")}>Remover imagem</Button> : null}<p className="text-xs text-muted-foreground">Envie a imagem e posicione/redimensione o bloco no preview.</p></div>}
-                        background={<div className="absolute inset-0 bg-cover bg-center" style={{ backgroundColor: form.kioskBgColor, ...(panel.kioskBgImagePreviewUrl ? { backgroundImage: `url(${JSON.stringify(panel.kioskBgImagePreviewUrl)})` } : {}) }} />}
+                        imageUrls={{
+                          logo: panel.kioskLogoPreviewUrl,
+                          image: panel.kioskImagePreviewUrl,
+                        }}
+                        backgroundControls={
+                          <div className="space-y-3">
+                            <ColorField
+                              id={`editor-kbg-${panel.deviceId}`}
+                              label="Cor de fundo"
+                              value={form.kioskBgColor}
+                              onChange={(kioskBgColor) =>
+                                setForm((prev) => ({ ...prev, kioskBgColor }))
+                              }
+                            />
+                            <ColorField
+                              id={`editor-kcard-${panel.deviceId}`}
+                              label="Cor do painel dos botões"
+                              value={form.kioskCardColor}
+                              onChange={(kioskCardColor) =>
+                                setForm((prev) => ({ ...prev, kioskCardColor }))
+                              }
+                            />
+                            <Label className="text-xs">Imagem de fundo</Label>
+                            <Input
+                              type="file"
+                              accept="image/jpeg,image/png,image/webp,image/avif"
+                              disabled={uploadingKioskMedia === `${panel.deviceId}:background`}
+                              onChange={(event) => {
+                                const file = event.target.files?.[0];
+                                if (file) void uploadKioskMedia(panel.deviceId, "background", file);
+                                event.currentTarget.value = "";
+                              }}
+                            />
+                            {panel.hasKioskBgImage ? (
+                              <Button
+                                type="button"
+                                size="sm"
+                                variant="outline"
+                                onClick={() => void removeKioskMedia(panel.deviceId, "background")}
+                              >
+                                Remover imagem
+                              </Button>
+                            ) : null}
+                            <div className="space-y-1">
+                              <Label className="text-xs">Rodapé do comprovante</Label>
+                              <Textarea
+                                value={form.printerFooterText}
+                                maxLength={240}
+                                rows={3}
+                                placeholder="Ex.: Obrigado pela preferência\nAguarde ser chamado"
+                                onChange={(event) =>
+                                  setForm((prev) => ({
+                                    ...prev,
+                                    printerFooterText: event.target.value,
+                                  }))
+                                }
+                              />
+                            </div>
+                          </div>
+                        }
+                        itemControls={(item) =>
+                          item.id === "title" ? (
+                            <div className="space-y-1">
+                              <Label className="text-xs">Título da tela</Label>
+                              <Input
+                                value={form.kioskTitle}
+                                maxLength={60}
+                                placeholder="Retire sua senha"
+                                onChange={(event) =>
+                                  setForm((prev) => ({ ...prev, kioskTitle: event.target.value }))
+                                }
+                              />
+                            </div>
+                          ) : null
+                        }
+                        imageControls={(item) =>
+                          item.id === "logo" ? (
+                            <div className="space-y-2">
+                              <label className="flex items-center gap-2 text-sm">
+                                <Switch
+                                  checked={form.kioskShowLogo}
+                                  onCheckedChange={(kioskShowLogo) =>
+                                    setForm((prev) => ({ ...prev, kioskShowLogo }))
+                                  }
+                                />
+                                Exibir logo
+                              </label>
+                              <Label className="text-xs">Logo exclusiva</Label>
+                              <Input
+                                type="file"
+                                accept="image/jpeg,image/png,image/webp,image/avif"
+                                disabled={uploadingKioskMedia === `${panel.deviceId}:logo`}
+                                onChange={(event) => {
+                                  const file = event.target.files?.[0];
+                                  if (file) void uploadKioskMedia(panel.deviceId, "logo", file);
+                                  event.currentTarget.value = "";
+                                }}
+                              />
+                              {panel.hasKioskLogo ? (
+                                <Button
+                                  type="button"
+                                  variant="outline"
+                                  size="sm"
+                                  onClick={() => void removeKioskMedia(panel.deviceId, "logo")}
+                                >
+                                  Remover imagem
+                                </Button>
+                              ) : null}
+                              <Label className="text-xs">
+                                Altura da logo · {form.kioskLogoHeight}px
+                              </Label>
+                              <Input
+                                type="range"
+                                min={40}
+                                max={400}
+                                step={4}
+                                value={form.kioskLogoHeight}
+                                onChange={(event) =>
+                                  setForm((prev) => ({
+                                    ...prev,
+                                    kioskLogoHeight: Number(event.target.value),
+                                  }))
+                                }
+                              />
+                            </div>
+                          ) : (
+                            <div className="space-y-2">
+                              <Label className="text-xs">Imagem do bloco</Label>
+                              <Input
+                                type="file"
+                                accept="image/jpeg,image/png,image/webp,image/avif"
+                                disabled={uploadingKioskMedia === `${panel.deviceId}:kiosk-image`}
+                                onChange={(event) => {
+                                  const file = event.target.files?.[0];
+                                  if (file)
+                                    void uploadKioskMedia(panel.deviceId, "kiosk-image", file);
+                                  event.currentTarget.value = "";
+                                }}
+                              />
+                              {panel.hasKioskImage ? (
+                                <Button
+                                  type="button"
+                                  variant="outline"
+                                  size="sm"
+                                  onClick={() =>
+                                    void removeKioskMedia(panel.deviceId, "kiosk-image")
+                                  }
+                                >
+                                  Remover imagem
+                                </Button>
+                              ) : null}
+                              <p className="text-xs text-muted-foreground">
+                                Envie a imagem e posicione/redimensione o bloco no preview.
+                              </p>
+                            </div>
+                          )
+                        }
+                        background={
+                          <div
+                            className="absolute inset-0 bg-cover bg-center"
+                            style={{
+                              backgroundColor: form.kioskBgColor,
+                              ...(panel.kioskBgImagePreviewUrl
+                                ? {
+                                    backgroundImage: `url(${JSON.stringify(panel.kioskBgImagePreviewUrl)})`,
+                                  }
+                                : {}),
+                            }}
+                          />
+                        }
                       />
                     </div>
                   </div>

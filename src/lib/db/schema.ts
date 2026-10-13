@@ -575,12 +575,21 @@ export const queuePanels = pgTable(
     themeTextColor: text("theme_text_color").notNull().default("#38bdf8"),
     themeHistoryColor: text("theme_history_color").notNull().default("#ffffff"),
     /** Layout percentual do aviso de chamada; compartilhado por Web e Android. */
-    themeLayout: jsonb("theme_layout").notNull().default(sql`'{}'::jsonb`),
+    themeLayout: jsonb("theme_layout")
+      .notNull()
+      .default(sql`'{}'::jsonb`),
     /** Imagem livre posicionada no layout da chamada e opções da sobreposição. */
     themeImageKey: text("theme_image_key"),
     themeOverlayColor: text("theme_overlay_color").notNull().default("#000000"),
     themeOverlayOpacity: integer("theme_overlay_opacity").notNull().default(0),
     themeOverlayGradient: boolean("theme_overlay_gradient").notNull().default(false),
+    themeOverlayStartColor: text("theme_overlay_start_color").notNull().default("#000000"),
+    themeOverlayStartFrom: integer("theme_overlay_start_from").notNull().default(0),
+    themeOverlayStartTo: integer("theme_overlay_start_to").notNull().default(0),
+    themeOverlayEndColor: text("theme_overlay_end_color").notNull().default("#000000"),
+    themeOverlayEndFrom: integer("theme_overlay_end_from").notNull().default(100),
+    themeOverlayEndTo: integer("theme_overlay_end_to").notNull().default(100),
+    themeOverlayAngle: integer("theme_overlay_angle").notNull().default(135),
     /** Aparência da tela de emissão (totem/celular), personalizável no Studio. */
     kioskBgColor: text("kiosk_bg_color").notNull().default("#0b1220"),
     kioskBgMediaId: uuid("kiosk_bg_media_id").references(() => mediaAssets.id, {
@@ -601,7 +610,9 @@ export const queuePanels = pgTable(
     /** Altura da logo na tela de emissão, em pixels. */
     kioskLogoHeight: integer("kiosk_logo_height").notNull().default(96),
     /** Layout percentual da tela de emissao; nunca depende do tamanho do preview. */
-    kioskLayout: jsonb("kiosk_layout").notNull().default(sql`'{}'::jsonb`),
+    kioskLayout: jsonb("kiosk_layout")
+      .notNull()
+      .default(sql`'{}'::jsonb`),
     /** Arquivos exclusivos do emissor, fora da biblioteca geral de mÃ­dias. */
     kioskLogoKey: text("kiosk_logo_key"),
     kioskImageKey: text("kiosk_image_key"),

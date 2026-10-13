@@ -1,7 +1,11 @@
 import { desc, eq } from "drizzle-orm";
 
 import { getDb, schema } from "@/lib/db/index.server";
-import { CALL_LAYOUT_DEFAULT, resolveQueueLayout, type QueueLayout } from "@/lib/queue/queue-layout";
+import {
+  CALL_LAYOUT_DEFAULT,
+  resolveQueueLayout,
+  type QueueLayout,
+} from "@/lib/queue/queue-layout";
 
 export type QueueCallHistoryItem = { label: string; sectorName: string | null };
 
@@ -9,12 +13,21 @@ export type QueueCallHistoryItem = { label: string; sectorName: string | null };
 export type QueueCallTheme = {
   bgColor: string;
   bgImageUrl: string | null;
+  /** Stable storage key used by native players to cache the background image. */
+  bgImageKey: string | null;
   imageUrl: string | null;
   /** Stable storage key used by native players to cache the free image. */
   imageKey: string | null;
   overlayColor: string;
   overlayOpacity: number;
   overlayGradient: boolean;
+  overlayStartColor: string;
+  overlayStartFrom: number;
+  overlayStartTo: number;
+  overlayEndColor: string;
+  overlayEndFrom: number;
+  overlayEndTo: number;
+  overlayAngle: number;
   ticketColor: string;
   textColor: string;
   historyColor: string;
@@ -71,6 +84,13 @@ export async function queueCallStateForDevice(deviceId: string): Promise<QueueCa
       themeOverlayColor: schema.queuePanels.themeOverlayColor,
       themeOverlayOpacity: schema.queuePanels.themeOverlayOpacity,
       themeOverlayGradient: schema.queuePanels.themeOverlayGradient,
+      themeOverlayStartColor: schema.queuePanels.themeOverlayStartColor,
+      themeOverlayStartFrom: schema.queuePanels.themeOverlayStartFrom,
+      themeOverlayStartTo: schema.queuePanels.themeOverlayStartTo,
+      themeOverlayEndColor: schema.queuePanels.themeOverlayEndColor,
+      themeOverlayEndFrom: schema.queuePanels.themeOverlayEndFrom,
+      themeOverlayEndTo: schema.queuePanels.themeOverlayEndTo,
+      themeOverlayAngle: schema.queuePanels.themeOverlayAngle,
       chimeStorageKey: schema.queuePanels.chimeStorageKey,
       chimeVolume: schema.queuePanels.chimeVolume,
       voiceVolume: schema.queuePanels.voiceVolume,
@@ -100,7 +120,8 @@ export async function queueCallStateForDevice(deviceId: string): Promise<QueueCa
         key = asset[0]?.status === "ready" ? asset[0]?.storageKey : null;
       }
       if (key && isStorageConfigured()) bgImageUrl = await createDownloadUrl(key, 3600);
-      if (panel.themeImageKey && isStorageConfigured()) imageUrl = await createDownloadUrl(panel.themeImageKey, 3600);
+      if (panel.themeImageKey && isStorageConfigured())
+        imageUrl = await createDownloadUrl(panel.themeImageKey, 3600);
     } catch {
       bgImageUrl = null;
     }
@@ -109,11 +130,19 @@ export async function queueCallStateForDevice(deviceId: string): Promise<QueueCa
   const theme: QueueCallTheme = {
     bgColor: panel.themeBgColor || "#000000",
     bgImageUrl,
+    bgImageKey: panel.themeBgImageKey ?? null,
     imageUrl,
     imageKey: panel.themeImageKey ?? null,
     overlayColor: panel.themeOverlayColor || "#000000",
     overlayOpacity: Math.max(0, Math.min(100, panel.themeOverlayOpacity ?? 0)),
     overlayGradient: panel.themeOverlayGradient ?? false,
+    overlayStartColor: panel.themeOverlayStartColor || panel.themeOverlayColor || "#000000",
+    overlayStartFrom: Math.max(0, Math.min(100, panel.themeOverlayStartFrom ?? 0)),
+    overlayStartTo: Math.max(0, Math.min(100, panel.themeOverlayStartTo ?? 0)),
+    overlayEndColor: panel.themeOverlayEndColor || panel.themeOverlayColor || "#000000",
+    overlayEndFrom: Math.max(0, Math.min(100, panel.themeOverlayEndFrom ?? 100)),
+    overlayEndTo: Math.max(0, Math.min(100, panel.themeOverlayEndTo ?? 100)),
+    overlayAngle: Math.max(0, Math.min(360, panel.themeOverlayAngle ?? 135)),
     ticketColor: panel.themeTicketColor || "#ffffff",
     textColor: panel.themeTextColor || "#38bdf8",
     historyColor: panel.themeHistoryColor || "#ffffff",
@@ -173,22 +202,22 @@ export async function queueCallStateForDevice(deviceId: string): Promise<QueueCa
   return {
     theme,
     calls: fresh
-    .map((call, index) => ({
-      id: `${call.id}:${call.repeatCount}`,
-      label: call.label,
-      sectorName: sectorOf(call),
-      spokenText: call.spokenText,
-      audioUrl: `/api/public/player/announce?call=${call.id}&r=${call.repeatCount}`,
-      displaySeconds: seconds,
-      calledAt: call.calledAt.toISOString(),
-      theme,
-      sound,
-      history: calls
-        .slice(index + 1)
-        .filter((prev) => prev.label !== call.label)
-        .slice(0, 3)
-        .map((prev) => ({ label: prev.label, sectorName: sectorOf(prev) })),
-    }))
+      .map((call, index) => ({
+        id: `${call.id}:${call.repeatCount}`,
+        label: call.label,
+        sectorName: sectorOf(call),
+        spokenText: call.spokenText,
+        audioUrl: `/api/public/player/announce?call=${call.id}&r=${call.repeatCount}`,
+        displaySeconds: seconds,
+        calledAt: call.calledAt.toISOString(),
+        theme,
+        sound,
+        history: calls
+          .slice(index + 1)
+          .filter((prev) => prev.label !== call.label)
+          .slice(0, 3)
+          .map((prev) => ({ label: prev.label, sectorName: sectorOf(prev) })),
+      }))
       .reverse(),
   };
 }

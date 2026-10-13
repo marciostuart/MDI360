@@ -40,6 +40,7 @@ const server = createServer(async (request, response) => {
           localFrame: () => JSON.stringify(frame('first')),
           clockNow: () => Date.parse('2026-10-01T12:34:56Z'),
           setCallAudio: () => {},
+          setQueueCallActive: () => {},
           visualReady: () => { document.documentElement.dataset.ready = 'yes'; },
           widgetUnavailable: () => { document.documentElement.dataset.skipped = 'yes'; },
           rendererReady: () => {

@@ -7,6 +7,8 @@ O código Kotlin e o projeto Android permanecem exclusivamente em `marciostuart/
 - Início registra `completed:false` e duração zero; término atualiza a mesma linha com duração real. Uma conclusão recebida antes da tentativa de início não é revertida pelo início atrasado.
 - Não há migração PostgreSQL nesta atualização: a chave primária UUID já existente garante idempotência. Atualizar servidor antes do APK.
 - Templates offline recebem dados pelo contexto `LocalWidgetData`; não fazem polling HTTP. Mídias e imagens de notícias são preparadas no armazenamento privado pelo coordenador Android, mantendo personalização, dezenas de loteria e sequência das manchetes.
+- A chamada de senha e o emissor são superfícies WebView: a mesma fonte React fornece o preview do Studio e a tela apresentada pelo terminal. A chamada recebe um tema compartilhado com layout percentual 16:9, histórico configurável (quantidade e orientação), alinhamento do bloco de imagem e gradiente com duas cores, quatro pontos de parada e direção.
+- Imagens exclusivas da chamada usam a chave imutável do armazenamento. O APK pré-baixa em cache local tanto a imagem livre quanto a imagem de fundo e troca para a URL local somente depois do download; remoção, ocultamento ou troca da chave removem a referência da chamada seguinte.
 
 ## Validação
 

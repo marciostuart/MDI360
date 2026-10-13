@@ -1,5 +1,9 @@
 import { useEffect, useRef, useState, type CSSProperties } from "react";
-import { CALL_LAYOUT_DEFAULT, resolveQueueLayout, type QueueLayout } from "@/lib/queue/queue-layout";
+import {
+  CALL_LAYOUT_DEFAULT,
+  resolveQueueLayout,
+  type QueueLayout,
+} from "@/lib/queue/queue-layout";
 
 export type QueueCallPayload = {
   id: string;
@@ -252,12 +256,51 @@ export function QueueCallOverlay({
   const imageUrl = call.theme?.imageUrl || null;
   const overlayColor = call.theme?.overlayColor || "#000000";
   const overlayOpacity = Math.max(0, Math.min(100, call.theme?.overlayOpacity ?? 0));
-  const history = (call.history ?? []).slice(0, 3);
+  const gradientStop = (value: number | undefined, fallback: number) =>
+    Math.max(0, Math.min(100, value ?? fallback));
+  const gradientAngle = Math.max(0, Math.min(360, call.theme?.overlayAngle ?? 135));
+  const gradientStartColor = call.theme?.overlayStartColor || overlayColor;
+  const gradientEndColor = call.theme?.overlayEndColor || overlayColor;
+  const gradientStartFrom = gradientStop(call.theme?.overlayStartFrom, 0);
+  const gradientStartTo = Math.max(gradientStartFrom, gradientStop(call.theme?.overlayStartTo, 0));
+  const gradientEndFrom = Math.max(gradientStartTo, gradientStop(call.theme?.overlayEndFrom, 100));
+  const gradientEndTo = Math.max(gradientEndFrom, gradientStop(call.theme?.overlayEndTo, 100));
   const layout = resolveQueueLayout(call.theme?.layout, CALL_LAYOUT_DEFAULT);
-  const absolute = (id: keyof typeof layout, content: string, fallback: string, extra?: CSSProperties) => {
+  const history = (call.history ?? []).slice(0, layout.history?.historyLimit ?? 3);
+  const historyDirection = layout.history?.historyDirection ?? "horizontal";
+  const historyEntries = history.map((item) =>
+    item.sectorName ? `${item.label} - ${item.sectorName}` : item.label,
+  );
+  const absolute = (
+    id: keyof typeof layout,
+    content: string,
+    fallback: string,
+    extra?: CSSProperties,
+  ) => {
     const item = layout[id];
     if (!item || item.hidden || !content) return null;
-    return <p key={id} className="absolute flex items-center font-semibold leading-none" style={{ left: `${item.x}%`, top: `${item.y}%`, width: `${item.w}%`, height: `${item.h}%`, color: item.color || fallback, opacity: item.opacity / 100, fontSize: `${item.fontSize}vw`, justifyContent: item.align === "left" ? "flex-start" : item.align === "right" ? "flex-end" : "center", textAlign: item.align, whiteSpace: "nowrap", ...extra }}>{content}</p>;
+    return (
+      <p
+        key={id}
+        className="absolute flex items-center font-semibold leading-none"
+        style={{
+          left: `${item.x}%`,
+          top: `${item.y}%`,
+          width: `${item.w}%`,
+          height: `${item.h}%`,
+          color: item.color || fallback,
+          opacity: item.opacity / 100,
+          fontSize: `${item.fontSize}vw`,
+          justifyContent:
+            item.align === "left" ? "flex-start" : item.align === "right" ? "flex-end" : "center",
+          textAlign: item.align,
+          whiteSpace: "nowrap",
+          ...extra,
+        }}
+      >
+        {content}
+      </p>
+    );
   };
 
   return (
@@ -268,60 +311,116 @@ export function QueueCallOverlay({
         ...(bgImageUrl ? { backgroundImage: `url(${JSON.stringify(bgImageUrl)})` } : {}),
       }}
     >
-      <div className="absolute inset-0" style={{ background: call.theme?.overlayGradient ? `linear-gradient(135deg, ${overlayColor} 0%, transparent 100%)` : overlayColor, opacity: overlayOpacity / 100 }} />
-      {call.theme?.layout ? <>
-        {absolute("heading", "SENHA CHAMADA", accent)}
-        {absolute("ticket", call.label, ticketColor, { opacity: (layout.ticket.opacity / 100) * (flash ? 1 : 0.45), transition: "opacity 300ms linear" })}
-        {absolute("sector", call.sectorName ?? "", accent)}
-        {history.length ? absolute("historyTitle", "ÚLTIMAS CHAMADAS", historyColor) : null}
-        {history.length ? absolute("history", history.map((item) => item.sectorName ? `${item.label} - ${item.sectorName}` : item.label).join("     "), historyColor) : null}
-        {layout.image && !layout.image.hidden && imageUrl ? <img src={imageUrl} alt="" className="absolute object-contain" style={{ left: `${layout.image.x}%`, top: `${layout.image.y}%`, width: `${layout.image.w}%`, height: `${layout.image.h}%`, opacity: layout.image.opacity / 100 }} /> : null}
-      </> : <div>
-        <p
-          className="text-[2.7vw] font-semibold uppercase tracking-[0.35em]"
-          style={{ color: accent }}
-        >
-          Senha chamada
-        </p>
-        <p
-          className="mt-[2vh] text-[17.7vw] font-black leading-none"
-          style={{
-            color: ticketColor,
-            opacity: flash ? 1 : 0.45,
+      <div
+        className="absolute inset-0"
+        style={{
+          background: call.theme?.overlayGradient
+            ? `linear-gradient(${gradientAngle}deg, ${gradientStartColor} ${gradientStartFrom}%, ${gradientStartColor} ${gradientStartTo}%, ${gradientEndColor} ${gradientEndFrom}%, ${gradientEndColor} ${gradientEndTo}%)`
+            : overlayColor,
+          opacity: overlayOpacity / 100,
+        }}
+      />
+      {call.theme?.layout ? (
+        <>
+          {absolute("heading", "SENHA CHAMADA", accent)}
+          {absolute("ticket", call.label, ticketColor, {
+            opacity: (layout.ticket.opacity / 100) * (flash ? 1 : 0.45),
             transition: "opacity 300ms linear",
-          }}
-        >
-          {call.label}
-        </p>
-        {call.sectorName ? (
+          })}
+          {absolute("sector", call.sectorName ?? "", accent)}
+          {history.length ? absolute("historyTitle", "ÚLTIMAS CHAMADAS", historyColor) : null}
+          {history.length ? (
+            <div
+              className="absolute flex font-semibold leading-none"
+              style={{
+                left: `${layout.history.x}%`,
+                top: `${layout.history.y}%`,
+                width: `${layout.history.w}%`,
+                height: `${layout.history.h}%`,
+                color: layout.history.color || historyColor,
+                opacity: layout.history.opacity / 100,
+                fontSize: `${layout.history.fontSize}vw`,
+                justifyContent:
+                  layout.history.align === "left"
+                    ? "flex-start"
+                    : layout.history.align === "right"
+                      ? "flex-end"
+                      : "center",
+                textAlign: layout.history.align,
+                flexDirection: historyDirection === "vertical" ? "column" : "row",
+                gap: historyDirection === "vertical" ? "0.15em" : "1em",
+                whiteSpace: historyDirection === "vertical" ? "normal" : "nowrap",
+              }}
+            >
+              {historyEntries.map((entry, index) => (
+                <span key={`${entry}-${index}`}>{entry}</span>
+              ))}
+            </div>
+          ) : null}
+          {layout.image && !layout.image.hidden && imageUrl ? (
+            <img
+              src={imageUrl}
+              alt=""
+              className="absolute object-contain"
+              style={{
+                left: `${layout.image.x}%`,
+                top: `${layout.image.y}%`,
+                width: `${layout.image.w}%`,
+                height: `${layout.image.h}%`,
+                opacity: layout.image.opacity / 100,
+                objectPosition: layout.image.align,
+              }}
+            />
+          ) : null}
+        </>
+      ) : (
+        <div>
           <p
-            className="mt-[2vh] text-[5vw] font-bold uppercase leading-tight"
+            className="text-[2.7vw] font-semibold uppercase tracking-[0.35em]"
             style={{ color: accent }}
           >
-            {call.sectorName}
+            Senha chamada
           </p>
-        ) : null}
-        {history.length > 0 ? (
-          <div className="mt-[6vh]">
+          <p
+            className="mt-[2vh] text-[17.7vw] font-black leading-none"
+            style={{
+              color: ticketColor,
+              opacity: flash ? 1 : 0.45,
+              transition: "opacity 300ms linear",
+            }}
+          >
+            {call.label}
+          </p>
+          {call.sectorName ? (
             <p
-              className="text-[1.35vw] font-semibold uppercase tracking-[0.35em]"
-              style={{ color: historyColor, opacity: 0.55 }}
+              className="mt-[2vh] text-[5vw] font-bold uppercase leading-tight"
+              style={{ color: accent }}
             >
-              Últimas chamadas
+              {call.sectorName}
             </p>
-            <p
-              className="mt-[1.5vh] text-[3.3vw] font-black leading-none tracking-wide"
-              style={{ color: historyColor }}
-            >
-              {history
-                .map((item) =>
-                  item.sectorName ? `${item.label} - ${item.sectorName}` : item.label,
-                )
-                .join("     ")}
-            </p>
-          </div>
-        ) : null}
-      </div>}
+          ) : null}
+          {history.length > 0 ? (
+            <div className="mt-[6vh]">
+              <p
+                className="text-[1.35vw] font-semibold uppercase tracking-[0.35em]"
+                style={{ color: historyColor, opacity: 0.55 }}
+              >
+                Últimas chamadas
+              </p>
+              <p
+                className="mt-[1.5vh] text-[3.3vw] font-black leading-none tracking-wide"
+                style={{ color: historyColor }}
+              >
+                {history
+                  .map((item) =>
+                    item.sectorName ? `${item.label} - ${item.sectorName}` : item.label,
+                  )
+                  .join("     ")}
+              </p>
+            </div>
+          ) : null}
+        </div>
+      )}
     </div>
   );
 }

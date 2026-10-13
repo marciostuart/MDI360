@@ -1,6 +1,11 @@
 import { createServerFn } from "@tanstack/react-start";
 import { z } from "zod";
-import { CALL_LAYOUT_DEFAULT, KIOSK_LAYOUT_DEFAULT, resolveQueueLayout, type QueueLayout } from "@/lib/queue/queue-layout";
+import {
+  CALL_LAYOUT_DEFAULT,
+  KIOSK_LAYOUT_DEFAULT,
+  resolveQueueLayout,
+  type QueueLayout,
+} from "@/lib/queue/queue-layout";
 
 /** Add-on config as the customer sees it in the Studio (one row per screen). */
 export type QueuePanelSummary = {
@@ -36,6 +41,16 @@ export type QueuePanelSummary = {
   themeTextColor: string;
   themeHistoryColor: string;
   themeLayout: QueueLayout;
+  themeOverlayColor: string;
+  themeOverlayOpacity: number;
+  themeOverlayGradient: boolean;
+  themeOverlayStartColor: string;
+  themeOverlayStartFrom: number;
+  themeOverlayStartTo: number;
+  themeOverlayEndColor: string;
+  themeOverlayEndFrom: number;
+  themeOverlayEndTo: number;
+  themeOverlayAngle: number;
   /** Aparência da tela de emissão de senhas (totem). */
   kioskBgColor: string;
   kioskBgMediaId: string | null;
@@ -221,6 +236,13 @@ export const listQueuePanels = createServerFn({ method: "GET" }).handler(
           themeOverlayColor: schema.queuePanels.themeOverlayColor,
           themeOverlayOpacity: schema.queuePanels.themeOverlayOpacity,
           themeOverlayGradient: schema.queuePanels.themeOverlayGradient,
+          themeOverlayStartColor: schema.queuePanels.themeOverlayStartColor,
+          themeOverlayStartFrom: schema.queuePanels.themeOverlayStartFrom,
+          themeOverlayStartTo: schema.queuePanels.themeOverlayStartTo,
+          themeOverlayEndColor: schema.queuePanels.themeOverlayEndColor,
+          themeOverlayEndFrom: schema.queuePanels.themeOverlayEndFrom,
+          themeOverlayEndTo: schema.queuePanels.themeOverlayEndTo,
+          themeOverlayAngle: schema.queuePanels.themeOverlayAngle,
           kioskBgColor: schema.queuePanels.kioskBgColor,
           kioskBgMediaId: schema.queuePanels.kioskBgMediaId,
           kioskCardColor: schema.queuePanels.kioskCardColor,
@@ -235,7 +257,7 @@ export const listQueuePanels = createServerFn({ method: "GET" }).handler(
           kioskLogoHeight: schema.queuePanels.kioskLogoHeight,
           kioskLayout: schema.queuePanels.kioskLayout,
           kioskLogoKey: schema.queuePanels.kioskLogoKey,
-           kioskImageKey: schema.queuePanels.kioskImageKey,
+          kioskImageKey: schema.queuePanels.kioskImageKey,
           kioskBgImageKey: schema.queuePanels.kioskBgImageKey,
           printerFooterText: schema.queuePanels.printerFooterText,
           chimeName: schema.queuePanels.chimeName,
@@ -326,7 +348,13 @@ export const listQueuePanels = createServerFn({ method: "GET" }).handler(
       const now = Date.now();
       const kioskPreviewUrls = new Map<
         string,
-        { logo: string | null; background: string | null; kioskImage: string | null; callBackground: string | null; callImage: string | null }
+        {
+          logo: string | null;
+          background: string | null;
+          kioskImage: string | null;
+          callBackground: string | null;
+          callImage: string | null;
+        }
       >();
       try {
         const { createDownloadUrl, isStorageConfigured } = await import("@/lib/storage.server");
@@ -348,7 +376,13 @@ export const listQueuePanels = createServerFn({ method: "GET" }).handler(
                   ? createDownloadUrl(row.themeImageKey, 900)
                   : Promise.resolve(null),
               ]);
-              kioskPreviewUrls.set(row.deviceId, { logo, background, kioskImage, callBackground, callImage });
+              kioskPreviewUrls.set(row.deviceId, {
+                logo,
+                background,
+                kioskImage,
+                callBackground,
+                callImage,
+              });
             }),
           );
         }
@@ -390,13 +424,20 @@ export const listQueuePanels = createServerFn({ method: "GET" }).handler(
             themeBgColor: row.themeBgColor ?? QUEUE_THEME_DEFAULTS.themeBgColor,
             themeBgMediaId: row.themeBgMediaId ?? null,
             hasThemeBgImage: Boolean(row.themeBgImageKey),
-            themeBgImagePreviewUrl:
-              kioskPreviewUrls.get(row.deviceId)?.callBackground ?? null,
+            themeBgImagePreviewUrl: kioskPreviewUrls.get(row.deviceId)?.callBackground ?? null,
             themeImagePreviewUrl: kioskPreviewUrls.get(row.deviceId)?.callImage ?? null,
             hasThemeImage: Boolean(row.themeImageKey),
             themeOverlayColor: row.themeOverlayColor ?? "#000000",
             themeOverlayOpacity: Math.max(0, Math.min(100, row.themeOverlayOpacity ?? 0)),
             themeOverlayGradient: row.themeOverlayGradient ?? false,
+            themeOverlayStartColor:
+              row.themeOverlayStartColor ?? row.themeOverlayColor ?? "#000000",
+            themeOverlayStartFrom: Math.max(0, Math.min(100, row.themeOverlayStartFrom ?? 0)),
+            themeOverlayStartTo: Math.max(0, Math.min(100, row.themeOverlayStartTo ?? 0)),
+            themeOverlayEndColor: row.themeOverlayEndColor ?? row.themeOverlayColor ?? "#000000",
+            themeOverlayEndFrom: Math.max(0, Math.min(100, row.themeOverlayEndFrom ?? 100)),
+            themeOverlayEndTo: Math.max(0, Math.min(100, row.themeOverlayEndTo ?? 100)),
+            themeOverlayAngle: Math.max(0, Math.min(360, row.themeOverlayAngle ?? 135)),
             themeTicketColor: row.themeTicketColor ?? QUEUE_THEME_DEFAULTS.themeTicketColor,
             themeTextColor: row.themeTextColor ?? QUEUE_THEME_DEFAULTS.themeTextColor,
             themeHistoryColor: row.themeHistoryColor ?? QUEUE_THEME_DEFAULTS.themeHistoryColor,
@@ -492,6 +533,13 @@ export const saveQueuePanel = createServerFn({ method: "POST" })
         themeOverlayColor: hexColor.default("#000000"),
         themeOverlayOpacity: z.number().int().min(0).max(100).default(0),
         themeOverlayGradient: z.boolean().default(false),
+        themeOverlayStartColor: hexColor.default("#000000"),
+        themeOverlayStartFrom: z.number().int().min(0).max(100).default(0),
+        themeOverlayStartTo: z.number().int().min(0).max(100).default(0),
+        themeOverlayEndColor: hexColor.default("#000000"),
+        themeOverlayEndFrom: z.number().int().min(0).max(100).default(100),
+        themeOverlayEndTo: z.number().int().min(0).max(100).default(100),
+        themeOverlayAngle: z.number().int().min(0).max(360).default(135),
         kioskBgColor: hexColor.default(KIOSK_THEME_DEFAULTS.kioskBgColor),
         kioskBgMediaId: z.preprocess(
           (value) => (typeof value === "string" && value.trim() === "" ? null : value),
@@ -598,6 +646,13 @@ export const saveQueuePanel = createServerFn({ method: "POST" })
       themeOverlayColor: data.themeOverlayColor,
       themeOverlayOpacity: data.themeOverlayOpacity,
       themeOverlayGradient: data.themeOverlayGradient,
+      themeOverlayStartColor: data.themeOverlayStartColor,
+      themeOverlayStartFrom: Math.min(data.themeOverlayStartFrom, data.themeOverlayStartTo),
+      themeOverlayStartTo: Math.max(data.themeOverlayStartFrom, data.themeOverlayStartTo),
+      themeOverlayEndColor: data.themeOverlayEndColor,
+      themeOverlayEndFrom: Math.max(data.themeOverlayStartTo, data.themeOverlayEndFrom),
+      themeOverlayEndTo: Math.max(data.themeOverlayEndFrom, data.themeOverlayEndTo),
+      themeOverlayAngle: data.themeOverlayAngle,
       kioskBgColor: data.kioskBgColor,
       kioskBgMediaId,
       kioskCardColor: data.kioskCardColor,
