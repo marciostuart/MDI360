@@ -18,12 +18,14 @@ function NumberField({
   value,
   min,
   max,
+  integer = false,
   onChange,
 }: {
   label: string;
   value: number;
   min: number;
   max: number;
+  integer?: boolean;
   onChange: (value: number) => void;
 }) {
   return (
@@ -33,11 +35,11 @@ function NumberField({
         type="number"
         min={min}
         max={max}
-        step="0.1"
+        step={integer ? "1" : "0.1"}
         value={value}
         onChange={(event) => {
           const next = Number(event.target.value);
-          if (Number.isFinite(next)) onChange(clamp(next, min, max));
+          if (Number.isFinite(next)) onChange(integer ? Math.round(clamp(next, min, max)) : clamp(next, min, max));
         }}
       />
     </div>
@@ -127,6 +129,9 @@ export function QueueLayoutEditor({
                 const active = selected === item.id;
                 const imageUrl = imageUrls?.[item.id];
                 const isHistory = item.id === "history";
+                const isVerticalHistory = isHistory && entry.historyDirection === "vertical";
+                const horizontalAlignment =
+                  entry.align === "left" ? "flex-start" : entry.align === "right" ? "flex-end" : "center";
                 return (
                   <div
                     key={item.id}
@@ -151,22 +156,17 @@ export function QueueLayoutEditor({
                       top: `${entry.y}%`,
                       width: `${entry.w}%`,
                       height: `${entry.h}%`,
-                      justifyContent:
-                        entry.align === "left"
-                          ? "flex-start"
-                          : entry.align === "right"
-                            ? "flex-end"
-                            : "center",
+                      justifyContent: isVerticalHistory ? "center" : horizontalAlignment,
+                      alignItems: isVerticalHistory ? horizontalAlignment : undefined,
                       color: entry.color,
                       backgroundColor: item.kind === "button" ? entry.backgroundColor : undefined,
                       opacity: entry.opacity / 100,
                       fontSize: `${entry.fontSize}cqw`,
                       textAlign: entry.align,
                       touchAction: "none",
-                      flexDirection:
-                        isHistory && entry.historyDirection === "vertical" ? "column" : "row",
-                      whiteSpace:
-                        isHistory && entry.historyDirection === "vertical" ? "normal" : "nowrap",
+                      flexDirection: isVerticalHistory ? "column" : "row",
+                      gap: isVerticalHistory ? "0.15em" : undefined,
+                      whiteSpace: isVerticalHistory ? "normal" : "nowrap",
                     }}
                   >
                     <span className="absolute -top-4 left-0 whitespace-nowrap text-[9px] text-primary">
@@ -185,6 +185,8 @@ export function QueueLayoutEditor({
                       ) : (
                         "IMAGEM"
                       )
+                    ) : isHistory ? (
+                      ["AO11", "AO10", "AO09"].map((value) => <span key={value}>{value}</span>)
                     ) : (
                       item.sample
                     )}
@@ -261,6 +263,7 @@ export function QueueLayoutEditor({
                       value={block.historyLimit ?? 3}
                       min={1}
                       max={8}
+                      integer
                       onChange={(historyLimit) => patch({ historyLimit })}
                     />
                     <div className="grid grid-cols-2 gap-2">

@@ -1,4 +1,4 @@
-import { useEffect, useRef, useState, type CSSProperties } from "react";
+import { useEffect, useRef, type CSSProperties } from "react";
 import {
   CALL_LAYOUT_DEFAULT,
   resolveQueueLayout,
@@ -216,7 +216,6 @@ export function QueueCallOverlay({
   accentColor?: string | null;
   onDone: () => void;
 }) {
-  const [flash, setFlash] = useState(true);
   const doneRef = useRef(onDone);
   doneRef.current = onDone;
 
@@ -226,7 +225,6 @@ export function QueueCallOverlay({
       if (!cancelled) await announce(call);
     })();
 
-    const blink = window.setInterval(() => setFlash((value) => !value), 700);
     const timer = window.setTimeout(
       () => doneRef.current(),
       Math.max(10, call.displaySeconds) * 1000,
@@ -234,7 +232,6 @@ export function QueueCallOverlay({
 
     return () => {
       cancelled = true;
-      window.clearInterval(blink);
       window.clearTimeout(timer);
       try {
         window.speechSynthesis?.cancel();
@@ -305,12 +302,13 @@ export function QueueCallOverlay({
 
   return (
     <div
-      className="absolute inset-0 z-50 grid place-items-center bg-cover bg-center px-10 text-center"
+      className="mdi-queue-call-overlay absolute inset-0 z-50 grid place-items-center bg-cover bg-center px-10 text-center"
       style={{
         backgroundColor: bgColor,
         ...(bgImageUrl ? { backgroundImage: `url(${JSON.stringify(bgImageUrl)})` } : {}),
       }}
     >
+      <style>{`@keyframes mdi-queue-ticket-pulse { 0%, 100% { opacity: 1; } 50% { opacity: .45; } }`}</style>
       <div
         className="absolute inset-0"
         style={{
@@ -324,8 +322,9 @@ export function QueueCallOverlay({
         <>
           {absolute("heading", "SENHA CHAMADA", accent)}
           {absolute("ticket", call.label, ticketColor, {
-            opacity: (layout.ticket.opacity / 100) * (flash ? 1 : 0.45),
-            transition: "opacity 300ms linear",
+            opacity: layout.ticket.opacity / 100,
+            animation: "mdi-queue-ticket-pulse 1.4s ease-in-out infinite",
+            willChange: "opacity",
           })}
           {absolute("sector", call.sectorName ?? "", accent)}
           {history.length ? absolute("historyTitle", "ÚLTIMAS CHAMADAS", historyColor) : null}
@@ -341,11 +340,21 @@ export function QueueCallOverlay({
                 opacity: layout.history.opacity / 100,
                 fontSize: `${layout.history.fontSize}vw`,
                 justifyContent:
-                  layout.history.align === "left"
-                    ? "flex-start"
-                    : layout.history.align === "right"
-                      ? "flex-end"
-                      : "center",
+                  historyDirection === "vertical"
+                    ? "center"
+                    : layout.history.align === "left"
+                      ? "flex-start"
+                      : layout.history.align === "right"
+                        ? "flex-end"
+                        : "center",
+                alignItems:
+                  historyDirection === "vertical"
+                    ? layout.history.align === "left"
+                      ? "flex-start"
+                      : layout.history.align === "right"
+                        ? "flex-end"
+                        : "center"
+                    : undefined,
                 textAlign: layout.history.align,
                 flexDirection: historyDirection === "vertical" ? "column" : "row",
                 gap: historyDirection === "vertical" ? "0.15em" : "1em",

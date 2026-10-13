@@ -160,7 +160,8 @@ export function resolveQueueLayout(value: unknown, defaults: QueueLayout): Queue
             item.historyDirection === "vertical"
               ? "vertical"
               : (fallback.historyDirection ?? "horizontal"),
-          historyLimit: number(item.historyLimit, fallback.historyLimit ?? 3, 1, 8),
+          // History is a count, never a fractional layout measurement.
+          historyLimit: Math.round(number(item.historyLimit, fallback.historyLimit ?? 3, 1, 8)),
           hidden: typeof item.hidden === "boolean" ? item.hidden : Boolean(fallback.hidden),
         } satisfies QueueLayoutBlock,
       ];
