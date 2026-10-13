@@ -58,10 +58,14 @@ export const Route = createFileRoute("/api/public/player/events")({
         }
 
         let since = 0;
+        let queueSince = 0;
         try {
-          const body = (await request.json()) as { revision?: unknown; current?: unknown };
+          const body = (await request.json()) as { revision?: unknown; queueRevision?: unknown; current?: unknown };
           if (typeof body?.revision === "number" && Number.isFinite(body.revision)) {
             since = Math.max(0, Math.trunc(body.revision));
+          }
+          if (typeof body?.queueRevision === "number" && Number.isFinite(body.queueRevision)) {
+            queueSince = Math.max(0, Math.trunc(body.queueRevision));
           }
           const current = playbackStateSchema.safeParse(body?.current);
           // A reconnecting browser sends `current: null` before its first
@@ -108,16 +112,32 @@ export const Route = createFileRoute("/api/public/player/events")({
           }
         } catch {
           since = 0;
+          queueSince = 0;
         }
 
-        const { effectiveRevisionFor, waitForChange } = await import("@/lib/player/realtime.server");
+        const { effectiveRevisionFor, queueCallDeviceRevisionFor, waitForChange } =
+          await import("@/lib/player/realtime.server");
         await waitForChange(device.id, device.organizationId, since);
         const revision = await effectiveRevisionFor(device.id, device.organizationId);
+        const queueRevision = queueCallDeviceRevisionFor(device.id);
+        const queueChanged = queueRevision > queueSince;
+        let queueCalls = undefined;
+        if (queueChanged) {
+          try {
+            const { queueCallStateForDevice } = await import("@/lib/queue/current-call.server");
+            queueCalls = (await queueCallStateForDevice(device.id)).calls;
+          } catch (error) {
+            console.warn("[player/events] queue call payload unavailable", error);
+          }
+        }
         return Response.json(
           {
             revision,
             changed: revision > since,
             serverRevision: revision,
+            queueRevision,
+            queueChanged,
+            ...(queueCalls ? { queueCalls } : {}),
           },
           { headers: { "cache-control": "no-store" } },
         );

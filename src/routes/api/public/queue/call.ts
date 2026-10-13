@@ -106,7 +106,7 @@ export const Route = createFileRoute("/api/public/queue/call")({
             })
             .where(eq(schema.queueCalls.id, last.id));
           const { notifyQueueDevices } = await import("@/lib/queue/queue-devices.server");
-          await notifyQueueDevices(link.panelId);
+          notifyQueueDevices(link.panelId, device.id);
           return Response.json({ ok: true, label: last.label });
         }
 
@@ -192,7 +192,7 @@ export const Route = createFileRoute("/api/public/queue/call")({
           })
           .returning({ id: schema.queueCalls.id });
         const { notifyQueueDevices } = await import("@/lib/queue/queue-devices.server");
-        await notifyQueueDevices(panel.id);
+        notifyQueueDevices(panel.id, device.id);
         return Response.json({ ok: true, id: call[0]?.id ?? null, label: ticket.label });
       },
     },

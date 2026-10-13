@@ -288,6 +288,7 @@ function PlayerScreen() {
   /** Ultimo avanco real da midia atual. Sincronizacao nao renova este relogio. */
   const mediaProgressRef = useRef<number>(Date.now());
   const revisionRef = useRef(0);
+  const queueCallRevisionRef = useRef(0);
   const contentRevisionRef = useRef("");
   // Sync data that arrived while a file was on screen. It is only applied on
   // the next item boundary so nothing is ever cut mid-exhibition.
@@ -867,6 +868,7 @@ function PlayerScreen() {
             },
             body: JSON.stringify({
               revision: revisionRef.current,
+              queueRevision: queueCallRevisionRef.current,
               contentRevision: contentRevisionRef.current,
               current: currentPlaybackStateRef.current,
             }),
@@ -881,8 +883,17 @@ function PlayerScreen() {
             revision: number;
             contentRevision?: string;
             changed: boolean;
+            queueRevision?: number;
+            queueChanged?: boolean;
+            queueCalls?: QueueCallPayload[];
           };
           revisionRef.current = data.revision;
+          if (typeof data.queueRevision === "number") {
+            queueCallRevisionRef.current = data.queueRevision;
+          }
+          // Queue overlays do not wait for /sync to resolve the entire
+          // playback plan. The same long-poll carries only the fresh calls.
+          if (data.queueChanged && data.queueCalls) enqueueCalls(data.queueCalls);
           // Only advance the local content marker after a successful /sync.
           // Otherwise a brief network failure could hide the same change from
           // the next long-poll attempt.
@@ -900,7 +911,7 @@ function PlayerScreen() {
       window.clearInterval(interval);
       window.clearInterval(bootstrap);
     };
-  }, [token, linked, runSync, resetDevice]);
+  }, [token, linked, runSync, resetDevice, enqueueCalls]);
 
   // A playlist scheduled for the current time is preferred. When the server
   // is between revisions (or offline), the fallback playlist is the actual

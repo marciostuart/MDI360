@@ -1,7 +1,7 @@
 import { eq } from "drizzle-orm";
 
 import { getDb, schema } from "@/lib/db/index.server";
-import { notifyDevice, notifyQueuePanel } from "@/lib/player/realtime.server";
+import { notifyQueueCallDevice, notifyQueuePanel } from "@/lib/player/realtime.server";
 
 export async function queueDeviceIds(panelId: string): Promise<string[]> {
   const rows = await getDb()
@@ -11,10 +11,18 @@ export async function queueDeviceIds(panelId: string): Promise<string[]> {
   return rows.map((row) => row.deviceId);
 }
 
-export async function notifyQueueDevices(panelId: string): Promise<void> {
+export function notifyQueueDevices(panelId: string, immediateDeviceId?: string): void {
   notifyQueuePanel(panelId);
-  const ids = await queueDeviceIds(panelId);
-  for (const deviceId of ids) notifyDevice(deviceId);
+  // Wake the terminal that initiated the call before waiting for the device
+  // list query. Remaining screens are notified once the fan-out is loaded.
+  if (immediateDeviceId) notifyQueueCallDevice(immediateDeviceId);
+  void queueDeviceIds(panelId)
+    .then((ids) => {
+      for (const deviceId of ids) {
+        if (deviceId !== immediateDeviceId) notifyQueueCallDevice(deviceId);
+      }
+    })
+    .catch((error) => console.warn("[queue] device notification fan-out failed", error));
 }
 
 export async function notifyQueueForDevice(deviceId: string): Promise<void> {

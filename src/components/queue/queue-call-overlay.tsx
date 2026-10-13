@@ -221,13 +221,10 @@ export function QueueCallOverlay({
 
   useEffect(() => {
     let cancelled = false;
-    // Let the browser paint the ticket before starting audio decode / speech.
-    // On Android TV, starting both in the same frame as the full-screen overlay
-    // can starve the WebView compositor and make the ticket pulse appear frozen.
+    // Paint the ticket once before audio decode/speech so the call stays visible
+    // immediately even when the device's audio stack is slow.
     const announceFrame = window.requestAnimationFrame(() => {
-      window.setTimeout(() => {
-        if (!cancelled) void announce(call);
-      }, 120);
+      if (!cancelled) void announce(call);
     });
 
     const timer = window.setTimeout(
@@ -314,7 +311,6 @@ export function QueueCallOverlay({
         ...(bgImageUrl ? { backgroundImage: `url(${JSON.stringify(bgImageUrl)})` } : {}),
       }}
     >
-      <style>{`@keyframes mdi-queue-ticket-pulse { 0%, 100% { opacity: 1; } 50% { opacity: .45; } }`}</style>
       <div
         className="absolute inset-0"
         style={{
@@ -327,14 +323,7 @@ export function QueueCallOverlay({
       {call.theme?.layout ? (
         <>
           {absolute("heading", "SENHA CHAMADA", accent)}
-          {absolute("ticket", call.label, ticketColor, {
-            opacity: layout.ticket.opacity / 100,
-            animation: "mdi-queue-ticket-pulse 1.4s linear infinite",
-            willChange: "opacity",
-            transform: "translateZ(0)",
-            backfaceVisibility: "hidden",
-            contain: "paint",
-          })}
+          {absolute("ticket", call.label, ticketColor)}
           {absolute("sector", call.sectorName ?? "", accent)}
           {history.length ? absolute("historyTitle", "ÚLTIMAS CHAMADAS", historyColor) : null}
           {history.length ? (
@@ -403,8 +392,7 @@ export function QueueCallOverlay({
             className="mt-[2vh] text-[17.7vw] font-black leading-none"
             style={{
               color: ticketColor,
-              opacity: flash ? 1 : 0.45,
-              transition: "opacity 300ms linear",
+              opacity: 1,
             }}
           >
             {call.label}

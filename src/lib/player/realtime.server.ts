@@ -21,6 +21,7 @@ type Bus = {
   orgRevision: Map<string, number>;
   deviceRevision: Map<string, number>;
   queuePanelRevision: Map<string, number>;
+  queueCallDeviceRevision: Map<string, number>;
   waiters: Map<string, Set<Waiter>>;
 };
 
@@ -32,11 +33,13 @@ const bus: Bus =
     orgRevision: new Map(),
     deviceRevision: new Map(),
     queuePanelRevision: new Map(),
+    queueCallDeviceRevision: new Map(),
     waiters: new Map(),
   });
 
 // Keeps compatibility with a bus created by an older module during HMR.
 bus.queuePanelRevision ??= new Map();
+bus.queueCallDeviceRevision ??= new Map();
 
 /** Maximum time a screen holds a long-poll open before we answer "nada novo". */
 export const LONG_POLL_TIMEOUT_MS = 25_000;
@@ -72,6 +75,18 @@ export function notifyDevice(deviceId: string) {
   bus.deviceRevision.set(deviceId, Date.now());
   releaseWaiters(`device:${deviceId}`);
   void persistRevision("device", deviceId);
+}
+
+/** Marks a queue-call update so the existing player long-poll can return only
+ * queue data before the client starts its regular full sync. */
+export function notifyQueueCallDevice(deviceId: string) {
+  const current = bus.queueCallDeviceRevision.get(deviceId) ?? 0;
+  bus.queueCallDeviceRevision.set(deviceId, Math.max(Date.now(), current + 1));
+  notifyDevice(deviceId);
+}
+
+export function queueCallDeviceRevisionFor(deviceId: string): number {
+  return bus.queueCallDeviceRevision.get(deviceId) ?? 0;
 }
 
 /**
