@@ -604,6 +604,7 @@ export const queuePanels = pgTable(
     kioskLayout: jsonb("kiosk_layout").notNull().default(sql`'{}'::jsonb`),
     /** Arquivos exclusivos do emissor, fora da biblioteca geral de mÃ­dias. */
     kioskLogoKey: text("kiosk_logo_key"),
+    kioskImageKey: text("kiosk_image_key"),
     kioskBgImageKey: text("kiosk_bg_image_key"),
     /** Texto opcional impresso abaixo da data/hora do comprovante. */
     printerFooterText: text("printer_footer_text"),

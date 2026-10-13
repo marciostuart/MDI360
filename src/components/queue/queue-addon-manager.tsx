@@ -172,7 +172,7 @@ export function QueueAddonManager() {
 
   const [uploadingKioskMedia, setUploadingKioskMedia] = useState<string | null>(null);
 
-  type ExclusiveMediaSlot = "logo" | "background" | "call-background" | "call-image";
+  type ExclusiveMediaSlot = "logo" | "background" | "kiosk-image" | "call-background" | "call-image";
 
   const uploadKioskMedia = async (deviceId: string, slot: ExclusiveMediaSlot, file: File) => {
     setUploadingKioskMedia(`${deviceId}:${slot}`);
@@ -194,7 +194,7 @@ export function QueueAddonManager() {
           ? "Logo do emissor atualizada."
           : slot === "call-background"
             ? "Fundo da chamada atualizado."
-            : slot === "call-image"
+            : slot === "call-image" || slot === "kiosk-image"
               ? "Imagem do bloco atualizada."
             : "Fundo do emissor atualizado.",
       );
@@ -861,134 +861,6 @@ export function QueueAddonManager() {
                   </div>
 
                   <div className="flex gap-2 sm:col-span-2">
-                    <div className="hidden">
-                      <p className="text-sm font-medium">Aparência da chamada na TV</p>
-                      <div className="grid gap-3 sm:grid-cols-2">
-                        <ColorField
-                          id={`bg-${panel.deviceId}`}
-                          label="Cor de fundo"
-                          value={form.themeBgColor}
-                          onChange={(value) =>
-                            setForm((prev) => ({ ...prev, themeBgColor: value }))
-                          }
-                        />
-                        <ColorField
-                          id={`ticket-${panel.deviceId}`}
-                          label="Cor do número da senha"
-                          value={form.themeTicketColor}
-                          onChange={(value) =>
-                            setForm((prev) => ({ ...prev, themeTicketColor: value }))
-                          }
-                        />
-                        <ColorField
-                          id={`text-${panel.deviceId}`}
-                          label='Cor dos textos ("Senha chamada" e setor)'
-                          value={form.themeTextColor}
-                          onChange={(value) =>
-                            setForm((prev) => ({ ...prev, themeTextColor: value }))
-                          }
-                        />
-                        <ColorField
-                          id={`hist-${panel.deviceId}`}
-                          label="Cor das últimas chamadas"
-                          value={form.themeHistoryColor}
-                          onChange={(value) =>
-                            setForm((prev) => ({ ...prev, themeHistoryColor: value }))
-                          }
-                        />
-                        <div className="space-y-1.5 sm:col-span-2">
-                          <Label>Imagem de fundo exclusiva da chamada (opcional)</Label>
-                          <div className="flex flex-wrap items-center gap-2">
-                            <Input
-                              type="file"
-                              accept="image/jpeg,image/png,image/webp,image/avif"
-                              disabled={
-                                uploadingKioskMedia === `${panel.deviceId}:call-background`
-                              }
-                              onChange={(event) => {
-                                const file = event.target.files?.[0];
-                                if (file) {
-                                  void uploadKioskMedia(
-                                    panel.deviceId,
-                                    "call-background",
-                                    file,
-                                  );
-                                }
-                                event.currentTarget.value = "";
-                              }}
-                            />
-                            {panel.hasThemeBgImage || form.themeBgMediaId ? (
-                              <Button
-                                type="button"
-                                variant="outline"
-                                size="sm"
-                                disabled={
-                                  uploadingKioskMedia === `${panel.deviceId}:call-background`
-                                }
-                                onClick={() =>
-                                  void removeKioskMedia(panel.deviceId, "call-background")
-                                }
-                              >
-                                Remover
-                              </Button>
-                            ) : null}
-                          </div>
-                          <p className="text-xs text-muted-foreground">
-                            Arquivo exclusivo desta fila, otimizado em WebP e separado dos conteúdos
-                            das playlists.
-                          </p>
-                        </div>
-                        <ColorField id={`call-overlay-${panel.deviceId}`} label="Cor da sobreposição do fundo" value={form.themeOverlayColor} onChange={(value) => setForm((prev) => ({ ...prev, themeOverlayColor: value }))} />
-                        <div className="space-y-1.5">
-                          <Label htmlFor={`call-overlay-opacity-${panel.deviceId}`}>Transparência da sobreposição ({form.themeOverlayOpacity}%)</Label>
-                          <Input id={`call-overlay-opacity-${panel.deviceId}`} type="range" min={0} max={100} step={1} value={form.themeOverlayOpacity} onChange={(event) => setForm((prev) => ({ ...prev, themeOverlayOpacity: Number(event.target.value) }))} />
-                          <label className="flex items-center gap-2 text-sm"><Switch checked={form.themeOverlayGradient} onCheckedChange={(themeOverlayGradient) => setForm((prev) => ({ ...prev, themeOverlayGradient }))} />Usar gradiente</label>
-                        </div>
-                      </div>
-
-                      <div
-                        className="hidden"
-                        style={{
-                          backgroundColor: form.themeBgColor,
-                          ...(panel.themeBgImagePreviewUrl || form.themeBgMediaId
-                            ? {
-                                backgroundImage: `url(${JSON.stringify(
-                                  panel.themeBgImagePreviewUrl ??
-                                    images.find((i) => i.id === form.themeBgMediaId)?.previewUrl ??
-                                    "",
-                                )})`,
-                              }
-                            : {}),
-                        }}
-                      >
-                        <div>
-                          <p
-                            className="text-[10px] font-semibold uppercase tracking-[0.35em]"
-                            style={{ color: form.themeTextColor }}
-                          >
-                            Senha chamada
-                          </p>
-                          <p
-                            className="text-4xl font-black leading-none"
-                            style={{ color: form.themeTicketColor }}
-                          >
-                            A012
-                          </p>
-                          <p
-                            className="mt-1 text-sm font-bold uppercase"
-                            style={{ color: form.themeTextColor }}
-                          >
-                            Guichê 2
-                          </p>
-                          <p
-                            className="mt-3 text-xs font-black"
-                            style={{ color: form.themeHistoryColor }}
-                          >
-                            A011 - Caixa 2 A010 - Triagem
-                          </p>
-                        </div>
-                      </div>
-                    </div>
                     <div className="w-full">
                       <QueueLayoutEditor
                         title="Editor da chamada na TV"
@@ -1005,9 +877,9 @@ export function QueueAddonManager() {
                           { id: "history", label: "Últimas senhas", sample: "A011  A010  A009" },
                           { id: "image", label: "Bloco de imagem", sample: "", kind: "image" },
                         ]}
-                        imageUrl={panel.themeImagePreviewUrl}
+                        imageUrls={{ image: panel.themeImagePreviewUrl }}
                         backgroundControls={<div className="space-y-3"><ColorField id={`editor-bg-${panel.deviceId}`} label="Cor de fundo" value={form.themeBgColor} onChange={(themeBgColor) => setForm((prev) => ({ ...prev, themeBgColor }))} /><Label className="text-xs">Imagem de fundo</Label><Input type="file" accept="image/jpeg,image/png,image/webp,image/avif" disabled={uploadingKioskMedia === `${panel.deviceId}:call-background`} onChange={(event) => { const file = event.target.files?.[0]; if (file) void uploadKioskMedia(panel.deviceId, "call-background", file); event.currentTarget.value = ""; }} />{panel.hasThemeBgImage ? <Button type="button" size="sm" variant="outline" onClick={() => void removeKioskMedia(panel.deviceId, "call-background")}>Remover imagem</Button> : null}<ColorField id={`editor-overlay-${panel.deviceId}`} label="Cor da sobreposição" value={form.themeOverlayColor} onChange={(themeOverlayColor) => setForm((prev) => ({ ...prev, themeOverlayColor }))} /><Label className="text-xs">Transparência ({form.themeOverlayOpacity}%)</Label><Input type="range" min={0} max={100} step={1} value={form.themeOverlayOpacity} onChange={(event) => setForm((prev) => ({ ...prev, themeOverlayOpacity: Number(event.target.value) }))} /><label className="flex items-center gap-2 text-sm"><Switch checked={form.themeOverlayGradient} onCheckedChange={(themeOverlayGradient) => setForm((prev) => ({ ...prev, themeOverlayGradient }))} />Usar gradiente</label></div>}
-                        imageControls={<div className="space-y-2"><Label className="text-xs">Imagem do bloco</Label><Input type="file" accept="image/jpeg,image/png,image/webp,image/avif" disabled={uploadingKioskMedia === `${panel.deviceId}:call-image`} onChange={(event) => { const file = event.target.files?.[0]; if (file) void uploadKioskMedia(panel.deviceId, "call-image", file); event.currentTarget.value = ""; }} />{panel.hasThemeImage ? <Button type="button" variant="outline" size="sm" onClick={() => void removeKioskMedia(panel.deviceId, "call-image")}>Remover imagem</Button> : null}<p className="text-xs text-muted-foreground">Envie a imagem e posicione/redimensione o bloco no preview.</p></div>}
+                        imageControls={() => <div className="space-y-2"><Label className="text-xs">Imagem do bloco</Label><Input type="file" accept="image/jpeg,image/png,image/webp,image/avif" disabled={uploadingKioskMedia === `${panel.deviceId}:call-image`} onChange={(event) => { const file = event.target.files?.[0]; if (file) void uploadKioskMedia(panel.deviceId, "call-image", file); event.currentTarget.value = ""; }} />{panel.hasThemeImage ? <Button type="button" variant="outline" size="sm" onClick={() => void removeKioskMedia(panel.deviceId, "call-image")}>Remover imagem</Button> : null}<p className="text-xs text-muted-foreground">Envie a imagem e posicione/redimensione o bloco no preview.</p></div>}
                         background={<><div className="absolute inset-0 bg-cover bg-center" style={{ backgroundColor: form.themeBgColor, ...(panel.themeBgImagePreviewUrl ? { backgroundImage: `url(${JSON.stringify(panel.themeBgImagePreviewUrl)})` } : {}) }} /><div className="absolute inset-0" style={{ background: form.themeOverlayGradient ? `linear-gradient(135deg, ${form.themeOverlayColor} 0%, transparent 100%)` : form.themeOverlayColor, opacity: form.themeOverlayOpacity / 100 }} /></>}
                       />
                     </div>
@@ -1311,12 +1183,17 @@ export function QueueAddonManager() {
                           kioskPriorityButtonTextColor: kioskLayout.priorityButton?.color ?? prev.kioskPriorityButtonTextColor,
                         }))}
                         items={[
+                          { id: "background", label: "Fundo", sample: "", kind: "background" },
                           { id: "logo", label: "Logo", sample: "LOGO", kind: "image" },
                           { id: "title", label: "Título", sample: form.kioskTitle.trim() || "RETIRE SUA SENHA" },
                           { id: "normalButton", label: "Botão normal", sample: "SENHA NORMAL", kind: "button" },
                           { id: "priorityButton", label: "Botão preferencial", sample: "PREFERENCIAL", kind: "button" },
                           { id: "image", label: "Bloco de imagem", sample: "", kind: "image" },
                         ]}
+                        imageUrls={{ logo: panel.kioskLogoPreviewUrl, image: panel.kioskImagePreviewUrl }}
+                        backgroundControls={<div className="space-y-3"><ColorField id={`editor-kbg-${panel.deviceId}`} label="Cor de fundo" value={form.kioskBgColor} onChange={(kioskBgColor) => setForm((prev) => ({ ...prev, kioskBgColor }))} /><ColorField id={`editor-kcard-${panel.deviceId}`} label="Cor do painel dos botões" value={form.kioskCardColor} onChange={(kioskCardColor) => setForm((prev) => ({ ...prev, kioskCardColor }))} /><Label className="text-xs">Imagem de fundo</Label><Input type="file" accept="image/jpeg,image/png,image/webp,image/avif" disabled={uploadingKioskMedia === `${panel.deviceId}:background`} onChange={(event) => { const file = event.target.files?.[0]; if (file) void uploadKioskMedia(panel.deviceId, "background", file); event.currentTarget.value = ""; }} />{panel.hasKioskBgImage ? <Button type="button" size="sm" variant="outline" onClick={() => void removeKioskMedia(panel.deviceId, "background")}>Remover imagem</Button> : null}<div className="space-y-1"><Label className="text-xs">Rodapé do comprovante</Label><Textarea value={form.printerFooterText} maxLength={240} rows={3} placeholder="Ex.: Obrigado pela preferência\nAguarde ser chamado" onChange={(event) => setForm((prev) => ({ ...prev, printerFooterText: event.target.value }))} /></div></div>}
+                        itemControls={(item) => item.id === "title" ? <div className="space-y-1"><Label className="text-xs">Título da tela</Label><Input value={form.kioskTitle} maxLength={60} placeholder="Retire sua senha" onChange={(event) => setForm((prev) => ({ ...prev, kioskTitle: event.target.value }))} /></div> : null}
+                        imageControls={(item) => item.id === "logo" ? <div className="space-y-2"><label className="flex items-center gap-2 text-sm"><Switch checked={form.kioskShowLogo} onCheckedChange={(kioskShowLogo) => setForm((prev) => ({ ...prev, kioskShowLogo }))} />Exibir logo</label><Label className="text-xs">Logo exclusiva</Label><Input type="file" accept="image/jpeg,image/png,image/webp,image/avif" disabled={uploadingKioskMedia === `${panel.deviceId}:logo`} onChange={(event) => { const file = event.target.files?.[0]; if (file) void uploadKioskMedia(panel.deviceId, "logo", file); event.currentTarget.value = ""; }} />{panel.hasKioskLogo ? <Button type="button" variant="outline" size="sm" onClick={() => void removeKioskMedia(panel.deviceId, "logo")}>Remover imagem</Button> : null}<Label className="text-xs">Altura da logo · {form.kioskLogoHeight}px</Label><Input type="range" min={40} max={400} step={4} value={form.kioskLogoHeight} onChange={(event) => setForm((prev) => ({ ...prev, kioskLogoHeight: Number(event.target.value) }))} /></div> : <div className="space-y-2"><Label className="text-xs">Imagem do bloco</Label><Input type="file" accept="image/jpeg,image/png,image/webp,image/avif" disabled={uploadingKioskMedia === `${panel.deviceId}:kiosk-image`} onChange={(event) => { const file = event.target.files?.[0]; if (file) void uploadKioskMedia(panel.deviceId, "kiosk-image", file); event.currentTarget.value = ""; }} />{panel.hasKioskImage ? <Button type="button" variant="outline" size="sm" onClick={() => void removeKioskMedia(panel.deviceId, "kiosk-image")}>Remover imagem</Button> : null}<p className="text-xs text-muted-foreground">Envie a imagem e posicione/redimensione o bloco no preview.</p></div>}
                         background={<div className="absolute inset-0 bg-cover bg-center" style={{ backgroundColor: form.kioskBgColor, ...(panel.kioskBgImagePreviewUrl ? { backgroundImage: `url(${JSON.stringify(panel.kioskBgImagePreviewUrl)})` } : {}) }} />}
                       />
                     </div>

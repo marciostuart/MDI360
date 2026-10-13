@@ -223,6 +223,10 @@ function KioskPage() {
                 next.theme.logoVersion === previous.theme.logoVersion
                   ? previous.theme.logoUrl
                   : next.theme.logoUrl,
+              imageUrl:
+                next.theme.imageVersion === previous.theme.imageVersion
+                  ? previous.theme.imageUrl
+                  : next.theme.imageUrl,
             },
           }
         : next;
@@ -290,6 +294,10 @@ function KioskPage() {
     data?.theme.logoVersion ?? null,
     data?.theme.logoUrl ?? null,
   );
+  const stableImageUrl = useStableAssetUrl(
+    data?.theme.imageVersion ?? null,
+    data?.theme.imageUrl ?? null,
+  );
 
   if (!token || isPending) {
     return (
@@ -356,6 +364,7 @@ function KioskPage() {
   return (
     <main className="relative grid h-dvh place-items-center overflow-hidden" style={surface}>
       {backgroundLayer}
+      {stableImageUrl && theme.layout.image && !theme.layout.image.hidden ? <img src={stableImageUrl} alt="" className="pointer-events-none absolute z-10 object-contain" style={{ left: `${theme.layout.image.x}%`, top: `${theme.layout.image.y}%`, width: `${theme.layout.image.w}%`, height: `${theme.layout.image.h}%`, opacity: theme.layout.image.opacity / 100 }} /> : null}
       <div className="relative z-10 flex h-full w-full max-w-3xl flex-col justify-center gap-6 p-6">
       <header className="w-full space-y-2 text-center">
         {stableLogoUrl ? (

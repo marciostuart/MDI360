@@ -16,6 +16,8 @@ export type KioskTheme = {
   title: string;
   logoUrl: string | null;
   logoVersion: string | null;
+  imageUrl: string | null;
+  imageVersion: string | null;
   logoHeight: number;
   layout: QueueLayout;
 };
@@ -62,6 +64,7 @@ export const getKioskPanel = createServerFn({ method: "POST" })
         kioskLogoHeight: schema.queuePanels.kioskLogoHeight,
         kioskLayout: schema.queuePanels.kioskLayout,
         kioskLogoKey: schema.queuePanels.kioskLogoKey,
+        kioskImageKey: schema.queuePanels.kioskImageKey,
         kioskBgImageKey: schema.queuePanels.kioskBgImageKey,
         brandLogoKey: schema.organizations.brandLogoKey,
       })
@@ -94,6 +97,7 @@ export const getKioskPanel = createServerFn({ method: "POST" })
     // Imagem de fundo e logo assinadas para o terminal (URLs temporárias).
     let bgImageUrl: string | null = null;
     let logoUrl: string | null = null;
+    let imageUrl: string | null = null;
     let bgImageVersion: string | null = panel.kioskBgImageKey ?? null;
     const logoVersion: string | null =
       panel.kioskShowLogo && (panel.kioskLogoKey || panel.brandLogoKey)
@@ -123,6 +127,7 @@ export const getKioskPanel = createServerFn({ method: "POST" })
           const key = panel.kioskLogoKey ?? panel.brandLogoKey!;
           logoUrl = await createDownloadUrl(key, 3600);
         }
+        if (panel.kioskImageKey) imageUrl = await createDownloadUrl(panel.kioskImageKey, 3600);
       }
     } catch {
       // Sem storage configurado o terminal segue funcionando apenas com cores.
@@ -159,6 +164,8 @@ export const getKioskPanel = createServerFn({ method: "POST" })
         title: panel.kioskTitle?.trim() || "Retire sua senha",
         logoUrl,
         logoVersion,
+        imageUrl,
+        imageVersion: panel.kioskImageKey ?? null,
         logoHeight: panel.kioskLogoHeight ?? 96,
         layout: resolveQueueLayout(panel.kioskLayout, KIOSK_LAYOUT_DEFAULT),
       },

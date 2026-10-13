@@ -235,6 +235,7 @@ export const listQueuePanels = createServerFn({ method: "GET" }).handler(
           kioskLogoHeight: schema.queuePanels.kioskLogoHeight,
           kioskLayout: schema.queuePanels.kioskLayout,
           kioskLogoKey: schema.queuePanels.kioskLogoKey,
+           kioskImageKey: schema.queuePanels.kioskImageKey,
           kioskBgImageKey: schema.queuePanels.kioskBgImageKey,
           printerFooterText: schema.queuePanels.printerFooterText,
           chimeName: schema.queuePanels.chimeName,
@@ -325,17 +326,20 @@ export const listQueuePanels = createServerFn({ method: "GET" }).handler(
       const now = Date.now();
       const kioskPreviewUrls = new Map<
         string,
-        { logo: string | null; background: string | null; callBackground: string | null; callImage: string | null }
+        { logo: string | null; background: string | null; kioskImage: string | null; callBackground: string | null; callImage: string | null }
       >();
       try {
         const { createDownloadUrl, isStorageConfigured } = await import("@/lib/storage.server");
         if (isStorageConfigured()) {
           await Promise.all(
             uniqueRows.map(async (row) => {
-              const [logo, background, callBackground, callImage] = await Promise.all([
+              const [logo, background, kioskImage, callBackground, callImage] = await Promise.all([
                 row.kioskLogoKey ? createDownloadUrl(row.kioskLogoKey, 900) : Promise.resolve(null),
                 row.kioskBgImageKey
                   ? createDownloadUrl(row.kioskBgImageKey, 900)
+                  : Promise.resolve(null),
+                row.kioskImageKey
+                  ? createDownloadUrl(row.kioskImageKey, 900)
                   : Promise.resolve(null),
                 row.themeBgImageKey
                   ? createDownloadUrl(row.themeBgImageKey, 900)
@@ -344,7 +348,7 @@ export const listQueuePanels = createServerFn({ method: "GET" }).handler(
                   ? createDownloadUrl(row.themeImageKey, 900)
                   : Promise.resolve(null),
               ]);
-              kioskPreviewUrls.set(row.deviceId, { logo, background, callBackground, callImage });
+              kioskPreviewUrls.set(row.deviceId, { logo, background, kioskImage, callBackground, callImage });
             }),
           );
         }
@@ -415,8 +419,10 @@ export const listQueuePanels = createServerFn({ method: "GET" }).handler(
             kioskLogoHeight: row.kioskLogoHeight ?? KIOSK_THEME_DEFAULTS.kioskLogoHeight,
             kioskLayout: resolveQueueLayout(row.kioskLayout, KIOSK_LAYOUT_DEFAULT),
             hasKioskLogo: Boolean(row.kioskLogoKey),
+            hasKioskImage: Boolean(row.kioskImageKey),
             hasKioskBgImage: Boolean(row.kioskBgImageKey),
             kioskLogoPreviewUrl: kioskPreviewUrls.get(row.deviceId)?.logo ?? null,
+            kioskImagePreviewUrl: kioskPreviewUrls.get(row.deviceId)?.kioskImage ?? null,
             kioskBgImagePreviewUrl: kioskPreviewUrls.get(row.deviceId)?.background ?? null,
             printerFooterText: row.printerFooterText ?? null,
             chimeName: row.chimeName ?? null,
@@ -849,6 +855,7 @@ export const deleteQueuePanel = createServerFn({ method: "POST" })
         themeBgImageKey: schema.queuePanels.themeBgImageKey,
         themeImageKey: schema.queuePanels.themeImageKey,
         kioskLogoKey: schema.queuePanels.kioskLogoKey,
+        kioskImageKey: schema.queuePanels.kioskImageKey,
         kioskBgImageKey: schema.queuePanels.kioskBgImageKey,
       })
       .from(schema.queuePanelDevices)
@@ -868,6 +875,7 @@ export const deleteQueuePanel = createServerFn({ method: "POST" })
       panel[0].themeBgImageKey,
       panel[0].themeImageKey,
       panel[0].kioskLogoKey,
+      panel[0].kioskImageKey,
       panel[0].kioskBgImageKey,
     ].filter((key): key is string => Boolean(key));
     if (storedKeys.length > 0) {

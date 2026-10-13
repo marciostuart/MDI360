@@ -337,6 +337,13 @@
       "when": 1791850000000,
       "tag": "0047_queue_call_visual_assets",
       "breakpoints": true
+    },
+    {
+      "idx": 48,
+      "version": "7",
+      "when": 1791853600000,
+      "tag": "0048_queue_kiosk_image_block",
+      "breakpoints": true
     }
   ]
 }

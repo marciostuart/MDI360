@@ -1,7 +1,7 @@
 import { createFileRoute } from "@tanstack/react-router";
 
 const MAX_BYTES = 8 * 1024 * 1024;
-const SLOTS = new Set(["logo", "background", "call-background", "call-image"]);
+const SLOTS = new Set(["logo", "background", "kiosk-image", "call-background", "call-image"]);
 
 async function requirePanel(request: Request, deviceId: string) {
   const { requireUser } = await import("@/lib/auth/session.server");
@@ -13,6 +13,7 @@ async function requirePanel(request: Request, deviceId: string) {
       id: schema.queuePanels.id,
       logoKey: schema.queuePanels.kioskLogoKey,
       bgKey: schema.queuePanels.kioskBgImageKey,
+      kioskImageKey: schema.queuePanels.kioskImageKey,
       callBgKey: schema.queuePanels.themeBgImageKey,
       callImageKey: schema.queuePanels.themeImageKey,
     })
@@ -66,7 +67,9 @@ export const Route = createFileRoute("/api/queue/kiosk-media")({
               ? { kioskLogoKey: key }
               : slot === "background"
                 ? { kioskBgImageKey: key, kioskBgMediaId: null }
-                : slot === "call-background"
+                : slot === "kiosk-image"
+                  ? { kioskImageKey: key }
+                  : slot === "call-background"
                   ? { themeBgImageKey: key, themeBgMediaId: null }
                   : { themeImageKey: key };
           const oldKey =
@@ -74,7 +77,9 @@ export const Route = createFileRoute("/api/queue/kiosk-media")({
               ? panel.logoKey
               : slot === "background"
                 ? panel.bgKey
-                : slot === "call-background"
+                : slot === "kiosk-image"
+                  ? panel.kioskImageKey
+                  : slot === "call-background"
                   ? panel.callBgKey
                   : panel.callImageKey;
           try {
@@ -117,7 +122,9 @@ export const Route = createFileRoute("/api/queue/kiosk-media")({
               ? panel.logoKey
               : body.slot === "background"
                 ? panel.bgKey
-                : body.slot === "call-background"
+                : body.slot === "kiosk-image"
+                  ? panel.kioskImageKey
+                  : body.slot === "call-background"
                   ? panel.callBgKey
                   : panel.callImageKey;
           const field =
@@ -125,7 +132,9 @@ export const Route = createFileRoute("/api/queue/kiosk-media")({
               ? { kioskLogoKey: null }
               : body.slot === "background"
                 ? { kioskBgImageKey: null }
-                : body.slot === "call-background"
+                : body.slot === "kiosk-image"
+                  ? { kioskImageKey: null }
+                  : body.slot === "call-background"
                   ? { themeBgImageKey: null, themeBgMediaId: null }
                   : { themeImageKey: null };
           await db
