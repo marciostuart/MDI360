@@ -3,6 +3,8 @@ import { useRef, useState, type PointerEvent, type ReactNode } from "react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
+import { QueueButtonContent } from "@/components/queue/queue-button-content";
+import { queueButtonStyle } from "@/components/queue/queue-button-style";
 import { type QueueLayout, type QueueLayoutBlock } from "@/lib/queue/queue-layout";
 
 export type QueueLayoutEditorItem = {
@@ -39,7 +41,8 @@ function NumberField({
         value={value}
         onChange={(event) => {
           const next = Number(event.target.value);
-          if (Number.isFinite(next)) onChange(integer ? Math.round(clamp(next, min, max)) : clamp(next, min, max));
+          if (Number.isFinite(next))
+            onChange(integer ? Math.round(clamp(next, min, max)) : clamp(next, min, max));
         }}
       />
     </div>
@@ -131,7 +134,11 @@ export function QueueLayoutEditor({
                 const isHistory = item.id === "history";
                 const isVerticalHistory = isHistory && entry.historyDirection === "vertical";
                 const horizontalAlignment =
-                  entry.align === "left" ? "flex-start" : entry.align === "right" ? "flex-end" : "center";
+                  entry.align === "left"
+                    ? "flex-start"
+                    : entry.align === "right"
+                      ? "flex-end"
+                      : "center";
                 return (
                   <div
                     key={item.id}
@@ -159,7 +166,7 @@ export function QueueLayoutEditor({
                       justifyContent: isVerticalHistory ? "center" : horizontalAlignment,
                       alignItems: isVerticalHistory ? horizontalAlignment : undefined,
                       color: entry.color,
-                      backgroundColor: item.kind === "button" ? entry.backgroundColor : undefined,
+                      ...(item.kind === "button" ? queueButtonStyle(entry) : {}),
                       opacity: entry.opacity / 100,
                       fontSize: `${entry.fontSize}cqw`,
                       textAlign: entry.align,
@@ -187,8 +194,16 @@ export function QueueLayoutEditor({
                       )
                     ) : isHistory ? (
                       ["AO11", "AO10", "AO09"].map((value) => <span key={value}>{value}</span>)
+                    ) : item.kind === "button" ? (
+                      <QueueButtonContent block={entry}>{item.sample}</QueueButtonContent>
                     ) : (
-                      item.sample
+                      <span
+                        style={{
+                          textTransform: entry.textCase === "uppercase" ? "uppercase" : "none",
+                        }}
+                      >
+                        {item.sample}
+                      </span>
                     )}
                   </div>
                 );
@@ -297,6 +312,95 @@ export function QueueLayoutEditor({
                       type="color"
                       value={block.backgroundColor ?? "#000000"}
                       onChange={(event) => patch({ backgroundColor: event.target.value })}
+                    />
+                  </div>
+                ) : null}
+                {selectedItem?.kind === "button" ? (
+                  <div className="space-y-3 rounded-md border p-3">
+                    <Label className="text-xs">Texto</Label>
+                    <select
+                      className="h-9 w-full rounded-md border bg-background px-3 text-sm"
+                      value={block.textCase ?? "normal"}
+                      onChange={(event) =>
+                        patch({ textCase: event.target.value as "normal" | "uppercase" })
+                      }
+                    >
+                      <option value="normal">Normal</option>
+                      <option value="uppercase">CAIXA ALTA</option>
+                    </select>
+                    <label className="flex items-center gap-2 text-sm">
+                      <input
+                        type="checkbox"
+                        checked={block.showIcon ?? true}
+                        onChange={(event) => patch({ showIcon: event.target.checked })}
+                      />
+                      Exibir ícone
+                    </label>
+                    <div className="space-y-1">
+                      <Label className="text-xs">Ícone</Label>
+                      <select
+                        className="h-9 w-full rounded-md border bg-background px-3 text-sm"
+                        value={block.icon ?? "ticket"}
+                        onChange={(event) =>
+                          patch({ icon: event.target.value as QueueLayoutBlock["icon"] })
+                        }
+                      >
+                        <option value="ticket">Ticket</option>
+                        <option value="user">Pessoa</option>
+                        <option value="star">Estrela</option>
+                        <option value="heart">Coração</option>
+                        <option value="none">Nenhum</option>
+                      </select>
+                    </div>
+                    <label className="flex items-center gap-2 text-sm">
+                      <input
+                        type="checkbox"
+                        checked={block.buttonGradient ?? false}
+                        onChange={(event) => patch({ buttonGradient: event.target.checked })}
+                      />
+                      Usar gradiente
+                    </label>
+                    {block.buttonGradient ? (
+                      <>
+                        <div className="space-y-1">
+                          <Label className="text-xs">Cor inicial</Label>
+                          <Input
+                            type="color"
+                            value={block.gradientStartColor ?? block.backgroundColor ?? "#000000"}
+                            onChange={(event) => patch({ gradientStartColor: event.target.value })}
+                          />
+                        </div>
+                        <div className="space-y-1">
+                          <Label className="text-xs">Cor final</Label>
+                          <Input
+                            type="color"
+                            value={block.gradientEndColor ?? block.backgroundColor ?? "#000000"}
+                            onChange={(event) => patch({ gradientEndColor: event.target.value })}
+                          />
+                        </div>
+                        <NumberField
+                          label="Direção do gradiente (°)"
+                          value={block.gradientAngle ?? 135}
+                          min={0}
+                          max={360}
+                          integer
+                          onChange={(gradientAngle) => patch({ gradientAngle })}
+                        />
+                      </>
+                    ) : null}
+                    <NumberField
+                      label="Padding (cqw)"
+                      value={block.buttonPadding ?? 0.6}
+                      min={0}
+                      max={5}
+                      onChange={(buttonPadding) => patch({ buttonPadding })}
+                    />
+                    <NumberField
+                      label="Border radius (cqw)"
+                      value={block.borderRadius ?? 0.8}
+                      min={0}
+                      max={5}
+                      onChange={(borderRadius) => patch({ borderRadius })}
                     />
                   </div>
                 ) : null}

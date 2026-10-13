@@ -9,6 +9,15 @@ export type QueueLayoutBlock = {
   align: "left" | "center" | "right";
   /** Fundo de itens visuais, usado pelos botões do emissor. */
   backgroundColor?: string;
+  textCase?: "normal" | "uppercase";
+  showIcon?: boolean;
+  icon?: "ticket" | "user" | "star" | "heart" | "none";
+  buttonGradient?: boolean;
+  gradientStartColor?: string;
+  gradientEndColor?: string;
+  gradientAngle?: number;
+  buttonPadding?: number;
+  borderRadius?: number;
   /** Applies only to the queue-call history. */
   historyDirection?: "horizontal" | "vertical";
   historyLimit?: number;
@@ -103,6 +112,15 @@ export const KIOSK_LAYOUT_DEFAULT: QueueLayout = {
     fontSize: 2.1,
     color: "#ffffff",
     backgroundColor: "#2563eb",
+    textCase: "normal",
+    showIcon: true,
+    icon: "ticket",
+    buttonGradient: false,
+    gradientStartColor: "#2563eb",
+    gradientEndColor: "#1d4ed8",
+    gradientAngle: 135,
+    buttonPadding: 0.6,
+    borderRadius: 0.8,
     opacity: 100,
     align: "center",
   },
@@ -114,6 +132,15 @@ export const KIOSK_LAYOUT_DEFAULT: QueueLayout = {
     fontSize: 2.1,
     color: "#0b1220",
     backgroundColor: "#f59e0b",
+    textCase: "normal",
+    showIcon: true,
+    icon: "ticket",
+    buttonGradient: false,
+    gradientStartColor: "#f59e0b",
+    gradientEndColor: "#d97706",
+    gradientAngle: 135,
+    buttonPadding: 0.6,
+    borderRadius: 0.8,
     opacity: 100,
     align: "center",
   },
@@ -154,6 +181,27 @@ export function resolveQueueLayout(value: unknown, defaults: QueueLayout): Queue
           fontSize: number(item.fontSize, fallback.fontSize, 0.5, 25),
           color: color(item.color, fallback.color),
           backgroundColor: color(item.backgroundColor, fallback.backgroundColor ?? "#000000"),
+          textCase: item.textCase === "uppercase" ? "uppercase" : "normal",
+          showIcon:
+            typeof item.showIcon === "boolean" ? item.showIcon : (fallback.showIcon ?? true),
+          icon: ["ticket", "user", "star", "heart", "none"].includes(String(item.icon))
+            ? (item.icon as QueueLayoutBlock["icon"])
+            : (fallback.icon ?? "ticket"),
+          buttonGradient:
+            typeof item.buttonGradient === "boolean"
+              ? item.buttonGradient
+              : (fallback.buttonGradient ?? false),
+          gradientStartColor: color(
+            item.gradientStartColor,
+            fallback.gradientStartColor ?? fallback.backgroundColor ?? "#000000",
+          ),
+          gradientEndColor: color(
+            item.gradientEndColor,
+            fallback.gradientEndColor ?? fallback.backgroundColor ?? "#000000",
+          ),
+          gradientAngle: number(item.gradientAngle, fallback.gradientAngle ?? 135, 0, 360),
+          buttonPadding: number(item.buttonPadding, fallback.buttonPadding ?? 0.6, 0, 5),
+          borderRadius: number(item.borderRadius, fallback.borderRadius ?? 0.8, 0, 5),
           opacity: number(item.opacity, fallback.opacity, 0, 100),
           align: item.align === "left" || item.align === "right" ? item.align : "center",
           historyDirection:

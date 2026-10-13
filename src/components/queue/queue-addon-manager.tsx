@@ -183,6 +183,81 @@ export function QueueAddonManager() {
 
   const [uploadingKioskMedia, setUploadingKioskMedia] = useState<string | null>(null);
 
+  type KioskDraftSlot = "background" | "logo" | "kiosk-image";
+  type KioskDraftMedia = { file?: File; remove?: boolean; previewUrl?: string };
+  const [kioskMediaDrafts, setKioskMediaDrafts] = useState<Record<string, KioskDraftMedia>>({});
+  const kioskDraftKey = (deviceId: string, slot: KioskDraftSlot) => `${deviceId}:${slot}`;
+  const stageKioskMedia = (deviceId: string, slot: KioskDraftSlot, file: File) => {
+    const key = kioskDraftKey(deviceId, slot);
+    const previewUrl = URL.createObjectURL(file);
+    setKioskMediaDrafts((current) => {
+      const previous = current[key];
+      if (previous?.previewUrl) URL.revokeObjectURL(previous.previewUrl);
+      return { ...current, [key]: { file, previewUrl } };
+    });
+  };
+  const stageKioskMediaRemoval = (deviceId: string, slot: KioskDraftSlot) => {
+    const key = kioskDraftKey(deviceId, slot);
+    setKioskMediaDrafts((current) => {
+      const previous = current[key];
+      if (previous?.previewUrl) URL.revokeObjectURL(previous.previewUrl);
+      return { ...current, [key]: { remove: true } };
+    });
+  };
+  const kioskImagePreview = (deviceId: string, slot: KioskDraftSlot, savedUrl?: string | null) => {
+    const draft = kioskMediaDrafts[kioskDraftKey(deviceId, slot)];
+    return draft?.remove ? null : (draft?.previewUrl ?? savedUrl ?? null);
+  };
+  const discardKioskMediaDrafts = (deviceId: string) => {
+    setKioskMediaDrafts((current) => {
+      const next = { ...current };
+      for (const slot of ["background", "logo", "kiosk-image"] as const) {
+        const key = kioskDraftKey(deviceId, slot);
+        if (next[key]?.previewUrl) URL.revokeObjectURL(next[key]!.previewUrl!);
+        delete next[key];
+      }
+      return next;
+    });
+  };
+  const commitKioskMediaDrafts = async (deviceId: string) => {
+    const slots: KioskDraftSlot[] = ["background", "logo", "kiosk-image"];
+    const backgroundChanged = Boolean(kioskMediaDrafts[kioskDraftKey(deviceId, "background")]);
+    for (const slot of slots) {
+      const key = kioskDraftKey(deviceId, slot);
+      const draft = kioskMediaDrafts[key];
+      if (!draft) continue;
+      if (draft.file) {
+        const prepared = await prepareUpload(draft.file, DEFAULT_CANVAS_PRESET);
+        if (prepared.kind !== "image") throw new Error("Selecione uma imagem.");
+        const body = new FormData();
+        body.append("deviceId", deviceId);
+        body.append("slot", slot);
+        body.append("file", prepared.blob, `${slot}.webp`);
+        const response = await fetch("/api/queue/kiosk-media", { method: "POST", body });
+        const payload = (await response.json().catch(() => ({}))) as { error?: string };
+        if (!response.ok) throw new Error(payload.error || "Não foi possível salvar a imagem.");
+      } else if (draft.remove) {
+        const response = await fetch("/api/queue/kiosk-media", {
+          method: "DELETE",
+          headers: { "content-type": "application/json" },
+          body: JSON.stringify({ deviceId, slot }),
+        });
+        const payload = (await response.json().catch(() => ({}))) as { error?: string };
+        if (!response.ok) throw new Error(payload.error || "Não foi possível remover a imagem.");
+      }
+    }
+    setKioskMediaDrafts((current) => {
+      const next = { ...current };
+      for (const slot of slots) {
+        const key = kioskDraftKey(deviceId, slot);
+        if (next[key]?.previewUrl) URL.revokeObjectURL(next[key]!.previewUrl!);
+        delete next[key];
+      }
+      return next;
+    });
+    return backgroundChanged;
+  };
+
   type ExclusiveMediaSlot =
     "logo" | "background" | "kiosk-image" | "call-background" | "call-image";
 
@@ -241,7 +316,7 @@ export function QueueAddonManager() {
   };
 
   const saveMutation = useMutation({
-    mutationFn: (input: {
+    mutationFn: async (input: {
       deviceId: string;
       queueName: string;
       username: string;
@@ -283,7 +358,10 @@ export function QueueAddonManager() {
       printerFooterText: string | null;
       chimeVolume: number;
       voiceVolume: number;
-    }) => savePanel({ data: input }),
+    }) => {
+      const backgroundChanged = await commitKioskMediaDrafts(input.deviceId);
+      return savePanel({ data: backgroundChanged ? { ...input, kioskBgMediaId: null } : input });
+    },
     onSuccess: async () => {
       toast.success("Painel de senhas salvo.");
       setEditing(null);
@@ -1258,17 +1336,18 @@ export function QueueAddonManager() {
                               disabled={uploadingKioskMedia === `${panel.deviceId}:background`}
                               onChange={(event) => {
                                 const file = event.target.files?.[0];
-                                if (file) void uploadKioskMedia(panel.deviceId, "background", file);
+                                if (file) stageKioskMedia(panel.deviceId, "background", file);
                                 event.currentTarget.value = "";
                               }}
                             />
-                            {panel.hasKioskBgImage ? (
+                            {panel.hasKioskBgImage ||
+                            kioskMediaDrafts[kioskDraftKey(panel.deviceId, "background")] ? (
                               <Button
                                 type="button"
                                 variant="outline"
                                 size="sm"
                                 disabled={uploadingKioskMedia === `${panel.deviceId}:background`}
-                                onClick={() => void removeKioskMedia(panel.deviceId, "background")}
+                                onClick={() => stageKioskMediaRemoval(panel.deviceId, "background")}
                               >
                                 Remover
                               </Button>
@@ -1309,17 +1388,18 @@ export function QueueAddonManager() {
                                 disabled={uploadingKioskMedia === `${panel.deviceId}:logo`}
                                 onChange={(event) => {
                                   const file = event.target.files?.[0];
-                                  if (file) void uploadKioskMedia(panel.deviceId, "logo", file);
+                                  if (file) stageKioskMedia(panel.deviceId, "logo", file);
                                   event.currentTarget.value = "";
                                 }}
                               />
-                              {panel.hasKioskLogo ? (
+                              {panel.hasKioskLogo ||
+                              kioskMediaDrafts[kioskDraftKey(panel.deviceId, "logo")] ? (
                                 <Button
                                   type="button"
                                   variant="outline"
                                   size="sm"
                                   disabled={uploadingKioskMedia === `${panel.deviceId}:logo`}
-                                  onClick={() => void removeKioskMedia(panel.deviceId, "logo")}
+                                  onClick={() => stageKioskMediaRemoval(panel.deviceId, "logo")}
                                 >
                                   Remover
                                 </Button>
@@ -1461,20 +1541,28 @@ export function QueueAddonManager() {
                           {
                             id: "normalButton",
                             label: "Botão normal",
-                            sample: "SENHA NORMAL",
+                            sample: "Senha normal",
                             kind: "button",
                           },
                           {
                             id: "priorityButton",
                             label: "Botão preferencial",
-                            sample: "PREFERENCIAL",
+                            sample: "Preferencial",
                             kind: "button",
                           },
                           { id: "image", label: "Bloco de imagem", sample: "", kind: "image" },
                         ]}
                         imageUrls={{
-                          logo: panel.kioskLogoPreviewUrl,
-                          image: panel.kioskImagePreviewUrl,
+                          logo: kioskImagePreview(
+                            panel.deviceId,
+                            "logo",
+                            panel.kioskLogoPreviewUrl,
+                          ),
+                          image: kioskImagePreview(
+                            panel.deviceId,
+                            "kiosk-image",
+                            panel.kioskImagePreviewUrl,
+                          ),
                         }}
                         backgroundControls={
                           <div className="space-y-3">
@@ -1501,7 +1589,7 @@ export function QueueAddonManager() {
                               disabled={uploadingKioskMedia === `${panel.deviceId}:background`}
                               onChange={(event) => {
                                 const file = event.target.files?.[0];
-                                if (file) void uploadKioskMedia(panel.deviceId, "background", file);
+                                if (file) stageKioskMedia(panel.deviceId, "background", file);
                                 event.currentTarget.value = "";
                               }}
                             />
@@ -1510,7 +1598,7 @@ export function QueueAddonManager() {
                                 type="button"
                                 size="sm"
                                 variant="outline"
-                                onClick={() => void removeKioskMedia(panel.deviceId, "background")}
+                                onClick={() => stageKioskMediaRemoval(panel.deviceId, "background")}
                               >
                                 Remover imagem
                               </Button>
@@ -1566,7 +1654,7 @@ export function QueueAddonManager() {
                                 disabled={uploadingKioskMedia === `${panel.deviceId}:logo`}
                                 onChange={(event) => {
                                   const file = event.target.files?.[0];
-                                  if (file) void uploadKioskMedia(panel.deviceId, "logo", file);
+                                  if (file) stageKioskMedia(panel.deviceId, "logo", file);
                                   event.currentTarget.value = "";
                                 }}
                               />
@@ -1575,7 +1663,7 @@ export function QueueAddonManager() {
                                   type="button"
                                   variant="outline"
                                   size="sm"
-                                  onClick={() => void removeKioskMedia(panel.deviceId, "logo")}
+                                  onClick={() => stageKioskMediaRemoval(panel.deviceId, "logo")}
                                 >
                                   Remover imagem
                                 </Button>
@@ -1606,18 +1694,18 @@ export function QueueAddonManager() {
                                 disabled={uploadingKioskMedia === `${panel.deviceId}:kiosk-image`}
                                 onChange={(event) => {
                                   const file = event.target.files?.[0];
-                                  if (file)
-                                    void uploadKioskMedia(panel.deviceId, "kiosk-image", file);
+                                  if (file) stageKioskMedia(panel.deviceId, "kiosk-image", file);
                                   event.currentTarget.value = "";
                                 }}
                               />
-                              {panel.hasKioskImage ? (
+                              {panel.hasKioskImage ||
+                              kioskMediaDrafts[kioskDraftKey(panel.deviceId, "kiosk-image")] ? (
                                 <Button
                                   type="button"
                                   variant="outline"
                                   size="sm"
                                   onClick={() =>
-                                    void removeKioskMedia(panel.deviceId, "kiosk-image")
+                                    stageKioskMediaRemoval(panel.deviceId, "kiosk-image")
                                   }
                                 >
                                   Remover imagem
@@ -1634,9 +1722,13 @@ export function QueueAddonManager() {
                             className="absolute inset-0 bg-cover bg-center"
                             style={{
                               backgroundColor: form.kioskBgColor,
-                              ...(panel.kioskBgImagePreviewUrl
+                              ...(kioskImagePreview(
+                                panel.deviceId,
+                                "background",
+                                panel.kioskBgImagePreviewUrl,
+                              )
                                 ? {
-                                    backgroundImage: `url(${JSON.stringify(panel.kioskBgImagePreviewUrl)})`,
+                                    backgroundImage: `url(${JSON.stringify(kioskImagePreview(panel.deviceId, "background", panel.kioskBgImagePreviewUrl))})`,
                                   }
                                 : {}),
                             }}
@@ -1651,7 +1743,14 @@ export function QueueAddonManager() {
                       {saveMutation.isPending ? <Loader2 className="size-4 animate-spin" /> : null}
                       Salvar
                     </Button>
-                    <Button type="button" variant="ghost" onClick={() => setEditing(null)}>
+                    <Button
+                      type="button"
+                      variant="ghost"
+                      onClick={() => {
+                        discardKioskMediaDrafts(panel.deviceId);
+                        setEditing(null);
+                      }}
+                    >
                       Cancelar
                     </Button>
                   </div>

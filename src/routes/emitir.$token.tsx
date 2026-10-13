@@ -1,16 +1,14 @@
 import { useMutation, useQuery } from "@tanstack/react-query";
 import { createFileRoute } from "@tanstack/react-router";
 import { useServerFn } from "@tanstack/react-start";
-import { Loader2, Maximize, Ticket } from "lucide-react";
+import { Loader2, Maximize } from "lucide-react";
 import { useEffect, useRef, useState } from "react";
 
 import { Button } from "@/components/ui/button";
+import { QueueButtonContent } from "@/components/queue/queue-button-content";
+import { queueButtonStyle } from "@/components/queue/queue-button-style";
 import { Card, CardContent } from "@/components/ui/card";
-import {
-  getKioskPanel,
-  issueKioskTicket,
-  type KioskPanel,
-} from "@/lib/queue/kiosk.functions";
+import { getKioskPanel, issueKioskTicket, type KioskPanel } from "@/lib/queue/kiosk.functions";
 import type { QueueLayoutBlock } from "@/lib/queue/queue-layout";
 
 // Ponte opcional com o aplicativo desktop (MDI360 Emissor) para impressão térmica automática.
@@ -72,7 +70,8 @@ function useKioskViewport() {
     const html = document.documentElement;
     const body = document.body;
     const previous = { html: html.getAttribute("style"), body: body.getAttribute("style") };
-    const lock = "margin:0;padding:0;width:100%;height:100%;overflow:hidden;overscroll-behavior:none;";
+    const lock =
+      "margin:0;padding:0;width:100%;height:100%;overflow:hidden;overscroll-behavior:none;";
     html.setAttribute("style", lock);
     body.setAttribute("style", `${lock}position:fixed;inset:0;touch-action:manipulation;`);
     return () => {
@@ -89,7 +88,8 @@ function useAutoHideCursor(enabled: boolean) {
   useEffect(() => {
     const html = document.documentElement;
     const style = document.createElement("style");
-    style.textContent = "html.mdi-cursor-hidden, html.mdi-cursor-hidden * { cursor: none !important; }";
+    style.textContent =
+      "html.mdi-cursor-hidden, html.mdi-cursor-hidden * { cursor: none !important; }";
     document.head.appendChild(style);
 
     if (!enabled) {
@@ -402,51 +402,51 @@ function KioskPage() {
           />
         ) : null}
         {pendingKind && needsSectorChoice ? (
-        <Card style={{ backgroundColor: theme.cardColor, borderColor: theme.cardColor }}>
-          <CardContent className="space-y-3 py-5">
-            <p className="text-sm font-medium" style={{ color: theme.textColor }}>
-              {pendingKind === "priority"
-                ? "Senha preferencial · escolha o atendimento"
-                : "Senha normal · escolha o atendimento"}
-            </p>
-            <div className="grid gap-2 sm:grid-cols-2">
-              {data.sectors.map((sector) => (
-                <Button
-                  key={sector.id}
-                  variant="outline"
-                  className="h-20 whitespace-normal text-base font-semibold"
-                  style={{
-                    backgroundColor:
-                      pendingKind === "priority"
-                        ? theme.priorityButtonColor
-                        : theme.normalButtonColor,
-                    color:
-                      pendingKind === "priority"
-                        ? theme.priorityButtonTextColor
-                        : theme.normalButtonTextColor,
-                    borderColor: "transparent",
-                  }}
-                  disabled={issueMutation.isPending}
-                  onClick={() => issueMutation.mutate({ kind: pendingKind, sectorId: sector.id })}
-                >
-                  {sector.name}
-                </Button>
-              ))}
-            </div>
-            <Button
-              variant="ghost"
-              style={{ color: theme.textColor }}
-              onClick={() => setPendingKind(null)}
-            >
-              Voltar
-            </Button>
-            {issueMutation.isError ? (
-              <p className="text-sm text-destructive">
-                {(issueMutation.error as Error).message || "Não foi possível emitir a senha."}
+          <Card style={{ backgroundColor: theme.cardColor, borderColor: theme.cardColor }}>
+            <CardContent className="space-y-3 py-5">
+              <p className="text-sm font-medium" style={{ color: theme.textColor }}>
+                {pendingKind === "priority"
+                  ? "Senha preferencial · escolha o atendimento"
+                  : "Senha normal · escolha o atendimento"}
               </p>
-            ) : null}
-          </CardContent>
-        </Card>
+              <div className="grid gap-2 sm:grid-cols-2">
+                {data.sectors.map((sector) => (
+                  <Button
+                    key={sector.id}
+                    variant="outline"
+                    className="h-20 whitespace-normal text-base font-semibold"
+                    style={{
+                      backgroundColor:
+                        pendingKind === "priority"
+                          ? theme.priorityButtonColor
+                          : theme.normalButtonColor,
+                      color:
+                        pendingKind === "priority"
+                          ? theme.priorityButtonTextColor
+                          : theme.normalButtonTextColor,
+                      borderColor: "transparent",
+                    }}
+                    disabled={issueMutation.isPending}
+                    onClick={() => issueMutation.mutate({ kind: pendingKind, sectorId: sector.id })}
+                  >
+                    {sector.name}
+                  </Button>
+                ))}
+              </div>
+              <Button
+                variant="ghost"
+                style={{ color: theme.textColor }}
+                onClick={() => setPendingKind(null)}
+              >
+                Voltar
+              </Button>
+              {issueMutation.isError ? (
+                <p className="text-sm text-destructive">
+                  {(issueMutation.error as Error).message || "Não foi possível emitir a senha."}
+                </p>
+              ) : null}
+            </CardContent>
+          </Card>
         ) : (
           <>
             {stableLogoUrl && !layout.logo.hidden ? (
@@ -458,18 +458,41 @@ function KioskPage() {
               />
             ) : null}
             {!layout.title.hidden ? (
-              <h1 className="z-10 m-0 flex items-center overflow-hidden whitespace-nowrap font-normal" style={{ ...blockStyle(layout.title), ...contentAlignment(layout.title) }}>
+              <h1
+                className="z-10 m-0 flex items-center overflow-hidden whitespace-nowrap font-normal"
+                style={{ ...blockStyle(layout.title), ...contentAlignment(layout.title) }}
+              >
                 {theme.title}
               </h1>
             ) : null}
             {!layout.normalButton.hidden ? (
-              <button type="button" className="z-10 flex border-0 p-0 font-normal disabled:cursor-wait" style={{ ...blockStyle(layout.normalButton), ...contentAlignment(layout.normalButton), backgroundColor: layout.normalButton.backgroundColor ?? theme.normalButtonColor }} disabled={issueMutation.isPending} onClick={() => issueKind("normal")}>
-                <span className="flex items-center gap-[0.4em]"><Ticket style={{ width: "1em", height: "1em" }} />Senha normal</span>
+              <button
+                type="button"
+                className="z-10 flex items-center border-0 font-normal disabled:cursor-wait"
+                style={{
+                  ...blockStyle(layout.normalButton),
+                  ...contentAlignment(layout.normalButton),
+                  ...queueButtonStyle(layout.normalButton),
+                }}
+                disabled={issueMutation.isPending}
+                onClick={() => issueKind("normal")}
+              >
+                <QueueButtonContent block={layout.normalButton}>Senha normal</QueueButtonContent>
               </button>
             ) : null}
             {!layout.priorityButton.hidden ? (
-              <button type="button" className="z-10 flex border-0 p-0 font-normal disabled:cursor-wait" style={{ ...blockStyle(layout.priorityButton), ...contentAlignment(layout.priorityButton), backgroundColor: layout.priorityButton.backgroundColor ?? theme.priorityButtonColor }} disabled={issueMutation.isPending} onClick={() => issueKind("priority")}>
-                <span className="flex items-center gap-[0.4em]"><Ticket style={{ width: "1em", height: "1em" }} />Preferencial</span>
+              <button
+                type="button"
+                className="z-10 flex items-center border-0 font-normal disabled:cursor-wait"
+                style={{
+                  ...blockStyle(layout.priorityButton),
+                  ...contentAlignment(layout.priorityButton),
+                  ...queueButtonStyle(layout.priorityButton),
+                }}
+                disabled={issueMutation.isPending}
+                onClick={() => issueKind("priority")}
+              >
+                <QueueButtonContent block={layout.priorityButton}>Preferencial</QueueButtonContent>
               </button>
             ) : null}
             {issueMutation.isError ? (
@@ -478,8 +501,15 @@ function KioskPage() {
               </p>
             ) : null}
             {!isFullscreen && !isDesktopApp ? (
-              <Button variant="ghost" size="sm" className="absolute bottom-2 right-2 z-20" style={{ color: theme.textColor }} onClick={requestFullscreen}>
-                <Maximize className="size-4" />Tela cheia
+              <Button
+                variant="ghost"
+                size="sm"
+                className="absolute bottom-2 right-2 z-20"
+                style={{ color: theme.textColor }}
+                onClick={requestFullscreen}
+              >
+                <Maximize className="size-4" />
+                Tela cheia
               </Button>
             ) : null}
           </>

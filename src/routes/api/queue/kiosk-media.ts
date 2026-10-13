@@ -70,8 +70,8 @@ export const Route = createFileRoute("/api/queue/kiosk-media")({
                 : slot === "kiosk-image"
                   ? { kioskImageKey: key }
                   : slot === "call-background"
-                  ? { themeBgImageKey: key, themeBgMediaId: null }
-                  : { themeImageKey: key };
+                    ? { themeBgImageKey: key, themeBgMediaId: null }
+                    : { themeImageKey: key };
           const oldKey =
             slot === "logo"
               ? panel.logoKey
@@ -80,8 +80,8 @@ export const Route = createFileRoute("/api/queue/kiosk-media")({
                 : slot === "kiosk-image"
                   ? panel.kioskImageKey
                   : slot === "call-background"
-                  ? panel.callBgKey
-                  : panel.callImageKey;
+                    ? panel.callBgKey
+                    : panel.callImageKey;
           try {
             const { eq } = await import("drizzle-orm");
             await db
@@ -125,18 +125,18 @@ export const Route = createFileRoute("/api/queue/kiosk-media")({
                 : body.slot === "kiosk-image"
                   ? panel.kioskImageKey
                   : body.slot === "call-background"
-                  ? panel.callBgKey
-                  : panel.callImageKey;
+                    ? panel.callBgKey
+                    : panel.callImageKey;
           const field =
             body.slot === "logo"
               ? { kioskLogoKey: null }
               : body.slot === "background"
-                ? { kioskBgImageKey: null }
+                ? { kioskBgImageKey: null, kioskBgMediaId: null }
                 : body.slot === "kiosk-image"
                   ? { kioskImageKey: null }
                   : body.slot === "call-background"
-                  ? { themeBgImageKey: null, themeBgMediaId: null }
-                  : { themeImageKey: null };
+                    ? { themeBgImageKey: null, themeBgMediaId: null }
+                    : { themeImageKey: null };
           await db
             .update(schema.queuePanels)
             .set(field)
