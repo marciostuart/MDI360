@@ -57,9 +57,13 @@ export function LocalScreen() {
       // always starts with an active internal state.
       setFrozenWidgetIds((current) => current.size ? new Set() : current);
       if (next.item.kind === "widget" && next.item.widgetConfig) {
-        setWidgetFrames((current) =>
-          current.some((entry) => entry.playbackId === next.playbackId) ? current : [...current, next],
-        );
+        setWidgetFrames((current) => {
+          if (current.some((entry) => entry.playbackId === next.playbackId)) return current;
+          // With a native fade, the cover is already opaque before the next
+          // frame is delivered. Retaining the outgoing transparent widget
+          // would let it bleed through a clock/weather widget for one paint.
+          return next.fade ? [next] : [...current, next];
+        });
       } else {
         setWidgetFrames([]);
       }
@@ -125,7 +129,7 @@ export function LocalScreen() {
         : frame?.issuer ? <iframe title="Emissor de senhas" src="/emitir/dispositivo?desktop=1" className="size-full border-0" allow="autoplay" />
         : item?.kind === "widget" && item.widgetConfig ? (
           widgetFrames.map((widget, index) => (
-            <div key={widget.playbackId} className="absolute inset-0" style={{ zIndex: index }}>
+            <div key={widget.playbackId} className="mdi-local-widget absolute inset-0" style={{ zIndex: index }}>
               <ReadyWidget frame={widget} active={index === widgetFrames.length - 1 && !frozenWidgetIds.has(widget.playbackId)} onPrepared={promotePreparedWidget} onVisualReady={announceWidgetReady} />
             </div>
           ))

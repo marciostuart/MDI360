@@ -11,6 +11,7 @@ import {
   issueKioskTicket,
   type KioskPanel,
 } from "@/lib/queue/kiosk.functions";
+import type { QueueLayoutBlock } from "@/lib/queue/queue-layout";
 
 // Ponte opcional com o aplicativo desktop (MDI360 Emissor) para impressão térmica automática.
 type DesktopBridge = {
@@ -321,6 +322,24 @@ function KioskPage() {
   }
 
   const theme = data.theme;
+  const layout = theme.layout;
+  const blockStyle = (block: QueueLayoutBlock): React.CSSProperties => ({
+    position: "absolute",
+    left: `${block.x}%`,
+    top: `${block.y}%`,
+    width: `${block.w}%`,
+    height: `${block.h}%`,
+    opacity: block.opacity / 100,
+    color: block.color,
+    fontSize: `${block.fontSize}cqw`,
+    lineHeight: 1,
+    textAlign: block.align,
+  });
+  const contentAlignment = (block: QueueLayoutBlock): React.CSSProperties => ({
+    justifyContent:
+      block.align === "left" ? "flex-start" : block.align === "right" ? "flex-end" : "center",
+    textAlign: block.align,
+  });
   const surface = {
     backgroundColor: theme.bgColor,
   } as const;
@@ -363,35 +382,26 @@ function KioskPage() {
 
   return (
     <main className="relative grid h-dvh place-items-center overflow-hidden" style={surface}>
-      {backgroundLayer}
-      {stableImageUrl && theme.layout.image && !theme.layout.image.hidden ? <img src={stableImageUrl} alt="" className="pointer-events-none absolute z-10 object-contain" style={{ left: `${theme.layout.image.x}%`, top: `${theme.layout.image.y}%`, width: `${theme.layout.image.w}%`, height: `${theme.layout.image.h}%`, opacity: theme.layout.image.opacity / 100 }} /> : null}
-      <div className="relative z-10 flex h-full w-full max-w-3xl flex-col justify-center gap-6 p-6">
-      <header className="w-full space-y-2 text-center">
-        {stableLogoUrl ? (
+      <div
+        className="relative overflow-hidden"
+        style={{
+          width: "min(100vw, calc(100dvh * 16 / 9))",
+          height: "min(100dvh, calc(100vw * 9 / 16))",
+          aspectRatio: "16 / 9",
+          containerType: "inline-size",
+          backgroundColor: theme.bgColor,
+        }}
+      >
+        {backgroundLayer}
+        {stableImageUrl && !layout.image.hidden ? (
           <img
-            src={stableLogoUrl}
-            alt="Logotipo da empresa"
-            className="mx-auto w-auto object-contain"
-            style={{ maxHeight: `${theme.logoHeight}px` }}
+            src={stableImageUrl}
+            alt=""
+            className="pointer-events-none z-10 object-contain"
+            style={{ ...blockStyle(layout.image), objectPosition: layout.image.align }}
           />
         ) : null}
-        <h1 className="font-display text-3xl font-semibold" style={{ color: theme.titleColor }}>
-          {theme.title}
-        </h1>
-        {!isFullscreen && !isDesktopApp ? (
-          <Button
-            variant="ghost"
-            size="sm"
-            style={{ color: theme.textColor }}
-            onClick={requestFullscreen}
-          >
-            <Maximize className="size-4" />
-            Tela cheia
-          </Button>
-        ) : null}
-      </header>
-
-      {pendingKind && needsSectorChoice ? (
+        {pendingKind && needsSectorChoice ? (
         <Card style={{ backgroundColor: theme.cardColor, borderColor: theme.cardColor }}>
           <CardContent className="space-y-3 py-5">
             <p className="text-sm font-medium" style={{ color: theme.textColor }}>
@@ -437,46 +447,43 @@ function KioskPage() {
             ) : null}
           </CardContent>
         </Card>
-      ) : (
-        <Card style={{ backgroundColor: theme.cardColor, borderColor: theme.cardColor }}>
-          <CardContent className="space-y-3 py-5">
-            <div className="grid gap-3 sm:grid-cols-2">
-              <Button
-                size="lg"
-                className="h-24 text-lg"
-                style={{
-                  backgroundColor: theme.normalButtonColor,
-                  color: theme.normalButtonTextColor,
-                }}
-                disabled={issueMutation.isPending}
-                onClick={() => issueKind("normal")}
-              >
-                <Ticket className="size-6" />
-                Senha normal
-              </Button>
-              <Button
-                size="lg"
-                variant="secondary"
-                className="h-24 text-lg"
-                style={{
-                  backgroundColor: theme.priorityButtonColor,
-                  color: theme.priorityButtonTextColor,
-                }}
-                disabled={issueMutation.isPending}
-                onClick={() => issueKind("priority")}
-              >
-                <Ticket className="size-6" />
-                Preferencial
-              </Button>
-            </div>
+        ) : (
+          <>
+            {stableLogoUrl && !layout.logo.hidden ? (
+              <img
+                src={stableLogoUrl}
+                alt="Logotipo da empresa"
+                className="pointer-events-none z-10 object-contain"
+                style={{ ...blockStyle(layout.logo), objectPosition: layout.logo.align }}
+              />
+            ) : null}
+            {!layout.title.hidden ? (
+              <h1 className="z-10 m-0 flex items-center overflow-hidden whitespace-nowrap font-normal" style={{ ...blockStyle(layout.title), ...contentAlignment(layout.title) }}>
+                {theme.title}
+              </h1>
+            ) : null}
+            {!layout.normalButton.hidden ? (
+              <button type="button" className="z-10 flex border-0 p-0 font-normal disabled:cursor-wait" style={{ ...blockStyle(layout.normalButton), ...contentAlignment(layout.normalButton), backgroundColor: layout.normalButton.backgroundColor ?? theme.normalButtonColor }} disabled={issueMutation.isPending} onClick={() => issueKind("normal")}>
+                <span className="flex items-center gap-[0.4em]"><Ticket style={{ width: "1em", height: "1em" }} />Senha normal</span>
+              </button>
+            ) : null}
+            {!layout.priorityButton.hidden ? (
+              <button type="button" className="z-10 flex border-0 p-0 font-normal disabled:cursor-wait" style={{ ...blockStyle(layout.priorityButton), ...contentAlignment(layout.priorityButton), backgroundColor: layout.priorityButton.backgroundColor ?? theme.priorityButtonColor }} disabled={issueMutation.isPending} onClick={() => issueKind("priority")}>
+                <span className="flex items-center gap-[0.4em]"><Ticket style={{ width: "1em", height: "1em" }} />Preferencial</span>
+              </button>
+            ) : null}
             {issueMutation.isError ? (
-              <p className="text-sm text-destructive">
+              <p className="absolute bottom-3 left-1/2 z-20 -translate-x-1/2 text-sm text-destructive">
                 {(issueMutation.error as Error).message || "Não foi possível emitir a senha."}
               </p>
             ) : null}
-          </CardContent>
-        </Card>
-      )}
+            {!isFullscreen && !isDesktopApp ? (
+              <Button variant="ghost" size="sm" className="absolute bottom-2 right-2 z-20" style={{ color: theme.textColor }} onClick={requestFullscreen}>
+                <Maximize className="size-4" />Tela cheia
+              </Button>
+            ) : null}
+          </>
+        )}
       </div>
     </main>
   );
