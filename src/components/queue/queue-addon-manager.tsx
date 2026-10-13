@@ -861,7 +861,7 @@ export function QueueAddonManager() {
                   </div>
 
                   <div className="flex gap-2 sm:col-span-2">
-                    <div className="w-full space-y-3 rounded-lg border border-border p-4">
+                    <div className="hidden">
                       <p className="text-sm font-medium">Aparência da chamada na TV</p>
                       <div className="grid gap-3 sm:grid-cols-2">
                         <ColorField
