@@ -31,6 +31,8 @@ export type QueueLayoutBlock = {
   /** Applies only to the queue-call history. */
   historyDirection?: "horizontal" | "vertical";
   historyLimit?: number;
+  /** Tempo em segundos para manter a confirmação da senha no emissor. */
+  displaySeconds?: number;
   hidden?: boolean;
 };
 
@@ -244,6 +246,7 @@ export const KIOSK_LAYOUT_DEFAULT: QueueLayout = {
     overlayEndFrom: 100,
     overlayEndTo: 100,
     overlayAngle: 135,
+    displaySeconds: 4,
   },
 };
 
@@ -313,6 +316,9 @@ export function resolveQueueLayout(value: unknown, defaults: QueueLayout): Queue
               : (fallback.historyDirection ?? "horizontal"),
           // History is a count, never a fractional layout measurement.
           historyLimit: Math.round(number(item.historyLimit, fallback.historyLimit ?? 3, 1, 8)),
+          displaySeconds: Math.round(
+            number(item.displaySeconds, fallback.displaySeconds ?? 4, 1, 60),
+          ),
           hidden:
             id === "issuedTicket"
               ? false

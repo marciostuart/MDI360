@@ -1745,22 +1745,53 @@ export function QueueAddonManager() {
                         }
                         itemControls={(item) =>
                           item.kind === "background" ? (
-                            <QueueOverlayControls
-                              block={form.kioskLayout[item.id] ?? KIOSK_LAYOUT_DEFAULT[item.id]}
-                              onChange={(changes) =>
-                                setForm((prev) => ({
-                                  ...prev,
-                                  kioskLayout: {
-                                    ...prev.kioskLayout,
-                                    [item.id]: {
-                                      ...(prev.kioskLayout[item.id] ??
-                                        KIOSK_LAYOUT_DEFAULT[item.id]),
-                                      ...changes,
+                            <>
+                              <QueueOverlayControls
+                                block={form.kioskLayout[item.id] ?? KIOSK_LAYOUT_DEFAULT[item.id]}
+                                onChange={(changes) =>
+                                  setForm((prev) => ({
+                                    ...prev,
+                                    kioskLayout: {
+                                      ...prev.kioskLayout,
+                                      [item.id]: {
+                                        ...(prev.kioskLayout[item.id] ??
+                                          KIOSK_LAYOUT_DEFAULT[item.id]),
+                                        ...changes,
+                                      },
                                     },
-                                  },
-                                }))
-                              }
-                            />
+                                  }))
+                                }
+                              />
+                              {item.id === "issuedBackground" ? (
+                                <div className="space-y-1">
+                                  <Label className="text-xs">Tempo da confirmação (segundos)</Label>
+                                  <Input
+                                    type="number"
+                                    min={1}
+                                    max={60}
+                                    step={1}
+                                    value={form.kioskLayout.issuedBackground?.displaySeconds ?? 4}
+                                    onChange={(event) => {
+                                      const value = Math.max(
+                                        1,
+                                        Math.min(60, Math.round(Number(event.target.value) || 1)),
+                                      );
+                                      setForm((prev) => ({
+                                        ...prev,
+                                        kioskLayout: {
+                                          ...prev.kioskLayout,
+                                          issuedBackground: {
+                                            ...(prev.kioskLayout.issuedBackground ??
+                                              KIOSK_LAYOUT_DEFAULT.issuedBackground),
+                                            displaySeconds: value,
+                                          },
+                                        },
+                                      }));
+                                    }}
+                                  />
+                                </div>
+                              ) : null}
+                            </>
                           ) : item.id === "title" ? (
                             <div className="space-y-1">
                               <Label className="text-xs">Título da tela</Label>

@@ -239,7 +239,13 @@ function KioskPage() {
   });
 
   const [pendingKind, setPendingKind] = useState<"normal" | "priority" | null>(null);
-  const [issued, setIssued] = useState<{ label: string; sectorName: string | null } | null>(null);
+  const [issued, setIssued] = useState<{
+    id: string;
+    label: string;
+    sectorName: string | null;
+    printerConnected: boolean;
+  } | null>(null);
+  const issuedId = useRef<string | null>(null);
   const [isPrinting, setIsPrinting] = useState(false);
   const [checkingPrinter, setCheckingPrinter] = useState(false);
 
@@ -259,21 +265,67 @@ function KioskPage() {
       }),
     onSuccess: (ticket, variables) => {
       setPendingKind(null);
-      setIssued({ label: ticket.label, sectorName: ticket.sectorName });
+      issuedId.current = ticket.id;
+      setIssued({
+        id: ticket.id,
+        label: ticket.label,
+        sectorName: ticket.sectorName,
+        printerConnected: variables.printEligible,
+      });
       setIsPrinting(variables.printEligible);
     },
   });
 
+  // O botão USB emite pelo serviço nativo. O APK entrega a resposta à página
+  // do emissor pelo iframe, sem alterar ou interromper o player.
+  useEffect(() => {
+    const onNativeMessage = (event: MessageEvent) => {
+      if (event.origin !== window.location.origin || event.source !== window.parent) return;
+      const message = event.data as {
+        type?: string;
+        ticket?: { id?: string; label?: string; sectorName?: string | null };
+        printerConnected?: boolean;
+        ticketId?: string;
+      };
+      if (message?.type === "mdi360-ticket-issued" && message.ticket?.id && message.ticket.label) {
+        const printerConnected = message.printerConnected === true;
+        issuedId.current = message.ticket.id;
+        setIssued({
+          id: message.ticket.id,
+          label: message.ticket.label,
+          sectorName: message.ticket.sectorName ?? null,
+          printerConnected,
+        });
+        setIsPrinting(printerConnected);
+        setPendingKind(null);
+      } else if (
+        message?.type === "mdi360-ticket-printed" &&
+        message.ticketId === issuedId.current
+      ) {
+        setIsPrinting(false);
+      }
+    };
+    window.addEventListener("message", onNativeMessage);
+    return () => window.removeEventListener("message", onNativeMessage);
+  }, []);
+
   // Mostra apenas o estado de impressão e retorna ao início após alguns segundos.
   useEffect(() => {
     if (!issued) return;
-    const timer = window.setTimeout(() => {
-      setIssued(null);
-      setIsPrinting(false);
-      setPendingKind(null);
-    }, 4_000);
+    const timer = window.setTimeout(
+      () => {
+        issuedId.current = null;
+        setIssued(null);
+        setIsPrinting(false);
+        setPendingKind(null);
+      },
+      Math.max(
+        1,
+        Math.min(60, Math.round(data?.theme.layout.issuedBackground.displaySeconds ?? 4)),
+      ) * 1_000,
+    );
     return () => window.clearTimeout(timer);
-  }, [issued]);
+  }, [issued, data?.theme.layout.issuedBackground]);
 
   const stableBackgroundUrl = useStableAssetUrl(
     data?.theme.bgImageVersion ?? null,
@@ -405,7 +457,7 @@ function KioskPage() {
               {issued.sectorName}
             </div>
           ) : null}
-          {isPrinting && !layout.issuedPrinting.hidden ? (
+          {issued.printerConnected && !layout.issuedPrinting.hidden ? (
             <div
               className="absolute z-10 flex items-center overflow-hidden"
               style={{
@@ -413,7 +465,7 @@ function KioskPage() {
                 ...contentAlignment(layout.issuedPrinting),
               }}
             >
-              Imprimindo...
+              {isPrinting ? "Imprimindo..." : "Retire sua senha"}
             </div>
           ) : null}
         </div>

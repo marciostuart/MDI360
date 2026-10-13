@@ -4,6 +4,7 @@ import { z } from "zod";
 const bodySchema = z.object({
   kind: z.enum(["normal", "priority"]).default("normal"),
   sectorId: z.string().uuid().nullable().optional(),
+  printEligible: z.boolean().default(false),
 });
 
 /** Native Android hybrid issuer endpoint. Roku and Web do not use this route. */
@@ -25,7 +26,8 @@ export const Route = createFileRoute("/api/public/queue/issue")({
           return Response.json({ error: "Serviço indisponível." }, { status: 503 });
         const { and, eq, or } = await import("drizzle-orm");
         const { hashEmitterToken } = await import("@/lib/queue/emitter-auth.server");
-        const { authenticateDevice, hashDeviceToken } = await import("@/lib/player/player-auth.server");
+        const { authenticateDevice, hashDeviceToken } =
+          await import("@/lib/player/player-auth.server");
         const device = await authenticateDevice(request);
         if (device && !device.enabledModes.includes("issuer")) {
           return Response.json(
@@ -58,9 +60,8 @@ export const Route = createFileRoute("/api/public/queue/issue")({
           )
           .limit(1);
         const panelId = rows[0]?.panelId;
-        const { isOrganizationServiceSuspended, suspendedServiceResponse } = await import(
-          "@/lib/billing/access.server"
-        );
+        const { isOrganizationServiceSuspended, suspendedServiceResponse } =
+          await import("@/lib/billing/access.server");
         if (await isOrganizationServiceSuspended(rows[0]?.organizationId ?? null)) {
           return suspendedServiceResponse();
         }
@@ -91,7 +92,11 @@ export const Route = createFileRoute("/api/public/queue/issue")({
           return Response.json({ error: "Esta fila não está disponível." }, { status: 409 });
         }
         const { issueTicket } = await import("@/lib/queue/tickets.server");
-        const ticket = await issueTicket(panel, { sectorId, kind: body.data.kind });
+        const ticket = await issueTicket(panel, {
+          sectorId,
+          kind: body.data.kind,
+          printEligible: body.data.printEligible,
+        });
         return Response.json({ ok: true, ticket }, { headers: { "cache-control": "no-store" } });
       },
     },
