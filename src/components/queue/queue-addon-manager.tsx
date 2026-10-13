@@ -860,7 +860,7 @@ export function QueueAddonManager() {
                     </div>
                   </div>
 
-                  <div className="flex gap-2 sm:col-span-2">
+                  <div className="hidden">
                     <div className="w-full space-y-3 rounded-lg border border-border p-4">
                       <p className="text-sm font-medium">Aparência da chamada na TV</p>
                       <div className="grid gap-3 sm:grid-cols-2">
@@ -995,6 +995,7 @@ export function QueueAddonManager() {
                         defaults={CALL_LAYOUT_DEFAULT}
                         onChange={(themeLayout) => setForm((prev) => ({ ...prev, themeLayout }))}
                         items={[
+                          { id: "background", label: "Fundo", sample: "", kind: "background" },
                           { id: "heading", label: "Senha chamada", sample: "SENHA CHAMADA" },
                           { id: "ticket", label: "Número", sample: "A012" },
                           { id: "sector", label: "Guichê", sample: "GUICHÊ 2" },
@@ -1003,13 +1004,14 @@ export function QueueAddonManager() {
                           { id: "image", label: "Bloco de imagem", sample: "", kind: "image" },
                         ]}
                         imageUrl={panel.themeImagePreviewUrl}
+                        backgroundControls={<div className="space-y-3"><ColorField id={`editor-bg-${panel.deviceId}`} label="Cor de fundo" value={form.themeBgColor} onChange={(themeBgColor) => setForm((prev) => ({ ...prev, themeBgColor }))} /><Label className="text-xs">Imagem de fundo</Label><Input type="file" accept="image/jpeg,image/png,image/webp,image/avif" disabled={uploadingKioskMedia === `${panel.deviceId}:call-background`} onChange={(event) => { const file = event.target.files?.[0]; if (file) void uploadKioskMedia(panel.deviceId, "call-background", file); event.currentTarget.value = ""; }} />{panel.hasThemeBgImage ? <Button type="button" size="sm" variant="outline" onClick={() => void removeKioskMedia(panel.deviceId, "call-background")}>Remover imagem</Button> : null}<ColorField id={`editor-overlay-${panel.deviceId}`} label="Cor da sobreposição" value={form.themeOverlayColor} onChange={(themeOverlayColor) => setForm((prev) => ({ ...prev, themeOverlayColor }))} /><Label className="text-xs">Transparência ({form.themeOverlayOpacity}%)</Label><Input type="range" min={0} max={100} step={1} value={form.themeOverlayOpacity} onChange={(event) => setForm((prev) => ({ ...prev, themeOverlayOpacity: Number(event.target.value) }))} /><label className="flex items-center gap-2 text-sm"><Switch checked={form.themeOverlayGradient} onCheckedChange={(themeOverlayGradient) => setForm((prev) => ({ ...prev, themeOverlayGradient }))} />Usar gradiente</label></div>}
                         imageControls={<div className="space-y-2"><Label className="text-xs">Imagem do bloco</Label><Input type="file" accept="image/jpeg,image/png,image/webp,image/avif" disabled={uploadingKioskMedia === `${panel.deviceId}:call-image`} onChange={(event) => { const file = event.target.files?.[0]; if (file) void uploadKioskMedia(panel.deviceId, "call-image", file); event.currentTarget.value = ""; }} />{panel.hasThemeImage ? <Button type="button" variant="outline" size="sm" onClick={() => void removeKioskMedia(panel.deviceId, "call-image")}>Remover imagem</Button> : null}<p className="text-xs text-muted-foreground">Envie a imagem e posicione/redimensione o bloco no preview.</p></div>}
                         background={<><div className="absolute inset-0 bg-cover bg-center" style={{ backgroundColor: form.themeBgColor, ...(panel.themeBgImagePreviewUrl ? { backgroundImage: `url(${JSON.stringify(panel.themeBgImagePreviewUrl)})` } : {}) }} /><div className="absolute inset-0" style={{ background: form.themeOverlayGradient ? `linear-gradient(135deg, ${form.themeOverlayColor} 0%, transparent 100%)` : form.themeOverlayColor, opacity: form.themeOverlayOpacity / 100 }} /></>}
                       />
                     </div>
                   </div>
 
-                  <div className="flex gap-2 sm:col-span-2">
+                  <div className="hidden">
                     <div className="w-full space-y-3 rounded-lg border border-border p-4">
                       <p className="text-sm font-medium">Aparência da tela de emissão (totem)</p>
                       <div className="grid gap-3 sm:grid-cols-2">
