@@ -82,6 +82,8 @@ export function notifyDevice(deviceId: string) {
 export function notifyQueueCallDevice(deviceId: string) {
   const current = bus.queueCallDeviceRevision.get(deviceId) ?? 0;
   bus.queueCallDeviceRevision.set(deviceId, Math.max(Date.now(), current + 1));
+  // Persisting the device revision also keeps the fallback functional when a
+  // long-poll and the USB action are served by different application replicas.
   notifyDevice(deviceId);
 }
 
