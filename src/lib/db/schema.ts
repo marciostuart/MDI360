@@ -840,6 +840,8 @@ export const queueTickets = pgTable(
     kind: text("kind").notNull().default("normal"),
     number: integer("number").notNull(),
     label: text("label").notNull(),
+    /** Senhas emitidas sem impressora conectada nunca entram no spool posterior. */
+    printEligible: boolean("print_eligible").notNull().default(true),
     /** "waiting" | "called" | "cancelled". */
     status: text("status").notNull().default("waiting"),
     /** Guichê que assumiu a senha ao chamá-la. */

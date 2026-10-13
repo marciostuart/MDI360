@@ -13,6 +13,7 @@ contextBridge.exposeInMainWorld("mdiEmitter", {
   getStatus: () => ipcRenderer.invoke("status:get"),
   onStatus: (callback) => ipcRenderer.on("status", (_e, status) => callback(status)),
   printTicket: (payload) => ipcRenderer.invoke("print:ticket", payload),
+  isPrinterConnected: () => ipcRenderer.invoke("print:connected"),
   testPrint: (cfg) => ipcRenderer.invoke("print:test", cfg),
   quit: () => ipcRenderer.invoke("app:quit"),
 });

@@ -1,5 +1,12 @@
 "use strict";
-const { app, BrowserWindow, ipcMain, globalShortcut, dialog, powerSaveBlocker } = require("electron");
+const {
+  app,
+  BrowserWindow,
+  ipcMain,
+  globalShortcut,
+  dialog,
+  powerSaveBlocker,
+} = require("electron");
 const fs = require("node:fs");
 const path = require("node:path");
 
@@ -88,7 +95,9 @@ function ensureAutoStart() {
       "utf8",
     );
   } catch (error) {
-    pushStatus({ lastError: `Não foi possível ativar a inicialização automática: ${error.message}` });
+    pushStatus({
+      lastError: `Não foi possível ativar a inicialização automática: ${error.message}`,
+    });
   }
 }
 
@@ -243,7 +252,9 @@ async function printTicket(payload) {
     }</div><div style="font-size:12px">${payload.issuedAt ?? ""}</div>${
       cfg.showWaitingAhead && typeof payload.waitingAhead === "number"
         ? `<div style="font-size:12px">${
-            payload.waitingAhead === 0 ? "Você é o próximo" : `${payload.waitingAhead} pessoa(s) na frente`
+            payload.waitingAhead === 0
+              ? "Você é o próximo"
+              : `${payload.waitingAhead} pessoa(s) na frente`
           }</div>`
         : ""
     }${splitLines(cfg.footerText)
@@ -275,7 +286,10 @@ async function poll() {
   if (polling) return;
   const cfg = loadConfig();
   if (!cfg.serverUrl) {
-    pushStatus({ connected: false, message: "Informe o endereço do servidor em Configuração (F10)." });
+    pushStatus({
+      connected: false,
+      message: "Informe o endereço do servidor em Configuração (F10).",
+    });
     return;
   }
 
@@ -376,7 +390,11 @@ async function poll() {
       if (printedIds.size > 500) printedIds.delete(printedIds.values().next().value);
       if (ticket.issuedAt > (sinceAt ?? "")) sinceAt = ticket.issuedAt;
       if (!cfg.autoPrint) {
-        logTicket({ label: ticket.label, at: new Date().toLocaleTimeString("pt-BR"), status: "Impressão desligada" });
+        logTicket({
+          label: ticket.label,
+          at: new Date().toLocaleTimeString("pt-BR"),
+          status: "Impressão desligada",
+        });
         continue;
       }
       try {
@@ -388,10 +406,18 @@ async function poll() {
           waitingAhead: typeof ticket.waitingAhead === "number" ? ticket.waitingAhead : null,
         });
         state.printed += 1;
-        logTicket({ label: ticket.label, at: new Date().toLocaleTimeString("pt-BR"), status: "Impressa" });
+        logTicket({
+          label: ticket.label,
+          at: new Date().toLocaleTimeString("pt-BR"),
+          status: "Impressa",
+        });
       } catch (error) {
         const detail = error instanceof Error ? error.message : String(error);
-        logTicket({ label: ticket.label, at: new Date().toLocaleTimeString("pt-BR"), status: `Falhou: ${detail}` });
+        logTicket({
+          label: ticket.label,
+          at: new Date().toLocaleTimeString("pt-BR"),
+          status: `Falhou: ${detail}`,
+        });
         pushStatus({ lastError: detail });
       }
     }
@@ -438,6 +464,15 @@ ipcMain.handle("config:start", (_e, next) => {
 });
 ipcMain.handle("config:open", () => openConfigWindow());
 ipcMain.handle("status:get", () => state);
+ipcMain.handle("print:connected", async () => {
+  const cfg = loadConfig();
+  if (!cfg.autoPrint) return false;
+  const printers = await listPrinters();
+  const selected = cfg.printerName
+    ? printers.find((printer) => printer.name === cfg.printerName)
+    : printers.find((printer) => printer.isDefault);
+  return Boolean(selected && (selected.status === undefined || selected.status === 0));
+});
 ipcMain.handle("print:ticket", async (_e, payload) => {
   try {
     return await printTicket(payload ?? {});

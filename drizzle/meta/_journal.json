@@ -351,6 +351,13 @@
       "when": 1791900000000,
       "tag": "0049_queue_call_gradient_controls",
       "breakpoints": true
+    },
+    {
+      "idx": 50,
+      "version": "7",
+      "when": 1791920000000,
+      "tag": "0050_queue_ticket_print_eligibility",
+      "breakpoints": true
     }
   ]
 }

@@ -32,7 +32,7 @@ type PanelForIssue = {
  */
 export async function issueTicket(
   panel: PanelForIssue,
-  input: { sectorId?: string | null; kind: TicketKind },
+  input: { sectorId?: string | null; kind: TicketKind; printEligible?: boolean },
 ): Promise<IssuedTicket> {
   const db = getDb();
   const kind = input.kind;
@@ -93,16 +93,22 @@ export async function issueTicket(
   } else {
     number = await bumpPanelCounter(panel.id, kind);
     prefix =
-      kind === "priority"
-        ? (panel.priorityPrefix ?? "P") + (panel.prefix ?? "")
-        : panel.prefix;
+      kind === "priority" ? (panel.priorityPrefix ?? "P") + (panel.prefix ?? "") : panel.prefix;
   }
 
   const label = buildLabel(prefix, number);
 
   const inserted = await db
     .insert(schema.queueTickets)
-    .values({ panelId: panel.id, sectorId, sectorName, kind, number, label })
+    .values({
+      panelId: panel.id,
+      sectorId,
+      sectorName,
+      kind,
+      number,
+      label,
+      printEligible: input.printEligible ?? true,
+    })
     .returning({ id: schema.queueTickets.id });
 
   const ahead = await db
@@ -166,10 +172,14 @@ async function countIssuedToday(sectorId: string) {
  * "priority" = preferenciais sempre primeiro · "alternate" = uma preferencial,
  * uma normal, alternadamente.
  */
-export function pickNextKind(policy: string, lastCalledKind: string, has: {
-  normal: boolean;
-  priority: boolean;
-}): TicketKind | null {
+export function pickNextKind(
+  policy: string,
+  lastCalledKind: string,
+  has: {
+    normal: boolean;
+    priority: boolean;
+  },
+): TicketKind | null {
   if (!has.normal && !has.priority) return null;
   if (policy === "alternate") {
     const first: TicketKind = lastCalledKind === "priority" ? "normal" : "priority";

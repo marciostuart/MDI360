@@ -1513,6 +1513,25 @@ export function QueueAddonManager() {
                         description="Canvas 16:9 proporcional ao emissor. Os controles podem ser movidos e redimensionados individualmente."
                         layout={form.kioskLayout}
                         defaults={KIOSK_LAYOUT_DEFAULT}
+                        groups={[
+                          {
+                            id: "home",
+                            label: "Tela do emissor",
+                            itemIds: ["logo", "title", "normalButton", "priorityButton", "image"],
+                          },
+                          {
+                            id: "issued",
+                            label: "Confirmação da senha",
+                            itemIds: [
+                              "issuedTitle",
+                              "issuedTicket",
+                              "issuedSector",
+                              "issuedPrinting",
+                              "logo",
+                              "image",
+                            ],
+                          },
+                        ]}
                         onChange={(kioskLayout) =>
                           setForm((prev) => ({
                             ...prev,
@@ -1551,6 +1570,18 @@ export function QueueAddonManager() {
                             kind: "button",
                           },
                           { id: "image", label: "Bloco de imagem", sample: "", kind: "image" },
+                          {
+                            id: "issuedTitle",
+                            label: "Título da confirmação",
+                            sample: "Senha emitida",
+                          },
+                          { id: "issuedTicket", label: "Senha emitida", sample: "A012" },
+                          { id: "issuedSector", label: "Guichê da senha", sample: "Guichê 2" },
+                          {
+                            id: "issuedPrinting",
+                            label: "Status da impressão",
+                            sample: "Imprimindo...",
+                          },
                         ]}
                         imageUrls={{
                           logo: kioskImagePreview(

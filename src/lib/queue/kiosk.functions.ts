@@ -1,6 +1,10 @@
 import { createServerFn } from "@tanstack/react-start";
 import { z } from "zod";
-import { KIOSK_LAYOUT_DEFAULT, resolveQueueLayout, type QueueLayout } from "@/lib/queue/queue-layout";
+import {
+  KIOSK_LAYOUT_DEFAULT,
+  resolveQueueLayout,
+  type QueueLayout,
+} from "@/lib/queue/queue-layout";
 
 export type KioskTheme = {
   bgColor: string;
@@ -180,6 +184,7 @@ export const issueKioskTicket = createServerFn({ method: "POST" })
         token: tokenSchema,
         sectorId: z.string().uuid().nullable().optional(),
         kind: z.enum(["normal", "priority"]).default("normal"),
+        printEligible: z.boolean().default(false),
       })
       .parse(input),
   )
@@ -239,6 +244,7 @@ export const issueKioskTicket = createServerFn({ method: "POST" })
     const ticket = await issueTicket(panel, {
       sectorId,
       kind: data.kind,
+      printEligible: data.printEligible,
     });
     return ticket;
   });

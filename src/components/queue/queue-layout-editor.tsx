@@ -13,6 +13,7 @@ export type QueueLayoutEditorItem = {
   sample: string;
   kind?: "image" | "button" | "background";
 };
+export type QueueLayoutEditorGroup = { id: string; label: string; itemIds: string[] };
 const clamp = (value: number, min: number, max: number) => Math.min(max, Math.max(min, value));
 
 function NumberField({
@@ -56,6 +57,7 @@ export function QueueLayoutEditor({
   layout,
   defaults,
   items,
+  groups,
   background,
   imageUrls,
   imageControls,
@@ -68,6 +70,7 @@ export function QueueLayoutEditor({
   layout: QueueLayout;
   defaults: QueueLayout;
   items: QueueLayoutEditorItem[];
+  groups?: QueueLayoutEditorGroup[];
   background: ReactNode;
   imageUrls?: Record<string, string | null | undefined>;
   imageControls?: (item: QueueLayoutEditorItem) => ReactNode;
@@ -77,9 +80,24 @@ export function QueueLayoutEditor({
 }) {
   const canvasRef = useRef<HTMLDivElement>(null);
   const [selected, setSelected] = useState(items[0]?.id ?? "");
+  const [activeGroup, setActiveGroup] = useState(groups?.[0]?.id ?? "");
+  const visibleItems = groups?.length
+    ? items.filter(
+        (item) =>
+          item.kind === "background" ||
+          groups.find((group) => group.id === activeGroup)?.itemIds.includes(item.id),
+      )
+    : items;
   const dragRef = useRef<{ x: number; y: number; block: QueueLayoutBlock } | null>(null);
   const block = layout[selected] ?? defaults[selected];
   const selectedItem = items.find((item) => item.id === selected);
+  const selectGroup = (id: string) => {
+    setActiveGroup(id);
+    const first = groups
+      ?.find((group) => group.id === id)
+      ?.itemIds.find((itemId) => items.some((item) => item.id === itemId));
+    if (first) setSelected(first);
+  };
   const patch = (next: Partial<QueueLayoutBlock>) =>
     onChange({ ...layout, [selected]: { ...block, ...next } });
   const point = (event: PointerEvent) => {
@@ -116,6 +134,23 @@ export function QueueLayoutEditor({
           Padrão
         </Button>
       </div>
+      {groups?.length ? (
+        <div className="flex flex-wrap gap-2" role="tablist" aria-label="Tela de prévia">
+          {groups.map((group) => (
+            <Button
+              key={group.id}
+              type="button"
+              size="sm"
+              variant={activeGroup === group.id ? "default" : "outline"}
+              role="tab"
+              aria-selected={activeGroup === group.id}
+              onClick={() => selectGroup(group.id)}
+            >
+              {group.label}
+            </Button>
+          ))}
+        </div>
+      ) : null}
       <div className="grid gap-4 xl:grid-cols-[minmax(0,1fr)_20rem]">
         <div className="min-w-0">
           <div
@@ -124,7 +159,7 @@ export function QueueLayoutEditor({
             style={{ aspectRatio: "16 / 9", containerType: "inline-size" }}
           >
             {background}
-            {items
+            {visibleItems
               .filter((item) => item.kind !== "background")
               .map((item) => {
                 const entry = layout[item.id] ?? defaults[item.id];
@@ -210,7 +245,7 @@ export function QueueLayoutEditor({
               })}
           </div>
           <div className="mt-3 flex flex-wrap gap-2">
-            {items.map((item) => (
+            {visibleItems.map((item) => (
               <Button
                 key={item.id}
                 type="button"

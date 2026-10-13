@@ -14,14 +14,7 @@ import type { QueueLayoutBlock } from "@/lib/queue/queue-layout";
 // Ponte opcional com o aplicativo desktop (MDI360 Emissor) para impressão térmica automática.
 type DesktopBridge = {
   isDesktop?: boolean;
-  printTicket?: (payload: {
-    label: string;
-    kind: string;
-    sectorName: string | null;
-    panelName: string;
-    issuedAt: string;
-    waitingAhead: number;
-  }) => Promise<{ ok: boolean; error?: string }>;
+  isPrinterConnected?: () => Promise<boolean>;
 };
 
 function desktopBridge(): DesktopBridge | null {
@@ -246,34 +239,28 @@ function KioskPage() {
   });
 
   const [pendingKind, setPendingKind] = useState<"normal" | "priority" | null>(null);
-  const [printError, setPrintError] = useState<string | null>(null);
-  const [issued, setIssued] = useState(false);
+  const [issued, setIssued] = useState<{ label: string; sectorName: string | null } | null>(null);
+  const [isPrinting, setIsPrinting] = useState(false);
+  const [checkingPrinter, setCheckingPrinter] = useState(false);
 
   const issueMutation = useMutation({
-    mutationFn: (input: { kind: "normal" | "priority"; sectorId: string | null }) =>
-      issue({ data: { token, sectorId: input.sectorId, kind: input.kind } }),
-    onSuccess: (ticket) => {
+    mutationFn: (input: {
+      kind: "normal" | "priority";
+      sectorId: string | null;
+      printEligible: boolean;
+    }) =>
+      issue({
+        data: {
+          token,
+          sectorId: input.sectorId,
+          kind: input.kind,
+          printEligible: input.printEligible,
+        },
+      }),
+    onSuccess: (ticket, variables) => {
       setPendingKind(null);
-      setPrintError(null);
-      setIssued(true);
-      const bridge = desktopBridge();
-      if (bridge?.printTicket) {
-        void bridge
-          .printTicket({
-            label: ticket.label,
-            kind: ticket.kind,
-            sectorName: ticket.sectorName,
-            panelName: data?.panelName ?? "",
-            issuedAt: new Date().toLocaleString("pt-BR"),
-            waitingAhead: ticket.waitingAhead,
-          })
-          .then((result) => {
-            if (!result?.ok) setPrintError(result?.error ?? "Não foi possível imprimir a senha.");
-          })
-          .catch((error: unknown) => {
-            setPrintError(error instanceof Error ? error.message : "Falha na impressão.");
-          });
-      }
+      setIssued({ label: ticket.label, sectorName: ticket.sectorName });
+      setIsPrinting(variables.printEligible);
     },
   });
 
@@ -281,9 +268,10 @@ function KioskPage() {
   useEffect(() => {
     if (!issued) return;
     const timer = window.setTimeout(() => {
-      setIssued(false);
+      setIssued(null);
+      setIsPrinting(false);
       setPendingKind(null);
-    }, 3_000);
+    }, 4_000);
     return () => window.clearTimeout(timer);
   }, [issued]);
 
@@ -355,29 +343,106 @@ function KioskPage() {
 
   if (issued) {
     return (
-      <main
-        className="relative grid h-dvh place-items-center overflow-hidden px-6 text-center"
-        style={surface}
-      >
-        {backgroundLayer}
-        <div className="relative z-10 space-y-3">
-          <Loader2 className="mx-auto size-10 animate-spin" style={{ color: theme.titleColor }} />
-          <p className="text-3xl font-semibold" style={{ color: theme.titleColor }}>
-            Imprimindo...
-          </p>
-          {printError ? <p className="text-sm text-destructive">{printError}</p> : null}
+      <main className="relative grid h-dvh place-items-center overflow-hidden" style={surface}>
+        <div
+          className="relative overflow-hidden"
+          style={{
+            width: "min(100vw, calc(100dvh * 16 / 9))",
+            height: "min(100dvh, calc(100vw * 9 / 16))",
+            aspectRatio: "16 / 9",
+            containerType: "inline-size",
+            backgroundColor: theme.bgColor,
+          }}
+        >
+          {backgroundLayer}
+          {stableLogoUrl && !layout.logo.hidden ? (
+            <img
+              src={stableLogoUrl}
+              alt=""
+              className="pointer-events-none absolute z-10 object-contain"
+              style={{ ...blockStyle(layout.logo), objectPosition: layout.logo.align }}
+            />
+          ) : null}
+          {stableImageUrl && !layout.image.hidden ? (
+            <img
+              src={stableImageUrl}
+              alt=""
+              className="pointer-events-none absolute z-10 object-contain"
+              style={{ ...blockStyle(layout.image), objectPosition: layout.image.align }}
+            />
+          ) : null}
+          {!layout.issuedTitle.hidden ? (
+            <div
+              className="absolute z-10 flex items-center overflow-hidden"
+              style={{ ...blockStyle(layout.issuedTitle), ...contentAlignment(layout.issuedTitle) }}
+            >
+              Senha emitida
+            </div>
+          ) : null}
+          {!layout.issuedTicket.hidden ? (
+            <div
+              className="absolute z-10 flex items-center overflow-hidden font-semibold"
+              style={{
+                ...blockStyle(layout.issuedTicket),
+                ...contentAlignment(layout.issuedTicket),
+              }}
+            >
+              {issued.label}
+            </div>
+          ) : null}
+          {!layout.issuedSector.hidden && issued.sectorName ? (
+            <div
+              className="absolute z-10 flex items-center overflow-hidden"
+              style={{
+                ...blockStyle(layout.issuedSector),
+                ...contentAlignment(layout.issuedSector),
+              }}
+            >
+              {issued.sectorName}
+            </div>
+          ) : null}
+          {isPrinting && !layout.issuedPrinting.hidden ? (
+            <div
+              className="absolute z-10 flex items-center overflow-hidden"
+              style={{
+                ...blockStyle(layout.issuedPrinting),
+                ...contentAlignment(layout.issuedPrinting),
+              }}
+            >
+              Imprimindo...
+            </div>
+          ) : null}
         </div>
       </main>
     );
   }
 
   const needsSectorChoice = data.sectors.length > 1;
-  const issueKind = (kind: "normal" | "priority") => {
+  const submitTicket = async (kind: "normal" | "priority", sectorId: string | null) => {
+    if (checkingPrinter || issueMutation.isPending) return;
+    setCheckingPrinter(true);
+    try {
+      const android = (window as unknown as { Android?: { isConnected?: () => boolean } }).Android;
+      let printEligible = android?.isConnected ? android.isConnected() : false;
+      const bridge = desktopBridge();
+      if (bridge?.isPrinterConnected) {
+        try {
+          printEligible = await bridge.isPrinterConnected();
+        } catch {
+          printEligible = false;
+        }
+      }
+      issueMutation.mutate({ kind, sectorId, printEligible });
+    } finally {
+      setCheckingPrinter(false);
+    }
+  };
+  const issueKind = async (kind: "normal" | "priority") => {
     if (needsSectorChoice) {
       setPendingKind(kind);
       return;
     }
-    issueMutation.mutate({ kind, sectorId: data.sectors[0]?.id ?? null });
+    await submitTicket(kind, data.sectors[0]?.id ?? null);
   };
 
   return (
@@ -426,8 +491,8 @@ function KioskPage() {
                           : theme.normalButtonTextColor,
                       borderColor: "transparent",
                     }}
-                    disabled={issueMutation.isPending}
-                    onClick={() => issueMutation.mutate({ kind: pendingKind, sectorId: sector.id })}
+                    disabled={checkingPrinter || issueMutation.isPending}
+                    onClick={() => void submitTicket(pendingKind, sector.id)}
                   >
                     {sector.name}
                   </Button>
@@ -474,7 +539,7 @@ function KioskPage() {
                   ...contentAlignment(layout.normalButton),
                   ...queueButtonStyle(layout.normalButton),
                 }}
-                disabled={issueMutation.isPending}
+                disabled={checkingPrinter || issueMutation.isPending}
                 onClick={() => issueKind("normal")}
               >
                 <QueueButtonContent block={layout.normalButton}>Senha normal</QueueButtonContent>
@@ -489,7 +554,7 @@ function KioskPage() {
                   ...contentAlignment(layout.priorityButton),
                   ...queueButtonStyle(layout.priorityButton),
                 }}
-                disabled={issueMutation.isPending}
+                disabled={checkingPrinter || issueMutation.isPending}
                 onClick={() => issueKind("priority")}
               >
                 <QueueButtonContent block={layout.priorityButton}>Preferencial</QueueButtonContent>

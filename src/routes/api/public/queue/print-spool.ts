@@ -63,9 +63,8 @@ export const Route = createFileRoute("/api/public/queue/print-spool")({
             .limit(1);
 
           const panel = panels[0];
-          const { isOrganizationServiceSuspended, suspendedServiceResponse } = await import(
-            "@/lib/billing/access.server"
-          );
+          const { isOrganizationServiceSuspended, suspendedServiceResponse } =
+            await import("@/lib/billing/access.server");
           if (panel && (await isOrganizationServiceSuspended(panel.organizationId))) {
             return suspendedServiceResponse();
           }
@@ -91,11 +90,13 @@ export const Route = createFileRoute("/api/public/queue/print-spool")({
               sectorId: schema.queueTickets.sectorId,
               sectorName: schema.queueTickets.sectorName,
               issuedAt: schema.queueTickets.issuedAt,
+              printEligible: schema.queueTickets.printEligible,
             })
             .from(schema.queueTickets)
             .where(
               and(
                 eq(schema.queueTickets.panelId, panel.panelId),
+                eq(schema.queueTickets.printEligible, true),
                 gt(schema.queueTickets.issuedAt, from),
               ),
             )
