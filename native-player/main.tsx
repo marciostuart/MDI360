@@ -22,6 +22,7 @@ type Bridge = {
   visualReady(id: string): void;
   widgetUnavailable(id: string): void;
   setCallAudio(active: boolean): void;
+  setQueueCallActive(active: boolean): void;
   rendererReady(): void;
   clockNow(): number;
 };
@@ -32,6 +33,7 @@ declare global {
     __mdi360LocalFreeze?: (playbackId: string) => void;
     __mdi360LocalWidgetCommitted?: (playbackId: string) => void;
     __mdi360QueueCalls?: (calls: QueueCallPayload[]) => void;
+    __mdi360QueueCallVisibility?: (active: boolean) => void;
   }
 }
 
@@ -85,7 +87,13 @@ export function LocalScreen() {
   const callActive = Boolean(call);
   useEffect(() => {
     window.MDI360Native.setCallAudio(callActive);
-    return () => window.MDI360Native.setCallAudio(false);
+    window.MDI360Native.setQueueCallActive(callActive);
+    window.__mdi360QueueCallVisibility?.(callActive);
+    return () => {
+      window.MDI360Native.setCallAudio(false);
+      window.MDI360Native.setQueueCallActive(false);
+      window.__mdi360QueueCallVisibility?.(false);
+    };
   }, [callActive]);
   const announceWidgetReady = useCallback((playbackId: string) => {
     window.__mdi360LocalWidgetCommitted?.(playbackId);
