@@ -18,6 +18,16 @@ export type QueueLayoutBlock = {
   gradientAngle?: number;
   buttonPadding?: number;
   borderRadius?: number;
+  overlayColor?: string;
+  overlayOpacity?: number;
+  overlayGradient?: boolean;
+  overlayStartColor?: string;
+  overlayStartFrom?: number;
+  overlayStartTo?: number;
+  overlayEndColor?: string;
+  overlayEndFrom?: number;
+  overlayEndTo?: number;
+  overlayAngle?: number;
   /** Applies only to the queue-call history. */
   historyDirection?: "horizontal" | "vertical";
   historyLimit?: number;
@@ -195,6 +205,46 @@ export const KIOSK_LAYOUT_DEFAULT: QueueLayout = {
     opacity: 100,
     align: "center",
   },
+  background: {
+    x: 0,
+    y: 0,
+    w: 100,
+    h: 100,
+    fontSize: 1,
+    color: "#ffffff",
+    opacity: 100,
+    align: "center",
+    overlayColor: "#000000",
+    overlayOpacity: 0,
+    overlayGradient: false,
+    overlayStartColor: "#000000",
+    overlayStartFrom: 0,
+    overlayStartTo: 0,
+    overlayEndColor: "#000000",
+    overlayEndFrom: 100,
+    overlayEndTo: 100,
+    overlayAngle: 135,
+  },
+  issuedBackground: {
+    x: 0,
+    y: 0,
+    w: 100,
+    h: 100,
+    fontSize: 1,
+    color: "#ffffff",
+    opacity: 100,
+    align: "center",
+    overlayColor: "#000000",
+    overlayOpacity: 0,
+    overlayGradient: false,
+    overlayStartColor: "#000000",
+    overlayStartFrom: 0,
+    overlayStartTo: 0,
+    overlayEndColor: "#000000",
+    overlayEndFrom: 100,
+    overlayEndTo: 100,
+    overlayAngle: 135,
+  },
 };
 
 const number = (value: unknown, fallback: number, min: number, max: number) =>
@@ -242,6 +292,19 @@ export function resolveQueueLayout(value: unknown, defaults: QueueLayout): Queue
           gradientAngle: number(item.gradientAngle, fallback.gradientAngle ?? 135, 0, 360),
           buttonPadding: number(item.buttonPadding, fallback.buttonPadding ?? 0.6, 0, 5),
           borderRadius: number(item.borderRadius, fallback.borderRadius ?? 0.8, 0, 5),
+          overlayColor: color(item.overlayColor, fallback.overlayColor ?? "#000000"),
+          overlayOpacity: number(item.overlayOpacity, fallback.overlayOpacity ?? 0, 0, 100),
+          overlayGradient:
+            typeof item.overlayGradient === "boolean"
+              ? item.overlayGradient
+              : (fallback.overlayGradient ?? false),
+          overlayStartColor: color(item.overlayStartColor, fallback.overlayStartColor ?? "#000000"),
+          overlayStartFrom: number(item.overlayStartFrom, fallback.overlayStartFrom ?? 0, 0, 100),
+          overlayStartTo: number(item.overlayStartTo, fallback.overlayStartTo ?? 0, 0, 100),
+          overlayEndColor: color(item.overlayEndColor, fallback.overlayEndColor ?? "#000000"),
+          overlayEndFrom: number(item.overlayEndFrom, fallback.overlayEndFrom ?? 100, 0, 100),
+          overlayEndTo: number(item.overlayEndTo, fallback.overlayEndTo ?? 100, 0, 100),
+          overlayAngle: number(item.overlayAngle, fallback.overlayAngle ?? 135, 0, 360),
           opacity: number(item.opacity, fallback.opacity, 0, 100),
           align: item.align === "left" || item.align === "right" ? item.align : "center",
           historyDirection:
@@ -250,9 +313,24 @@ export function resolveQueueLayout(value: unknown, defaults: QueueLayout): Queue
               : (fallback.historyDirection ?? "horizontal"),
           // History is a count, never a fractional layout measurement.
           historyLimit: Math.round(number(item.historyLimit, fallback.historyLimit ?? 3, 1, 8)),
-          hidden: typeof item.hidden === "boolean" ? item.hidden : Boolean(fallback.hidden),
+          hidden:
+            id === "issuedTicket"
+              ? false
+              : typeof item.hidden === "boolean"
+                ? item.hidden
+                : Boolean(fallback.hidden),
         } satisfies QueueLayoutBlock,
       ];
     }),
   );
+}
+
+export function queueLayoutOverlayCss(block: QueueLayoutBlock | undefined): string | undefined {
+  if (!block || !block.overlayOpacity) return undefined;
+  const alpha = Math.round(block.overlayOpacity * 2.55)
+    .toString(16)
+    .padStart(2, "0");
+  const withAlpha = (hex: string) => `${hex}${alpha}`;
+  if (!block.overlayGradient) return withAlpha(block.overlayColor ?? "#000000");
+  return `linear-gradient(${block.overlayAngle ?? 135}deg, ${withAlpha(block.overlayStartColor ?? "#000000")} ${block.overlayStartFrom ?? 0}%, ${withAlpha(block.overlayStartColor ?? "#000000")} ${block.overlayStartTo ?? 0}%, ${withAlpha(block.overlayEndColor ?? "#000000")} ${block.overlayEndFrom ?? 100}%, ${withAlpha(block.overlayEndColor ?? "#000000")} ${block.overlayEndTo ?? 100}%)`;
 }

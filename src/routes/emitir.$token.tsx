@@ -9,7 +9,7 @@ import { QueueButtonContent } from "@/components/queue/queue-button-content";
 import { queueButtonStyle } from "@/components/queue/queue-button-style";
 import { Card, CardContent } from "@/components/ui/card";
 import { getKioskPanel, issueKioskTicket, type KioskPanel } from "@/lib/queue/kiosk.functions";
-import type { QueueLayoutBlock } from "@/lib/queue/queue-layout";
+import { queueLayoutOverlayCss, type QueueLayoutBlock } from "@/lib/queue/queue-layout";
 
 // Ponte opcional com o aplicativo desktop (MDI360 Emissor) para impressão térmica automática.
 type DesktopBridge = {
@@ -336,7 +336,7 @@ function KioskPage() {
       src={stableBackgroundUrl}
       alt=""
       aria-hidden="true"
-      className="pointer-events-none absolute inset-0 size-full select-none object-cover"
+      className="pointer-events-none absolute inset-0 z-0 size-full select-none object-cover"
       draggable={false}
     />
   ) : null;
@@ -355,6 +355,12 @@ function KioskPage() {
           }}
         >
           {backgroundLayer}
+          {queueLayoutOverlayCss(layout.issuedBackground) ? (
+            <div
+              className="pointer-events-none absolute inset-0 z-[1]"
+              style={{ background: queueLayoutOverlayCss(layout.issuedBackground) }}
+            />
+          ) : null}
           {stableLogoUrl && !layout.logo.hidden ? (
             <img
               src={stableLogoUrl}
@@ -379,17 +385,15 @@ function KioskPage() {
               Senha emitida
             </div>
           ) : null}
-          {!layout.issuedTicket.hidden ? (
-            <div
-              className="absolute z-10 flex items-center overflow-hidden font-semibold"
-              style={{
-                ...blockStyle(layout.issuedTicket),
-                ...contentAlignment(layout.issuedTicket),
-              }}
-            >
-              {issued.label}
-            </div>
-          ) : null}
+          <div
+            className="absolute z-10 flex items-center overflow-hidden font-semibold"
+            style={{
+              ...blockStyle(layout.issuedTicket),
+              ...contentAlignment(layout.issuedTicket),
+            }}
+          >
+            {issued.label}
+          </div>
           {!layout.issuedSector.hidden && issued.sectorName ? (
             <div
               className="absolute z-10 flex items-center overflow-hidden"

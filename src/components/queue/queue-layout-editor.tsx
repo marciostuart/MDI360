@@ -5,7 +5,11 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { QueueButtonContent } from "@/components/queue/queue-button-content";
 import { queueButtonStyle } from "@/components/queue/queue-button-style";
-import { type QueueLayout, type QueueLayoutBlock } from "@/lib/queue/queue-layout";
+import {
+  queueLayoutOverlayCss,
+  type QueueLayout,
+  type QueueLayoutBlock,
+} from "@/lib/queue/queue-layout";
 
 export type QueueLayoutEditorItem = {
   id: string;
@@ -82,10 +86,8 @@ export function QueueLayoutEditor({
   const [selected, setSelected] = useState(items[0]?.id ?? "");
   const [activeGroup, setActiveGroup] = useState(groups?.[0]?.id ?? "");
   const visibleItems = groups?.length
-    ? items.filter(
-        (item) =>
-          item.kind === "background" ||
-          groups.find((group) => group.id === activeGroup)?.itemIds.includes(item.id),
+    ? items.filter((item) =>
+        groups.find((group) => group.id === activeGroup)?.itemIds.includes(item.id),
       )
     : items;
   const dragRef = useRef<{ x: number; y: number; block: QueueLayoutBlock } | null>(null);
@@ -159,6 +161,20 @@ export function QueueLayoutEditor({
             style={{ aspectRatio: "16 / 9", containerType: "inline-size" }}
           >
             {background}
+            {(() => {
+              const backgroundItem = visibleItems.find((item) => item.kind === "background");
+              const overlay = queueLayoutOverlayCss(
+                backgroundItem
+                  ? (layout[backgroundItem.id] ?? defaults[backgroundItem.id])
+                  : undefined,
+              );
+              return overlay ? (
+                <div
+                  className="pointer-events-none absolute inset-0"
+                  style={{ background: overlay }}
+                />
+              ) : null;
+            })()}
             {visibleItems
               .filter((item) => item.kind !== "background")
               .map((item) => {
@@ -266,7 +282,7 @@ export function QueueLayoutEditor({
             </div>
             {selectedItem?.kind === "background" ? backgroundControls : null}
             {selectedItem ? itemControls?.(selectedItem) : null}
-            {block ? (
+            {block && selectedItem?.kind !== "background" ? (
               <>
                 <>{selectedItem?.kind === "image" ? imageControls?.(selectedItem) : null}</>
                 <div className="grid grid-cols-2 gap-3">
@@ -478,15 +494,17 @@ export function QueueLayoutEditor({
                     </Button>
                   ))}
                 </div>
-                <Button
-                  type="button"
-                  variant="outline"
-                  className="w-full"
-                  onClick={() => patch({ hidden: !block.hidden })}
-                >
-                  {block.hidden ? <EyeOff className="size-4" /> : <Eye className="size-4" />}
-                  {block.hidden ? "Mostrar item" : "Ocultar item"}
-                </Button>
+                {selectedItem?.id !== "issuedTicket" ? (
+                  <Button
+                    type="button"
+                    variant="outline"
+                    className="w-full"
+                    onClick={() => patch({ hidden: !block.hidden })}
+                  >
+                    {block.hidden ? <EyeOff className="size-4" /> : <Eye className="size-4" />}
+                    {block.hidden ? "Mostrar item" : "Ocultar item"}
+                  </Button>
+                ) : null}
               </>
             ) : null}
           </aside>

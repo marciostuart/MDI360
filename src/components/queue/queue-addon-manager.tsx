@@ -40,7 +40,104 @@ import {
   CALL_LAYOUT_DEFAULT,
   KIOSK_LAYOUT_DEFAULT,
   resolveQueueLayout,
+  type QueueLayoutBlock,
 } from "@/lib/queue/queue-layout";
+
+function QueueOverlayControls({
+  block,
+  onChange,
+}: {
+  block: QueueLayoutBlock;
+  onChange: (changes: Partial<QueueLayoutBlock>) => void;
+}) {
+  const position = (label: string, value: number, key: keyof QueueLayoutBlock) => (
+    <label className="space-y-1 text-xs">
+      <span>{label} (%)</span>
+      <Input
+        type="number"
+        min={0}
+        max={100}
+        step={1}
+        value={value}
+        onChange={(event) =>
+          onChange({ [key]: Math.max(0, Math.min(100, Number(event.target.value))) })
+        }
+      />
+    </label>
+  );
+  return (
+    <div className="space-y-3 rounded-md border p-3">
+      <Label className="text-xs">Sobreposição do fundo</Label>
+      <label className="space-y-1 text-xs">
+        Cor sólida
+        <Input
+          type="color"
+          value={block.overlayColor ?? "#000000"}
+          onChange={(event) => onChange({ overlayColor: event.target.value })}
+        />
+      </label>
+      <label className="flex items-center gap-2 text-sm">
+        <Switch
+          checked={block.overlayGradient ?? false}
+          onCheckedChange={(overlayGradient) => onChange({ overlayGradient })}
+        />
+        Usar gradiente
+      </label>
+      {block.overlayGradient ? (
+        <>
+          <div className="grid grid-cols-2 gap-2">
+            <label className="space-y-1 text-xs">
+              Cor inicial
+              <Input
+                type="color"
+                value={block.overlayStartColor ?? "#000000"}
+                onChange={(event) => onChange({ overlayStartColor: event.target.value })}
+              />
+            </label>
+            <label className="space-y-1 text-xs">
+              Cor final
+              <Input
+                type="color"
+                value={block.overlayEndColor ?? "#000000"}
+                onChange={(event) => onChange({ overlayEndColor: event.target.value })}
+              />
+            </label>
+          </div>
+          <div className="grid grid-cols-2 gap-2">
+            {position("Início da cor inicial", block.overlayStartFrom ?? 0, "overlayStartFrom")}
+            {position("Final da cor inicial", block.overlayStartTo ?? 0, "overlayStartTo")}
+            {position("Início da cor final", block.overlayEndFrom ?? 100, "overlayEndFrom")}
+            {position("Final da cor final", block.overlayEndTo ?? 100, "overlayEndTo")}
+          </div>
+          <label className="space-y-1 text-xs">
+            Direção (°)
+            <Input
+              type="number"
+              min={0}
+              max={360}
+              step={1}
+              value={block.overlayAngle ?? 135}
+              onChange={(event) =>
+                onChange({ overlayAngle: Math.max(0, Math.min(360, Number(event.target.value))) })
+              }
+            />
+          </label>
+        </>
+      ) : null}
+      <label className="space-y-1 text-xs">
+        Transparência · {block.overlayOpacity ?? 0}%
+        <Input
+          type="range"
+          min={0}
+          max={100}
+          step={1}
+          value={block.overlayOpacity ?? 0}
+          onChange={(event) => onChange({ overlayOpacity: Number(event.target.value) })}
+        />
+      </label>
+    </div>
+  );
+}
 
 function repairMojibake(value: string) {
   let result = value;
@@ -1272,14 +1369,6 @@ export function QueueAddonManager() {
                           }
                         />
                         <ColorField
-                          id={`kcard-${panel.deviceId}`}
-                          label="Cor do painel dos botões"
-                          value={form.kioskCardColor}
-                          onChange={(value) =>
-                            setForm((prev) => ({ ...prev, kioskCardColor: value }))
-                          }
-                        />
-                        <ColorField
                           id={`ktitle-${panel.deviceId}`}
                           label="Cor do título e da senha emitida"
                           value={form.kioskTitleColor}
@@ -1479,10 +1568,7 @@ export function QueueAddonManager() {
                           >
                             {form.kioskTitle.trim() || "Retire sua senha"}
                           </p>
-                          <div
-                            className="space-y-2 rounded-md p-3"
-                            style={{ backgroundColor: form.kioskCardColor }}
-                          >
+                          <div className="space-y-2 rounded-md p-3">
                             <div className="grid gap-2 sm:grid-cols-2">
                               <span
                                 className="h-24 rounded-md py-3 text-lg font-semibold"
@@ -1517,12 +1603,20 @@ export function QueueAddonManager() {
                           {
                             id: "home",
                             label: "Tela do emissor",
-                            itemIds: ["logo", "title", "normalButton", "priorityButton", "image"],
+                            itemIds: [
+                              "background",
+                              "logo",
+                              "title",
+                              "normalButton",
+                              "priorityButton",
+                              "image",
+                            ],
                           },
                           {
                             id: "issued",
                             label: "Confirmação da senha",
                             itemIds: [
+                              "issuedBackground",
                               "issuedTitle",
                               "issuedTicket",
                               "issuedSector",
@@ -1551,6 +1645,12 @@ export function QueueAddonManager() {
                         }
                         items={[
                           { id: "background", label: "Fundo", sample: "", kind: "background" },
+                          {
+                            id: "issuedBackground",
+                            label: "Fundo da confirmação",
+                            sample: "",
+                            kind: "background",
+                          },
                           { id: "logo", label: "Logo", sample: "LOGO", kind: "image" },
                           {
                             id: "title",
@@ -1605,14 +1705,6 @@ export function QueueAddonManager() {
                                 setForm((prev) => ({ ...prev, kioskBgColor }))
                               }
                             />
-                            <ColorField
-                              id={`editor-kcard-${panel.deviceId}`}
-                              label="Cor do painel dos botões"
-                              value={form.kioskCardColor}
-                              onChange={(kioskCardColor) =>
-                                setForm((prev) => ({ ...prev, kioskCardColor }))
-                              }
-                            />
                             <Label className="text-xs">Imagem de fundo</Label>
                             <Input
                               type="file"
@@ -1652,7 +1744,24 @@ export function QueueAddonManager() {
                           </div>
                         }
                         itemControls={(item) =>
-                          item.id === "title" ? (
+                          item.kind === "background" ? (
+                            <QueueOverlayControls
+                              block={form.kioskLayout[item.id] ?? KIOSK_LAYOUT_DEFAULT[item.id]}
+                              onChange={(changes) =>
+                                setForm((prev) => ({
+                                  ...prev,
+                                  kioskLayout: {
+                                    ...prev.kioskLayout,
+                                    [item.id]: {
+                                      ...(prev.kioskLayout[item.id] ??
+                                        KIOSK_LAYOUT_DEFAULT[item.id]),
+                                      ...changes,
+                                    },
+                                  },
+                                }))
+                              }
+                            />
+                          ) : item.id === "title" ? (
                             <div className="space-y-1">
                               <Label className="text-xs">Título da tela</Label>
                               <Input
