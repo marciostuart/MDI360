@@ -358,6 +358,13 @@
       "when": 1791920000000,
       "tag": "0050_queue_ticket_print_eligibility",
       "breakpoints": true
+    },
+    {
+      "idx": 51,
+      "version": "7",
+      "when": 1791923600000,
+      "tag": "0051_device_token_revocations",
+      "breakpoints": true
     }
   ]
 }

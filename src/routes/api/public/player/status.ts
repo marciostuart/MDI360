@@ -17,10 +17,25 @@ export const Route = createFileRoute("/api/public/player/status")({
           return Response.json({ error: "Serviço indisponível." }, { status: 503 });
         }
 
-        const { resolveDeviceByToken } = await import("@/lib/player/player-auth.server");
+        const { resolveDeviceByToken, hashDeviceToken } = await import("@/lib/player/player-auth.server");
         const device = await resolveDeviceByToken(request);
         // Unknown token: the screen was unlinked or removed.
-        if (!device) return Response.json({ error: "Não autorizado." }, { status: 401 });
+        if (!device) {
+          const authorization = request.headers.get("authorization") ?? "";
+          const token = authorization.replace(/^Bearer\s+/i, "").trim();
+          if (token) {
+            const { eq } = await import("drizzle-orm");
+            const revoked = await getDb()
+              .select({ tokenHash: schema.deviceTokenRevocations.tokenHash })
+              .from(schema.deviceTokenRevocations)
+              .where(eq(schema.deviceTokenRevocations.tokenHash, hashDeviceToken(token)))
+              .limit(1);
+            if (revoked.length > 0) {
+              return Response.json({ state: "revoked" }, { status: 410, headers: { "cache-control": "no-store" } });
+            }
+          }
+          return Response.json({ error: "Não autorizado." }, { status: 401, headers: { "cache-control": "no-store" } });
+        }
 
         // Optional push mode: the screen holds this request open and the server
         // answers the instant it is claimed, replaced, blocked or removed in the
@@ -49,7 +64,7 @@ export const Route = createFileRoute("/api/public/player/status")({
             // Something happened to this row: re-read it and answer with the
             // fresh state (linked, blocked or a new code).
             const fresh = await resolveDeviceByToken(request);
-            if (!fresh) return Response.json({ error: "Não autorizado." }, { status: 401 });
+            if (!fresh) return Response.json({ state: "revoked" }, { status: 410, headers: { "cache-control": "no-store" } });
             Object.assign(device, fresh);
           }
         }

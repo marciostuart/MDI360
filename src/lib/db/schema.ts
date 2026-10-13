@@ -318,6 +318,13 @@ export const devices = pgTable(
   ],
 );
 
+/** Token hashes retained after device deletion so terminals can distinguish
+ * an intentional unlink from a temporary API/database failure. */
+export const deviceTokenRevocations = pgTable("device_token_revocations", {
+  tokenHash: text("token_hash").primaryKey(),
+  revokedAt: timestamp("revoked_at", { withTimezone: true }).notNull().defaultNow(),
+});
+
 /* ------------------------------------------------------------------ */
 /* Media + playlists                                                    */
 /* ------------------------------------------------------------------ */
