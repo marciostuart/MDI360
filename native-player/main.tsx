@@ -23,6 +23,7 @@ type Bridge = {
   widgetUnavailable(id: string): void;
   setCallAudio(active: boolean): void;
   setQueueCallActive(active: boolean): void;
+  queueCallPresented(): void;
   rendererReady(): void;
   clockNow(): number;
 };
@@ -81,9 +82,15 @@ export function LocalScreen() {
     window.__mdi360QueueCalls = (incoming) => {
       const fresh = incoming.filter((item) => !seen.has(item.id));
       fresh.forEach((item) => seen.add(item.id));
-      // Bound only the deduplication set, never the pending call queue.
+      // Keep the de-duplication window bounded for long-running terminals.
       if (seen.size > 2000) [...seen].slice(0, 1000).forEach((id) => seen.delete(id));
-      setCalls((previous) => [...previous, ...fresh]);
+      if (!fresh.length) return;
+      // The server sends a short recent-call history with each queue event.
+      // Showing that history as a FIFO delayed a new call behind the current
+      // ticket for up to its full 10-second dwell time. The newest unseen call
+      // is the live event: replace the visible ticket immediately and never
+      // replay older history items from a reconnect or a batched poll response.
+      setCalls([fresh[fresh.length - 1]]);
     };
     window.MDI360Native.rendererReady();
     return () => { delete window.__mdi360LocalFrame; delete window.__mdi360LocalFreeze; delete window.__mdi360QueueCalls; };
@@ -99,6 +106,10 @@ export function LocalScreen() {
       window.__mdi360QueueCallVisibility?.(false);
     };
   }, [callActive]);
+  const displayedCallId = call?.id;
+  useEffect(() => {
+    if (displayedCallId) window.MDI360Native.queueCallPresented();
+  }, [displayedCallId]);
   const announceWidgetReady = useCallback((playbackId: string) => {
     window.__mdi360LocalWidgetCommitted?.(playbackId);
     window.MDI360Native.visualReady(playbackId);

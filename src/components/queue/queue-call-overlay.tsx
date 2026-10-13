@@ -305,7 +305,7 @@ export function QueueCallOverlay({
 
   return (
     <div
-      className="mdi-queue-call-overlay absolute inset-0 z-50 grid place-items-center bg-cover bg-center px-10 text-center"
+      className="mdi-queue-call-overlay absolute inset-0 z-[10000] grid place-items-center bg-cover bg-center px-10 text-center"
       style={{
         backgroundColor: bgColor,
         ...(bgImageUrl ? { backgroundImage: `url(${JSON.stringify(bgImageUrl)})` } : {}),
