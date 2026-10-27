@@ -12,6 +12,7 @@ export type LandingContent = {
   platformImageUrl: string;
   queueImageUrl: string;
   whatsappUrl: string;
+  links: LandingLinks;
   proofLine: string;
   stats: LandingItem[];
   audiences: LandingItem[];
@@ -35,6 +36,7 @@ export const DEFAULT_LANDING_CONTENT: LandingContent = {
   platformImageUrl: "",
   queueImageUrl: "",
   whatsappUrl: "https://wa.me/5531920051113",
+  links: normalizeLandingLinks(undefined),
   proofLine: "Android · Roku · Windows · Linux · Navegador",
   stats: [
     { title: "1 painel", description: "para telas, conteúdos, filas e relatórios" },
@@ -119,5 +121,11 @@ export const DEFAULT_LANDING_CONTENT: LandingContent = {
 
 export function normalizeLandingContent(value: unknown): LandingContent {
   if (!value || typeof value !== "object") return DEFAULT_LANDING_CONTENT;
-  return { ...DEFAULT_LANDING_CONTENT, ...(value as Partial<LandingContent>) };
+  const saved = value as Partial<LandingContent>;
+  return {
+    ...DEFAULT_LANDING_CONTENT,
+    ...saved,
+    links: normalizeLandingLinks(saved.links, saved.whatsappUrl),
+  };
 }
+import { normalizeLandingLinks, type LandingLinks } from "./landing-links.ts";

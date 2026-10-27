@@ -13,6 +13,7 @@ import { fetchLandingContent, saveLandingContent } from "@/lib/landing/landing.f
 import type { LandingContent, LandingFaq, LandingItem } from "@/lib/landing/landing-content";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { QuizManager } from "@/components/landing/quiz-manager";
+import { LANDING_LINKS, landingLinksSchema, type LandingLinkId } from "@/lib/landing/landing-links";
 
 export const Route = createFileRoute("/torre/site")({
   head: () => ({
@@ -81,6 +82,17 @@ function LandingEditor() {
     );
   const set = <K extends keyof LandingContent>(key: K, value: LandingContent[K]) =>
     setDraft((current) => current && { ...current, [key]: value });
+  const publish = () => {
+    const parsed = landingLinksSchema.safeParse(draft.links);
+    if (!parsed.success) {
+      const key = parsed.error.issues[0]?.path[0] as LandingLinkId;
+      toast.error(
+        `${LANDING_LINKS[key]?.label ?? "Link inválido"}: ${parsed.error.issues[0]?.message}`,
+      );
+      return;
+    }
+    save.mutate({ ...draft, links: parsed.data });
+  };
   return (
     <div className="space-y-6">
       <div className="flex flex-wrap items-end justify-between gap-4">
@@ -97,7 +109,7 @@ function LandingEditor() {
               Visualizar
             </a>
           </Button>
-          <Button onClick={() => save.mutate(draft)} disabled={save.isPending}>
+          <Button onClick={publish} disabled={save.isPending}>
             {save.isPending ? (
               <Loader2 className="mr-2 size-4 animate-spin" />
             ) : (
@@ -138,7 +150,7 @@ function LandingEditor() {
         </Field>
       </EditorCard>
       <EditorCard
-        title="Imagens e contato"
+        title="Imagens"
         description="Deixe a URL vazia para manter o mockup ilustrativo. Aceita URLs públicas do seu armazenamento."
       >
         <Field label="Imagem da hero" wide>
@@ -162,9 +174,39 @@ function LandingEditor() {
             onChange={(e) => set("queueImageUrl", e.target.value)}
           />
         </Field>
-        <Field label="Link do WhatsApp" wide>
-          <Input value={draft.whatsappUrl} onChange={(e) => set("whatsappUrl", e.target.value)} />
-        </Field>
+      </EditorCard>
+      <EditorCard
+        title="Links de todos os botões e menus"
+        description="Cada botão tem destino independente. Use uma URL completa, /caminho, #secao, mailto: ou tel:. Os menus do computador e do celular compartilham a mesma configuração. Só entra no ar após Salvar site."
+      >
+        {Object.entries(LANDING_LINKS).map(([id, definition]) => {
+          const key = id as LandingLinkId;
+          const item = draft.links[key];
+          const update = (change: Partial<typeof item>) =>
+            set("links", { ...draft.links, [key]: { ...item, ...change } });
+          return (
+            <div key={key} className="space-y-3 rounded-lg border border-border p-4">
+              <Label htmlFor={`landing-link-${key}`}>{definition.label}</Label>
+              <Input
+                id={`landing-link-${key}`}
+                value={item.href}
+                placeholder={definition.href}
+                onChange={(event) => update({ href: event.target.value })}
+              />
+              <label className="block space-y-2 text-sm">
+                <span>Abrir destino</span>
+                <select
+                  className="h-10 w-full rounded-md border border-input bg-background px-3"
+                  value={item.newTab ? "new" : "same"}
+                  onChange={(event) => update({ newTab: event.target.value === "new" })}
+                >
+                  <option value="same">Na mesma aba</option>
+                  <option value="new">Em nova aba</option>
+                </select>
+              </label>
+            </div>
+          );
+        })}
       </EditorCard>
       <EditorCard
         title="Conteúdo comercial"
@@ -228,7 +270,7 @@ function LandingEditor() {
         </Field>
       </EditorCard>
       <div className="flex justify-end">
-        <Button size="lg" onClick={() => save.mutate(draft)} disabled={save.isPending}>
+        <Button size="lg" onClick={publish} disabled={save.isPending}>
           <Save className="mr-2 size-4" />
           Salvar site
         </Button>

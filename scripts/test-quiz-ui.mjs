@@ -132,6 +132,28 @@ try {
     deviceScaleFactor: 1,
     mobile: true,
   });
+  await send("Page.navigate", { url: base });
+  await wait("document.querySelectorAll('a[data-landing-link]').length === 14");
+  await delay(800);
+  await evaluate("document.querySelector('button[aria-label=\"Abrir menu\"]').click()");
+  await wait("document.querySelectorAll('a[data-landing-link]').length === 19");
+  const links = await evaluate(
+    "[...document.querySelectorAll('a[data-landing-link]')].map(node=>({id:node.dataset.landingLink,href:node.getAttribute('href'),target:node.target,rel:node.rel}))",
+  );
+  for (const link of links) {
+    assert.deepEqual(
+      link,
+      links.find((entry) => entry.id === link.id),
+      "Mobile and desktop destinations must match",
+    );
+    assert.equal(link.target, ["partner", "finalContact"].includes(link.id) ? "_blank" : "_self");
+    if (link.target === "_blank") assert.equal(link.rel, "noopener noreferrer");
+  }
+  assert.equal(links.find((link) => link.id === "headerSignup").href, "/entrar?mode=signup");
+  assert.equal(links.find((link) => link.id === "diagnostic").href, "/diagnostico");
+  console.log(
+    "PASS landing links: fourteen configured destinations, mobile duplicates, preserved signup query and safe tab targets",
+  );
   await start();
   await click("Controlar as telas do meu próprio negócio (loja única ou redes)");
   await heading("segmento");

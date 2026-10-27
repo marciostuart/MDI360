@@ -1,4 +1,4 @@
-import { createFileRoute, Link } from "@tanstack/react-router";
+import { createFileRoute } from "@tanstack/react-router";
 import {
   ArrowRight,
   BarChart3,
@@ -19,6 +19,7 @@ import {
 import { useState } from "react";
 
 import { fetchLandingContent } from "@/lib/landing/landing.functions";
+import { landingAnchorProps, type LandingLinkId } from "@/lib/landing/landing-links";
 
 export const Route = createFileRoute("/")({
   loader: () => fetchLandingContent(),
@@ -54,46 +55,48 @@ function Brand() {
 
 function LandingPage() {
   const content = Route.useLoaderData();
+  const link = (id: LandingLinkId) => ({
+    ...landingAnchorProps(content.links[id]),
+    "data-landing-link": id,
+  });
   const [menuOpen, setMenuOpen] = useState(false);
   return (
     <main className="landing-shell min-h-screen overflow-hidden bg-[#070a08] text-[#f4f7f2]">
       <header className="fixed inset-x-0 top-0 z-50 border-b border-white/10 bg-[#070a08]/75 backdrop-blur-xl">
         <div className="mx-auto flex h-20 max-w-[1440px] items-center justify-between px-5 lg:px-10">
-          <a href="#inicio" aria-label="MDI 360 - início">
+          <a {...link("brand")} aria-label="MDI 360 - início">
             <Brand />
           </a>
           <nav className="hidden items-center gap-7 text-sm text-white/65 lg:flex">
-            <a href="#plataforma" className="hover:text-white">
+            <a {...link("navPlatform")} className="hover:text-white">
               Plataforma
             </a>
-            <a href="#diferenciais" className="hover:text-white">
+            <a {...link("navFeatures")} className="hover:text-white">
               Diferenciais
             </a>
-            <a href="#publicos" className="hover:text-white">
+            <a {...link("navAudiences")} className="hover:text-white">
               Para quem
             </a>
-            <a href="#parceiros" className="hover:text-white">
+            <a {...link("navPartners")} className="hover:text-white">
               Revendas
             </a>
-            <a href="#faq" className="hover:text-white">
+            <a {...link("navFaq")} className="hover:text-white">
               FAQ
             </a>
           </nav>
           <div className="hidden items-center gap-2 lg:flex">
-            <Link
-              to="/entrar"
-              search={{ mode: "login" }}
+            <a
+              {...link("headerLogin")}
               className="rounded-full px-5 py-2.5 text-sm font-semibold text-white hover:bg-white/10"
             >
               Entrar
-            </Link>
-            <Link
-              to="/entrar"
-              search={{ mode: "signup" }}
+            </a>
+            <a
+              {...link("headerSignup")}
               className="rounded-full bg-[#a3ff3f] px-5 py-2.5 text-sm font-bold text-[#07100b] transition hover:scale-[1.03] hover:bg-[#b7ff68]"
             >
               Criar conta
-            </Link>
+            </a>
           </div>
           <button
             className="grid size-10 place-items-center rounded-full border border-white/15 lg:hidden"
@@ -106,25 +109,25 @@ function LandingPage() {
         {menuOpen ? (
           <div className="border-t border-white/10 bg-[#070a08] p-5 lg:hidden">
             <div className="flex flex-col gap-4 text-lg">
-              <a href="#plataforma" onClick={() => setMenuOpen(false)}>
+              <a {...link("navPlatform")} onClick={() => setMenuOpen(false)}>
                 Plataforma
               </a>
-              <a href="#diferenciais" onClick={() => setMenuOpen(false)}>
+              <a {...link("navFeatures")} onClick={() => setMenuOpen(false)}>
                 Diferenciais
               </a>
-              <a href="#parceiros" onClick={() => setMenuOpen(false)}>
+              <a {...link("navPartners")} onClick={() => setMenuOpen(false)}>
                 Revendas
               </a>
-              <Link to="/entrar" search={{ mode: "login" }}>
+              <a {...link("headerLogin")} onClick={() => setMenuOpen(false)}>
                 Entrar
-              </Link>
-              <Link
-                to="/entrar"
-                search={{ mode: "signup" }}
+              </a>
+              <a
+                {...link("headerSignup")}
+                onClick={() => setMenuOpen(false)}
                 className="rounded-xl bg-[#a3ff3f] px-4 py-3 text-center font-bold text-black"
               >
                 Criar conta
-              </Link>
+              </a>
             </div>
           </div>
         ) : null}
@@ -150,16 +153,15 @@ function LandingPage() {
               {content.heroDescription}
             </p>
             <div className="mt-10 flex flex-col gap-3 sm:flex-row">
-              <Link
-                to="/entrar"
-                search={{ mode: "signup" }}
+              <a
+                {...link("heroPrimary")}
                 className="group inline-flex items-center justify-center gap-3 rounded-full bg-[#a3ff3f] px-7 py-4 font-bold text-[#07100b] transition hover:scale-[1.03]"
               >
                 {content.primaryCta}
                 <ArrowRight className="size-5 transition group-hover:translate-x-1" />
-              </Link>
+              </a>
               <a
-                href="#plataforma"
+                {...link("heroSecondary")}
                 className="inline-flex items-center justify-center gap-3 rounded-full border border-white/20 px-7 py-4 font-semibold transition hover:bg-white/10"
               >
                 <CirclePlay className="size-5" />
@@ -169,12 +171,12 @@ function LandingPage() {
             <p className="mt-8 text-xs font-semibold uppercase tracking-[.2em] text-white/35">
               {content.proofLine}
             </p>
-            <Link
-              to="/diagnostico"
+            <a
+              {...link("diagnostic")}
               className="mt-5 inline-flex items-center gap-2 text-sm font-semibold text-[#a3ff3f] hover:underline"
             >
               Descubra a solução ideal para suas telas <ArrowRight className="size-4" />
-            </Link>
+            </a>
           </div>
           <HeroVisual imageUrl={content.heroImageUrl} />
         </div>
@@ -365,9 +367,7 @@ function LandingPage() {
           <div className="flex flex-col justify-end">
             <p className="text-lg leading-relaxed text-black/65">{content.resellerDescription}</p>
             <a
-              href={content.whatsappUrl}
-              target="_blank"
-              rel="noreferrer"
+              {...link("partner")}
               className="mt-8 inline-flex w-fit items-center gap-2 rounded-full bg-[#07100b] px-6 py-3.5 font-bold text-white"
             >
               Falar sobre parceria <ArrowRight className="size-4" />
@@ -408,17 +408,14 @@ function LandingPage() {
           </h2>
           <p className="mx-auto mt-6 max-w-xl text-lg text-white/55">{content.finalDescription}</p>
           <div className="mt-9 flex flex-col justify-center gap-3 sm:flex-row">
-            <Link
-              to="/entrar"
-              search={{ mode: "signup" }}
+            <a
+              {...link("finalPrimary")}
               className="rounded-full bg-[#a3ff3f] px-7 py-4 font-bold text-black"
             >
               Criar minha conta
-            </Link>
+            </a>
             <a
-              href={content.whatsappUrl}
-              target="_blank"
-              rel="noreferrer"
+              {...link("finalContact")}
               className="rounded-full border border-white/20 px-7 py-4 font-semibold"
             >
               Conversar com a 360BH

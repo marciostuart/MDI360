@@ -3,34 +3,38 @@ import { z } from "zod";
 
 import { DEFAULT_LANDING_CONTENT, normalizeLandingContent } from "./landing-content";
 import type { LandingContent } from "./landing-content";
+import { landingLinksSchema } from "./landing-links";
 
 const item = z.object({
   title: z.string().min(1).max(120),
   description: z.string().min(1).max(500),
 });
-const contentSchema = z.object({
-  eyebrow: z.string().max(160),
-  headline: z.string().min(1).max(160),
-  highlightedHeadline: z.string().min(1).max(160),
-  heroDescription: z.string().min(1).max(700),
-  primaryCta: z.string().min(1).max(60),
-  secondaryCta: z.string().min(1).max(60),
-  heroImageUrl: z.string().max(1000),
-  platformImageUrl: z.string().max(1000),
-  queueImageUrl: z.string().max(1000),
-  whatsappUrl: z.string().max(1000),
-  proofLine: z.string().max(300),
-  stats: z.array(item).max(6),
-  audiences: z.array(item).min(1).max(8),
-  features: z.array(item).min(1).max(12),
-  resellerTitle: z.string().min(1).max(200),
-  resellerDescription: z.string().min(1).max(700),
-  faqs: z
-    .array(z.object({ question: z.string().min(1).max(220), answer: z.string().min(1).max(700) }))
-    .max(12),
-  finalTitle: z.string().min(1).max(200),
-  finalDescription: z.string().min(1).max(500),
-});
+const contentSchema = z
+  .object({
+    eyebrow: z.string().max(160),
+    headline: z.string().min(1).max(160),
+    highlightedHeadline: z.string().min(1).max(160),
+    heroDescription: z.string().min(1).max(700),
+    primaryCta: z.string().min(1).max(60),
+    secondaryCta: z.string().min(1).max(60),
+    heroImageUrl: z.string().max(1000),
+    platformImageUrl: z.string().max(1000),
+    queueImageUrl: z.string().max(1000),
+    whatsappUrl: z.string().max(1000),
+    links: landingLinksSchema.optional(),
+    proofLine: z.string().max(300),
+    stats: z.array(item).max(6),
+    audiences: z.array(item).min(1).max(8),
+    features: z.array(item).min(1).max(12),
+    resellerTitle: z.string().min(1).max(200),
+    resellerDescription: z.string().min(1).max(700),
+    faqs: z
+      .array(z.object({ question: z.string().min(1).max(220), answer: z.string().min(1).max(700) }))
+      .max(12),
+    finalTitle: z.string().min(1).max(200),
+    finalDescription: z.string().min(1).max(500),
+  })
+  .transform(normalizeLandingContent);
 
 export const fetchLandingContent = createServerFn({ method: "GET" }).handler(
   async (): Promise<LandingContent> => {
