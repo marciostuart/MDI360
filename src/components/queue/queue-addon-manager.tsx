@@ -981,7 +981,7 @@ export function QueueAddonManager() {
                     />
                   </div>
                   <div className="flex gap-2 sm:col-span-2">
-                    <div className="hidden">
+                    <div className="w-full space-y-4 rounded-lg border p-4">
                       <p className="text-sm font-medium">Som da chamada</p>
                       <div className="grid gap-4 sm:grid-cols-2">
                         <div className="space-y-1.5">
