@@ -129,6 +129,7 @@ export const Route = createFileRoute("/api/media/upload")({
         let storageKey = row.storageKey;
         let mimeType = row.mimeType ?? file.type ?? undefined;
         let storedBytes = file.size;
+        let normalized: { width: number; height: number; durationMs: number | null } | undefined;
 
         try {
           const { putObject } = await import("@/lib/storage.server");
@@ -137,30 +138,45 @@ export const Route = createFileRoute("/api/media/upload")({
           // Every video becomes the same standard MP4 (H.264/AAC, faststart,
           // capped to the screen preset), so the players never deal with an
           // exotic codec or an oversized bitrate.
-          if (row.kind === "video") {
-            const { transcodeVideoToStandardMp4, isFfmpegMissing } = await import(
+          {
+            const { transcodeVideoToStandardMp4, normalizeImageToStandardPng, isFfmpegMissing } = await import(
               "@/lib/media/transcode.server"
             );
             try {
-              const converted = await transcodeVideoToStandardMp4(body, row.canvasPreset);
+              const converted = row.kind === "video"
+                ? await transcodeVideoToStandardMp4(body, row.canvasPreset)
+                : await normalizeImageToStandardPng(body, row.canvasPreset);
+              normalized = { width: converted.width, height: converted.height, durationMs: converted.durationMs };
               body = converted.body;
               mimeType = converted.mimeType;
-              storageKey = storageKey.replace(/\.[^./]+$/, "") + ".mp4";
+              storageKey = storageKey.replace(/\.[^./]+$/, "") + "." + converted.extension;
               storedBytes = body.byteLength;
             } catch (error) {
               if (isFfmpegMissing(error)) {
-                console.error("ffmpeg indisponível — vídeo salvo sem conversão");
+                await discard(assetId, row.storageKey);
+                return Response.json({ error: "Conversor de mídia indisponível. Tente novamente mais tarde." }, { status: 503 });
               } else {
-                console.error("video transcode failed", describeStorageError(error));
+                console.error("media normalization failed", describeStorageError(error));
                 await discard(assetId, row.storageKey);
                 return Response.json(
                   {
                     error:
-                      "Não foi possível converter este vídeo. Envie um MP4/WebM com vídeo válido.",
+                      "Não foi possível preparar esta mídia. Envie uma imagem ou um vídeo válido.",
                   },
                   { status: 422 },
                 );
               }
+            }
+          }
+
+          if (storedBytes > reserved) {
+            const { sql } = await import("drizzle-orm");
+            const { getOrgLimits } = await import("@/lib/admin/limits.server");
+            const limits = await getOrgLimits(user.organizationId);
+            const usage = await db.select({ used: sql<number>`coalesce(sum(byte_size),0)::bigint` }).from(schema.mediaAssets).where(eq(schema.mediaAssets.organizationId, user.organizationId));
+            if (Number(usage[0]?.used ?? 0) - reserved + storedBytes > limits.maxStorageMb * 1024 * 1024) {
+              await discard(assetId, row.storageKey);
+              return Response.json({ error: "A mídia otimizada excede o espaço disponível no plano." }, { status: 413 });
             }
           }
 
@@ -178,7 +194,7 @@ export const Route = createFileRoute("/api/media/upload")({
 
         await db
           .update(schema.mediaAssets)
-          .set({ status: "ready", byteSize: storedBytes, storageKey, mimeType })
+          .set({ status: "ready", byteSize: storedBytes, storageKey, mimeType, ...normalized })
           .where(scope);
 
         const { recordTraffic } = await import("@/lib/admin/traffic.server");

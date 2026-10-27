@@ -32,6 +32,7 @@ declare global {
     MDI360Native: Bridge;
     __mdi360LocalFrame?: (frame: Frame) => void;
     __mdi360LocalFreeze?: (playbackId: string) => void;
+    __mdi360LocalNativeVideoReady?: (playbackId: string) => void;
     __mdi360LocalWidgetCommitted?: (playbackId: string) => void;
     __mdi360QueueCalls?: (calls: QueueCallPayload[]) => void;
     __mdi360QueueCallVisibility?: (active: boolean) => void;
@@ -50,13 +51,17 @@ export function LocalScreen() {
       const incoming = current.at(-1);
       return incoming?.playbackId === playbackId ? [incoming] : current;
     });
+    setFrozenWidgetIds(new Set());
   }, []);
   useEffect(() => {
     const seen = new Set<string>();
     window.__mdi360LocalFrame = (next) => {
-      // A freeze belongs only to the outgoing frame. The next playlist item
-      // always starts with an active internal state.
-      setFrozenWidgetIds((current) => current.size ? new Set() : current);
+      const native = next.item.kind === "image" || next.item.kind === "video";
+      currentFrame.current = next;
+      // A direct widget -> native handoff keeps the outgoing DOM frozen and
+      // visible until Android confirms the fully decoded replacement.
+      if (native && !next.fade) return;
+      // Keep the outgoing widget frozen until its replacement commits.
       if (next.item.kind === "widget" && next.item.widgetConfig) {
         setWidgetFrames((current) => {
           if (current.some((entry) => entry.playbackId === next.playbackId)) return current;
@@ -68,7 +73,13 @@ export function LocalScreen() {
       } else {
         setWidgetFrames([]);
       }
-      currentFrame.current = next;
+      setFrame(next);
+    };
+    window.__mdi360LocalNativeVideoReady = (id) => {
+      const next = currentFrame.current;
+      if (!next || next.playbackId !== id) return;
+      setWidgetFrames([]);
+      setFrozenWidgetIds(new Set());
       setFrame(next);
     };
     window.__mdi360LocalFreeze = (playbackId) => {
@@ -93,7 +104,7 @@ export function LocalScreen() {
       setCalls([fresh[fresh.length - 1]]);
     };
     window.MDI360Native.rendererReady();
-    return () => { delete window.__mdi360LocalFrame; delete window.__mdi360LocalFreeze; delete window.__mdi360QueueCalls; };
+    return () => { delete window.__mdi360LocalFrame; delete window.__mdi360LocalFreeze; delete window.__mdi360LocalNativeVideoReady; delete window.__mdi360QueueCalls; };
   }, []);
   const callActive = Boolean(call);
   useEffect(() => {
@@ -116,6 +127,7 @@ export function LocalScreen() {
   }, []);
   useEffect(() => {
     if (!frame) return;
+    if (frame.item.kind === "video" || frame.item.kind === "image") return;
     if (frame.item.kind === "stream") return;
     if (frame.item.kind === "widget") return;
     if (frame.item.widgetConfig?.type === "news" || frame.item.widgetConfig?.type === "lottery") return;
@@ -208,7 +220,7 @@ function ReadyWidget({ frame, active = true, onPrepared, onVisualReady }: { fram
   }, [ready, config.type, frame.playbackId, onVisualReady]);
   if (!ready) return null;
   return <LocalWidgetData.Provider value={{ payload: frame.item.widgetData ?? null, now: () => window.MDI360Native.clockNow(), imagesReady: true }}>
-            <WidgetView config={playerConfig} accentColor={frame.accentColor} transitionEffect={frame.fade ? "fade" : "none"} isActive={active} onReady={() => onVisualReady(frame.playbackId)} />
+            <WidgetView config={playerConfig} accentColor={frame.accentColor} transitionEffect="none" isActive={active} onReady={() => onVisualReady(frame.playbackId)} />
   </LocalWidgetData.Provider>;
 }
 function LocalStream({ url, name, muted, onReady }: { url: string; name: string; muted: boolean; onReady: () => void }) {

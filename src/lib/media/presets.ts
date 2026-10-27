@@ -32,17 +32,17 @@ export const CANVAS_PRESETS: CanvasPreset[] = [
   {
     id: "portrait-tall",
     label: "Totem estreito (9:32)",
-    description: "1080 x 3840 — totens duplos e vitrines altas",
-    width: 1080,
-    height: 3840,
+    description: "540 x 1920 — proporção 9:32, limitada a Full HD",
+    width: 540,
+    height: 1920,
     orientation: "portrait",
   },
   {
     id: "landscape-ultrawide",
     label: "Painel ultrawide (32:9)",
-    description: "3840 x 1080 — faixas e paineis largos",
-    width: 3840,
-    height: 1080,
+    description: "1920 x 540 — proporção 32:9, limitada a Full HD",
+    width: 1920,
+    height: 540,
     orientation: "landscape",
   },
 ];

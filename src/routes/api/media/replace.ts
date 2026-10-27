@@ -106,30 +106,39 @@ export const Route = createFileRoute("/api/media/replace")({
         let newKey = `org/${user.organizationId}/media/${assetId}-${randomUUID().slice(0, 8)}.${extension}`;
         let mimeType = file.type || (kind === "video" ? "video/mp4" : "image/webp");
         let storedBytes = file.size;
+        let normalized: { width: number; height: number; durationMs: number | null } | undefined;
 
         try {
           const { putObject } = await import("@/lib/storage.server");
           let body = new Uint8Array(await file.arrayBuffer());
 
-          if (kind === "video") {
-            const { transcodeVideoToStandardMp4, isFfmpegMissing } = await import(
+          {
+            const { transcodeVideoToStandardMp4, normalizeImageToStandardPng, isFfmpegMissing } = await import(
               "@/lib/media/transcode.server"
             );
             try {
-              const converted = await transcodeVideoToStandardMp4(body, row.canvasPreset);
+              const converted = kind === "video"
+                ? await transcodeVideoToStandardMp4(body, row.canvasPreset)
+                : await normalizeImageToStandardPng(body, row.canvasPreset);
+              normalized = { width: converted.width, height: converted.height, durationMs: converted.durationMs };
+              newKey = newKey.replace(/\.[^./]+$/, "") + "." + converted.extension;
               body = converted.body;
               mimeType = converted.mimeType;
               storedBytes = body.byteLength;
             } catch (error) {
               if (!isFfmpegMissing(error)) {
-                console.error("replace transcode failed", error);
+                console.error("replace normalization failed", error);
                 return Response.json(
-                  { error: "Não foi possível converter este vídeo. Envie um MP4/WebM válido." },
+                  { error: "Não foi possível preparar esta mídia. Envie uma imagem ou um vídeo válido." },
                   { status: 422 },
                 );
               }
-              newKey = newKey.replace(/\.mp4$/, ".mp4");
+              return Response.json({ error: "Conversor de mídia indisponível. O arquivo anterior foi preservado." }, { status: 503 });
             }
+          }
+
+          if (used - (row.byteSize ?? 0) + storedBytes > quota) {
+            return Response.json({ error: "A mídia otimizada excede o espaço disponível no plano." }, { status: 413 });
           }
 
           await putObject(newKey, body as Uint8Array<ArrayBuffer>, mimeType);
@@ -151,6 +160,7 @@ export const Route = createFileRoute("/api/media/replace")({
             width: width ?? null,
             height: height ?? null,
             durationMs,
+            ...normalized,
             status: "ready",
           })
           .where(scope);

@@ -32,7 +32,7 @@ async function sniffKind(file: File): Promise<"image" | "video" | null> {
   if (hex.startsWith("52494646") && hex.slice(16, 24) === "57454250") return "image"; // webp
   if (hex.slice(8, 16) === "66747970") {
     const brand = String.fromCharCode(...header.slice(8, 12));
-    return brand === "ftyp" && hex.slice(16, 24).startsWith("617669") ? "image" : "video";
+    return brand === "avif" || brand === "avis" ? "image" : "video";
   }
   if (hex.startsWith("1a45dfa3")) return "video"; // webm/mkv
   return null;
@@ -83,7 +83,7 @@ function canvasToBlob(canvas: HTMLCanvasElement, type: string, quality: number) 
 
 /**
  * Normalizes an image to the canvas preset: never larger than the screen, no
- * EXIF/metadata carried over (re-encoding drops it), and re-compressed to webp.
+ * EXIF/metadata carried over (re-encoding drops it), encoded as lossless PNG.
  */
 async function prepareImage(file: File, preset: CanvasPreset): Promise<PreparedUpload> {
   const image = await loadImage(file);
@@ -102,19 +102,20 @@ async function prepareImage(file: File, preset: CanvasPreset): Promise<PreparedU
   ctx.imageSmoothingQuality = "high";
   ctx.drawImage(image, 0, 0, width, height);
 
-  const blob = await canvasToBlob(canvas, "image/webp", 0.75);
+  // Lossless and supported by Android, Roku (including older OS) and browsers.
+  const blob = await canvasToBlob(canvas, "image/png", 1);
 
   if (scale < 1) {
     notes.push(`Redimensionada de ${image.width}x${image.height} para ${width}x${height}.`);
   }
   if (blob.size < file.size) {
-    notes.push("Recompactada em WebP para carregar mais rápido nas telas.");
+    notes.push("Normalizada em PNG sem perda adicional de qualidade.");
   }
 
   return {
     blob,
-    mimeType: "image/webp",
-    extension: "webp",
+    mimeType: "image/png",
+    extension: "png",
     kind: "image",
     width,
     height,
