@@ -86,6 +86,20 @@ export const platformSettings = pgTable("platform_settings", {
   updatedAt: timestamp("updated_at", { withTimezone: true }).notNull().defaultNow(),
 });
 
+/** Completed, consented commercial diagnostics; never exposed by public APIs. */
+export const quizLeads = pgTable("quiz_leads", {
+  id: uuid("id").primaryKey(),
+  revision: text("revision").notNull(),
+  nome: text("nome").notNull(), whatsapp: text("whatsapp").notNull(), email: text("email").notNull(),
+  profile: text("profile").notNull(), payload: jsonb("payload").$type<Record<string, string>>().notNull(),
+  responses: jsonb("responses").$type<{ pergunta: string; resposta: string; campo: string }[]>().notNull(),
+  consentText: text("consent_text").notNull(), sourceHash: text("source_hash"),
+  whatsappStatus: text("whatsapp_status").notNull().default("disabled"), webhookStatus: text("webhook_status").notNull().default("disabled"),
+  whatsappError: text("whatsapp_error"), webhookError: text("webhook_error"),
+  whatsappAttemptedAt: timestamp("whatsapp_attempted_at", { withTimezone: true }), webhookAttemptedAt: timestamp("webhook_attempted_at", { withTimezone: true }),
+  createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
+}, (table) => [index("quiz_leads_created_idx").on(table.createdAt), index("quiz_leads_source_idx").on(table.sourceHash, table.createdAt), index("quiz_leads_phone_idx").on(table.whatsapp, table.createdAt)]);
+
 export const organizations = pgTable("organizations", {
   id: uuid("id").primaryKey().defaultRandom(),
   name: text("name").notNull(),

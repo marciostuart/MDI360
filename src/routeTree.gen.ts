@@ -11,6 +11,7 @@
 import { Route as rootRouteImport } from './routes/__root'
 import { Route as IndexRouteImport } from './routes/index'
 import { Route as AtivarRouteImport } from './routes/ativar'
+import { Route as DiagnosticoRouteImport } from './routes/diagnostico'
 import { Route as EntrarRouteImport } from './routes/entrar'
 import { Route as RecuperarSenhaRouteImport } from './routes/recuperar-senha'
 import { Route as SenhasRouteImport } from './routes/senhas'
@@ -47,6 +48,7 @@ import { Route as ApiInternalDeviceMonitorRouteImport } from './routes/api/inter
 import { Route as ApiMediaReplaceRouteImport } from './routes/api/media/replace'
 import { Route as ApiMediaUploadRouteImport } from './routes/api/media/upload'
 import { Route as ApiPublicEmissorManifestRouteImport } from './routes/api/public/emissor-manifest'
+import { Route as ApiPublicQuizRouteImport } from './routes/api/public/quiz'
 import { Route as ApiPublicWidgetDataRouteImport } from './routes/api/public/widget-data'
 import { Route as ApiPublicWidgetSourcesRouteImport } from './routes/api/public/widget-sources'
 import { Route as ApiQueueChimeRouteImport } from './routes/api/queue/chime'
@@ -86,6 +88,11 @@ const IndexRoute = IndexRouteImport.update({
 const AtivarRoute = AtivarRouteImport.update({
   id: '/ativar',
   path: '/ativar',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const DiagnosticoRoute = DiagnosticoRouteImport.update({
+  id: '/diagnostico',
+  path: '/diagnostico',
   getParentRoute: () => rootRouteImport,
 } as any)
 const EntrarRoute = EntrarRouteImport.update({
@@ -270,6 +277,11 @@ const ApiPublicEmissorManifestRoute =
     path: '/api/public/emissor-manifest',
     getParentRoute: () => rootRouteImport,
   } as any)
+const ApiPublicQuizRoute = ApiPublicQuizRouteImport.update({
+  id: '/api/public/quiz',
+  path: '/api/public/quiz',
+  getParentRoute: () => rootRouteImport,
+} as any)
 const ApiPublicWidgetDataRoute = ApiPublicWidgetDataRouteImport.update({
   id: '/api/public/widget-data',
   path: '/api/public/widget-data',
@@ -435,6 +447,7 @@ export interface FileRoutesByFullPath {
   '/studio': typeof StudioRouteRouteWithChildren
   '/torre': typeof TorreRouteRouteWithChildren
   '/ativar': typeof AtivarRoute
+  '/diagnostico': typeof DiagnosticoRoute
   '/entrar': typeof EntrarRoute
   '/recuperar-senha': typeof RecuperarSenhaRoute
   '/senhas': typeof SenhasRoute
@@ -469,6 +482,7 @@ export interface FileRoutesByFullPath {
   '/api/media/replace': typeof ApiMediaReplaceRoute
   '/api/media/upload': typeof ApiMediaUploadRoute
   '/api/public/emissor-manifest': typeof ApiPublicEmissorManifestRoute
+  '/api/public/quiz': typeof ApiPublicQuizRoute
   '/api/public/widget-data': typeof ApiPublicWidgetDataRoute
   '/api/public/widget-sources': typeof ApiPublicWidgetSourcesRoute
   '/api/queue/chime': typeof ApiQueueChimeRoute
@@ -503,6 +517,7 @@ export interface FileRoutesByFullPath {
 export interface FileRoutesByTo {
   '/': typeof IndexRoute
   '/ativar': typeof AtivarRoute
+  '/diagnostico': typeof DiagnosticoRoute
   '/entrar': typeof EntrarRoute
   '/recuperar-senha': typeof RecuperarSenhaRoute
   '/senhas': typeof SenhasRoute
@@ -537,6 +552,7 @@ export interface FileRoutesByTo {
   '/api/media/replace': typeof ApiMediaReplaceRoute
   '/api/media/upload': typeof ApiMediaUploadRoute
   '/api/public/emissor-manifest': typeof ApiPublicEmissorManifestRoute
+  '/api/public/quiz': typeof ApiPublicQuizRoute
   '/api/public/widget-data': typeof ApiPublicWidgetDataRoute
   '/api/public/widget-sources': typeof ApiPublicWidgetSourcesRoute
   '/api/queue/chime': typeof ApiQueueChimeRoute
@@ -574,6 +590,7 @@ export interface FileRoutesById {
   '/studio': typeof StudioRouteRouteWithChildren
   '/torre': typeof TorreRouteRouteWithChildren
   '/ativar': typeof AtivarRoute
+  '/diagnostico': typeof DiagnosticoRoute
   '/entrar': typeof EntrarRoute
   '/recuperar-senha': typeof RecuperarSenhaRoute
   '/senhas': typeof SenhasRoute
@@ -608,6 +625,7 @@ export interface FileRoutesById {
   '/api/media/replace': typeof ApiMediaReplaceRoute
   '/api/media/upload': typeof ApiMediaUploadRoute
   '/api/public/emissor-manifest': typeof ApiPublicEmissorManifestRoute
+  '/api/public/quiz': typeof ApiPublicQuizRoute
   '/api/public/widget-data': typeof ApiPublicWidgetDataRoute
   '/api/public/widget-sources': typeof ApiPublicWidgetSourcesRoute
   '/api/queue/chime': typeof ApiQueueChimeRoute
@@ -646,6 +664,7 @@ export interface FileRouteTypes {
     | '/studio'
     | '/torre'
     | '/ativar'
+    | '/diagnostico'
     | '/entrar'
     | '/recuperar-senha'
     | '/senhas'
@@ -680,6 +699,7 @@ export interface FileRouteTypes {
     | '/api/media/replace'
     | '/api/media/upload'
     | '/api/public/emissor-manifest'
+    | '/api/public/quiz'
     | '/api/public/widget-data'
     | '/api/public/widget-sources'
     | '/api/queue/chime'
@@ -714,6 +734,7 @@ export interface FileRouteTypes {
   to:
     | '/'
     | '/ativar'
+    | '/diagnostico'
     | '/entrar'
     | '/recuperar-senha'
     | '/senhas'
@@ -748,6 +769,7 @@ export interface FileRouteTypes {
     | '/api/media/replace'
     | '/api/media/upload'
     | '/api/public/emissor-manifest'
+    | '/api/public/quiz'
     | '/api/public/widget-data'
     | '/api/public/widget-sources'
     | '/api/queue/chime'
@@ -784,6 +806,7 @@ export interface FileRouteTypes {
     | '/studio'
     | '/torre'
     | '/ativar'
+    | '/diagnostico'
     | '/entrar'
     | '/recuperar-senha'
     | '/senhas'
@@ -818,6 +841,7 @@ export interface FileRouteTypes {
     | '/api/media/replace'
     | '/api/media/upload'
     | '/api/public/emissor-manifest'
+    | '/api/public/quiz'
     | '/api/public/widget-data'
     | '/api/public/widget-sources'
     | '/api/queue/chime'
@@ -855,6 +879,7 @@ export interface RootRouteChildren {
   StudioRouteRoute: typeof StudioRouteRouteWithChildren
   TorreRouteRoute: typeof TorreRouteRouteWithChildren
   AtivarRoute: typeof AtivarRoute
+  DiagnosticoRoute: typeof DiagnosticoRoute
   EntrarRoute: typeof EntrarRoute
   RecuperarSenhaRoute: typeof RecuperarSenhaRoute
   SenhasRoute: typeof SenhasRoute
@@ -868,6 +893,7 @@ export interface RootRouteChildren {
   ApiMediaReplaceRoute: typeof ApiMediaReplaceRoute
   ApiMediaUploadRoute: typeof ApiMediaUploadRoute
   ApiPublicEmissorManifestRoute: typeof ApiPublicEmissorManifestRoute
+  ApiPublicQuizRoute: typeof ApiPublicQuizRoute
   ApiPublicWidgetDataRoute: typeof ApiPublicWidgetDataRoute
   ApiPublicWidgetSourcesRoute: typeof ApiPublicWidgetSourcesRoute
   ApiQueueChimeRoute: typeof ApiQueueChimeRoute
@@ -905,6 +931,13 @@ declare module '@tanstack/react-router' {
       path: '/ativar'
       fullPath: '/ativar'
       preLoaderRoute: typeof AtivarRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/diagnostico': {
+      id: '/diagnostico'
+      path: '/diagnostico'
+      fullPath: '/diagnostico'
+      preLoaderRoute: typeof DiagnosticoRouteImport
       parentRoute: typeof rootRouteImport
     }
     '/entrar': {
@@ -1157,6 +1190,13 @@ declare module '@tanstack/react-router' {
       path: '/api/public/emissor-manifest'
       fullPath: '/api/public/emissor-manifest'
       preLoaderRoute: typeof ApiPublicEmissorManifestRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/api/public/quiz': {
+      id: '/api/public/quiz'
+      path: '/api/public/quiz'
+      fullPath: '/api/public/quiz'
+      preLoaderRoute: typeof ApiPublicQuizRouteImport
       parentRoute: typeof rootRouteImport
     }
     '/api/public/widget-data': {
@@ -1466,6 +1506,7 @@ const rootRouteChildren: RootRouteChildren = {
   StudioRouteRoute: StudioRouteRouteWithChildren,
   TorreRouteRoute: TorreRouteRouteWithChildren,
   AtivarRoute: AtivarRoute,
+  DiagnosticoRoute: DiagnosticoRoute,
   EntrarRoute: EntrarRoute,
   RecuperarSenhaRoute: RecuperarSenhaRoute,
   SenhasRoute: SenhasRoute,
@@ -1479,6 +1520,7 @@ const rootRouteChildren: RootRouteChildren = {
   ApiMediaReplaceRoute: ApiMediaReplaceRoute,
   ApiMediaUploadRoute: ApiMediaUploadRoute,
   ApiPublicEmissorManifestRoute: ApiPublicEmissorManifestRoute,
+  ApiPublicQuizRoute: ApiPublicQuizRoute,
   ApiPublicWidgetDataRoute: ApiPublicWidgetDataRoute,
   ApiPublicWidgetSourcesRoute: ApiPublicWidgetSourcesRoute,
   ApiQueueChimeRoute: ApiQueueChimeRoute,

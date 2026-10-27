@@ -169,6 +169,12 @@ function LandingPage() {
             <p className="mt-8 text-xs font-semibold uppercase tracking-[.2em] text-white/35">
               {content.proofLine}
             </p>
+            <Link
+              to="/diagnostico"
+              className="mt-5 inline-flex items-center gap-2 text-sm font-semibold text-[#a3ff3f] hover:underline"
+            >
+              Descubra a solução ideal para suas telas <ArrowRight className="size-4" />
+            </Link>
           </div>
           <HeroVisual imageUrl={content.heroImageUrl} />
         </div>

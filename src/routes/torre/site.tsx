@@ -11,13 +11,32 @@ import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
 import { fetchLandingContent, saveLandingContent } from "@/lib/landing/landing.functions";
 import type { LandingContent, LandingFaq, LandingItem } from "@/lib/landing/landing-content";
+import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
+import { QuizManager } from "@/components/landing/quiz-manager";
 
 export const Route = createFileRoute("/torre/site")({
   head: () => ({
     meta: [{ title: "Site | Torre MDI 360" }, { name: "robots", content: "noindex, nofollow" }],
   }),
-  component: LandingEditor,
+  component: SiteManagement,
 });
+
+function SiteManagement() {
+  return (
+    <Tabs defaultValue="site" className="space-y-6">
+      <TabsList>
+        <TabsTrigger value="site">Site institucional</TabsTrigger>
+        <TabsTrigger value="quiz">Quiz e capturas</TabsTrigger>
+      </TabsList>
+      <TabsContent value="site">
+        <LandingEditor />
+      </TabsContent>
+      <TabsContent value="quiz">
+        <QuizManager />
+      </TabsContent>
+    </Tabs>
+  );
+}
 
 const itemLines = (items: LandingItem[]) =>
   items.map((item) => `${item.title} | ${item.description}`).join("\n");
