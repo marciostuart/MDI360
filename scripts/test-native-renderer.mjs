@@ -26,6 +26,10 @@ const cases = [
   { name: "news-broken-image", config: { type: "news", feedId: "broken", headlines: 2 }, payload: { items: [{ title: "Do not show this", image: "/missing-image.jpg" }] }, skipped: true, texts: [] },
 ];
 cases.push({ ...cases.find((fixture) => fixture.name === "lottery"), name: "lottery-native-handoff", handoff: true });
+const lottery = cases.find((fixture) => fixture.name === "lottery");
+cases.push({ ...lottery, config: { ...lottery.config, rotateSeconds: 1 }, payload: {
+  ...lottery.payload, results: [...lottery.payload.results, { ...lottery.payload.results[0], gameId: "quina", gameName: "Quina" }],
+}, texts: ["Quina"], name: "lottery-warm-handoff", warm: true });
 const server = createServer(async (request, response) => {
   try {
     const url = new URL(request.url, "http://localhost");
@@ -44,10 +48,21 @@ const server = createServer(async (request, response) => {
           setCallAudio: () => {},
           setQueueCallActive: () => {},
           queueCallPresented: () => {},
-          visualReady: () => { document.documentElement.dataset.ready = 'yes'; },
+          visualReady: (id) => { document.documentElement.dataset.ready = 'yes'; if (fixture.warm) document.documentElement.dataset.readyId = id; },
           widgetUnavailable: () => { document.documentElement.dataset.skipped = 'yes'; },
           rendererReady: () => {
-            window.__mdi360LocalFrame(frame('first'));
+            window.__mdi360LocalFrame(fixture.warm ? { playbackId: 'native-first', item: {kind: 'video', name: 'native'}, nextPlaybackId: 'first', nextItem: frame('first').item } : frame('first'));
+            if (fixture.warm) {
+              setTimeout(() => window.__mdi360LocalNativeVideoReady('native-first'), 50);
+              setTimeout(() => {
+                const node = document.querySelector('.mdi-local-widget');
+                document.documentElement.dataset.warmHidden = String(node && getComputedStyle(node).visibility === 'hidden' && node.textContent.includes('Mega-Sena'));
+                document.documentElement.dataset.warmSilent = String(!document.documentElement.dataset.ready);
+                document.documentElement.dataset.warmUnrotated = String(node && !node.textContent.includes('Quina'));
+                window.__mdi360LocalFrame(frame('first'));
+                setTimeout(() => { document.documentElement.dataset.warmReused = String(node === document.querySelector('.mdi-local-widget')); }, 150);
+              }, 1200);
+            }
             if (fixture.kind === 'video' || fixture.kind === 'image') setTimeout(() => window.__mdi360LocalNativeVideoReady('first'), 50);
             if (fixture.handoff) setTimeout(() => {
               window.__mdi360LocalFrame({playbackId: 'native-next', fade: false, item: {kind: 'video', name: 'native'}});
@@ -104,6 +119,13 @@ try {
       if (fixture.kind) assert.doesNotMatch(stdout, /data-ready="yes"/, 'WebView must never announce native media readiness');
       if (fixture.name === "news") assert.match(stdout, /data-first-batch="true"/, "News must advance 1/2 to 3/4 across playlist passes");
       if (fixture.name === "video") assert.match(stdout, /data-web-videos="0"/, "Web layer cannot create a second decoder for local video");
+      if (fixture.warm) {
+        assert.match(stdout, /data-warm-hidden="true"/, "Next widget must already be rendered but hidden");
+        assert.match(stdout, /data-warm-silent="true"/, "Hidden widget cannot start the playlist timer/report");
+        assert.match(stdout, /data-warm-unrotated="true"/, "Hidden lottery must not advance before its playlist turn");
+        assert.match(stdout, /data-warm-reused="true"/, "Promoting the next widget cannot remount/reset it");
+        assert.match(stdout, /data-ready-id="first"/, "Only the promoted widget can announce readiness");
+      }
       process.stdout.write(`PASS local renderer: ${fixture.name}\n`);
     } finally { await rm(profile, { recursive: true, force: true, maxRetries: 10, retryDelay: 100 }); }
   }

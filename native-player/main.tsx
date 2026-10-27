@@ -11,6 +11,7 @@ type Frame = {
   playbackId: string;
   item: { kind: string; name: string; url?: string; isMuted?: boolean; widgetConfig?: WidgetConfig; widgetData?: unknown };
   nextItem?: { kind: string; name: string; url?: string; isMuted?: boolean; widgetConfig?: WidgetConfig; widgetData?: unknown } | null;
+  nextPlaybackId?: string;
   accentColor?: string;
   fade?: boolean;
   issuer?: boolean;
@@ -47,9 +48,9 @@ export function LocalScreen() {
   const currentFrame = useRef<Frame | null>(null);
   const call = calls[0];
   const promotePreparedWidget = useCallback((playbackId: string) => {
+    if (currentFrame.current?.playbackId !== playbackId) return;
     setWidgetFrames((current) => {
-      const incoming = current.at(-1);
-      return incoming?.playbackId === playbackId ? [incoming] : current;
+      return current.filter((entry) => entry.playbackId === playbackId || entry.playbackId === currentFrame.current?.nextPlaybackId);
     });
     setFrozenWidgetIds(new Set());
   }, []);
@@ -58,27 +59,32 @@ export function LocalScreen() {
     window.__mdi360LocalFrame = (next) => {
       const native = next.item.kind === "image" || next.item.kind === "video";
       currentFrame.current = next;
+      const warm: Frame | null = next.nextItem?.kind === "widget" && next.nextItem.widgetConfig && next.nextPlaybackId
+        ? { ...next, playbackId: next.nextPlaybackId, item: next.nextItem, nextItem: null, nextPlaybackId: undefined } : null;
       // A direct widget -> native handoff keeps the outgoing DOM frozen and
       // visible until Android confirms the fully decoded replacement.
-      if (native && !next.fade) return;
+      if (native && !next.fade) {
+        setWidgetFrames((current) => [...current.filter((entry) => entry.playbackId !== warm?.playbackId), ...(warm ? [warm] : [])]);
+        return;
+      }
       // Keep the outgoing widget frozen until its replacement commits.
       if (next.item.kind === "widget" && next.item.widgetConfig) {
         setWidgetFrames((current) => {
-          if (current.some((entry) => entry.playbackId === next.playbackId)) return current;
+          const prepared = current.find((entry) => entry.playbackId === next.playbackId && JSON.stringify(entry.item) === JSON.stringify(next.item)) ?? next;
           // With a native fade, the cover is already opaque before the next
           // frame is delivered. Retaining the outgoing transparent widget
           // would let it bleed through a clock/weather widget for one paint.
-          return next.fade ? [next] : [...current, next];
+          return [...(next.fade ? [] : current.filter((entry) => entry.playbackId !== next.playbackId && entry.playbackId !== warm?.playbackId)), prepared, ...(warm ? [warm] : [])];
         });
       } else {
-        setWidgetFrames([]);
+        setWidgetFrames(warm ? [warm] : []);
       }
       setFrame(next);
     };
     window.__mdi360LocalNativeVideoReady = (id) => {
       const next = currentFrame.current;
       if (!next || next.playbackId !== id) return;
-      setWidgetFrames([]);
+      setWidgetFrames((current) => current.filter((entry) => entry.playbackId === next.nextPlaybackId));
       setFrozenWidgetIds(new Set());
       setFrame(next);
     };
@@ -122,6 +128,7 @@ export function LocalScreen() {
     if (displayedCallId) window.MDI360Native.queueCallPresented();
   }, [displayedCallId]);
   const announceWidgetReady = useCallback((playbackId: string) => {
+    if (currentFrame.current?.playbackId !== playbackId) return;
     window.__mdi360LocalWidgetCommitted?.(playbackId);
     window.MDI360Native.visualReady(playbackId);
   }, []);
@@ -150,13 +157,7 @@ export function LocalScreen() {
     <div className="relative h-screen w-screen overflow-hidden" style={{ background: "transparent" }}>
       {frame?.suspended ? <div className="grid size-full place-items-center bg-black text-3xl text-white">Serviço temporariamente suspenso</div>
         : frame?.issuer ? <iframe title="Emissor de senhas" src="/emitir/dispositivo?desktop=1" className="size-full border-0" allow="autoplay" />
-        : item?.kind === "widget" && item.widgetConfig ? (
-          widgetFrames.map((widget, index) => (
-            <div key={widget.playbackId} className="mdi-local-widget absolute inset-0" style={{ zIndex: index }}>
-              <ReadyWidget frame={widget} active={index === widgetFrames.length - 1 && !frozenWidgetIds.has(widget.playbackId)} onPrepared={promotePreparedWidget} onVisualReady={announceWidgetReady} />
-            </div>
-          ))
-        ) : item?.kind === "stream" && item.url ? (
+        : item?.kind === "stream" && item.url ? (
           <LocalStream url={item.url} name={item.name} muted={item.isMuted !== false || frame?.audioEnabled === false || callActive}
             onReady={() => window.MDI360Native.visualReady(frame!.playbackId)} />
         ) : item?.kind === "web" ? (
@@ -164,6 +165,14 @@ export function LocalScreen() {
         ) : frame && !item?.kind ? (
           <div className="grid size-full place-items-center bg-black text-xl text-white/70">Nenhum conteúdo local disponível para este horário.</div>
         ) : null}
+      {widgetFrames.map((widget, index) => {
+        const incoming = currentFrame.current;
+        const warming = widget.playbackId === incoming?.nextPlaybackId;
+        const active = widget.playbackId === incoming?.playbackId && !frozenWidgetIds.has(widget.playbackId);
+        return <div key={widget.playbackId} className="mdi-local-widget absolute inset-0" style={{ zIndex: index, visibility: warming ? "hidden" : "visible", pointerEvents: "none" }}>
+          <ReadyWidget frame={widget} active={active} onPrepared={promotePreparedWidget} onVisualReady={announceWidgetReady} />
+        </div>;
+      })}
       {call ? <QueueCallOverlay call={call} onDone={() => setCalls((previous) => previous.slice(1))} /> : null}
     </div>
   );
@@ -211,16 +220,16 @@ function ReadyWidget({ frame, active = true, onPrepared, onVisualReady }: { fram
     return () => { cancelled = true; timers.forEach(clearTimeout); images.forEach((image) => { image.onload = null; image.onerror = null; }); };
   }, [frame, config]);
   useEffect(() => {
-    if (ready) onPrepared?.(frame.playbackId);
-  }, [ready, frame.playbackId, onPrepared]);
+    if (ready && active) onPrepared?.(frame.playbackId);
+  }, [ready, active, frame.playbackId, onPrepared]);
   useEffect(() => {
-    if (!ready || config.type === "news" || config.type === "lottery") return;
+    if (!ready || !active) return;
     const timer = setTimeout(() => onVisualReady(frame.playbackId), 100);
     return () => clearTimeout(timer);
-  }, [ready, config.type, frame.playbackId, onVisualReady]);
+  }, [ready, active, frame.playbackId, onVisualReady]);
   if (!ready) return null;
   return <LocalWidgetData.Provider value={{ payload: frame.item.widgetData ?? null, now: () => window.MDI360Native.clockNow(), imagesReady: true }}>
-            <WidgetView config={playerConfig} accentColor={frame.accentColor} transitionEffect="none" isActive={active} onReady={() => onVisualReady(frame.playbackId)} />
+            <WidgetView config={playerConfig} accentColor={frame.accentColor} transitionEffect="none" isActive={active} onReady={() => { if (active) onVisualReady(frame.playbackId); }} />
   </LocalWidgetData.Provider>;
 }
 function LocalStream({ url, name, muted, onReady }: { url: string; name: string; muted: boolean; onReady: () => void }) {
