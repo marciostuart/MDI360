@@ -671,101 +671,135 @@ export const saveQueuePanel = createServerFn({ method: "POST" })
 
     const { toQueueError } = await import("@/lib/queue/queue-errors.server");
     try {
-      const existing = await db
-        .select({ id: schema.queuePanels.id })
-        .from(schema.queuePanelDevices)
-        .innerJoin(schema.queuePanels, eq(schema.queuePanels.id, schema.queuePanelDevices.panelId))
-        .where(eq(schema.queuePanelDevices.deviceId, data.deviceId))
-        .limit(1);
+      await db.transaction(async (db) => {
+        const existing = await db
+          .select({ id: schema.queuePanels.id })
+          .from(schema.queuePanelDevices)
+          .innerJoin(
+            schema.queuePanels,
+            eq(schema.queuePanels.id, schema.queuePanelDevices.panelId),
+          )
+          .where(eq(schema.queuePanelDevices.deviceId, data.deviceId))
+          .limit(1);
 
-      const taken = await db
-        .select({ id: schema.queuePanels.id })
-        .from(schema.queuePanels)
-        .where(
-          existing[0]
-            ? and(
-                eq(schema.queuePanels.username, data.username),
-                ne(schema.queuePanels.id, existing[0].id),
-              )
-            : eq(schema.queuePanels.username, data.username),
-        )
-        .limit(1);
-      if (taken[0]) throw new Error("Este usuário já está em uso por outro painel.");
+        const taken = await db
+          .select({ id: schema.queuePanels.id })
+          .from(schema.queuePanels)
+          .where(
+            existing[0]
+              ? and(
+                  eq(schema.queuePanels.username, data.username),
+                  ne(schema.queuePanels.id, existing[0].id),
+                )
+              : eq(schema.queuePanels.username, data.username),
+          )
+          .limit(1);
+        if (taken[0])
+          throw new Error(
+            "Este usuário já está reservado por outra fila, inclusive uma fila sem terminal ou desativada. Consulte a Torre > Dados e suporte para recuperar ou excluir o cadastro.",
+          );
 
-      if (existing[0]) {
-        await db
-          .update(schema.queuePanels)
-          .set({
-            name: data.queueName,
-            username: data.username,
-            isEnabled: true,
-            ...configValues,
-            ...themeValues,
-            ...(data.password ? { passwordHash: await hashQueuePassword(data.password) } : {}),
-          })
-          .where(eq(schema.queuePanels.id, existing[0].id));
-
-        // Mantém o operador principal em sincronia com o acesso do painel.
         const { asc } = await import("drizzle-orm");
-        const primary = await db
+        const principal = existing[0]
+          ? await db
+              .select({ id: schema.queueOperators.id })
+              .from(schema.queueOperators)
+              .where(eq(schema.queueOperators.panelId, existing[0].id))
+              .orderBy(asc(schema.queueOperators.createdAt))
+              .limit(1)
+          : [];
+        const operatorTaken = await db
           .select({ id: schema.queueOperators.id })
           .from(schema.queueOperators)
-          .where(eq(schema.queueOperators.panelId, existing[0].id))
-          .orderBy(asc(schema.queueOperators.createdAt))
+          .where(
+            principal[0]
+              ? and(
+                  eq(schema.queueOperators.username, data.username),
+                  ne(schema.queueOperators.id, principal[0].id),
+                )
+              : eq(schema.queueOperators.username, data.username),
+          )
           .limit(1);
-        if (primary[0]) {
+        if (operatorTaken[0])
+          throw new Error(
+            "Este usuário já está reservado por um operador de outra fila, inclusive sem terminal. Consulte a Torre > Dados e suporte.",
+          );
+
+        if (existing[0]) {
           await db
-            .update(schema.queueOperators)
+            .update(schema.queuePanels)
             .set({
+              name: data.queueName,
               username: data.username,
               isEnabled: true,
+              ...configValues,
+              ...themeValues,
               ...(data.password ? { passwordHash: await hashQueuePassword(data.password) } : {}),
             })
-            .where(eq(schema.queueOperators.id, primary[0].id));
-        } else if (data.password) {
-          await db.insert(schema.queueOperators).values({
-            panelId: existing[0].id,
-            name: "Operador principal",
-            username: data.username,
-            passwordHash: await hashQueuePassword(data.password),
-          });
-        }
-      } else {
-        if (!data.password) throw new Error("Defina uma senha para o operador.");
-        const passwordHash = await hashQueuePassword(data.password);
-        const { randomBytes } = await import("node:crypto");
-        const created = await db
-          .insert(schema.queuePanels)
-          .values({
-            name: data.queueName,
-            organizationId: user.organizationId,
-            username: data.username,
-            passwordHash,
-            kioskToken: randomBytes(16).toString("hex"),
-            ...configValues,
-            ...themeValues,
-          })
-          .returning({ id: schema.queuePanels.id });
-        if (created[0]) {
-          await db.insert(schema.queuePanelDevices).values({
-            panelId: created[0].id,
-            deviceId: data.deviceId,
-          });
-          await db.insert(schema.queueOperators).values({
-            panelId: created[0].id,
-            name: "Operador principal",
-            username: data.username,
-            passwordHash,
-          });
-        }
-      }
+            .where(eq(schema.queuePanels.id, existing[0].id));
 
-      if (existing[0]) {
-        await db
-          .insert(schema.queuePanelDevices)
-          .values({ panelId: existing[0].id, deviceId: data.deviceId })
-          .onConflictDoNothing();
-      }
+          // Mantém o operador principal em sincronia com o acesso do painel.
+          const { asc } = await import("drizzle-orm");
+          const primary = await db
+            .select({ id: schema.queueOperators.id })
+            .from(schema.queueOperators)
+            .where(eq(schema.queueOperators.panelId, existing[0].id))
+            .orderBy(asc(schema.queueOperators.createdAt))
+            .limit(1);
+          if (primary[0]) {
+            await db
+              .update(schema.queueOperators)
+              .set({
+                username: data.username,
+                isEnabled: true,
+                ...(data.password ? { passwordHash: await hashQueuePassword(data.password) } : {}),
+              })
+              .where(eq(schema.queueOperators.id, primary[0].id));
+          } else if (data.password) {
+            await db.insert(schema.queueOperators).values({
+              panelId: existing[0].id,
+              name: "Operador principal",
+              username: data.username,
+              passwordHash: await hashQueuePassword(data.password),
+            });
+          }
+        } else {
+          if (!data.password) throw new Error("Defina uma senha para o operador.");
+          const passwordHash = await hashQueuePassword(data.password);
+          const { randomBytes } = await import("node:crypto");
+          const created = await db
+            .insert(schema.queuePanels)
+            .values({
+              name: data.queueName,
+              organizationId: user.organizationId,
+              username: data.username,
+              passwordHash,
+              kioskToken: randomBytes(16).toString("hex"),
+              ...configValues,
+              ...themeValues,
+            })
+            .returning({ id: schema.queuePanels.id });
+          if (created[0]) {
+            await db.insert(schema.queuePanelDevices).values({
+              panelId: created[0].id,
+              deviceId: data.deviceId,
+            });
+            await db.insert(schema.queueOperators).values({
+              panelId: created[0].id,
+              name: "Operador principal",
+              username: data.username,
+              passwordHash,
+            });
+          }
+        }
+
+        if (existing[0]) {
+          await db
+            .insert(schema.queuePanelDevices)
+            .values({ panelId: existing[0].id, deviceId: data.deviceId })
+            .onConflictDoNothing();
+        }
+      });
     } catch (error) {
       throw toQueueError(error);
     }
@@ -912,6 +946,7 @@ export const deleteQueuePanel = createServerFn({ method: "POST" })
         kioskLogoKey: schema.queuePanels.kioskLogoKey,
         kioskImageKey: schema.queuePanels.kioskImageKey,
         kioskBgImageKey: schema.queuePanels.kioskBgImageKey,
+        chimeStorageKey: schema.queuePanels.chimeStorageKey,
       })
       .from(schema.queuePanelDevices)
       .innerJoin(schema.queuePanels, eq(schema.queuePanels.id, schema.queuePanelDevices.panelId))
@@ -926,24 +961,22 @@ export const deleteQueuePanel = createServerFn({ method: "POST" })
 
     await getDb().delete(schema.queuePanels).where(eq(schema.queuePanels.id, panel[0].id));
 
-    const storedKeys = [
-      panel[0].themeBgImageKey,
-      panel[0].themeImageKey,
-      panel[0].kioskLogoKey,
-      panel[0].kioskImageKey,
-      panel[0].kioskBgImageKey,
-    ].filter((key): key is string => Boolean(key));
-    if (storedKeys.length > 0) {
-      try {
-        const { deleteObject } = await import("@/lib/storage.server");
-        await Promise.all(storedKeys.map((key) => deleteObject(key)));
-      } catch (error) {
-        console.warn("[queue] exclusive media cleanup failed", error);
-      }
-    }
-
     const { notifyDevice } = await import("@/lib/player/realtime.server");
     notifyDevice(data.deviceId);
+    const { notifyOrganization } = await import("@/lib/player/realtime.server");
+    notifyOrganization(user.organizationId);
+    const { retryStorageCleanup } = await import("@/lib/admin/storage-cleanup.server");
+    await retryStorageCleanup(
+      user.organizationId,
+      [
+        panel[0].themeBgImageKey,
+        panel[0].themeImageKey,
+        panel[0].kioskLogoKey,
+        panel[0].kioskImageKey,
+        panel[0].kioskBgImageKey,
+        panel[0].chimeStorageKey,
+      ].filter((key): key is string => Boolean(key)),
+    );
     return { ok: true };
   });
 
@@ -1326,80 +1359,113 @@ export const saveQueueOperator = createServerFn({ method: "POST" })
     const { and, eq, inArray, ne } = await import("drizzle-orm");
     const panel = await requireOwnedPanel(data.panelId);
     const db = getDb();
-
-    const taken = await db
-      .select({ id: schema.queueOperators.id })
-      .from(schema.queueOperators)
-      .where(
-        data.operatorId
-          ? and(
-              eq(schema.queueOperators.username, data.username),
-              ne(schema.queueOperators.id, data.operatorId),
-            )
-          : eq(schema.queueOperators.username, data.username),
-      )
-      .limit(1);
-    if (taken[0]) throw new Error("Este usuário já está em uso por outro operador.");
-
-    // Só aceita setores do próprio painel.
-    const validSectors =
-      data.sectorIds.length > 0
+    return db.transaction(async (db) => {
+      const owned = data.operatorId
         ? (
             await db
-              .select({ id: schema.queueSectors.id })
-              .from(schema.queueSectors)
+              .select({ id: schema.queueOperators.id, username: schema.queueOperators.username })
+              .from(schema.queueOperators)
               .where(
                 and(
-                  eq(schema.queueSectors.panelId, panel.id),
-                  inArray(schema.queueSectors.id, data.sectorIds),
+                  eq(schema.queueOperators.id, data.operatorId),
+                  eq(schema.queueOperators.panelId, panel.id),
                 ),
               )
-          ).map((s) => s.id)
-        : [];
-
-    let operatorId = data.operatorId ?? null;
-    if (operatorId) {
-      await db
-        .update(schema.queueOperators)
-        .set({
-          name: data.name,
-          username: data.username,
-          deskLabel: data.deskLabel ?? null,
-          isEnabled: data.isEnabled,
-          ...(data.password ? { passwordHash: await hashQueuePassword(data.password) } : {}),
-        })
+              .limit(1)
+          )[0]
+        : null;
+      if (data.operatorId && !owned) throw new Error("Operador não encontrado nesta fila.");
+      const reserved = await db
+        .select({ id: schema.queuePanels.id })
+        .from(schema.queuePanels)
         .where(
-          and(
-            eq(schema.queueOperators.id, operatorId),
-            eq(schema.queueOperators.panelId, panel.id),
-          ),
+          and(eq(schema.queuePanels.username, data.username), ne(schema.queuePanels.id, panel.id)),
+        )
+        .limit(1);
+      if (reserved[0])
+        throw new Error(
+          "Este usuário está reservado por outra fila, inclusive sem terminal. Consulte a Torre > Dados e suporte.",
         );
-    } else {
-      if (!data.password) throw new Error("Defina uma senha para o operador.");
-      const created = await db
-        .insert(schema.queueOperators)
-        .values({
-          panelId: panel.id,
-          name: data.name,
-          username: data.username,
-          deskLabel: data.deskLabel ?? null,
-          passwordHash: await hashQueuePassword(data.password),
-          isEnabled: data.isEnabled,
-        })
-        .returning({ id: schema.queueOperators.id });
-      operatorId = created[0]?.id ?? null;
-    }
-    if (!operatorId) throw new Error("Não foi possível salvar o operador.");
+      const taken = await db
+        .select({ id: schema.queueOperators.id })
+        .from(schema.queueOperators)
+        .where(
+          data.operatorId
+            ? and(
+                eq(schema.queueOperators.username, data.username),
+                ne(schema.queueOperators.id, data.operatorId),
+              )
+            : eq(schema.queueOperators.username, data.username),
+        )
+        .limit(1);
+      if (taken[0]) throw new Error("Este usuário já está em uso por outro operador.");
 
-    await db
-      .delete(schema.queueOperatorSectors)
-      .where(eq(schema.queueOperatorSectors.operatorId, operatorId));
-    if (validSectors.length > 0) {
+      // Só aceita setores do próprio painel.
+      const validSectors =
+        data.sectorIds.length > 0
+          ? (
+              await db
+                .select({ id: schema.queueSectors.id })
+                .from(schema.queueSectors)
+                .where(
+                  and(
+                    eq(schema.queueSectors.panelId, panel.id),
+                    inArray(schema.queueSectors.id, data.sectorIds),
+                  ),
+                )
+            ).map((s) => s.id)
+          : [];
+
+      let operatorId = data.operatorId ?? null;
+      if (operatorId) {
+        await db
+          .update(schema.queueOperators)
+          .set({
+            name: data.name,
+            username: data.username,
+            deskLabel: data.deskLabel ?? null,
+            isEnabled: data.isEnabled,
+            ...(data.password ? { passwordHash: await hashQueuePassword(data.password) } : {}),
+          })
+          .where(
+            and(
+              eq(schema.queueOperators.id, operatorId),
+              eq(schema.queueOperators.panelId, panel.id),
+            ),
+          );
+      } else {
+        if (!data.password) throw new Error("Defina uma senha para o operador.");
+        const created = await db
+          .insert(schema.queueOperators)
+          .values({
+            panelId: panel.id,
+            name: data.name,
+            username: data.username,
+            deskLabel: data.deskLabel ?? null,
+            passwordHash: await hashQueuePassword(data.password),
+            isEnabled: data.isEnabled,
+          })
+          .returning({ id: schema.queueOperators.id });
+        operatorId = created[0]?.id ?? null;
+      }
+      if (!operatorId) throw new Error("Não foi possível salvar o operador.");
+      if (owned?.username === panel.username && data.username !== owned.username) {
+        await db
+          .update(schema.queuePanels)
+          .set({ username: data.username })
+          .where(eq(schema.queuePanels.id, panel.id));
+      }
+
       await db
-        .insert(schema.queueOperatorSectors)
-        .values(validSectors.map((sectorId) => ({ operatorId: operatorId!, sectorId })));
-    }
-    return { ok: true };
+        .delete(schema.queueOperatorSectors)
+        .where(eq(schema.queueOperatorSectors.operatorId, operatorId));
+      if (validSectors.length > 0) {
+        await db
+          .insert(schema.queueOperatorSectors)
+          .values(validSectors.map((sectorId) => ({ operatorId: operatorId!, sectorId })));
+      }
+      return { ok: true };
+    });
   });
 
 export const deleteQueueOperator = createServerFn({ method: "POST" })

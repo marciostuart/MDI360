@@ -138,9 +138,8 @@ export const listMediaAssets = createServerFn({ method: "GET" }).handler(
           widgetType: row.widgetType,
           widgetConfig: row.widgetConfig
             ? await (async () => {
-                const { hydrateWidgetImageUrls } = await import(
-                  "@/lib/widgets/background-storage.server"
-                );
+                const { hydrateWidgetImageUrls } =
+                  await import("@/lib/widgets/background-storage.server");
                 return hydrateWidgetImageUrls(row.widgetConfig as WidgetConfig, 900);
               })()
             : null,
@@ -470,7 +469,6 @@ export const deleteMediaAsset = createServerFn({ method: "POST" })
   .handler(async ({ data }) => {
     const { getDb, schema } = await import("@/lib/db/index.server");
     const { requireUser } = await import("@/lib/auth/session.server");
-    const { deleteObject, isStorageConfigured } = await import("@/lib/storage.server");
     const { and, eq } = await import("drizzle-orm");
     const user = await requireUser();
     const db = getDb();
@@ -479,6 +477,7 @@ export const deleteMediaAsset = createServerFn({ method: "POST" })
       .select({
         storageKey: schema.mediaAssets.storageKey,
         widgetType: schema.mediaAssets.widgetType,
+        widgetConfig: schema.mediaAssets.widgetConfig,
       })
       .from(schema.mediaAssets)
       .where(
@@ -505,13 +504,15 @@ export const deleteMediaAsset = createServerFn({ method: "POST" })
         ),
       );
 
-    if (row.storageKey && isStorageConfigured()) {
-      try {
-        await deleteObject(row.storageKey);
-      } catch (error) {
-        console.error("failed to delete object", error);
-      }
-    }
+    const { retryStorageCleanup } = await import("@/lib/admin/storage-cleanup.server");
+    const { supportStorageKeys } = await import("@/lib/admin/support-query");
+    await retryStorageCleanup(
+      user.organizationId,
+      supportStorageKeys("media_assets", {
+        storage_key: row.storageKey,
+        widget_config: row.widgetConfig,
+      }),
+    );
 
     // Push the change right away: every screen re-syncs and drops the file
     // from its local cache instead of waiting for the periodic sync.

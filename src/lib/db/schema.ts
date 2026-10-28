@@ -86,19 +86,66 @@ export const platformSettings = pgTable("platform_settings", {
   updatedAt: timestamp("updated_at", { withTimezone: true }).notNull().defaultNow(),
 });
 
-/** Completed, consented commercial diagnostics; never exposed by public APIs. */
-export const quizLeads = pgTable("quiz_leads", {
-  id: uuid("id").primaryKey(),
-  revision: text("revision").notNull(),
-  nome: text("nome").notNull(), whatsapp: text("whatsapp").notNull(), email: text("email").notNull(),
-  profile: text("profile").notNull(), payload: jsonb("payload").$type<Record<string, string>>().notNull(),
-  responses: jsonb("responses").$type<{ pergunta: string; resposta: string; campo: string }[]>().notNull(),
-  consentText: text("consent_text").notNull(), sourceHash: text("source_hash"),
-  whatsappStatus: text("whatsapp_status").notNull().default("disabled"), webhookStatus: text("webhook_status").notNull().default("disabled"),
-  whatsappError: text("whatsapp_error"), webhookError: text("webhook_error"),
-  whatsappAttemptedAt: timestamp("whatsapp_attempted_at", { withTimezone: true }), webhookAttemptedAt: timestamp("webhook_attempted_at", { withTimezone: true }),
+/** Support audit survives tenant/user removal; deliberately no cascading FK. */
+export const supportActions = pgTable(
+  "support_actions",
+  {
+    id: uuid("id").primaryKey().defaultRandom(),
+    actorId: uuid("actor_id").notNull(),
+    organizationId: uuid("organization_id"),
+    resource: text("resource").notNull(),
+    recordId: text("record_id").notNull(),
+    action: text("action").notNull(),
+    reason: text("reason").notNull(),
+    changedFields: jsonb("changed_fields")
+      .notNull()
+      .default(sql`'[]'::jsonb`),
+    createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
+  },
+  (t) => [index("support_actions_created_idx").on(t.createdAt)],
+);
+
+/** Durable file pointers retained after DB cascades and storage outages. */
+export const storageCleanupJobs = pgTable("storage_cleanup_jobs", {
+  id: uuid("id").primaryKey().defaultRandom(),
+  organizationId: uuid("organization_id"),
+  storageKey: text("storage_key").notNull().unique(),
+  attempts: integer("attempts").notNull().default(0),
+  lastError: text("last_error"),
+  deletedAt: timestamp("deleted_at", { withTimezone: true }),
   createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
-}, (table) => [index("quiz_leads_created_idx").on(table.createdAt), index("quiz_leads_source_idx").on(table.sourceHash, table.createdAt), index("quiz_leads_phone_idx").on(table.whatsapp, table.createdAt)]);
+});
+
+/** Completed, consented commercial diagnostics; never exposed by public APIs. */
+export const quizLeads = pgTable(
+  "quiz_leads",
+  {
+    id: uuid("id").primaryKey(),
+    revision: text("revision").notNull(),
+    nome: text("nome").notNull(),
+    whatsapp: text("whatsapp").notNull(),
+    email: text("email").notNull(),
+    profile: text("profile").notNull(),
+    payload: jsonb("payload").$type<Record<string, string>>().notNull(),
+    responses: jsonb("responses")
+      .$type<{ pergunta: string; resposta: string; campo: string }[]>()
+      .notNull(),
+    consentText: text("consent_text").notNull(),
+    sourceHash: text("source_hash"),
+    whatsappStatus: text("whatsapp_status").notNull().default("disabled"),
+    webhookStatus: text("webhook_status").notNull().default("disabled"),
+    whatsappError: text("whatsapp_error"),
+    webhookError: text("webhook_error"),
+    whatsappAttemptedAt: timestamp("whatsapp_attempted_at", { withTimezone: true }),
+    webhookAttemptedAt: timestamp("webhook_attempted_at", { withTimezone: true }),
+    createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
+  },
+  (table) => [
+    index("quiz_leads_created_idx").on(table.createdAt),
+    index("quiz_leads_source_idx").on(table.sourceHash, table.createdAt),
+    index("quiz_leads_phone_idx").on(table.whatsapp, table.createdAt),
+  ],
+);
 
 export const organizations = pgTable("organizations", {
   id: uuid("id").primaryKey().defaultRandom(),

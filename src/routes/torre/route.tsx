@@ -11,6 +11,7 @@ import {
   ShieldCheck,
   Tags,
   Gauge,
+  Database,
 } from "lucide-react";
 
 export const Route = createFileRoute("/torre")({
@@ -21,6 +22,7 @@ export const Route = createFileRoute("/torre")({
 const NAV = [
   { to: "/torre", label: "Visão geral", icon: LayoutDashboard, exact: true },
   { to: "/torre/clientes", label: "Estabelecimentos", icon: Building2, exact: false },
+  { to: "/torre/dados", label: "Dados e suporte", icon: Database, exact: false },
   { to: "/torre/planos", label: "Planos", icon: Tags, exact: false },
   { to: "/torre/site", label: "Site", icon: Globe2, exact: false },
   { to: "/torre/aplicativos", label: "Aplicativos", icon: Download, exact: false },
@@ -42,7 +44,7 @@ function TowerLayout() {
             <span className="font-display text-base font-semibold">Torre de Controle</span>
           </Link>
 
-          <nav className="flex items-center gap-1">
+          <nav className="flex max-w-full flex-wrap items-center gap-1">
             {NAV.map((item) => (
               <Link
                 key={item.to}

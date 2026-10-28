@@ -372,6 +372,13 @@
       "when": 1793100000000,
       "tag": "0052_quiz_leads",
       "breakpoints": true
+    },
+    {
+      "idx": 53,
+      "version": "7",
+      "when": 1793188800000,
+      "tag": "0053_support_management",
+      "breakpoints": true
     }
   ]
 }

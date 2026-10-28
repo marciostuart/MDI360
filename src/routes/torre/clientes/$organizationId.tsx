@@ -256,6 +256,11 @@ function ClientDetail() {
           </div>
         </div>
         <div className="flex gap-2">
+          <Button variant="outline" asChild>
+            <Link to="/torre/dados" search={{ organizationId }}>
+              Dados e suporte
+            </Link>
+          </Button>
           <Button
             variant="outline"
             onClick={() => impersonate.mutate()}
@@ -274,7 +279,9 @@ function ClientDetail() {
                 <AlertDialogTitle>Excluir {org.name}?</AlertDialogTitle>
                 <AlertDialogDescription>
                   Todos os usuários, telas, mídias e playlists desta conta serão apagados
-                  definitivamente. Esta ação não pode ser desfeita.
+                  definitivamente. Esta ação não pode ser desfeita. Arquivos são encaminhados à
+                  limpeza segura; falhas de armazenamento ficam disponíveis em Dados e suporte →
+                  Limpezas de arquivos pendentes.
                 </AlertDialogDescription>
               </AlertDialogHeader>
               <AlertDialogFooter>

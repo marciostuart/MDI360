@@ -892,24 +892,38 @@ export const deleteOrganization = createServerFn({ method: "POST" })
   .inputValidator((input: unknown) => z.object({ organizationId: z.string().uuid() }).parse(input))
   .handler(async ({ data }) => {
     const { getDb, schema } = await import("@/lib/db/index.server");
-    await requirePlatform();
+    const admin = await requirePlatform();
     const { eq } = await import("drizzle-orm");
-
-    // Storage first: the DB cascade would otherwise erase the only pointer to
-    // the customer's objects and leave them orphaned (and still billable).
-    const { isStorageConfigured, deleteObjectsByPrefix } = await import("@/lib/storage.server");
+    const { sql } = await import("drizzle-orm");
+    if (admin.organizationId === data.organizationId)
+      throw new Error("Não é permitido excluir sua própria empresa pela Torre.");
+    const { isStorageConfigured, listStorageObjects } = await import("@/lib/storage.server");
+    const keys: string[] = [];
+    // Inventory both roots before the cascade; shared references are preserved.
     if (isStorageConfigured()) {
-      try {
-        await deleteObjectsByPrefix(`org/${data.organizationId}/`);
-      } catch (error) {
-        console.error("failed to purge organization storage", error);
-        return { ok: false, message: "Não foi possível remover as mídias do armazenamento." };
+      for (const root of ["org", "branding"]) {
+        let cursor: string | undefined;
+        do {
+          const page = await listStorageObjects(`${root}/${data.organizationId}/`, cursor);
+          keys.push(...page.items.map((item) => item.key));
+          cursor = page.cursor ?? undefined;
+        } while (cursor);
       }
     }
-
-    await getDb()
-      .delete(schema.organizations)
-      .where(eq(schema.organizations.id, data.organizationId));
+    await getDb().transaction(async (tx) => {
+      await tx.delete(schema.organizations).where(eq(schema.organizations.id, data.organizationId));
+      for (const key of keys)
+        await tx.execute(
+          sql`INSERT INTO storage_cleanup_jobs (organization_id, storage_key) VALUES (${data.organizationId}::uuid, ${key}) ON CONFLICT (storage_key) DO UPDATE SET deleted_at = NULL`,
+        );
+      await tx.execute(
+        sql`INSERT INTO support_actions (actor_id, organization_id, resource, record_id, action, reason) VALUES (${admin.id}::uuid, ${data.organizationId}::uuid, 'organizations', ${data.organizationId}, 'delete', 'Exclusão confirmada na Torre de Controle')`,
+      );
+    });
+    const { retryStorageCleanup } = await import("@/lib/admin/storage-cleanup.server");
+    await retryStorageCleanup(data.organizationId);
+    const { notifyOrganization } = await import("@/lib/player/realtime.server");
+    notifyOrganization(data.organizationId);
     return { ok: true };
   });
 

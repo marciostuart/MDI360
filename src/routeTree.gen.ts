@@ -36,6 +36,7 @@ import { Route as StudioTerminaisRouteImport } from './routes/studio/terminais'
 import { Route as StudioWidgetsRouteImport } from './routes/studio/widgets'
 import { Route as TorreIndexRouteImport } from './routes/torre/index'
 import { Route as TorreAplicativosRouteImport } from './routes/torre/aplicativos'
+import { Route as TorreDadosRouteImport } from './routes/torre/dados'
 import { Route as TorreEmailRouteImport } from './routes/torre/email'
 import { Route as TorreFontesRouteImport } from './routes/torre/fontes'
 import { Route as TorrePagamentosRouteImport } from './routes/torre/pagamentos'
@@ -213,6 +214,11 @@ const TorreIndexRoute = TorreIndexRouteImport.update({
 const TorreAplicativosRoute = TorreAplicativosRouteImport.update({
   id: '/aplicativos',
   path: '/aplicativos',
+  getParentRoute: () => TorreRouteRoute,
+} as any)
+const TorreDadosRoute = TorreDadosRouteImport.update({
+  id: '/dados',
+  path: '/dados',
   getParentRoute: () => TorreRouteRoute,
 } as any)
 const TorreEmailRoute = TorreEmailRouteImport.update({
@@ -467,6 +473,7 @@ export interface FileRoutesByFullPath {
   '/studio/terminais': typeof StudioTerminaisRoute
   '/studio/widgets': typeof StudioWidgetsRoute
   '/torre/aplicativos': typeof TorreAplicativosRoute
+  '/torre/dados': typeof TorreDadosRoute
   '/torre/email': typeof TorreEmailRoute
   '/torre/fontes': typeof TorreFontesRoute
   '/torre/pagamentos': typeof TorrePagamentosRoute
@@ -537,6 +544,7 @@ export interface FileRoutesByTo {
   '/studio/terminais': typeof StudioTerminaisRoute
   '/studio/widgets': typeof StudioWidgetsRoute
   '/torre/aplicativos': typeof TorreAplicativosRoute
+  '/torre/dados': typeof TorreDadosRoute
   '/torre/email': typeof TorreEmailRoute
   '/torre/fontes': typeof TorreFontesRoute
   '/torre/pagamentos': typeof TorrePagamentosRoute
@@ -610,6 +618,7 @@ export interface FileRoutesById {
   '/studio/terminais': typeof StudioTerminaisRoute
   '/studio/widgets': typeof StudioWidgetsRoute
   '/torre/aplicativos': typeof TorreAplicativosRoute
+  '/torre/dados': typeof TorreDadosRoute
   '/torre/email': typeof TorreEmailRoute
   '/torre/fontes': typeof TorreFontesRoute
   '/torre/pagamentos': typeof TorrePagamentosRoute
@@ -684,6 +693,7 @@ export interface FileRouteTypes {
     | '/studio/terminais'
     | '/studio/widgets'
     | '/torre/aplicativos'
+    | '/torre/dados'
     | '/torre/email'
     | '/torre/fontes'
     | '/torre/pagamentos'
@@ -754,6 +764,7 @@ export interface FileRouteTypes {
     | '/studio/terminais'
     | '/studio/widgets'
     | '/torre/aplicativos'
+    | '/torre/dados'
     | '/torre/email'
     | '/torre/fontes'
     | '/torre/pagamentos'
@@ -826,6 +837,7 @@ export interface FileRouteTypes {
     | '/studio/terminais'
     | '/studio/widgets'
     | '/torre/aplicativos'
+    | '/torre/dados'
     | '/torre/email'
     | '/torre/fontes'
     | '/torre/pagamentos'
@@ -1106,6 +1118,13 @@ declare module '@tanstack/react-router' {
       path: '/aplicativos'
       fullPath: '/torre/aplicativos'
       preLoaderRoute: typeof TorreAplicativosRouteImport
+      parentRoute: typeof TorreRouteRoute
+    }
+    '/torre/dados': {
+      id: '/torre/dados'
+      path: '/dados'
+      fullPath: '/torre/dados'
+      preLoaderRoute: typeof TorreDadosRouteImport
       parentRoute: typeof TorreRouteRoute
     }
     '/torre/email': {
@@ -1471,6 +1490,7 @@ const StudioRouteRouteWithChildren = StudioRouteRoute._addFileChildren(
 
 interface TorreRouteRouteChildren {
   TorreAplicativosRoute: typeof TorreAplicativosRoute
+  TorreDadosRoute: typeof TorreDadosRoute
   TorreEmailRoute: typeof TorreEmailRoute
   TorreFontesRoute: typeof TorreFontesRoute
   TorrePagamentosRoute: typeof TorrePagamentosRoute
@@ -1485,6 +1505,7 @@ interface TorreRouteRouteChildren {
 
 const TorreRouteRouteChildren: TorreRouteRouteChildren = {
   TorreAplicativosRoute: TorreAplicativosRoute,
+  TorreDadosRoute: TorreDadosRoute,
   TorreEmailRoute: TorreEmailRoute,
   TorreFontesRoute: TorreFontesRoute,
   TorrePagamentosRoute: TorrePagamentosRoute,

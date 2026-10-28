@@ -261,12 +261,21 @@ export const deleteDevice = createServerFn({ method: "POST" })
           eq(schema.devices.organizationId, user.organizationId),
         ),
       )
-      .returning({ id: schema.devices.id, name: schema.devices.name });
+      .returning({
+        id: schema.devices.id,
+        name: schema.devices.name,
+        screenshotKey: schema.devices.lastScreenshotKey,
+      });
 
     // Unlinking mid-cycle credits back the days that will not be used.
     if (removed[0]) {
       const { creditDeviceRemoval } = await import("@/lib/billing/billing.server");
       await creditDeviceRemoval(user.organizationId, removed[0].id, removed[0].name);
+      const { retryStorageCleanup } = await import("@/lib/admin/storage-cleanup.server");
+      await retryStorageCleanup(
+        user.organizationId,
+        removed[0].screenshotKey ? [removed[0].screenshotKey] : [],
+      );
     }
 
     // Releases the screen's open connection so it wipes its cache right away.

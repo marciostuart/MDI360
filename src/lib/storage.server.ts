@@ -6,6 +6,7 @@ import {
   DeleteObjectsCommand,
   ListObjectsV2Command,
   HeadBucketCommand,
+  HeadObjectCommand,
 } from "@aws-sdk/client-s3";
 import { getSignedUrl } from "@aws-sdk/s3-request-presigner";
 
@@ -192,13 +193,38 @@ export async function deleteObject(key: string) {
   await getClient().send(new DeleteObjectCommand({ Bucket: getBucket(), Key: key }));
 }
 
+export async function getStorageObjectModifiedAt(key: string) {
+  const result = await getClient().send(new HeadObjectCommand({ Bucket: getBucket(), Key: key }));
+  return result.LastModified ?? null;
+}
+
+/** Bounded inventory for support; never scans another bucket. */
+export async function listStorageObjects(prefix: string, cursor?: string) {
+  const result = await getClient().send(
+    new ListObjectsV2Command({
+      Bucket: getBucket(),
+      Prefix: prefix,
+      ContinuationToken: cursor,
+      MaxKeys: 100,
+    }),
+  );
+  return {
+    items: (result.Contents ?? [])
+      .filter((item) => Boolean(item.Key))
+      .map((item) => ({
+        key: item.Key!,
+        size: item.Size ?? 0,
+        modifiedAt: item.LastModified?.toISOString() ?? null,
+      })),
+    cursor: result.IsTruncated ? (result.NextContinuationToken ?? null) : null,
+  };
+}
+
 /** Reads a private object as bytes so our own routes can stream it same-origin. */
 export async function getObjectBytes(
   key: string,
 ): Promise<{ bytes: Uint8Array; contentType?: string } | null> {
-  const result = await getClient().send(
-    new GetObjectCommand({ Bucket: getBucket(), Key: key }),
-  );
+  const result = await getClient().send(new GetObjectCommand({ Bucket: getBucket(), Key: key }));
   const body = result.Body as { transformToByteArray?: () => Promise<Uint8Array> } | undefined;
   if (!body?.transformToByteArray) return null;
   return { bytes: await body.transformToByteArray(), contentType: result.ContentType };
