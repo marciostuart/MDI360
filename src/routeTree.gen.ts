@@ -65,6 +65,7 @@ import { Route as TorreClientesOrganizationIdRouteImport } from './routes/torre/
 import { Route as ApiPublicEmitterRegisterRouteImport } from './routes/api/public/emitter/register'
 import { Route as ApiPublicEmitterStatusRouteImport } from './routes/api/public/emitter/status'
 import { Route as ApiPublicMercadoPagoWebhookRouteImport } from './routes/api/public/mercado-pago/webhook'
+import { Route as ApiPublicPay360bhWebhookRouteImport } from './routes/api/public/pay360bh/webhook'
 import { Route as ApiPublicPlayerAnnounceRouteImport } from './routes/api/public/player/announce'
 import { Route as ApiPublicPlayerChimeRouteImport } from './routes/api/public/player/chime'
 import { Route as ApiPublicPlayerEventsRouteImport } from './routes/api/public/player/events'
@@ -368,6 +369,12 @@ const ApiPublicMercadoPagoWebhookRoute =
     path: '/api/public/mercado-pago/webhook',
     getParentRoute: () => rootRouteImport,
   } as any)
+const ApiPublicPay360bhWebhookRoute =
+  ApiPublicPay360bhWebhookRouteImport.update({
+    id: '/api/public/pay360bh/webhook',
+    path: '/api/public/pay360bh/webhook',
+    getParentRoute: () => rootRouteImport,
+  } as any)
 const ApiPublicPlayerAnnounceRoute = ApiPublicPlayerAnnounceRouteImport.update({
   id: '/api/public/player/announce',
   path: '/api/public/player/announce',
@@ -505,6 +512,7 @@ export interface FileRoutesByFullPath {
   '/api/public/emitter/register': typeof ApiPublicEmitterRegisterRoute
   '/api/public/emitter/status': typeof ApiPublicEmitterStatusRoute
   '/api/public/mercado-pago/webhook': typeof ApiPublicMercadoPagoWebhookRoute
+  '/api/public/pay360bh/webhook': typeof ApiPublicPay360bhWebhookRoute
   '/api/public/player/announce': typeof ApiPublicPlayerAnnounceRoute
   '/api/public/player/chime': typeof ApiPublicPlayerChimeRoute
   '/api/public/player/events': typeof ApiPublicPlayerEventsRoute
@@ -576,6 +584,7 @@ export interface FileRoutesByTo {
   '/api/public/emitter/register': typeof ApiPublicEmitterRegisterRoute
   '/api/public/emitter/status': typeof ApiPublicEmitterStatusRoute
   '/api/public/mercado-pago/webhook': typeof ApiPublicMercadoPagoWebhookRoute
+  '/api/public/pay360bh/webhook': typeof ApiPublicPay360bhWebhookRoute
   '/api/public/player/announce': typeof ApiPublicPlayerAnnounceRoute
   '/api/public/player/chime': typeof ApiPublicPlayerChimeRoute
   '/api/public/player/events': typeof ApiPublicPlayerEventsRoute
@@ -650,6 +659,7 @@ export interface FileRoutesById {
   '/api/public/emitter/register': typeof ApiPublicEmitterRegisterRoute
   '/api/public/emitter/status': typeof ApiPublicEmitterStatusRoute
   '/api/public/mercado-pago/webhook': typeof ApiPublicMercadoPagoWebhookRoute
+  '/api/public/pay360bh/webhook': typeof ApiPublicPay360bhWebhookRoute
   '/api/public/player/announce': typeof ApiPublicPlayerAnnounceRoute
   '/api/public/player/chime': typeof ApiPublicPlayerChimeRoute
   '/api/public/player/events': typeof ApiPublicPlayerEventsRoute
@@ -725,6 +735,7 @@ export interface FileRouteTypes {
     | '/api/public/emitter/register'
     | '/api/public/emitter/status'
     | '/api/public/mercado-pago/webhook'
+    | '/api/public/pay360bh/webhook'
     | '/api/public/player/announce'
     | '/api/public/player/chime'
     | '/api/public/player/events'
@@ -796,6 +807,7 @@ export interface FileRouteTypes {
     | '/api/public/emitter/register'
     | '/api/public/emitter/status'
     | '/api/public/mercado-pago/webhook'
+    | '/api/public/pay360bh/webhook'
     | '/api/public/player/announce'
     | '/api/public/player/chime'
     | '/api/public/player/events'
@@ -869,6 +881,7 @@ export interface FileRouteTypes {
     | '/api/public/emitter/register'
     | '/api/public/emitter/status'
     | '/api/public/mercado-pago/webhook'
+    | '/api/public/pay360bh/webhook'
     | '/api/public/player/announce'
     | '/api/public/player/chime'
     | '/api/public/player/events'
@@ -914,6 +927,7 @@ export interface RootRouteChildren {
   ApiPublicEmitterRegisterRoute: typeof ApiPublicEmitterRegisterRoute
   ApiPublicEmitterStatusRoute: typeof ApiPublicEmitterStatusRoute
   ApiPublicMercadoPagoWebhookRoute: typeof ApiPublicMercadoPagoWebhookRoute
+  ApiPublicPay360bhWebhookRoute: typeof ApiPublicPay360bhWebhookRoute
   ApiPublicPlayerAnnounceRoute: typeof ApiPublicPlayerAnnounceRoute
   ApiPublicPlayerChimeRoute: typeof ApiPublicPlayerChimeRoute
   ApiPublicPlayerEventsRoute: typeof ApiPublicPlayerEventsRoute
@@ -1323,6 +1337,13 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof ApiPublicMercadoPagoWebhookRouteImport
       parentRoute: typeof rootRouteImport
     }
+    '/api/public/pay360bh/webhook': {
+      id: '/api/public/pay360bh/webhook'
+      path: '/api/public/pay360bh/webhook'
+      fullPath: '/api/public/pay360bh/webhook'
+      preLoaderRoute: typeof ApiPublicPay360bhWebhookRouteImport
+      parentRoute: typeof rootRouteImport
+    }
     '/api/public/player/announce': {
       id: '/api/public/player/announce'
       path: '/api/public/player/announce'
@@ -1550,6 +1571,7 @@ const rootRouteChildren: RootRouteChildren = {
   ApiPublicEmitterRegisterRoute: ApiPublicEmitterRegisterRoute,
   ApiPublicEmitterStatusRoute: ApiPublicEmitterStatusRoute,
   ApiPublicMercadoPagoWebhookRoute: ApiPublicMercadoPagoWebhookRoute,
+  ApiPublicPay360bhWebhookRoute: ApiPublicPay360bhWebhookRoute,
   ApiPublicPlayerAnnounceRoute: ApiPublicPlayerAnnounceRoute,
   ApiPublicPlayerChimeRoute: ApiPublicPlayerChimeRoute,
   ApiPublicPlayerEventsRoute: ApiPublicPlayerEventsRoute,

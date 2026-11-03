@@ -11,6 +11,7 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/com
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Switch } from "@/components/ui/switch";
+import { Pay360BhAdminCard } from "@/components/billing/pay360bh-admin-card";
 import {
   fetchMercadoPagoAdmin,
   saveMercadoPagoAdmin,
@@ -89,7 +90,7 @@ function MercadoPagoPage() {
         <div>
           <h1 className="font-display text-3xl font-semibold">Pagamentos</h1>
           <p className="mt-1 text-sm text-muted-foreground">
-            Gerencie o Checkout Transparente do Mercado Pago sem alterar o Portainer.
+            Novas cobranças usam a Central Pay 360BH. O Mercado Pago permanece apenas para cobranças antigas e o laboratório.
           </p>
         </div>
         <Button onClick={() => save.mutate(draft)} disabled={save.isPending}>
@@ -102,11 +103,13 @@ function MercadoPagoPage() {
         </Button>
       </div>
 
+      <Pay360BhAdminCard />
+
       <Card>
         <CardHeader>
           <CardTitle className="flex items-center gap-2">
             <CreditCard className="size-5" />
-            Ambiente ativo
+            Mercado Pago legado
           </CardTitle>
           <CardDescription>
             Use Teste durante a homologação. Produção só deve ser ativado depois de todos os

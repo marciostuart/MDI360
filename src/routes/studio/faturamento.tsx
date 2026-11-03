@@ -2,7 +2,7 @@ import { useEffect, useState } from "react";
 import { createFileRoute, Link } from "@tanstack/react-router";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { useServerFn } from "@tanstack/react-start";
-import { CheckCircle2, Copy, CreditCard, FileText, Loader2, QrCode } from "lucide-react";
+import { CheckCircle2, Copy, Loader2, QrCode } from "lucide-react";
 import { toast } from "sonner";
 
 import { CardCheckout } from "@/components/billing/card-checkout";
@@ -11,7 +11,6 @@ import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
-import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import {
   Select,
   SelectContent,
@@ -26,14 +25,6 @@ import {
   refreshPaymentAttempt,
 } from "@/lib/billing/billing.functions";
 import { fetchCustomerProfile } from "@/lib/billing/customer-profile.functions";
-import { normalizeDeviceSessionId } from "@/lib/billing/device-session";
-
-declare global {
-  interface Window {
-    MP_DEVICE_SESSION_ID?: string;
-    MDI_MP_DEVICE_SESSION_ID?: string;
-  }
-}
 
 export const Route = createFileRoute("/studio/faturamento")({
   head: () => ({
@@ -58,24 +49,6 @@ const STATUS: Record<string, string> = {
 };
 
 type Attempt = Awaited<ReturnType<typeof createPaymentAttempt>>;
-type CreateAttemptData =
-  | { method: "pix"; deviceSessionId?: string }
-  | {
-      method: "card";
-      deviceSessionId?: string;
-      card: {
-        token: string;
-        paymentMethodId: string;
-        documentType?: string;
-        documentNumber?: string;
-      };
-    }
-  | { method: "boleto"; deviceSessionId?: string };
-
-function currentDeviceSessionId() {
-  return normalizeDeviceSessionId(window.MDI_MP_DEVICE_SESSION_ID ?? window.MP_DEVICE_SESSION_ID);
-}
-
 function BillingPage() {
   const queryClient = useQueryClient();
   const createAttemptFn = useServerFn(createPaymentAttempt);
@@ -93,19 +66,8 @@ function BillingPage() {
   const [attempt, setAttempt] = useState<Attempt | null>(null);
   const [closingDay, setClosingDay] = useState("5");
 
-  useEffect(() => {
-    if (document.querySelector('script[data-mdi-mp-security="true"]')) return;
-    const script = document.createElement("script");
-    script.src = "https://www.mercadopago.com/v2/security.js";
-    script.dataset.mdiMpSecurity = "true";
-    script.setAttribute("view", "checkout");
-    script.setAttribute("output", "MDI_MP_DEVICE_SESSION_ID");
-    script.async = true;
-    document.head.appendChild(script);
-  }, []);
-
   const create = useMutation({
-    mutationFn: (input: CreateAttemptData) => createAttemptFn({ data: input }),
+    mutationFn: (input: { method: "pix" }) => createAttemptFn({ data: input }),
     onSuccess: (result) => {
       setAttempt(result);
       void queryClient.invalidateQueries({ queryKey: ["postpaid-billing"] });
@@ -117,6 +79,10 @@ function BillingPage() {
   useEffect(() => {
     if (data?.organization?.closingDay) setClosingDay(String(data.organization.closingDay));
   }, [data?.organization?.closingDay]);
+
+  useEffect(() => {
+    if (data) setAttempt(data.activeAttempt ?? null);
+  }, [data]);
 
   const updateClosingDay = useMutation({
     mutationFn: () =>
@@ -179,7 +145,7 @@ function BillingPage() {
       <div>
         <h1 className="font-display text-3xl font-semibold">Faturamento</h1>
         <p className="text-sm text-muted-foreground">
-          Consulte faturas e pague com Pix, cartão ou boleto sem sair do MDI 360.
+          Consulte suas faturas e pague com Pix pela Central de Cobranças Pay 360BH.
         </p>
       </div>
 
@@ -295,118 +261,44 @@ function BillingPage() {
               </CardContent>
             </Card>
           ) : (
-            <Tabs defaultValue="pix">
-              <TabsList className="grid w-full grid-cols-3">
-                <TabsTrigger value="pix">
-                  <QrCode className="mr-2 size-4" />
-                  Pix
-                </TabsTrigger>
-                <TabsTrigger value="card">
-                  <CreditCard className="mr-2 size-4" />
-                  Cartão
-                </TabsTrigger>
-                <TabsTrigger value="boleto">
-                  <FileText className="mr-2 size-4" />
-                  Boleto
-                </TabsTrigger>
-              </TabsList>
-              <TabsContent value="pix" className="mt-4">
-                <Card>
-                  <CardHeader>
-                    <CardTitle>Pix</CardTitle>
-                    <CardDescription>
-                      Confirmação automática normalmente em poucos segundos.
-                    </CardDescription>
-                  </CardHeader>
-                  <CardContent className="space-y-4">
-                    {attempt?.method === "pix" && attempt.qrCode ? (
-                      <PixAttempt attempt={attempt} />
-                    ) : (
-                      <Button
-                        onClick={() =>
-                          create.mutate({
-                            method: "pix",
-                            deviceSessionId: currentDeviceSessionId(),
-                          })
-                        }
-                        disabled={create.isPending}
-                      >
-                        {create.isPending ? <Loader2 className="mr-2 size-4 animate-spin" /> : null}
-                        Gerar Pix
-                      </Button>
-                    )}
-                  </CardContent>
-                </Card>
-              </TabsContent>
-              <TabsContent value="card" className="mt-4">
-                {attempt?.method === "card" && attempt.redirectUrl ? (
-                  <Card>
-                    <CardHeader>
-                      <CardTitle>Confirme o pagamento no banco</CardTitle>
-                      <CardDescription>
-                        Seu banco solicitou autenticação de segurança.
-                      </CardDescription>
-                    </CardHeader>
-                    <CardContent>
-                      <Button asChild>
-                        <a href={attempt.redirectUrl} target="_blank" rel="noreferrer">
-                          Continuar autenticação 3DS
-                        </a>
-                      </Button>
-                    </CardContent>
-                  </Card>
-                ) : data.publicKey ? (
-                  <CardCheckout
-                    publicKey={data.publicKey}
-                    amountCents={outstanding}
-                    onTokenized={async (card) => {
-                      await create.mutateAsync({
-                        method: "card",
-                        card,
-                        deviceSessionId: currentDeviceSessionId(),
-                      });
-                    }}
-                  />
+            <>{data.paymentReady ? (
+            <Card>
+              <CardHeader>
+                <CardTitle>Pix pela Central Pay 360BH</CardTitle>
+                <CardDescription>
+                  A confirmação chega pelo webhook seguro da Central. A API atual aceita Pix, com valor mínimo de R$ 5,00.
+                </CardDescription>
+              </CardHeader>
+              <CardContent className="space-y-4">
+                {attempt?.status === "creating" ? (
+                  <p className="text-sm text-muted-foreground">
+                    A Central está processando esta referência. Para evitar uma cobrança duplicada,
+                    não gere outro Pix enquanto o resultado dessa solicitação estiver incerto.
+                  </p>
+                ) : attempt?.method === "pix" && attempt.qrCode ? (
+                  <PixAttempt attempt={attempt} />
+                ) : outstanding < 500 ? (
+                  <p className="text-sm text-muted-foreground">
+                    O saldo precisa atingir R$ 5,00 para gerar uma cobrança Pix. O valor em aberto será acumulado nas próximas faturas.
+                  </p>
                 ) : (
-                  <Card>
-                    <CardHeader>
-                      <CardTitle>Cartão indisponível</CardTitle>
-                      <CardDescription>
-                        A chave pública do Mercado Pago ainda não foi configurada.
-                      </CardDescription>
-                    </CardHeader>
-                  </Card>
+                  <Button onClick={() => create.mutate({ method: "pix" })} disabled={create.isPending}>
+                    {create.isPending ? <Loader2 className="mr-2 size-4 animate-spin" /> : null}
+                    Gerar Pix
+                  </Button>
                 )}
-              </TabsContent>
-              <TabsContent value="boleto" className="mt-4">
-                <Card>
-                  <CardHeader>
-                    <CardTitle>Boleto bancário</CardTitle>
-                    <CardDescription>
-                      O boleto será emitido com os dados do seu cadastro financeiro.
-                    </CardDescription>
-                  </CardHeader>
-                  <CardContent className="space-y-4">
-                    {attempt?.method === "boleto" && (attempt.ticketUrl || attempt.redirectUrl) ? (
-                      <BoletoAttempt attempt={attempt} />
-                    ) : (
-                      <Button
-                        onClick={() =>
-                          create.mutate({
-                            method: "boleto",
-                            deviceSessionId: currentDeviceSessionId(),
-                          })
-                        }
-                        disabled={create.isPending}
-                      >
-                        {create.isPending ? <Loader2 className="mr-2 size-4 animate-spin" /> : null}
-                        Gerar boleto
-                      </Button>
-                    )}
-                  </CardContent>
-                </Card>
-              </TabsContent>
-            </Tabs>
+              </CardContent>
+            </Card>
+          ) : (
+            <Card>
+              <CardHeader>
+                <CardTitle>Pagamento Pix temporariamente indisponível</CardTitle>
+                <CardDescription>
+                  A Central Pay 360BH ainda não foi configurada pela equipe MDI 360. Suas faturas continuam registradas; tente novamente mais tarde.
+                </CardDescription>
+              </CardHeader>
+            </Card>
+            )}</>
           )}
         </section>
       ) : null}
@@ -504,35 +396,6 @@ function PixAttempt({ attempt }: { attempt: NonNullable<Attempt> }) {
       <p className="text-xs text-muted-foreground">
         A página acompanha a confirmação automaticamente.
       </p>
-    </div>
-  );
-}
-function BoletoAttempt({ attempt }: { attempt: NonNullable<Attempt> }) {
-  const documentUrl = attempt.ticketUrl ?? attempt.redirectUrl;
-  return (
-    <div className="space-y-3">
-      <div className="flex gap-2">
-        <Input readOnly value={attempt.digitableLine ?? ""} />
-        <Button
-          variant="outline"
-          type="button"
-          onClick={() => void navigator.clipboard.writeText(attempt.digitableLine ?? "")}
-        >
-          <Copy className="size-4" />
-        </Button>
-      </div>
-      <Button asChild>
-        <a
-          href={documentUrl ?? `/studio/faturamento/boleto/${attempt.id}`}
-          target="_blank"
-          rel="noreferrer"
-        >
-          Exibir boleto para impressão
-        </a>
-      </Button>
-      <Button asChild variant="outline">
-        <a href={`/studio/faturamento/boleto/${attempt.id}`}>Ver linha digitável</a>
-      </Button>
     </div>
   );
 }

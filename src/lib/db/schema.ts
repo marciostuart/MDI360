@@ -1021,7 +1021,9 @@ export const billingPaymentAttempts = pgTable(
       .notNull()
       .references(() => organizations.id, { onDelete: "cascade" }),
     method: text("method").notNull(),
-    /** Mercado Pago credential profile used to create and reconcile this order. */
+    /** Provider used for new charges; retained so old gateway attempts keep reconciling safely. */
+    provider: text("provider").notNull().default("mercado_pago"),
+    /** Legacy Mercado Pago profile for attempts created before the Pay 360BH migration. */
     providerEnvironment: text("provider_environment").notNull().default("test"),
     status: text("status").notNull().default("creating"),
     amountCents: integer("amount_cents").notNull(),
@@ -1050,6 +1052,22 @@ export const billingPaymentAttempts = pgTable(
     uniqueIndex("billing_payment_attempts_active_unique").on(t.activeKey),
     index("billing_payment_attempts_org_created_idx").on(t.organizationId, t.createdAt),
   ],
+);
+
+/** Idempotency ledger for authenticated Pay 360BH billing notifications. */
+export const pay360BhBillingEvents = pgTable(
+  "pay360bh_billing_events",
+  {
+    eventId: text("event_id").primaryKey(),
+    projectCode: text("project_code").notNull(),
+    reference: text("reference").notNull(),
+    paymentId: text("payment_id").notNull(),
+    status: text("status").notNull(),
+    attemptId: uuid("attempt_id"),
+    receivedAt: timestamp("received_at", { withTimezone: true }).notNull().defaultNow(),
+    processedAt: timestamp("processed_at", { withTimezone: true }),
+  },
+  (t) => [index("pay360bh_billing_events_reference_idx").on(t.reference)],
 );
 
 export const billingPaymentAttemptInvoices = pgTable(

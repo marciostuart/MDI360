@@ -433,6 +433,7 @@ export const fetchOrganizationDetail = createServerFn({ method: "GET" })
       const attempts = await db
         .select({
           id: schema.billingPaymentAttempts.id,
+          provider: schema.billingPaymentAttempts.provider,
           method: schema.billingPaymentAttempts.method,
           status: schema.billingPaymentAttempts.status,
           amountCents: schema.billingPaymentAttempts.amountCents,
@@ -848,7 +849,10 @@ export const reconcileOrganizationPayments = createServerFn({ method: "POST" })
     const { getDb, schema } = await import("@/lib/db/index.server");
     const { and, eq, inArray } = await import("drizzle-orm");
     const attempts = await getDb()
-      .select({ id: schema.billingPaymentAttempts.id })
+      .select({
+        id: schema.billingPaymentAttempts.id,
+        provider: schema.billingPaymentAttempts.provider,
+      })
       .from(schema.billingPaymentAttempts)
       .where(
         and(
@@ -860,6 +864,7 @@ export const reconcileOrganizationPayments = createServerFn({ method: "POST" })
     const { reconcileAttempt } = await import("@/lib/billing/payments.server");
     let reconciled = 0;
     for (const attempt of attempts) {
+      if (attempt.provider === "pay360bh") continue;
       try {
         await reconcileAttempt(attempt.id);
         reconciled += 1;

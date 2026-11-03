@@ -2,7 +2,6 @@ import { createServerFn } from "@tanstack/react-start";
 import { z } from "zod";
 
 import type { BillingSummary } from "@/lib/billing/billing.server";
-import { normalizeDeviceSessionId } from "@/lib/billing/device-session";
 
 export type { BillingSummary } from "@/lib/billing/billing.server";
 
@@ -23,39 +22,65 @@ export const fetchBilling = createServerFn({ method: "GET" }).handler(
   },
 );
 
-const optionalDeviceSessionId = z.preprocess(
-  normalizeDeviceSessionId,
-  z.string().max(200).optional(),
-);
+const attemptSchema = z.object({ method: z.literal("pix") });
 
-const attemptSchema = z.discriminatedUnion("method", [
-  z.object({ method: z.literal("pix"), deviceSessionId: optionalDeviceSessionId }),
-  z.object({
-    method: z.literal("card"),
-    deviceSessionId: optionalDeviceSessionId,
-    card: z.object({
-      token: z.string().min(10).max(500),
-      paymentMethodId: z.string().min(1).max(60),
-      documentType: z.string().max(10).optional(),
-      documentNumber: z
-        .string()
-        .transform((value) => value.replace(/\D/g, ""))
-        .pipe(z.string().max(20))
-        .optional(),
-    }),
-  }),
-  z.object({ method: z.literal("boleto"), deviceSessionId: optionalDeviceSessionId }),
-]);
+function publicAttempt(attempt: {
+  id: string;
+  method: string;
+  status: string;
+  amountCents: number;
+  qrCode: string | null;
+  qrCodeBase64: string | null;
+  ticketUrl: string | null;
+  redirectUrl: string | null;
+  digitableLine: string | null;
+  expiresAt: Date | null;
+  createdAt: Date;
+}) {
+  return {
+    id: attempt.id,
+    method: attempt.method,
+    status: attempt.status,
+    amountCents: attempt.amountCents,
+    qrCode: attempt.qrCode,
+    qrCodeBase64: attempt.qrCodeBase64,
+    ticketUrl: attempt.ticketUrl,
+    redirectUrl: attempt.redirectUrl,
+    digitableLine: attempt.digitableLine,
+    expiresAt: attempt.expiresAt,
+    createdAt: attempt.createdAt,
+  };
+}
 
 export const fetchPostpaidBilling = createServerFn({ method: "GET" }).handler(async () => {
   const { requireUser } = await import("@/lib/auth/session.server");
   const { getPostpaidDashboard } = await import("@/lib/billing/postpaid.server");
+  const { getDb, schema } = await import("@/lib/db/index.server");
+  const { eq } = await import("drizzle-orm");
   const user = await requireUser({ allowSuspended: true });
-  const { getMercadoPagoCredentials } = await import("@/lib/billing/mercado-pago-config.server");
-  const credentials = await getMercadoPagoCredentials().catch(() => null);
+  const { pay360BhStatus } = await import("@/lib/billing/pay360bh-config.server");
+  const [activeAttempt] = await getDb()
+    .select({
+      id: schema.billingPaymentAttempts.id,
+      method: schema.billingPaymentAttempts.method,
+      status: schema.billingPaymentAttempts.status,
+      amountCents: schema.billingPaymentAttempts.amountCents,
+      qrCode: schema.billingPaymentAttempts.qrCode,
+      qrCodeBase64: schema.billingPaymentAttempts.qrCodeBase64,
+      ticketUrl: schema.billingPaymentAttempts.ticketUrl,
+      redirectUrl: schema.billingPaymentAttempts.redirectUrl,
+      digitableLine: schema.billingPaymentAttempts.digitableLine,
+      expiresAt: schema.billingPaymentAttempts.expiresAt,
+      createdAt: schema.billingPaymentAttempts.createdAt,
+    })
+    .from(schema.billingPaymentAttempts)
+    .where(eq(schema.billingPaymentAttempts.activeKey, `org:${user.organizationId}`))
+    .limit(1);
   return {
     ...(await getPostpaidDashboard(user.organizationId)),
-    publicKey: credentials?.publicKey ?? null,
+    paymentProvider: "Pay 360BH",
+    paymentReady: (await pay360BhStatus()).ready,
+    activeAttempt: activeAttempt ? publicAttempt(activeAttempt) : null,
   };
 });
 
@@ -68,9 +93,7 @@ export const createPaymentAttempt = createServerFn({ method: "POST" })
     return createBillingAttempt({
       organizationId: user.organizationId,
       payerEmail: user.email,
-      deviceSessionId: data.deviceSessionId,
       method: data.method,
-      card: data.method === "card" ? data.card : undefined,
     });
   });
 
@@ -82,7 +105,9 @@ export const refreshPaymentAttempt = createServerFn({ method: "POST" })
     const user = await requireUser({ allowSuspended: true });
     const attempt = await getAttempt(data.attemptId);
     if (!attempt || attempt.organizationId !== user.organizationId) throw new Error("NOT_FOUND");
-    return reconcileAttempt(data.attemptId);
+    await reconcileAttempt(data.attemptId);
+    const refreshed = await getAttempt(data.attemptId);
+    return refreshed ? publicAttempt(refreshed) : null;
   });
 
 export const fetchBoletoReceipt = createServerFn({ method: "GET" })

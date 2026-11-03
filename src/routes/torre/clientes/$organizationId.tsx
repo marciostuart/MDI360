@@ -583,10 +583,11 @@ function ClientDetail() {
                                 <AlertDialogHeader>
                                   <AlertDialogTitle>Confirmar baixa manual?</AlertDialogTitle>
                                   <AlertDialogDescription>
-                                    Antes da baixa, qualquer Pix ou boleto pendente vinculado será
-                                    cancelado e confirmado no Mercado Pago. Depois, a fatura será
-                                    marcada como paga e, se não houver outra pendência, a suspensão
-                                    financeira será removida automaticamente.
+                                    A baixa marca a fatura como paga. Cobranças legadas do Mercado
+                                    Pago serão canceladas quando possível. Um Pix pendente da Pay
+                                    360BH não pode ser cancelado pela API atual e continuará válido
+                                    até expirar; se pago depois da baixa, o valor será registrado
+                                    como crédito da empresa.
                                   </AlertDialogDescription>
                                 </AlertDialogHeader>
                                 <AlertDialogFooter>

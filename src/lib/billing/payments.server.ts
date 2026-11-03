@@ -1,6 +1,6 @@
 import { randomUUID } from "node:crypto";
 
-import { and, desc, eq, gt, inArray, ne } from "drizzle-orm";
+import { and, desc, eq, gt, inArray, lte, ne } from "drizzle-orm";
 
 import {
   cancelMercadoPagoOrder,
@@ -19,22 +19,21 @@ import {
 import { listOutstandingInvoices } from "@/lib/billing/postpaid.server";
 import { getDb, schema } from "@/lib/db/index.server";
 import { profileIsComplete } from "@/lib/billing/customer-profile";
-import { buildBillingOrderPayload, buildBillingPayment } from "@/lib/billing/payment-payload";
+import { getPay360BhCredentials } from "@/lib/billing/pay360bh-config.server";
+import {
+  PAY360BH_MINIMUM_CENTS,
+  buildPay360BhChargePayload,
+  createPay360BhPixCharge,
+  isDefinitivePay360BhFailure,
+} from "@/lib/billing/pay360bh.server";
 
-export type BillingMethod = "pix" | "card" | "boleto";
 const BILLING_REFERENCE_PREFIX = "mdi360_";
 const LEGACY_BILLING_REFERENCE_PREFIX = "mdi360:";
 export type CreateAttemptInput = {
   organizationId: string;
   payerEmail: string;
-  deviceSessionId?: string;
-  method: BillingMethod;
-  card?: { token: string; paymentMethodId: string; documentType?: string; documentNumber?: string };
+  method: "pix";
 };
-
-function amount(value: number) {
-  return (value / 100).toFixed(2);
-}
 
 function paymentEnvironment(value: string): MercadoPagoEnvironment {
   if (value !== "test" && value !== "production") {
@@ -81,6 +80,16 @@ async function cancelActiveAttempt(organizationId: string) {
     .limit(1);
   if (!active) return;
   if (!active.providerOrderId) throw new Error("PAYMENT_CREATION_IN_PROGRESS");
+  if (active.provider === "pay360bh") {
+    if (active.expiresAt && active.expiresAt <= new Date()) {
+      await db
+        .update(schema.billingPaymentAttempts)
+        .set({ status: "expired", activeKey: null, providerLastUpdatedAt: new Date() })
+        .where(eq(schema.billingPaymentAttempts.id, active.id));
+      return;
+    }
+    throw new Error("PAY360BH_ACTIVE_PIX_CANNOT_BE_REPLACED");
+  }
   if (active.providerOrderId) {
     try {
       const credentials = await getMercadoPagoCredentials(
@@ -100,54 +109,35 @@ async function cancelActiveAttempt(organizationId: string) {
     .where(eq(schema.billingPaymentAttempts.id, active.id));
 }
 
-export async function createBillingAttempt(input: CreateAttemptInput) {
-  const credentials = await getMercadoPagoCredentials();
+async function createPay360BillingAttempt(input: CreateAttemptInput) {
+  if (input.method !== "pix") throw new Error("PAY360BH_PIX_ONLY");
+  const credentials = await getPay360BhCredentials();
   const invoices = await listOutstandingInvoices(input.organizationId);
   const totalCents = invoices.reduce((sum, invoice) => sum + invoice.totalCents, 0);
   if (!invoices.length || totalCents <= 0) throw new Error("NO_OUTSTANDING_INVOICES");
-  if (input.method === "card" && (!input.card?.token || !input.card.paymentMethodId)) {
-    throw new Error("INVALID_CARD_DATA");
-  }
+  if (totalCents < PAY360BH_MINIMUM_CENTS) throw new Error("PAY360BH_MINIMUM_CHARGE_500_CENTS");
+
   const db = getDb();
-  const [[profile], [organization], [lastApprovedAttempt]] = await Promise.all([
-    db
-      .select()
-      .from(schema.billingProfiles)
-      .where(eq(schema.billingProfiles.organizationId, input.organizationId))
-      .limit(1),
-    db
-      .select({ createdAt: schema.organizations.createdAt })
-      .from(schema.organizations)
-      .where(eq(schema.organizations.id, input.organizationId))
-      .limit(1),
-    db
-      .select({ approvedAt: schema.billingPaymentAttempts.approvedAt })
-      .from(schema.billingPaymentAttempts)
-      .where(
-        and(
-          eq(schema.billingPaymentAttempts.organizationId, input.organizationId),
-          eq(schema.billingPaymentAttempts.status, "approved"),
-        ),
-      )
-      .orderBy(desc(schema.billingPaymentAttempts.approvedAt))
-      .limit(1),
-  ]);
+  const [profile] = await db
+    .select()
+    .from(schema.billingProfiles)
+    .where(eq(schema.billingProfiles.organizationId, input.organizationId))
+    .limit(1);
   if (!profileIsComplete(profile)) throw new Error("INCOMPLETE_CUSTOMER_PROFILE");
 
   await cancelActiveAttempt(input.organizationId);
-
   const attemptId = randomUUID();
   const externalReference = `${BILLING_REFERENCE_PREFIX}${attemptId}`;
-  const idempotencyKey = randomUUID();
   await db.transaction(async (tx) => {
     await tx.insert(schema.billingPaymentAttempts).values({
       id: attemptId,
       organizationId: input.organizationId,
-      method: input.method,
-      providerEnvironment: credentials.environment,
+      method: "pix",
+      provider: "pay360bh",
+      providerEnvironment: "production",
       amountCents: totalCents,
       externalReference,
-      idempotencyKey,
+      idempotencyKey: randomUUID(),
       activeKey: `org:${input.organizationId}`,
     });
     await tx.insert(schema.billingPaymentAttemptInvoices).values(
@@ -159,75 +149,58 @@ export async function createBillingAttempt(input: CreateAttemptInput) {
     );
   });
 
-  const [firstName, ...lastNameParts] = profile.legalName.trim().split(/\s+/);
-  const phone = profile.phone.replace(/\D/g, "");
-  const payer: Record<string, unknown> = {
+  const dueDate = new Date(Date.now() + 24 * 60 * 60 * 1000).toISOString().slice(0, 10);
+  const payload = buildPay360BhChargePayload({
+    legalName: profile.legalName,
+    documentNumber: profile.documentNumber,
     email: input.payerEmail,
-    first_name: firstName,
-    last_name: lastNameParts.join(" ") || firstName,
-    identification: { type: profile.documentType, number: profile.documentNumber },
-    phone: { area_code: phone.slice(0, 2), number: phone.slice(2) },
-    address: {
-      zip_code: profile.zipCode,
-      street_name: profile.street,
-      street_number: profile.number,
-      neighborhood: profile.neighborhood,
-      city: profile.city,
-      state: profile.state,
-      ...(profile.complement ? { complement: profile.complement } : {}),
-    },
-  };
-  const payment = buildBillingPayment(input.method, amount(totalCents), input.card);
-  const orderPayload = buildBillingOrderPayload({
-    method: input.method,
-    totalAmount: amount(totalCents),
-    externalReference,
-    payerEmail: input.payerEmail,
-    payer,
-    payment,
-    items: invoices.map((invoice) => ({
-      external_code: `invoice_${invoice.id}`,
-      title: `Fatura MDI 360 ${invoice.number}`,
-      description: "Serviços de sinalização digital e atendimento",
-      category_id: "services",
-      quantity: 1,
-      unit_price: amount(invoice.totalCents),
-    })),
-    additionalInfo: {
-      "payer.registration_date": organization?.createdAt?.toISOString(),
-      "payer.authentication_type": "WEB",
-      "payer.is_first_purchase_online": !lastApprovedAttempt,
-      ...(lastApprovedAttempt?.approvedAt
-        ? { "payer.last_purchase": lastApprovedAttempt.approvedAt.toISOString() }
-        : {}),
-    },
+    phone: profile.phone,
+    amountCents: totalCents,
+    reference: externalReference,
+    dueDate,
   });
-
   try {
-    const order = await createMercadoPagoOrder(
-      orderPayload,
-      idempotencyKey,
-      credentials,
-      input.deviceSessionId,
-    );
-    // Card orders may be approved synchronously. Run the exact same strict
-    // reconciliation used by the webhook instead of waiting for a notification.
-    // Persist the provider ID first so an interrupted validation can be recovered
-    // by the periodic reconciler without creating a second charge.
-    await updateAttemptFromOrder(attemptId, order);
-    return reconcileMercadoPagoOrder(order, credentials);
+    const charge = await createPay360BhPixCharge(credentials, payload);
+    await db
+      .update(schema.billingPaymentAttempts)
+      .set({
+        providerOrderId: charge.paymentId,
+        providerPaymentId: charge.paymentId,
+        status: "pending",
+        qrCode: charge.pixCopyPaste,
+        qrCodeBase64: charge.qrCodeBase64.replace(/^data:image\/[a-zA-Z0-9.+-]+;base64,/, ""),
+        expiresAt: charge.expiresAt,
+        statusDetail: "Aguardando confirmação da Central Pay 360BH",
+        providerLastUpdatedAt: new Date(),
+      })
+      .where(
+        and(
+          eq(schema.billingPaymentAttempts.id, attemptId),
+          inArray(schema.billingPaymentAttempts.status, ["creating", "pending"]),
+        ),
+      );
+    return getAttempt(attemptId);
   } catch (error) {
-    const definitiveFailure = error instanceof MercadoPagoHttpError;
+    const definitiveFailure = isDefinitivePay360BhFailure(error);
     await db
       .update(schema.billingPaymentAttempts)
       .set({
         status: definitiveFailure ? "failed" : "creating",
         activeKey: definitiveFailure ? null : `org:${input.organizationId}`,
-        statusDetail: error instanceof Error ? error.message.slice(0, 300) : "Falha",
+        statusDetail: error instanceof Error ? error.message.slice(0, 300) : "Falha Pay 360BH",
       })
-      .where(eq(schema.billingPaymentAttempts.id, attemptId));
+      .where(
+        and(
+          eq(schema.billingPaymentAttempts.id, attemptId),
+          inArray(schema.billingPaymentAttempts.status, ["creating", "pending"]),
+        ),
+      );
     throw error;
   }
+}
+
+export async function createBillingAttempt(input: CreateAttemptInput) {
+  return createPay360BillingAttempt(input);
 }
 
 async function updateAttemptFromOrder(attemptId: string, order: MercadoPagoOrder) {
@@ -416,6 +389,7 @@ export async function reconcileMercadoPagoOrder(
 export async function reconcileAttempt(attemptId: string) {
   const attempt = await getAttempt(attemptId);
   if (!attempt?.providerOrderId) return attempt;
+  if (attempt.provider === "pay360bh") return attempt;
   const credentials = await getMercadoPagoCredentials(
     paymentEnvironment(attempt.providerEnvironment),
   );
@@ -430,6 +404,9 @@ export async function cancelBillingAttemptAtProvider(attemptId: string) {
   const attempt = await getAttempt(attemptId);
   if (!attempt) throw new Error("PAYMENT_ATTEMPT_NOT_FOUND");
   if (!["creating", "pending"].includes(attempt.status)) return false;
+  // The documented Pay v1 has no cancel endpoint. Keep the local attempt payable
+  // until expiry so support actions never claim that a live Pix was canceled.
+  if (attempt.provider === "pay360bh") return false;
   if (!attempt.providerOrderId) throw new Error("PAYMENT_CANCELLATION_PENDING_CREATION");
 
   const credentials = await getMercadoPagoCredentials(
@@ -506,9 +483,24 @@ async function cancelAttemptWhenAllInvoicesAreSettled(attemptId: string) {
 }
 
 export async function reconcilePendingAttempts() {
+  const db = getDb();
+  const now = new Date();
+  await db
+    .update(schema.billingPaymentAttempts)
+    .set({ status: "expired", activeKey: null, providerLastUpdatedAt: now })
+    .where(
+      and(
+        eq(schema.billingPaymentAttempts.provider, "pay360bh"),
+        eq(schema.billingPaymentAttempts.status, "pending"),
+        lte(schema.billingPaymentAttempts.expiresAt, now),
+      ),
+    );
   const cutoff = new Date(Date.now() - 30 * 86_400_000);
   const attempts = await getDb()
-    .select({ id: schema.billingPaymentAttempts.id })
+    .select({
+      id: schema.billingPaymentAttempts.id,
+      provider: schema.billingPaymentAttempts.provider,
+    })
     .from(schema.billingPaymentAttempts)
     .where(
       and(
@@ -519,6 +511,7 @@ export async function reconcilePendingAttempts() {
     .orderBy(desc(schema.billingPaymentAttempts.createdAt))
     .limit(50);
   for (const attempt of attempts) {
+    if (attempt.provider === "pay360bh") continue;
     try {
       if (await cancelAttemptWhenAllInvoicesAreSettled(attempt.id)) continue;
       await reconcileAttempt(attempt.id);
