@@ -5,7 +5,6 @@ import { useServerFn } from "@tanstack/react-start";
 import { CheckCircle2, Copy, Loader2, QrCode } from "lucide-react";
 import { toast } from "sonner";
 
-import { CardCheckout } from "@/components/billing/card-checkout";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";

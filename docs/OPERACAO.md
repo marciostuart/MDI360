@@ -25,9 +25,9 @@ configurado.
 ### Faturamento
 
 - Acompanhe na Torre faturas, itens, tentativas, créditos e falhas de WhatsApp.
-- Use **Conciliar** quando um webhook parecer atrasado; a Order será consultada no Mercado Pago.
+- Para cobranças Pay 360BH, aguarde o webhook da Central; a API atual não oferece consulta por referência. A conciliação Mercado Pago existe somente para tentativas históricas emitidas antes da migração.
 - Falha no WhatsApp não impede vencimento nem suspensão.
-- Se o Mercado Pago estiver indisponível, preserve a tentativa e use a conciliação.
+- Se a Central Pay 360BH estiver indisponível ou a resposta da criação for incerta, preserve a tentativa e não gere outro Pix até confirmar o estado na Central.
 
 
 - Testar vínculo e persistência após reinício.

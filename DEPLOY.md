@@ -39,26 +39,18 @@ versão em execução e reduz problemas de cache.
 
 ## Variáveis
 
-### Mercado Pago (faturamento pós-pago)
+### Central Pay 360BH (faturamento pós-pago)
 
-```env
-MERCADO_PAGO_PUBLIC_KEY=APP_USR-...
-MERCADO_PAGO_ACCESS_TOKEN=APP_USR-...
-MERCADO_PAGO_WEBHOOK_SECRET=...
-MERCADO_PAGO_ACCOUNT_ID=...
-MERCADO_PAGO_LIVE_MODE=true
-```
+Configure o código do projeto, a chave de serviço e o token de notificação em
+**Torre > Pagamentos**. Cadastre na Central a URL de webhook exibida nessa tela.
+Os segredos são criptografados no banco da aplicação e não devem ser gravados no
+Git, em screenshots ou logs. A API documentada oferece Pix, sem consulta por
+referência ou cancelamento; veja `docs/PAGAMENTOS-PAY360BH.md` antes de homologar.
 
-Use credenciais separadas em homologação e produção. O webhook público é
-`https://mdi.360bh.com.br/api/public/mercado-pago/webhook`. Nunca exponha Access Token ou
-segredo do webhook no navegador, Git ou logs.
-
-No primeiro deploy: faça backup do PostgreSQL, publique uma imagem imutável
-`signage:<short-sha>`, confirme as migrações no log e mantenha o faturamento desativado nas contas
-existentes. Ative primeiro uma organização interna e homologue todos os meios de pagamento.
-
-As credenciais ficam somente nas variáveis/segredos da stack. Não as grave no
-Git, em screenshots ou documentação.
+As variáveis/configurações antigas do Mercado Pago não são usadas para criar
+novas cobranças. Mantenha-as somente enquanto houver cobranças históricas
+pendentes que ainda precisem de webhook ou conciliação; remova-as depois de
+resolver esse passivo.
 
 - `DATABASE_URL`
 - `S3_ENDPOINT`, `S3_INTERNAL_ENDPOINT`, `S3_BUCKET`
