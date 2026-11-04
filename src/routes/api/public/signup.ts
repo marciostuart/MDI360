@@ -129,7 +129,11 @@ export const Route = createFileRoute("/api/public/signup")({
               });
             } catch (error) {
               await db.delete(schema.signupRequests).where(eq(schema.signupRequests.id, id));
-              throw error;
+              console.error(
+                "public signup email delivery failed",
+                error instanceof Error ? error.message : "unknown error",
+              );
+              throw new Error("SIGNUP_EMAIL_DELIVERY_FAILED");
             }
             return Response.json(
               { ok: true },
@@ -299,6 +303,23 @@ export const Route = createFileRoute("/api/public/signup")({
             return fail(400, "Link expirado, já utilizado ou aberto em outra conexão/navegador.");
           if (message === "EMAIL_EXISTS" || message.includes("SMTP_"))
             return fail(409, "Não foi possível concluir. Verifique o e-mail ou tente novamente.");
+          if (message === "SIGNUP_EMAIL_DELIVERY_FAILED")
+            return fail(
+              503,
+              "Não foi possível enviar o e-mail de confirmação. Verifique o serviço SMTP.",
+            );
+          if (message === "SESSION_SECRET_INVALID")
+            return fail(503, "Configuração de segurança inválida. Revise SESSION_SECRET.");
+          if (
+            error &&
+            typeof error === "object" &&
+            "code" in error &&
+            (error.code === "42P01" || error.code === "42703")
+          )
+            return fail(
+              503,
+              "Migração do banco do cadastro pendente. A equipe deve revisar as migrações.",
+            );
           console.error("public signup failed", message);
           return fail(503, "Não foi possível concluir agora. Tente novamente.");
         }

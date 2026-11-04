@@ -180,11 +180,12 @@ function SignupPage() {
     key: keyof Form,
     type = "text",
     kind?: "cpf" | "cnpj" | "phone" | "cep",
+    required = true,
   ) => (
     <label className="grid gap-2 text-sm">
       <Label>{label}</Label>
       <Input
-        required
+        required={required}
         type={type}
         value={form[key]}
         onChange={(e) => set(key, kind ? mask(e.target.value, kind) : e.target.value)}
@@ -193,102 +194,139 @@ function SignupPage() {
     </label>
   );
   return (
-    <main className="grid min-h-screen place-items-center bg-background px-4 py-10">
-      <Card className="w-full max-w-2xl">
-        <CardHeader>
-          <CardTitle>{confirm ? "Confirme seu cadastro" : "Pré-cadastro MDI 360"}</CardTitle>
-          <CardDescription>
-            {confirm
-              ? "Crie sua senha para ativar a conta gratuita."
-              : "Preencha seus dados. Enviaremos um link para confirmar seu e-mail."}
-          </CardDescription>
-        </CardHeader>
-        <CardContent>
-          {notice && (
-            <p role="status" className="mb-5 rounded-md border p-3 text-sm">
-              {notice}
-            </p>
-          )}
-          {confirm ? (
-            <form className="grid gap-4" onSubmit={confirmEmail}>
-              <label className="grid gap-2 text-sm">
-                <Label>Senha (mínimo 8 caracteres)</Label>
-                <Input
-                  required
-                  minLength={8}
-                  maxLength={200}
-                  type="password"
-                  autoComplete="new-password"
-                  value={password}
-                  onChange={(e) => setPassword(e.target.value)}
-                />
-              </label>
-              <Button disabled={busy}>{busy ? "Confirmando…" : "Confirmar e criar conta"}</Button>
-            </form>
-          ) : (
-            <form className="grid gap-4 sm:grid-cols-2" onSubmit={submit}>
-              <label className="grid gap-2 text-sm sm:col-span-2">
-                <Label>Tipo de cadastro</Label>
-                <select
-                  className="h-10 rounded-md border bg-background px-3"
-                  value={form.type}
-                  onChange={(e) =>
-                    setForm({
-                      ...empty,
-                      type: e.target.value as "PF" | "PJ",
-                      turnstileToken: form.turnstileToken,
-                    })
-                  }
-                >
-                  <option value="PF">Pessoa física</option>
-                  <option value="PJ">Pessoa jurídica</option>
-                </select>
-              </label>
-              {field(form.type === "PF" ? "Nome completo" : "Razão social", "name")}
-              {form.type === "PF" ? (
-                field("CPF", "cpf", "text", "cpf")
-              ) : (
-                <>
-                  {field("CNPJ", "cnpj", "text", "cnpj")}
-                  {field("Nome fantasia", "fantasyName")}
-                  {field("Nome completo do responsável", "responsible")}
-                </>
-              )}
-              {field("Telefone com DDD", "phone", "tel", "phone")}
-              {field("E-mail", "email", "email")}
-              {field("CEP", "cep", "text", "cep")}
-              {field("Rua", "street")}
-              {field("Número", "number")}
-              {field("Complemento (opcional)", "complement", "text")}
-              {field("Bairro", "neighborhood")}
-              {field("Cidade", "city")}
-              {field("Estado (UF)", "state")}
-              <input
-                tabIndex={-1}
-                aria-hidden="true"
-                className="hidden"
-                value={form.website}
-                onChange={(e) => set("website", e.target.value)}
-              />
-              <div className="sm:col-span-2">
-                {siteKey ? (
-                  <TurnstileWidget
-                    key={challenge}
-                    siteKey={siteKey}
-                    action="signup_preregister"
-                    onToken={(v) => set("turnstileToken", v)}
+    <div className="flex min-h-screen flex-col bg-[#070a08] text-[#f4f7f2]">
+      <header className="border-b border-white/10 bg-[#070a08]/90">
+        <div className="mx-auto flex h-20 max-w-7xl items-center justify-between px-5 lg:px-10">
+          <a href="/" aria-label="MDI 360 - início" className="flex items-center gap-2.5">
+            <span className="grid size-9 place-items-center rounded-xl bg-[#a3ff3f] text-[#07100b]">
+              <span className="text-sm font-black">▶</span>
+            </span>
+            <span className="font-display text-lg font-bold tracking-tight">MDI 360</span>
+          </a>
+          <nav className="flex items-center gap-5 text-sm text-white/70">
+            <a href="/#plataforma" className="hidden hover:text-white sm:inline">
+              Plataforma
+            </a>
+            <a href="/#faq" className="hidden hover:text-white sm:inline">
+              Dúvidas
+            </a>
+            <a
+              href="/entrar?mode=login"
+              className="rounded-full border border-white/15 px-4 py-2 hover:text-white"
+            >
+              Entrar
+            </a>
+          </nav>
+        </div>
+      </header>
+      <main className="grid flex-1 place-items-center px-4 py-10">
+        <Card className="w-full max-w-2xl">
+          <CardHeader>
+            <CardTitle>{confirm ? "Confirme seu cadastro" : "Pré-cadastro MDI 360"}</CardTitle>
+            <CardDescription>
+              {confirm
+                ? "Crie sua senha para ativar a conta gratuita."
+                : "Preencha seus dados. Enviaremos um link para confirmar seu e-mail."}
+            </CardDescription>
+          </CardHeader>
+          <CardContent>
+            {notice && (
+              <p role="status" className="mb-5 rounded-md border p-3 text-sm">
+                {notice}
+              </p>
+            )}
+            {confirm ? (
+              <form className="grid gap-4" onSubmit={confirmEmail}>
+                <label className="grid gap-2 text-sm">
+                  <Label>Senha (mínimo 8 caracteres)</Label>
+                  <Input
+                    required
+                    minLength={8}
+                    maxLength={200}
+                    type="password"
+                    autoComplete="new-password"
+                    value={password}
+                    onChange={(e) => setPassword(e.target.value)}
                   />
+                </label>
+                <Button disabled={busy}>{busy ? "Confirmando…" : "Confirmar e criar conta"}</Button>
+              </form>
+            ) : (
+              <form className="grid gap-4 sm:grid-cols-2" onSubmit={submit}>
+                <label className="grid gap-2 text-sm sm:col-span-2">
+                  <Label>Tipo de cadastro</Label>
+                  <select
+                    className="h-10 rounded-md border bg-background px-3"
+                    value={form.type}
+                    onChange={(e) =>
+                      setForm({
+                        ...empty,
+                        type: e.target.value as "PF" | "PJ",
+                        turnstileToken: form.turnstileToken,
+                      })
+                    }
+                  >
+                    <option value="PF">Pessoa física</option>
+                    <option value="PJ">Pessoa jurídica</option>
+                  </select>
+                </label>
+                {field(form.type === "PF" ? "Nome completo" : "Razão social", "name")}
+                {form.type === "PF" ? (
+                  field("CPF", "cpf", "text", "cpf")
                 ) : (
-                  <p className="text-sm text-destructive">Validação de segurança indisponível.</p>
+                  <>
+                    {field("CNPJ", "cnpj", "text", "cnpj")}
+                    {field("Nome fantasia", "fantasyName")}
+                    {field("Nome completo do responsável", "responsible")}
+                  </>
                 )}
-              </div>
-              <Button className="sm:col-span-2" disabled={busy || !siteKey || !form.turnstileToken}>
-                {busy ? "Enviando…" : "Enviar pré-cadastro"}
-              </Button>
-            </form>
-          )}
-        </CardContent>
-      </Card>
-    </main>
+                {field("Telefone com DDD", "phone", "tel", "phone")}
+                {field("E-mail", "email", "email")}
+                {field("CEP", "cep", "text", "cep")}
+                {field("Rua", "street")}
+                {field("Número", "number")}
+                {field("Complemento (opcional)", "complement", "text", undefined, false)}
+                {field("Bairro", "neighborhood")}
+                {field("Cidade", "city")}
+                {field("Estado (UF)", "state")}
+                <input
+                  tabIndex={-1}
+                  aria-hidden="true"
+                  className="hidden"
+                  value={form.website}
+                  onChange={(e) => set("website", e.target.value)}
+                />
+                <div className="sm:col-span-2">
+                  {siteKey ? (
+                    <TurnstileWidget
+                      key={challenge}
+                      siteKey={siteKey}
+                      action="signup_preregister"
+                      onToken={(v) => set("turnstileToken", v)}
+                    />
+                  ) : (
+                    <p className="text-sm text-destructive">Validação de segurança indisponível.</p>
+                  )}
+                </div>
+                <Button
+                  className="sm:col-span-2"
+                  disabled={busy || !siteKey || !form.turnstileToken}
+                >
+                  {busy ? "Enviando…" : "Enviar pré-cadastro"}
+                </Button>
+              </form>
+            )}
+          </CardContent>
+        </Card>
+      </main>
+      <footer className="border-t border-white/10 px-5 py-8 text-sm text-white/45">
+        <div className="mx-auto flex max-w-7xl flex-col justify-between gap-3 sm:flex-row">
+          <span className="font-display font-semibold text-white/70">MDI 360</span>
+          <span>
+            © {new Date().getFullYear()} Márcio Stuart · 360BH · Todos os direitos reservados.
+          </span>
+        </div>
+      </footer>
+    </div>
   );
 }
