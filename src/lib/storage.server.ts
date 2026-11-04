@@ -198,14 +198,25 @@ export async function getStorageObjectModifiedAt(key: string) {
   return result.LastModified ?? null;
 }
 
+/** Metadata used by the support sweep. An absent ETag is never deleted in bulk. */
+export async function getStorageObjectIdentity(key: string) {
+  const result = await getClient().send(new HeadObjectCommand({ Bucket: getBucket(), Key: key }));
+  return { modifiedAt: result.LastModified ?? null, etag: result.ETag ?? null };
+}
+
+/** Request a conditional delete; the configured S3-compatible provider must enforce If-Match. */
+export async function deleteStorageObjectIfUnchanged(key: string, etag: string) {
+  await getClient().send(new DeleteObjectCommand({ Bucket: getBucket(), Key: key, IfMatch: etag }));
+}
+
 /** Bounded inventory for support; never scans another bucket. */
-export async function listStorageObjects(prefix: string, cursor?: string) {
+export async function listStorageObjects(prefix: string, cursor?: string, limit = 100) {
   const result = await getClient().send(
     new ListObjectsV2Command({
       Bucket: getBucket(),
       Prefix: prefix,
       ContinuationToken: cursor,
-      MaxKeys: 100,
+      MaxKeys: Math.max(1, Math.min(100, limit)),
     }),
   );
   return {

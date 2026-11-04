@@ -91,6 +91,7 @@ function SignupPage() {
   const [siteKey, setSiteKey] = useState("");
   const [challenge, setChallenge] = useState(0);
   const [notice, setNotice] = useState("");
+  const [submitted, setSubmitted] = useState(false);
   const [busy, setBusy] = useState(false);
   const [password, setPassword] = useState("");
   const [documentTouched, setDocumentTouched] = useState(false);
@@ -159,9 +160,7 @@ function SignupPage() {
       });
       const result = await response.json();
       if (!response.ok) throw new Error(result.error || "Não foi possível enviar.");
-      setNotice(
-        "Solicitação enviada. Confira seu e-mail e abra o link neste mesmo navegador e conexão em até 10 minutos.",
-      );
+      setSubmitted(true);
     } catch (e) {
       setNotice(e instanceof Error ? e.message : "Falha ao enviar.");
       setChallenge((x) => x + 1);
@@ -231,11 +230,19 @@ function SignupPage() {
       <main className="grid flex-1 place-items-center px-4 pb-10 pt-28">
         <Card className="w-full max-w-2xl">
           <CardHeader>
-            <CardTitle>{confirm ? "Confirme seu cadastro" : "Pré-cadastro MDI 360"}</CardTitle>
+            <CardTitle>
+              {confirm
+                ? "Confirme seu cadastro"
+                : submitted
+                  ? "Confira seu e-mail"
+                  : "Pré-cadastro MDI 360"}
+            </CardTitle>
             <CardDescription>
               {confirm
                 ? "Crie sua senha para ativar a conta gratuita."
-                : "Preencha seus dados. Enviaremos um link para confirmar seu e-mail."}
+                : submitted
+                  ? "Enviamos um link para confirmar seu pré-cadastro."
+                  : "Preencha seus dados. Enviaremos um link para confirmar seu e-mail."}
             </CardDescription>
           </CardHeader>
           <CardContent>
@@ -260,6 +267,25 @@ function SignupPage() {
                 </label>
                 <Button disabled={busy}>{busy ? "Confirmando…" : "Confirmar e criar conta"}</Button>
               </form>
+            ) : submitted ? (
+              <div
+                role="status"
+                aria-live="polite"
+                className="space-y-4 text-sm leading-relaxed text-muted-foreground"
+              >
+                <p>
+                  Abra o link de confirmação em até 10 minutos, neste mesmo navegador e conexão.
+                </p>
+                <p>
+                  Se o e-mail não estiver na caixa de entrada, verifique também as abas ou pastas
+                  <strong className="text-foreground"> Promoções, Lixo eletrônico e Spam</strong>.
+                </p>
+                <p>
+                  Se a mensagem estiver em Lixo eletrônico ou Spam, marque-a como
+                  <strong className="text-foreground"> “Não é spam”</strong> e mova-a para a caixa
+                  de entrada.
+                </p>
+              </div>
             ) : (
               <form className="grid gap-4 sm:grid-cols-2" onSubmit={submit}>
                 <label className="grid gap-2 text-sm sm:col-span-2">

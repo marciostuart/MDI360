@@ -26,6 +26,10 @@ import {
   mutateSupportRecord,
   retrySupportCleanup,
 } from "@/lib/admin/support.functions";
+import {
+  sweepOrphanStoragePage,
+  sweepOrphanTemporaryFiles,
+} from "@/lib/admin/orphan-sweep.functions";
 
 export const Route = createFileRoute("/torre/dados")({
   validateSearch: (search: Record<string, unknown>) => ({
@@ -84,6 +88,7 @@ function SupportData() {
   const [reason, setReason] = useState("");
   const [confirmation, setConfirmation] = useState("");
   const [deviceId, setDeviceId] = useState("");
+  const [sweepStatus, setSweepStatus] = useState("");
   const organizations = useQuery({
     queryKey: ["support-orgs"],
     queryFn: () => listSupportOrganizations(),
@@ -175,6 +180,88 @@ function SupportData() {
     },
     onError: (error: Error) => toast.error(error.message),
   });
+  const sweep = useMutation({
+    mutationFn: async () => {
+      const selectedOrganization = organizationId || undefined;
+      const run = async (execute: boolean) => {
+        const totals = {
+          scanned: 0,
+          eligible: 0,
+          deleted: 0,
+          skipped: 0,
+          failed: 0,
+          tempEligible: 0,
+          tempDeleted: 0,
+        };
+        if (!selectedOrganization) {
+          const temp = await sweepOrphanTemporaryFiles({
+            data: { confirmation: "LIMPAR_ORFAOS", execute },
+          });
+          totals.tempEligible = temp.eligible;
+          totals.tempDeleted = temp.deleted;
+          totals.skipped += temp.skipped;
+          totals.failed += temp.failed;
+        }
+        for (const area of ["org", "branding"] as const) {
+          let next: string | undefined;
+          do {
+            const page = await sweepOrphanStoragePage({
+              data: {
+                area,
+                organizationId: selectedOrganization,
+                cursor: next,
+                confirmation: "LIMPAR_ORFAOS",
+                execute,
+              },
+            });
+            totals.scanned += page.scanned;
+            totals.eligible += page.eligible;
+            totals.deleted += page.deleted;
+            totals.skipped += page.skipped;
+            totals.failed += page.failed;
+            setSweepStatus(
+              `${execute ? "Limpando" : "Verificando"}: ${totals.scanned} objeto(s); ${totals.eligible} candidato(s); ${totals.deleted} removido(s); ${totals.failed} falha(s).`,
+            );
+            next = page.cursor ?? undefined;
+          } while (next);
+        }
+        return totals;
+      };
+      const preview = await run(false);
+      if (preview.failed) throw new Error("Falha na verificação; nenhuma exclusão foi iniciada.");
+      if (!preview.eligible && !preview.tempEligible)
+        return { ...preview, cancelled: false, empty: true };
+      if (
+        !window.confirm(
+          `Foram encontrados ${preview.eligible} arquivo(s) no S3 e ${preview.tempEligible} diretório(s) temporário(s) com mais de 24 horas e sem referências identificadas. A exclusão é permanente. Deseja continuar?`,
+        )
+      )
+        return { ...preview, cancelled: true, empty: false };
+      return { ...(await run(true)), cancelled: false, empty: false };
+    },
+    onSuccess: (result) => {
+      if (result.cancelled) {
+        setSweepStatus("Limpeza cancelada; nenhum arquivo foi removido.");
+        return;
+      }
+      if (result.empty) {
+        setSweepStatus("Nenhum arquivo elegível encontrado; nada foi removido.");
+        return;
+      }
+      setSweepStatus(
+        `Concluído: ${result.scanned} objeto(s) verificado(s), ${result.deleted} removido(s), ${result.tempDeleted} temporário(s) removido(s), ${result.skipped} preservado(s) e ${result.failed} falha(s).`,
+      );
+      toast.success("Limpeza de órfãos concluída. Veja o resumo.");
+      refresh();
+    },
+    onError: (error: Error) => {
+      setSweepStatus(
+        (previous) =>
+          `${previous ? `${previous} ` : ""}${error.message || "Limpeza interrompida. Consulte a auditoria e tente novamente."}`,
+      );
+      refresh();
+    },
+  });
   const open = (next: Action) => {
     setAction(next);
     setReason("");
@@ -203,6 +290,7 @@ function SupportData() {
           aria-label="Estabelecimento"
           className={selectClass}
           value={organizationId}
+          disabled={sweep.isPending}
           onChange={(e) => {
             setOrganizationId(e.target.value);
             setPage(0);
@@ -236,7 +324,24 @@ function SupportData() {
         >
           Reprocessar limpezas pendentes
         </Button>
+        <Button
+          variant="outline"
+          disabled={
+            sweep.isPending || Boolean(organizationId && !/^[0-9a-f-]{36}$/i.test(organizationId))
+          }
+          onClick={() => {
+            setSweepStatus("Verificando arquivos, sem excluir nada…");
+            sweep.mutate();
+          }}
+        >
+          {sweep.isPending ? "Verificando / limpando…" : "Limpar arquivos órfãos"}
+        </Button>
       </div>
+      {sweepStatus && (
+        <p role="status" className="text-sm text-muted-foreground">
+          {sweepStatus}
+        </p>
+      )}
       {organizations.error ? (
         <p role="alert">Não foi possível carregar as empresas. Verifique seu acesso à Torre.</p>
       ) : null}
