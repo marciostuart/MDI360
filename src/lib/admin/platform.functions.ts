@@ -50,12 +50,13 @@ export const fetchPlatformOverview = createServerFn({ method: "GET" }).handler(
     const { isDatabaseConfigured, getDb, schema } = await import("@/lib/db/index.server");
     if (!isDatabaseConfigured()) return null;
 
-    const { getSessionUser } = await import("@/lib/auth/session.server");
     const { count, and, eq, isNotNull, gt, sql } = await import("drizzle-orm");
 
     try {
-      const user = await getSessionUser();
-      if (!user || !isPlatformEmail(user.email)) return null;
+      // Resolve both the active platform session and the parked staff session
+      // used while support is impersonating a customer. Keep this aligned with
+      // every other Tower endpoint (requirePlatform).
+      await requirePlatform();
 
       const db = getDb();
       const [orgs] = await db.select({ value: count() }).from(schema.organizations);
@@ -127,17 +128,13 @@ export const fetchPlatformOverview = createServerFn({ method: "GET" }).handler(
 export const fetchInfraStatus = createServerFn({ method: "GET" }).handler(
   async (): Promise<InfraStatus | null> => {
     const { isDatabaseConfigured } = await import("@/lib/db/index.server");
-    const { getSessionUser } = await import("@/lib/auth/session.server");
-
     if (!isDatabaseConfigured()) return null;
 
-    let user: Awaited<ReturnType<typeof getSessionUser>> = null;
     try {
-      user = await getSessionUser();
+      await requirePlatform();
     } catch {
       return null;
     }
-    if (!user || !isPlatformEmail(user.email)) return null;
 
     let schemaReady = false;
     try {
