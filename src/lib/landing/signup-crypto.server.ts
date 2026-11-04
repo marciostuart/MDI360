@@ -2,7 +2,10 @@ import { createCipheriv, createDecipheriv, createHash, createHmac, randomBytes }
 
 function secret() {
   const value = process.env.SESSION_SECRET ?? "";
-  if (value.length < 32) throw new Error("SESSION_SECRET_INVALID");
+  // Keep this aligned with the platform credential-encryption minimum. Raising
+  // this independently can reject an existing production secret and tempt an
+  // unsafe rotation that would make encrypted integration credentials unreadable.
+  if (value.length < 24) throw new Error("SESSION_SECRET_INVALID");
   return value;
 }
 export function signupDigest(value: string) {

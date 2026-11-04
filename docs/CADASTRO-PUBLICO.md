@@ -3,7 +3,7 @@
 ## Implantação segura
 
 1. Faça backup do PostgreSQL.
-2. Confirme no ambiente da Stack `TURNSTILE_SITE_KEY`, `TURNSTILE_SECRET_KEY` e `SESSION_SECRET` (mínimo de 32 caracteres; mantenha o valor atual). O pré-cadastro falha fechado se Turnstile estiver indisponível.
+2. Confirme no ambiente da Stack `TURNSTILE_SITE_KEY`, `TURNSTILE_SECRET_KEY` e `SESSION_SECRET` (mínimo de 24 caracteres, igual à criptografia de credenciais existente; não troque uma chave em uso). O pré-cadastro falha fechado se Turnstile estiver indisponível.
 3. Confirme que SMTP está habilitado e validado na Torre; sem envio de e-mail, o pré-cadastro não é aceito.
 4. Atualize a imagem da Stack. O `docker/entrypoint.sh` executa `drizzle-kit migrate` antes de iniciar o servidor; isso aplica `0055_signup_requests.sql` automaticamente. A migração é aditiva e preserva `quiz_leads`.
 5. Valide `/cadastro`, confirmação por e-mail e login em `/studio` antes de divulgar o link.
