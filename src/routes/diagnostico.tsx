@@ -1,22 +1,7 @@
-import { createFileRoute } from "@tanstack/react-router";
-import { LeadQuiz } from "@/components/landing/lead-quiz";
-import { fetchPublicQuiz } from "@/lib/landing/quiz.functions";
+import { createFileRoute, redirect } from "@tanstack/react-router";
 
 export const Route = createFileRoute("/diagnostico")({
-  loader: () => fetchPublicQuiz(),
-  head: () => ({
-    meta: [
-      { title: "Diagnóstico de telas | MDI 360" },
-      {
-        name: "description",
-        content:
-          "Descubra a solução de mídia digital indoor ideal para o seu negócio ou sua revenda em menos de um minuto.",
-      },
-    ],
-  }),
-  component: DiagnosisPage,
+  beforeLoad: () => {
+    throw redirect({ to: "/cadastro", search: { confirm: "" }, replace: true });
+  },
 });
-
-function DiagnosisPage() {
-  return <LeadQuiz config={Route.useLoaderData()} />;
-}

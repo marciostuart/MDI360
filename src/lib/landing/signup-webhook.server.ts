@@ -1,7 +1,6 @@
 import { lookup } from "node:dns/promises";
 import { BlockList, isIP } from "node:net";
 import { request as httpsRequest } from "node:https";
-import type { LeadPayload, QuizConfig } from "./quiz.ts";
 
 const blocked = new BlockList();
 for (const [ip, prefix] of [
@@ -36,37 +35,35 @@ export async function webhookDestination(value: string) {
   )
     throw new Error("Webhook deve usar HTTPS na porta 443.");
   const host = url.hostname.replace(/^\[|\]$/g, "");
-  let timeout: ReturnType<typeof setTimeout> | undefined;
+  let timer: ReturnType<typeof setTimeout> | undefined;
   const addresses = isIP(host)
     ? [{ address: host, family: isIP(host) }]
     : await Promise.race([
         lookup(host, { all: true }),
         new Promise<never>((_, reject) => {
-          timeout = setTimeout(() => reject(new Error("Tempo limite do DNS do webhook.")), 10_000);
-          timeout.unref();
+          timer = setTimeout(() => reject(new Error("DNS timeout")), 8000);
+          timer.unref();
         }),
-      ]).finally(() => clearTimeout(timeout));
+      ]).finally(() => clearTimeout(timer));
   if (
     !addresses.length ||
-    addresses.some(
-      (entry) =>
-        (entry.family === 6 && !globalIpv6.check(entry.address, "ipv6")) ||
-        blocked.check(entry.address, entry.family === 6 ? "ipv6" : "ipv4"),
+    addresses.some((a) =>
+      a.family === 6
+        ? !globalIpv6.check(a.address, "ipv6") || blocked.check(a.address, "ipv6")
+        : blocked.check(a.address, "ipv4"),
     )
   )
-    throw new Error("Webhook deve apontar para um servidor público.");
-  return { url, address: addresses[0] };
+    throw new Error("Webhook deve apontar para servidor público.");
+  return { url, address: addresses[0]! };
 }
-
-export async function dispararWebhook(
-  dados: LeadPayload,
-  integrations: QuizConfig["integrations"],
+export async function sendSignupWebhook(
+  urlValue: string,
+  payload: Record<string, unknown>,
   id: string,
 ) {
-  const { url, address } = await webhookDestination(integrations.webhookUrl);
-  // Pinned DNS + no redirects. The URL and any query secret stay server-side.
+  const { url, address } = await webhookDestination(urlValue);
+  const body = JSON.stringify(payload);
   await new Promise<void>((resolve, reject) => {
-    const body = JSON.stringify(dados);
     const req = httpsRequest(
       url,
       {
@@ -82,10 +79,10 @@ export async function dispararWebhook(
       (response) => {
         response.destroy();
         if ((response.statusCode ?? 0) >= 200 && (response.statusCode ?? 0) < 300) resolve();
-        else reject(new Error(`Webhook respondeu HTTP ${response.statusCode ?? 0}.`));
+        else reject(new Error(`Webhook HTTP ${response.statusCode ?? 0}`));
       },
     );
-    const timer = setTimeout(() => req.destroy(new Error("Tempo limite do webhook.")), 10_000);
+    const timer = setTimeout(() => req.destroy(new Error("Webhook timeout")), 10_000);
     timer.unref();
     req.once("close", () => clearTimeout(timer));
     req.on("error", reject);

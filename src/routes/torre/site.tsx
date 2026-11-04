@@ -12,7 +12,7 @@ import { Textarea } from "@/components/ui/textarea";
 import { fetchLandingContent, saveLandingContent } from "@/lib/landing/landing.functions";
 import type { LandingContent, LandingFaq, LandingItem } from "@/lib/landing/landing-content";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
-import { QuizManager } from "@/components/landing/quiz-manager";
+import { SignupSettings } from "@/components/landing/signup-settings";
 import { LANDING_LINKS, landingLinksSchema, type LandingLinkId } from "@/lib/landing/landing-links";
 
 export const Route = createFileRoute("/torre/site")({
@@ -27,13 +27,13 @@ function SiteManagement() {
     <Tabs defaultValue="site" className="space-y-6">
       <TabsList>
         <TabsTrigger value="site">Site institucional</TabsTrigger>
-        <TabsTrigger value="quiz">Quiz e capturas</TabsTrigger>
+        <TabsTrigger value="signup">Pré-cadastro</TabsTrigger>
       </TabsList>
       <TabsContent value="site">
         <LandingEditor />
       </TabsContent>
-      <TabsContent value="quiz">
-        <QuizManager />
+      <TabsContent value="signup">
+        <SignupSettings />
       </TabsContent>
     </Tabs>
   );

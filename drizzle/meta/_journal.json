@@ -386,6 +386,13 @@
       "when": 1793728240758,
       "tag": "0054_pay360bh_billing",
       "breakpoints": true
+    },
+    {
+      "idx": 55,
+      "version": "7",
+      "when": 1793790000000,
+      "tag": "0055_signup_requests",
+      "breakpoints": true
     }
   ]
 }

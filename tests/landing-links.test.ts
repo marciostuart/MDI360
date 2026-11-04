@@ -33,13 +33,13 @@ test("destinations and opening mode are independent per button and reload correc
   const config = normalizeLandingContent({
     whatsappUrl: "https://wa.me/5531999999999",
     links: {
-      heroPrimary: { href: "/diagnostico", newTab: true },
+      heroPrimary: { href: "/cadastro", newTab: true },
       partner: { href: "https://example.com/parceria", newTab: false },
     },
   });
   const saved = normalizeLandingContent(JSON.parse(JSON.stringify(config)));
   assert.deepEqual(landingAnchorProps(saved.links.heroPrimary), {
-    href: "/diagnostico",
+    href: "/cadastro",
     target: "_blank",
     rel: "noopener noreferrer",
   });
@@ -61,7 +61,7 @@ test("unsafe/empty links cannot be published and corrupt persisted links fall ba
   ])
     assert.equal(landingHrefSchema.safeParse(href).success, false, href);
   for (const href of [
-    "/diagnostico",
+    "/cadastro",
     "/entrar?mode=signup",
     "#plataforma",
     "https://example.com/page?q=1",

@@ -15,7 +15,7 @@ export const LANDING_LINKS = {
     newTab: false,
   },
   heroSecondary: { label: "Introdução · Botão secundário", href: "#plataforma", newTab: false },
-  diagnostic: { label: "Introdução · Diagnóstico / quiz", href: "/diagnostico", newTab: false },
+  diagnostic: { label: "Introdução · Pré-cadastro", href: "/cadastro", newTab: false },
   partner: {
     label: "Revendas · Falar sobre parceria",
     href: "https://wa.me/5531920051113",

@@ -147,6 +147,24 @@ export const quizLeads = pgTable(
   ],
 );
 
+/** Short-lived, encrypted public pre-registration awaiting email confirmation. */
+export const signupRequests = pgTable(
+  "signup_requests",
+  {
+    id: uuid("id").primaryKey().defaultRandom(),
+    email: text("email").notNull(),
+    tokenHash: text("token_hash").notNull().unique(),
+    payloadEncrypted: text("payload_encrypted").notNull(),
+    ipHash: text("ip_hash").notNull(),
+    userAgentHash: text("user_agent_hash").notNull(),
+    webhookStatus: text("webhook_status").notNull().default("pending"),
+    expiresAt: timestamp("expires_at", { withTimezone: true }).notNull(),
+    usedAt: timestamp("used_at", { withTimezone: true }),
+    createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
+  },
+  (t) => [index("signup_requests_email_created_idx").on(t.email, t.createdAt)],
+);
+
 export const organizations = pgTable("organizations", {
   id: uuid("id").primaryKey().defaultRandom(),
   name: text("name").notNull(),

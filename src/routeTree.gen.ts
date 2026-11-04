@@ -11,6 +11,7 @@
 import { Route as rootRouteImport } from './routes/__root'
 import { Route as IndexRouteImport } from './routes/index'
 import { Route as AtivarRouteImport } from './routes/ativar'
+import { Route as CadastroRouteImport } from './routes/cadastro'
 import { Route as DiagnosticoRouteImport } from './routes/diagnostico'
 import { Route as EntrarRouteImport } from './routes/entrar'
 import { Route as RecuperarSenhaRouteImport } from './routes/recuperar-senha'
@@ -49,7 +50,7 @@ import { Route as ApiInternalDeviceMonitorRouteImport } from './routes/api/inter
 import { Route as ApiMediaReplaceRouteImport } from './routes/api/media/replace'
 import { Route as ApiMediaUploadRouteImport } from './routes/api/media/upload'
 import { Route as ApiPublicEmissorManifestRouteImport } from './routes/api/public/emissor-manifest'
-import { Route as ApiPublicQuizRouteImport } from './routes/api/public/quiz'
+import { Route as ApiPublicSignupRouteImport } from './routes/api/public/signup'
 import { Route as ApiPublicWidgetDataRouteImport } from './routes/api/public/widget-data'
 import { Route as ApiPublicWidgetSourcesRouteImport } from './routes/api/public/widget-sources'
 import { Route as ApiQueueChimeRouteImport } from './routes/api/queue/chime'
@@ -90,6 +91,11 @@ const IndexRoute = IndexRouteImport.update({
 const AtivarRoute = AtivarRouteImport.update({
   id: '/ativar',
   path: '/ativar',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const CadastroRoute = CadastroRouteImport.update({
+  id: '/cadastro',
+  path: '/cadastro',
   getParentRoute: () => rootRouteImport,
 } as any)
 const DiagnosticoRoute = DiagnosticoRouteImport.update({
@@ -284,9 +290,9 @@ const ApiPublicEmissorManifestRoute =
     path: '/api/public/emissor-manifest',
     getParentRoute: () => rootRouteImport,
   } as any)
-const ApiPublicQuizRoute = ApiPublicQuizRouteImport.update({
-  id: '/api/public/quiz',
-  path: '/api/public/quiz',
+const ApiPublicSignupRoute = ApiPublicSignupRouteImport.update({
+  id: '/api/public/signup',
+  path: '/api/public/signup',
   getParentRoute: () => rootRouteImport,
 } as any)
 const ApiPublicWidgetDataRoute = ApiPublicWidgetDataRouteImport.update({
@@ -460,6 +466,7 @@ export interface FileRoutesByFullPath {
   '/studio': typeof StudioRouteRouteWithChildren
   '/torre': typeof TorreRouteRouteWithChildren
   '/ativar': typeof AtivarRoute
+  '/cadastro': typeof CadastroRoute
   '/diagnostico': typeof DiagnosticoRoute
   '/entrar': typeof EntrarRoute
   '/recuperar-senha': typeof RecuperarSenhaRoute
@@ -496,7 +503,7 @@ export interface FileRoutesByFullPath {
   '/api/media/replace': typeof ApiMediaReplaceRoute
   '/api/media/upload': typeof ApiMediaUploadRoute
   '/api/public/emissor-manifest': typeof ApiPublicEmissorManifestRoute
-  '/api/public/quiz': typeof ApiPublicQuizRoute
+  '/api/public/signup': typeof ApiPublicSignupRoute
   '/api/public/widget-data': typeof ApiPublicWidgetDataRoute
   '/api/public/widget-sources': typeof ApiPublicWidgetSourcesRoute
   '/api/queue/chime': typeof ApiQueueChimeRoute
@@ -532,6 +539,7 @@ export interface FileRoutesByFullPath {
 export interface FileRoutesByTo {
   '/': typeof IndexRoute
   '/ativar': typeof AtivarRoute
+  '/cadastro': typeof CadastroRoute
   '/diagnostico': typeof DiagnosticoRoute
   '/entrar': typeof EntrarRoute
   '/recuperar-senha': typeof RecuperarSenhaRoute
@@ -568,7 +576,7 @@ export interface FileRoutesByTo {
   '/api/media/replace': typeof ApiMediaReplaceRoute
   '/api/media/upload': typeof ApiMediaUploadRoute
   '/api/public/emissor-manifest': typeof ApiPublicEmissorManifestRoute
-  '/api/public/quiz': typeof ApiPublicQuizRoute
+  '/api/public/signup': typeof ApiPublicSignupRoute
   '/api/public/widget-data': typeof ApiPublicWidgetDataRoute
   '/api/public/widget-sources': typeof ApiPublicWidgetSourcesRoute
   '/api/queue/chime': typeof ApiQueueChimeRoute
@@ -607,6 +615,7 @@ export interface FileRoutesById {
   '/studio': typeof StudioRouteRouteWithChildren
   '/torre': typeof TorreRouteRouteWithChildren
   '/ativar': typeof AtivarRoute
+  '/cadastro': typeof CadastroRoute
   '/diagnostico': typeof DiagnosticoRoute
   '/entrar': typeof EntrarRoute
   '/recuperar-senha': typeof RecuperarSenhaRoute
@@ -643,7 +652,7 @@ export interface FileRoutesById {
   '/api/media/replace': typeof ApiMediaReplaceRoute
   '/api/media/upload': typeof ApiMediaUploadRoute
   '/api/public/emissor-manifest': typeof ApiPublicEmissorManifestRoute
-  '/api/public/quiz': typeof ApiPublicQuizRoute
+  '/api/public/signup': typeof ApiPublicSignupRoute
   '/api/public/widget-data': typeof ApiPublicWidgetDataRoute
   '/api/public/widget-sources': typeof ApiPublicWidgetSourcesRoute
   '/api/queue/chime': typeof ApiQueueChimeRoute
@@ -683,6 +692,7 @@ export interface FileRouteTypes {
     | '/studio'
     | '/torre'
     | '/ativar'
+    | '/cadastro'
     | '/diagnostico'
     | '/entrar'
     | '/recuperar-senha'
@@ -719,7 +729,7 @@ export interface FileRouteTypes {
     | '/api/media/replace'
     | '/api/media/upload'
     | '/api/public/emissor-manifest'
-    | '/api/public/quiz'
+    | '/api/public/signup'
     | '/api/public/widget-data'
     | '/api/public/widget-sources'
     | '/api/queue/chime'
@@ -755,6 +765,7 @@ export interface FileRouteTypes {
   to:
     | '/'
     | '/ativar'
+    | '/cadastro'
     | '/diagnostico'
     | '/entrar'
     | '/recuperar-senha'
@@ -791,7 +802,7 @@ export interface FileRouteTypes {
     | '/api/media/replace'
     | '/api/media/upload'
     | '/api/public/emissor-manifest'
-    | '/api/public/quiz'
+    | '/api/public/signup'
     | '/api/public/widget-data'
     | '/api/public/widget-sources'
     | '/api/queue/chime'
@@ -829,6 +840,7 @@ export interface FileRouteTypes {
     | '/studio'
     | '/torre'
     | '/ativar'
+    | '/cadastro'
     | '/diagnostico'
     | '/entrar'
     | '/recuperar-senha'
@@ -865,7 +877,7 @@ export interface FileRouteTypes {
     | '/api/media/replace'
     | '/api/media/upload'
     | '/api/public/emissor-manifest'
-    | '/api/public/quiz'
+    | '/api/public/signup'
     | '/api/public/widget-data'
     | '/api/public/widget-sources'
     | '/api/queue/chime'
@@ -904,6 +916,7 @@ export interface RootRouteChildren {
   StudioRouteRoute: typeof StudioRouteRouteWithChildren
   TorreRouteRoute: typeof TorreRouteRouteWithChildren
   AtivarRoute: typeof AtivarRoute
+  CadastroRoute: typeof CadastroRoute
   DiagnosticoRoute: typeof DiagnosticoRoute
   EntrarRoute: typeof EntrarRoute
   RecuperarSenhaRoute: typeof RecuperarSenhaRoute
@@ -918,7 +931,7 @@ export interface RootRouteChildren {
   ApiMediaReplaceRoute: typeof ApiMediaReplaceRoute
   ApiMediaUploadRoute: typeof ApiMediaUploadRoute
   ApiPublicEmissorManifestRoute: typeof ApiPublicEmissorManifestRoute
-  ApiPublicQuizRoute: typeof ApiPublicQuizRoute
+  ApiPublicSignupRoute: typeof ApiPublicSignupRoute
   ApiPublicWidgetDataRoute: typeof ApiPublicWidgetDataRoute
   ApiPublicWidgetSourcesRoute: typeof ApiPublicWidgetSourcesRoute
   ApiQueueChimeRoute: typeof ApiQueueChimeRoute
@@ -957,6 +970,13 @@ declare module '@tanstack/react-router' {
       path: '/ativar'
       fullPath: '/ativar'
       preLoaderRoute: typeof AtivarRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/cadastro': {
+      id: '/cadastro'
+      path: '/cadastro'
+      fullPath: '/cadastro'
+      preLoaderRoute: typeof CadastroRouteImport
       parentRoute: typeof rootRouteImport
     }
     '/diagnostico': {
@@ -1225,11 +1245,11 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof ApiPublicEmissorManifestRouteImport
       parentRoute: typeof rootRouteImport
     }
-    '/api/public/quiz': {
-      id: '/api/public/quiz'
-      path: '/api/public/quiz'
-      fullPath: '/api/public/quiz'
-      preLoaderRoute: typeof ApiPublicQuizRouteImport
+    '/api/public/signup': {
+      id: '/api/public/signup'
+      path: '/api/public/signup'
+      fullPath: '/api/public/signup'
+      preLoaderRoute: typeof ApiPublicSignupRouteImport
       parentRoute: typeof rootRouteImport
     }
     '/api/public/widget-data': {
@@ -1548,6 +1568,7 @@ const rootRouteChildren: RootRouteChildren = {
   StudioRouteRoute: StudioRouteRouteWithChildren,
   TorreRouteRoute: TorreRouteRouteWithChildren,
   AtivarRoute: AtivarRoute,
+  CadastroRoute: CadastroRoute,
   DiagnosticoRoute: DiagnosticoRoute,
   EntrarRoute: EntrarRoute,
   RecuperarSenhaRoute: RecuperarSenhaRoute,
@@ -1562,7 +1583,7 @@ const rootRouteChildren: RootRouteChildren = {
   ApiMediaReplaceRoute: ApiMediaReplaceRoute,
   ApiMediaUploadRoute: ApiMediaUploadRoute,
   ApiPublicEmissorManifestRoute: ApiPublicEmissorManifestRoute,
-  ApiPublicQuizRoute: ApiPublicQuizRoute,
+  ApiPublicSignupRoute: ApiPublicSignupRoute,
   ApiPublicWidgetDataRoute: ApiPublicWidgetDataRoute,
   ApiPublicWidgetSourcesRoute: ApiPublicWidgetSourcesRoute,
   ApiQueueChimeRoute: ApiQueueChimeRoute,
