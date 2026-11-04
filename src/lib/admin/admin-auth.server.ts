@@ -1,4 +1,7 @@
 export async function requirePlatformAdmin() {
+  const { setResponseHeader } = await import("@tanstack/react-start/server");
+  setResponseHeader("Cache-Control", "private, no-store, max-age=0");
+  setResponseHeader("Vary", "Cookie");
   const { getSessionUser, getImpersonatorUser } = await import("@/lib/auth/session.server");
   const current = await getSessionUser();
   const allowed = (process.env.PLATFORM_ADMIN_EMAILS ?? "")

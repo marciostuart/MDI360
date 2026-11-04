@@ -1,4 +1,5 @@
-import { createFileRoute, Link, Outlet } from "@tanstack/react-router";
+import { createFileRoute, Link, notFound, Outlet } from "@tanstack/react-router";
+import { canOpenTower } from "@/lib/admin/tower-access.functions";
 import {
   Building2,
   Download,
@@ -15,6 +16,9 @@ import {
 } from "lucide-react";
 
 export const Route = createFileRoute("/torre")({
+  beforeLoad: async () => {
+    if (!(await canOpenTower())) throw notFound({ routeId: "__root__" });
+  },
   head: () => ({ meta: [{ name: "robots", content: "noindex, nofollow" }] }),
   component: TowerLayout,
 });

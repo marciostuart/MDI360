@@ -10,9 +10,6 @@ function dedicatedSecret() {
   if (value.length < 32) throw new Error("SIGNUP_DATA_SECRET_INVALID");
   return value;
 }
-function hasDedicatedSecret() {
-  return Boolean(process.env.SIGNUP_DATA_SECRET);
-}
 function binding(value: string, dedicated: boolean) {
   if (dedicated) {
     return `v2:${createHmac("sha256", dedicatedSecret()).update(`mdi360:signup:binding:v2:${value}`).digest("hex")}`;
@@ -23,24 +20,24 @@ export function signupDigest(value: string) {
   return createHash("sha256").update(value).digest("hex");
 }
 export function signupBinding(value: string) {
-  return binding(value, hasDedicatedSecret());
+  return binding(value, true);
 }
 /** Keep outstanding legacy confirmations valid when a dedicated key is added. */
 export function signupBindingCandidates(value: string) {
-  const values = [signupBinding(value)];
-  if (hasDedicatedSecret() && (process.env.SESSION_SECRET ?? "").length >= 24)
-    values.push(binding(value, false));
+  const values: string[] = [];
+  if (process.env.SIGNUP_DATA_SECRET) values.push(binding(value, true));
+  if ((process.env.SESSION_SECRET ?? "").length >= 24) values.push(binding(value, false));
+  if (!values.length) throw new Error("SIGNUP_DATA_SECRET_INVALID");
   return values;
 }
 export function encryptSignupPayload(value: unknown) {
-  const dedicated = hasDedicatedSecret();
   const key = createHash("sha256")
-    .update(dedicated ? `mdi360:signup:encryption:v2:${dedicatedSecret()}` : legacySecret())
+    .update(`mdi360:signup:encryption:v2:${dedicatedSecret()}`)
     .digest();
   const iv = randomBytes(12);
   const cipher = createCipheriv("aes-256-gcm", key, iv);
   const ciphertext = Buffer.concat([cipher.update(JSON.stringify(value)), cipher.final()]);
-  return `${dedicated ? "v2." : ""}${iv.toString("base64url")}.${cipher.getAuthTag().toString("base64url")}.${ciphertext.toString("base64url")}`;
+  return `v2.${iv.toString("base64url")}.${cipher.getAuthTag().toString("base64url")}.${ciphertext.toString("base64url")}`;
 }
 export function decryptSignupPayload(value: string) {
   const dedicated = value.startsWith("v2.");
