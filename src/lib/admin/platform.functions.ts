@@ -294,6 +294,97 @@ export const fetchPlatformOrganizations = createServerFn({ method: "GET" }).hand
   },
 );
 
+export const createPlatformOrganization = createServerFn({ method: "POST" })
+  .inputValidator((input: unknown) =>
+    z
+      .object({
+        organizationName: z.string().trim().min(2).max(160),
+        ownerName: z.string().trim().min(2).max(120),
+        ownerEmail: z.string().trim().toLowerCase().email().max(254),
+        initialPassword: z.string().min(12).max(200),
+        planId: z.string().uuid().nullable().optional(),
+      })
+      .parse(input),
+  )
+  .handler(async ({ data }) => {
+    const actor = await requirePlatform();
+    const { randomUUID } = await import("node:crypto");
+    const { getDb, schema } = await import("@/lib/db/index.server");
+    const { hashPassword } = await import("@/lib/auth/session.server");
+    const { and, eq } = await import("drizzle-orm");
+    const db = getDb();
+    const email = data.ownerEmail.trim().toLowerCase();
+    const [existingUser] = await db
+      .select({ id: schema.users.id })
+      .from(schema.users)
+      .where(eq(schema.users.email, email))
+      .limit(1);
+    if (existingUser) throw new Error("OWNER_EMAIL_ALREADY_EXISTS");
+
+    const slugBase =
+      data.organizationName
+        .toLowerCase()
+        .normalize("NFD")
+        .replace(/[\u0300-\u036f]/g, "")
+        .replace(/[^a-z0-9]+/g, "-")
+        .replace(/(^-|-$)/g, "")
+        .slice(0, 40) || "empresa";
+    const slug = `${slugBase}-${randomUUID().slice(0, 8)}`;
+    const passwordHash = await hashPassword(data.initialPassword);
+
+    try {
+      return await db.transaction(async (tx) => {
+        let planId = data.planId ?? null;
+        if (planId) {
+          const [plan] = await tx
+            .select({ id: schema.plans.id })
+            .from(schema.plans)
+            .where(and(eq(schema.plans.id, planId), eq(schema.plans.isActive, true)))
+            .limit(1);
+          if (!plan) throw new Error("PLAN_NOT_FOUND");
+        } else {
+          const [freePlan] = await tx
+            .select({ id: schema.plans.id })
+            .from(schema.plans)
+            .where(eq(schema.plans.slug, "gratuito"))
+            .limit(1);
+          if (!freePlan) throw new Error("FREE_PLAN_NOT_CONFIGURED");
+          planId = freePlan.id;
+        }
+
+        const [organization] = await tx
+          .insert(schema.organizations)
+          .values({ name: data.organizationName.trim(), slug, planId })
+          .returning({ id: schema.organizations.id });
+        const [owner] = await tx
+          .insert(schema.users)
+          .values({
+            organizationId: organization!.id,
+            name: data.ownerName.trim(),
+            email,
+            passwordHash,
+          })
+          .returning({ id: schema.users.id });
+        await tx.insert(schema.userRoles).values({ userId: owner!.id, role: "owner" });
+        await tx.insert(schema.supportActions).values({
+          actorId: actor.id,
+          organizationId: organization!.id,
+          resource: "organizations",
+          recordId: organization!.id,
+          action: "create",
+          reason: "Cadastro de estabelecimento pela Torre",
+          changedFields: ["name", "slug", "planId", "owner"],
+        });
+        return { organizationId: organization!.id, ownerEmail: email };
+      });
+    } catch (error) {
+      if (error && typeof error === "object" && "code" in error && error.code === "23505") {
+        throw new Error("OWNER_EMAIL_ALREADY_EXISTS");
+      }
+      throw error;
+    }
+  });
+
 export type PlatformOrgDetail = {
   organization: PlatformOrganization;
   notes: string | null;

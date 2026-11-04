@@ -1,13 +1,24 @@
 import { useState } from "react";
+import type { ReactNode } from "react";
 import { createFileRoute, Link, useNavigate } from "@tanstack/react-router";
-import { useMutation, useQuery } from "@tanstack/react-query";
-import { Building2, Loader2, LogIn, Search, Settings2 } from "lucide-react";
+import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
+import { Building2, Loader2, LogIn, Plus, Search, Settings2 } from "lucide-react";
 import { toast } from "sonner";
 
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
 import { Badge } from "@/components/ui/badge";
+import { Label } from "@/components/ui/label";
+import {
+  Dialog,
+  DialogContent,
+  DialogDescription,
+  DialogFooter,
+  DialogHeader,
+  DialogTitle,
+  DialogTrigger,
+} from "@/components/ui/dialog";
 import {
   Select,
   SelectContent,
@@ -16,6 +27,8 @@ import {
   SelectValue,
 } from "@/components/ui/select";
 import {
+  createPlatformOrganization,
+  fetchPlans,
   fetchPlatformOrganizations,
   impersonateOrganization,
 } from "@/lib/admin/platform.functions";
@@ -49,11 +62,66 @@ function ClientsPage() {
   const [term, setTerm] = useState("");
   const [statusFilter, setStatusFilter] = useState<StatusFilter>("all");
   const [sortBy, setSortBy] = useState<SortBy>("newest");
+  const [createOpen, setCreateOpen] = useState(false);
+  const [draft, setDraft] = useState({
+    organizationName: "",
+    ownerName: "",
+    ownerEmail: "",
+    initialPassword: "",
+    confirmPassword: "",
+    planId: "",
+  });
   const navigate = useNavigate();
+  const queryClient = useQueryClient();
   const { data, isPending } = useQuery({
     queryKey: ["platform-organizations"],
     queryFn: () => fetchPlatformOrganizations(),
     refetchInterval: 20_000,
+  });
+  const { data: plans } = useQuery({ queryKey: ["platform-plans"], queryFn: () => fetchPlans() });
+
+  const createOrganization = useMutation({
+    mutationFn: () => {
+      if (draft.initialPassword !== draft.confirmPassword) {
+        throw new Error("PASSWORD_CONFIRMATION_MISMATCH");
+      }
+      return createPlatformOrganization({
+        data: {
+          organizationName: draft.organizationName,
+          ownerName: draft.ownerName,
+          ownerEmail: draft.ownerEmail,
+          initialPassword: draft.initialPassword,
+          planId: draft.planId || null,
+        },
+      });
+    },
+    onSuccess: (result) => {
+      toast.success("Estabelecimento e usuário proprietário cadastrados.");
+      setCreateOpen(false);
+      setDraft({
+        organizationName: "",
+        ownerName: "",
+        ownerEmail: "",
+        initialPassword: "",
+        confirmPassword: "",
+        planId: "",
+      });
+      void queryClient.invalidateQueries({ queryKey: ["platform-organizations"] });
+      void navigate({
+        to: "/torre/clientes/$organizationId",
+        params: { organizationId: result.organizationId },
+      });
+    },
+    onError: (error) => {
+      const message = error instanceof Error ? error.message : "";
+      toast.error(
+        message.includes("OWNER_EMAIL_ALREADY_EXISTS")
+          ? "Este e-mail já pertence a um usuário cadastrado."
+          : message.includes("PASSWORD_CONFIRMATION_MISMATCH")
+            ? "As senhas não conferem."
+            : "Não foi possível cadastrar. Confira os dados e tente novamente.",
+      );
+    },
   });
 
   const impersonate = useMutation({
@@ -107,12 +175,127 @@ function ClientsPage() {
 
   return (
     <div className="space-y-6">
-      <div>
-        <h1 className="text-3xl font-semibold">Estabelecimentos</h1>
-        <p className="mt-2 max-w-2xl text-sm text-muted-foreground">
-          {data.length} contas cadastradas na plataforma. Clique no nome de um estabelecimento para
-          ver detalhes, ou use "Entrar" para acessar o painel do cliente.
-        </p>
+      <div className="flex flex-wrap items-end justify-between gap-4">
+        <div>
+          <h1 className="text-3xl font-semibold">Estabelecimentos</h1>
+          <p className="mt-2 max-w-2xl text-sm text-muted-foreground">
+            {data.length} contas cadastradas na plataforma. Clique no nome de um estabelecimento
+            para ver detalhes, ou use "Entrar" para acessar o painel do cliente.
+          </p>
+        </div>
+        <Dialog open={createOpen} onOpenChange={setCreateOpen}>
+          <DialogTrigger asChild>
+            <Button>
+              <Plus className="mr-2 size-4" /> Novo estabelecimento
+            </Button>
+          </DialogTrigger>
+          <DialogContent className="max-h-[90vh] overflow-y-auto sm:max-w-xl">
+            <DialogHeader>
+              <DialogTitle>Cadastrar estabelecimento</DialogTitle>
+              <DialogDescription>
+                Cria a conta da empresa e seu primeiro usuário, com perfil de proprietário. A conta
+                começará em período de teste; você poderá ajustar plano e cobrança nos detalhes.
+              </DialogDescription>
+            </DialogHeader>
+            <div className="grid gap-4 py-2">
+              <FormField label="Nome do estabelecimento">
+                <Input
+                  autoFocus
+                  value={draft.organizationName}
+                  onChange={(event) =>
+                    setDraft({ ...draft, organizationName: event.target.value })
+                  }
+                  maxLength={160}
+                />
+              </FormField>
+              <FormField label="Nome do responsável">
+                <Input
+                  value={draft.ownerName}
+                  onChange={(event) => setDraft({ ...draft, ownerName: event.target.value })}
+                  maxLength={120}
+                />
+              </FormField>
+              <FormField label="E-mail de acesso do proprietário">
+                <Input
+                  type="email"
+                  autoComplete="email"
+                  value={draft.ownerEmail}
+                  onChange={(event) => setDraft({ ...draft, ownerEmail: event.target.value })}
+                  maxLength={254}
+                />
+              </FormField>
+              <FormField label="Plano inicial">
+                <Select
+                  value={draft.planId || "default"}
+                  onValueChange={(value) =>
+                    setDraft({ ...draft, planId: value === "default" ? "" : value })
+                  }
+                >
+                  <SelectTrigger>
+                    <SelectValue placeholder="Plano gratuito" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="default">Plano gratuito</SelectItem>
+                    {(plans ?? [])
+                      .filter((plan) => plan.isActive && plan.slug !== "gratuito")
+                      .map((plan) => (
+                        <SelectItem key={plan.id} value={plan.id}>
+                          {plan.name}
+                        </SelectItem>
+                      ))}
+                  </SelectContent>
+                </Select>
+              </FormField>
+              <div className="grid gap-4 sm:grid-cols-2">
+                <FormField label="Senha inicial (mínimo 12 caracteres)">
+                  <Input
+                    type="password"
+                    autoComplete="new-password"
+                    value={draft.initialPassword}
+                    onChange={(event) => setDraft({ ...draft, initialPassword: event.target.value })}
+                    minLength={12}
+                    maxLength={200}
+                  />
+                </FormField>
+                <FormField label="Confirmar senha inicial">
+                  <Input
+                    type="password"
+                    autoComplete="new-password"
+                    value={draft.confirmPassword}
+                    onChange={(event) => setDraft({ ...draft, confirmPassword: event.target.value })}
+                    minLength={12}
+                    maxLength={200}
+                  />
+                </FormField>
+              </div>
+              <p className="text-xs text-muted-foreground">
+                A senha é armazenada somente como hash. Compartilhe-a com o responsável por um
+                canal seguro.
+              </p>
+            </div>
+            <DialogFooter>
+              <Button variant="outline" onClick={() => setCreateOpen(false)}>
+                Cancelar
+              </Button>
+              <Button
+                onClick={() => createOrganization.mutate()}
+                disabled={
+                  createOrganization.isPending ||
+                  !draft.organizationName.trim() ||
+                  !draft.ownerName.trim() ||
+                  !draft.ownerEmail.trim() ||
+                  draft.initialPassword.length < 12 ||
+                  draft.initialPassword !== draft.confirmPassword
+                }
+              >
+                {createOrganization.isPending ? (
+                  <Loader2 className="mr-2 size-4 animate-spin" />
+                ) : null}
+                Cadastrar
+              </Button>
+            </DialogFooter>
+          </DialogContent>
+        </Dialog>
       </div>
 
       <div className="flex flex-wrap items-center gap-2">
@@ -227,6 +410,15 @@ function ClientsPage() {
           })}
         </div>
       )}
+    </div>
+  );
+}
+
+function FormField({ label, children }: { label: string; children: ReactNode }) {
+  return (
+    <div className="space-y-2">
+      <Label>{label}</Label>
+      {children}
     </div>
   );
 }
