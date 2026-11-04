@@ -98,3 +98,11 @@ export function landingAnchorProps(link: LandingLink) {
     rel: link.newTab ? "noopener noreferrer" : undefined,
   };
 }
+
+/** Section anchors point back to the institutional home from secondary pages. */
+export function landingAnchorPropsForPage(link: LandingLink, isHome: boolean) {
+  return landingAnchorProps({
+    ...link,
+    href: !isHome && link.href.startsWith("#") ? `/${link.href}` : link.href,
+  });
+}

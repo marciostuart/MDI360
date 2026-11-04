@@ -143,14 +143,20 @@ export const Route = createFileRoute("/api/public/signup")({
           const p = confirmSchema.safeParse(raw);
           if (!p.success) return fail(400, "Link ou senha inválidos.");
           const { getDb, schema } = await import("@/lib/db/index.server");
-          const { and, eq, gt, isNull } = await import("drizzle-orm");
+          const { and, eq, gt, isNull, or } = await import("drizzle-orm");
           const db = getDb();
-          const { signupBinding, signupDigest, decryptSignupPayload } =
+          const { signupBindingCandidates, signupDigest, decryptSignupPayload } =
             await import("@/lib/landing/signup-crypto.server");
           const address = await clientAddress(request);
           if (!address) return fail(400, "Não foi possível validar a conexão.");
-          const ipHash = signupBinding(address);
-          const uaHash = signupBinding(request.headers.get("user-agent") ?? "");
+          const ipHashes = signupBindingCandidates(address);
+          const uaHashes = signupBindingCandidates(request.headers.get("user-agent") ?? "");
+          const bindings = ipHashes.map((ipHash, index) =>
+            and(
+              eq(schema.signupRequests.ipHash, ipHash),
+              eq(schema.signupRequests.userAgentHash, uaHashes[index]!),
+            ),
+          );
           let lead: Record<string, unknown> | null = null;
           let signupId = "";
           const accountId = await db.transaction(async (tx) => {
@@ -160,8 +166,7 @@ export const Route = createFileRoute("/api/public/signup")({
               .where(
                 and(
                   eq(schema.signupRequests.tokenHash, signupDigest(p.data.token)),
-                  eq(schema.signupRequests.ipHash, ipHash),
-                  eq(schema.signupRequests.userAgentHash, uaHash),
+                  or(...bindings),
                   gt(schema.signupRequests.expiresAt, new Date()),
                   isNull(schema.signupRequests.usedAt),
                 ),
@@ -308,8 +313,11 @@ export const Route = createFileRoute("/api/public/signup")({
               503,
               "Não foi possível enviar o e-mail de confirmação. Verifique o serviço SMTP.",
             );
-          if (message === "SESSION_SECRET_INVALID")
-            return fail(503, "Configuração de segurança inválida. Revise SESSION_SECRET.");
+          if (message === "SESSION_SECRET_INVALID" || message === "SIGNUP_DATA_SECRET_INVALID")
+            return fail(
+              503,
+              "Configuração de segurança do cadastro inválida. Configure SIGNUP_DATA_SECRET na Stack.",
+            );
           if (
             error &&
             typeof error === "object" &&

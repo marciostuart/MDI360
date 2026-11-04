@@ -1,12 +1,17 @@
 import { createFileRoute, useNavigate } from "@tanstack/react-router";
+import { useQueryClient } from "@tanstack/react-query";
 import { useEffect, useState } from "react";
 import { TurnstileWidget } from "@/components/auth/turnstile-widget";
+import { SiteFooter, SiteHeader } from "@/components/landing/site-chrome";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
+import { fetchLandingContent } from "@/lib/landing/landing.functions";
+import { isValidCnpj, isValidCpf } from "@/lib/billing/customer-profile";
 
 export const Route = createFileRoute("/cadastro")({
+  loader: () => fetchLandingContent(),
   validateSearch: (s: Record<string, unknown>) => ({
     confirm: typeof s.confirm === "string" ? s.confirm : "",
   }),
@@ -78,14 +83,17 @@ function mask(value: string, kind: "cpf" | "cnpj" | "phone" | "cep") {
   );
 }
 function SignupPage() {
+  const content = Route.useLoaderData();
   const { confirm } = Route.useSearch();
   const navigate = useNavigate();
+  const queryClient = useQueryClient();
   const [form, setForm] = useState(empty);
   const [siteKey, setSiteKey] = useState("");
   const [challenge, setChallenge] = useState(0);
   const [notice, setNotice] = useState("");
   const [busy, setBusy] = useState(false);
   const [password, setPassword] = useState("");
+  const [documentTouched, setDocumentTouched] = useState(false);
   useEffect(() => {
     void fetch("/api/public/signup")
       .then((r) => r.json())
@@ -112,6 +120,12 @@ function SignupPage() {
   const set = (key: keyof Form, value: string) => setForm((f) => ({ ...f, [key]: value }));
   async function submit(event: React.FormEvent) {
     event.preventDefault();
+    setDocumentTouched(true);
+    const documentValid = form.type === "PF" ? isValidCpf(form.cpf) : isValidCnpj(form.cnpj);
+    if (!documentValid) {
+      setNotice(`Informe um ${form.type === "PF" ? "CPF" : "CNPJ"} válido.`);
+      return;
+    }
     setBusy(true);
     setNotice("");
     try {
@@ -168,6 +182,8 @@ function SignupPage() {
       });
       const v = await r.json();
       if (!r.ok) throw new Error(v.error);
+      await queryClient.invalidateQueries({ queryKey: ["current-user"] });
+      await queryClient.invalidateQueries({ queryKey: ["impersonation-state"] });
       await navigate({ to: "/studio" });
     } catch (e) {
       setNotice(e instanceof Error ? e.message : "Não foi possível confirmar.");
@@ -181,45 +197,38 @@ function SignupPage() {
     type = "text",
     kind?: "cpf" | "cnpj" | "phone" | "cep",
     required = true,
-  ) => (
-    <label className="grid gap-2 text-sm">
-      <Label>{label}</Label>
-      <Input
-        required={required}
-        type={type}
-        value={form[key]}
-        onChange={(e) => set(key, kind ? mask(e.target.value, kind) : e.target.value)}
-        autoComplete="on"
-      />
-    </label>
-  );
+  ) => {
+    const isDocument = key === "cpf" || key === "cnpj";
+    const invalidDocument =
+      isDocument &&
+      documentTouched &&
+      !(key === "cpf" ? isValidCpf(form.cpf) : isValidCnpj(form.cnpj));
+    return (
+      <label className="grid gap-2 text-sm">
+        <Label>{label}</Label>
+        <Input
+          required={required}
+          type={type}
+          value={form[key]}
+          onChange={(e) => set(key, kind ? mask(e.target.value, kind) : e.target.value)}
+          onBlur={isDocument ? () => setDocumentTouched(true) : undefined}
+          aria-invalid={invalidDocument || undefined}
+          autoComplete="on"
+        />
+        {invalidDocument && (
+          <span role="alert" className="text-sm text-destructive">
+            {key === "cpf"
+              ? "CPF inválido. Confira os dígitos."
+              : "CNPJ inválido. Confira os dígitos."}
+          </span>
+        )}
+      </label>
+    );
+  };
   return (
-    <div className="flex min-h-screen flex-col bg-[#070a08] text-[#f4f7f2]">
-      <header className="border-b border-white/10 bg-[#070a08]/90">
-        <div className="mx-auto flex h-20 max-w-7xl items-center justify-between px-5 lg:px-10">
-          <a href="/" aria-label="MDI 360 - início" className="flex items-center gap-2.5">
-            <span className="grid size-9 place-items-center rounded-xl bg-[#a3ff3f] text-[#07100b]">
-              <span className="text-sm font-black">▶</span>
-            </span>
-            <span className="font-display text-lg font-bold tracking-tight">MDI 360</span>
-          </a>
-          <nav className="flex items-center gap-5 text-sm text-white/70">
-            <a href="/#plataforma" className="hidden hover:text-white sm:inline">
-              Plataforma
-            </a>
-            <a href="/#faq" className="hidden hover:text-white sm:inline">
-              Dúvidas
-            </a>
-            <a
-              href="/entrar?mode=login"
-              className="rounded-full border border-white/15 px-4 py-2 hover:text-white"
-            >
-              Entrar
-            </a>
-          </nav>
-        </div>
-      </header>
-      <main className="grid flex-1 place-items-center px-4 py-10">
+    <div className="landing-shell flex min-h-screen flex-col bg-[#070a08] text-[#f4f7f2]">
+      <SiteHeader links={content.links} />
+      <main className="grid flex-1 place-items-center px-4 pb-10 pt-28">
         <Card className="w-full max-w-2xl">
           <CardHeader>
             <CardTitle>{confirm ? "Confirme seu cadastro" : "Pré-cadastro MDI 360"}</CardTitle>
@@ -258,13 +267,15 @@ function SignupPage() {
                   <select
                     className="h-10 rounded-md border bg-background px-3"
                     value={form.type}
-                    onChange={(e) =>
+                    onChange={(e) => {
+                      setDocumentTouched(false);
+                      setNotice("");
                       setForm({
                         ...empty,
                         type: e.target.value as "PF" | "PJ",
                         turnstileToken: form.turnstileToken,
-                      })
-                    }
+                      });
+                    }}
                   >
                     <option value="PF">Pessoa física</option>
                     <option value="PJ">Pessoa jurídica</option>
@@ -319,14 +330,7 @@ function SignupPage() {
           </CardContent>
         </Card>
       </main>
-      <footer className="border-t border-white/10 px-5 py-8 text-sm text-white/45">
-        <div className="mx-auto flex max-w-7xl flex-col justify-between gap-3 sm:flex-row">
-          <span className="font-display font-semibold text-white/70">MDI 360</span>
-          <span>
-            © {new Date().getFullYear()} Márcio Stuart · 360BH · Todos os direitos reservados.
-          </span>
-        </div>
-      </footer>
+      <SiteFooter />
     </div>
   );
 }

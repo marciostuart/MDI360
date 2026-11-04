@@ -3,7 +3,7 @@
 ## Implantação segura
 
 1. Faça backup do PostgreSQL.
-2. Confirme no ambiente da Stack `TURNSTILE_SITE_KEY`, `TURNSTILE_SECRET_KEY` e `SESSION_SECRET` (mínimo de 24 caracteres, igual à criptografia de credenciais existente; não troque uma chave em uso). O pré-cadastro falha fechado se Turnstile estiver indisponível.
+2. Confirme no ambiente da Stack `TURNSTILE_SITE_KEY`, `TURNSTILE_SECRET_KEY` e `SIGNUP_DATA_SECRET` (gere 32 bytes aleatórios, por exemplo 64 caracteres hexadecimais). Mantenha o `SESSION_SECRET` existente inalterado. O pré-cadastro falha fechado se Turnstile ou a chave de cadastro estiverem indisponíveis.
 3. Confirme que SMTP está habilitado e validado na Torre; sem envio de e-mail, o pré-cadastro não é aceito.
 4. Atualize a imagem da Stack. O `docker/entrypoint.sh` executa `drizzle-kit migrate` antes de iniciar o servidor; isso aplica `0055_signup_requests.sql` automaticamente. A migração é aditiva e preserva `quiz_leads`.
 5. Valide `/cadastro`, confirmação por e-mail e login em `/studio` antes de divulgar o link.
@@ -13,6 +13,6 @@ Os links antigos `/diagnostico` redirecionam para `/cadastro`. A tabela antiga d
 
 ## Segurança e retenção
 
-Os dados de pré-cadastro aguardando confirmação são cifrados com AES-256-GCM usando chave derivada do `SESSION_SECRET`. O token é salvo apenas como hash, expira em 10 minutos, é de uso único e fica vinculado a hashes do IP e do User-Agent. Após confirmação, a organização é criada no plano gratuito e a sessão inicia no painel. O webhook é enviado com HTTPS, DNS fixado, bloqueio de IPs privados, sem redirects e chave de idempotência.
+Os novos dados de pré-cadastro são cifrados com AES-256-GCM usando chave derivada de `SIGNUP_DATA_SECRET`. Guarde essa chave com segurança e mantenha-a estável, inclusive em backups e réplicas; mudá-la torna indisponíveis os dados cifrados com ela. Registros anteriores continuam usando o `SESSION_SECRET` original e são lidos com ele. Se `SIGNUP_DATA_SECRET` não estiver configurado, a versão anterior pode continuar usando `SESSION_SECRET` com pelo menos 24 caracteres. O token é salvo apenas como hash, expira em 10 minutos, é de uso único e fica vinculado a hashes do IP e do User-Agent. Após confirmação, a organização é criada no plano gratuito e a sessão inicia no painel. O webhook é enviado com HTTPS, DNS fixado, bloqueio de IPs privados, sem redirects e chave de idempotência.
 
 Defina uma política operacional de retenção/expurgo para pré-cadastros expirados não confirmados e para leads confirmados conforme a política de privacidade da empresa.

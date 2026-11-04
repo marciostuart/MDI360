@@ -8,6 +8,7 @@ import {
 import {
   LANDING_LINKS,
   landingAnchorProps,
+  landingAnchorPropsForPage,
   landingHrefSchema,
   landingLinksSchema,
 } from "../src/lib/landing/landing-links.ts";
@@ -21,6 +22,18 @@ test("all fourteen landing destinations have safe default href/target", () => {
     assert.equal(props.target, link.newTab ? "_blank" : "_self");
     if (link.newTab) assert.equal(props.rel, "noopener noreferrer");
   }
+});
+test("shared header preserves saved destinations and resolves home anchors on other pages", () => {
+  assert.equal(landingAnchorPropsForPage({ href: "#faq", newTab: false }, true).href, "#faq");
+  assert.equal(landingAnchorPropsForPage({ href: "#faq", newTab: false }, false).href, "/#faq");
+  assert.deepEqual(
+    landingAnchorPropsForPage({ href: "https://example.com", newTab: true }, false),
+    {
+      href: "https://example.com",
+      target: "_blank",
+      rel: "noopener noreferrer",
+    },
+  );
 });
 test("legacy WhatsApp customization survives without changing the other buttons", () => {
   const config = normalizeLandingContent({ whatsappUrl: "https://wa.me/5531999999999" });
@@ -78,9 +91,20 @@ test("unsafe/empty links cannot be published and corrupt persisted links fall ba
   );
 });
 test("every landing anchor uses an editor-controlled destination, including mobile duplicates", async () => {
-  const source = await readFile(new URL("../src/routes/index.tsx", import.meta.url), "utf8");
+  const source = [
+    await readFile(new URL("../src/routes/index.tsx", import.meta.url), "utf8"),
+    await readFile(new URL("../src/components/landing/site-chrome.tsx", import.meta.url), "utf8"),
+  ].join("\n");
   const references = [...source.matchAll(/link\("(\w+)"\)/g)].map((match) => match[1]);
   assert.deepEqual([...new Set(references)].sort(), Object.keys(LANDING_LINKS).sort());
   assert.equal(references.length, (source.match(/<a(?:\s|>)/g) ?? []).length);
   assert.equal(references.length, 19);
+});
+
+test("home and signup use the same institutional header and footer", async () => {
+  for (const path of ["../src/routes/index.tsx", "../src/routes/cadastro.tsx"]) {
+    const source = await readFile(new URL(path, import.meta.url), "utf8");
+    assert.match(source, /<SiteHeader\b/);
+    assert.match(source, /<SiteFooter\s*\/>/);
+  }
 });
