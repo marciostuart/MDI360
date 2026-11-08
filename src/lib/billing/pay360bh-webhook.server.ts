@@ -3,6 +3,7 @@ import { timingSafeEqual } from "node:crypto";
 import { and, eq, inArray, ne } from "drizzle-orm";
 
 import { getPay360BhCredentials } from "@/lib/billing/pay360bh-config.server";
+import { isPay360BhReceivedStatus } from "@/lib/billing/pay360bh-status";
 import { getDb, schema } from "@/lib/db/index.server";
 
 type Notification = {
@@ -10,7 +11,7 @@ type Notification = {
   projectCode: string;
   reference: string;
   paymentId: string;
-  status: "PENDING" | "RECEIVED";
+  status: "PENDING" | "RECEIVED" | "RECEIVED_IN_CASH";
 };
 
 function secureTokenMatch(received: string | null, expected: string) {
@@ -34,7 +35,7 @@ function parseNotification(value: unknown): Notification | null {
     typeof body.cobranca_id !== "string" ||
     body.cobranca_id.length < 1 ||
     body.cobranca_id.length > 120 ||
-    (body.status !== "PENDING" && body.status !== "RECEIVED")
+    (body.status !== "PENDING" && !isPay360BhReceivedStatus(body.status))
   ) {
     return null;
   }
@@ -150,7 +151,7 @@ async function processNotification(event: Notification) {
       throw new Error("PAY360BH_PAYMENT_ID_MISMATCH");
     }
 
-    if (event.status === "RECEIVED") {
+    if (isPay360BhReceivedStatus(event.status)) {
       if (attempt.status !== "approved") await settleReceivedPayment(tx, attempt);
       await tx
         .update(schema.billingPaymentAttempts)
