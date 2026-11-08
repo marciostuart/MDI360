@@ -9,7 +9,7 @@ As novas cobranças pós-pagas do MDI são criadas pela API proprietária Pay 36
 3. Copiar a URL de webhook exibida na Torre e cadastrá-la no projeto da Central Pay 360BH, com o mesmo código de projeto e token.
 4. Confirmar que a configuração aparece como pronta. Sem configuração, o MDI não emite cobranças novas.
 
-O webhook exige HTTPS e o header `X-Notificacao-Token`. O receptor confere o projeto e a referência, persiste `evento_id` com unicidade e processa `RECEIVED` em transação. Notificações repetidas são idempotentes. A confirmação não contém valor; o MDI correlaciona a cobrança com a tentativa e valida as alocações locais às faturas antes de dar baixa.
+O webhook exige HTTPS e o header `X-Notificacao-Token`. O receptor confere o projeto e a referência, persiste `evento_id` com unicidade e processa `RECEIVED` e `RECEIVED_IN_CASH` em transação. O segundo estado indica recebimento registrado por outro meio no Asaas. Notificações repetidas são idempotentes. A confirmação não contém valor; o MDI correlaciona a cobrança com a tentativa e valida as alocações locais às faturas antes de dar baixa.
 
 ## Limitações e segurança operacional
 
@@ -18,4 +18,4 @@ O webhook exige HTTPS e o header `X-Notificacao-Token`. O receptor confere o pro
 - Um Pix pendente não pode ser cancelado pela baixa manual do Studio/Torre e continua pagável até expirar. Se recebido depois da baixa, o valor vira crédito da empresa.
 - Ações irreversíveis de estorno não são sincronizadas pelo webhook documentado. Não considerar estorno concluído apenas pelo MDI.
 - Tentativas históricas do Mercado Pago permanecem identificadas pelo provedor original e seguem seus mecanismos existentes de reconciliação/webhook. A tela de pagamentos da Torre não oferece mais configuração ou criação de cobranças por esse provedor. Essa compatibilidade histórica não é usada para novas cobranças.
-- Esta alteração não realiza deploy nem cobrança de teste. A homologação deve usar uma conta/projeto apropriado da Central e confirmar geração e recebimento do webhook antes da liberação operacional.
+- O recebimento em dinheiro foi validado em produção em 08/11/2026: a Central reenviou o evento pendente e o MDI confirmou a fatura como paga. As demais alterações devem ser homologadas antes da liberação operacional.
