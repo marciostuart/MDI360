@@ -52,12 +52,25 @@ export const fetchSignupAdmin = createServerFn({ method: "GET" }).handler(async 
       };
     }
   });
-  const value = setting?.value as { enabled?: boolean; url?: string } | undefined;
-  return { webhook: { enabled: value?.enabled === true, url: value?.url ?? "" }, leads };
+  const value = setting?.value as { enabled?: boolean; url?: string; secret?: string } | undefined;
+  return {
+    webhook: {
+      enabled: value?.enabled === true,
+      url: value?.url ?? "",
+      secretConfigured: Boolean(value?.secret),
+    },
+    leads,
+  };
 });
 export const saveSignupWebhook = createServerFn({ method: "POST" })
   .inputValidator((input: unknown) =>
-    z.object({ enabled: z.boolean(), url: z.string().trim().max(2000) }).parse(input),
+    z
+      .object({
+        enabled: z.boolean(),
+        url: z.string().trim().max(2000),
+        secret: z.string().max(1000).default(""),
+      })
+      .parse(input),
   )
   .handler(async ({ data }) => {
     await authorize();
@@ -66,12 +79,25 @@ export const saveSignupWebhook = createServerFn({ method: "POST" })
       await webhookDestination(data.url);
     }
     const { getDb, schema } = await import("@/lib/db/index.server");
+    const { eq } = await import("drizzle-orm");
+    const { encryptCredential } = await import("@/lib/billing/mercado-pago-config.server");
+    const [previous] = await getDb()
+      .select({ value: schema.platformSettings.value })
+      .from(schema.platformSettings)
+      .where(eq(schema.platformSettings.key, "signup_webhook"))
+      .limit(1);
+    const old = previous?.value as { secret?: string } | undefined;
+    const value = {
+      enabled: data.enabled,
+      url: data.url,
+      secret: data.secret ? encryptCredential(data.secret) : old?.secret || "",
+    };
     await getDb()
       .insert(schema.platformSettings)
-      .values({ key: "signup_webhook", value: data })
+      .values({ key: "signup_webhook", value })
       .onConflictDoUpdate({
         target: schema.platformSettings.key,
-        set: { value: data, updatedAt: new Date() },
+        set: { value, updatedAt: new Date() },
       });
-    return data;
+    return { ok: true };
   });

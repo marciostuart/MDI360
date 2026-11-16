@@ -5,6 +5,80 @@ import { z } from "zod";
 const fail = (status: number, error: string) =>
   Response.json({ error }, { status, headers: { "cache-control": "no-store" } });
 const phoneDigits = (v: string) => v.replace(/\D/g, "");
+function webhookPayload(data: {
+  name: string;
+  type: "PF" | "PJ";
+  fantasyName?: string;
+  responsible: string;
+  document: string;
+  phone: string;
+  email: string;
+  cep: string;
+  street: string;
+  number: string;
+  complement: string;
+  neighborhood: string;
+  city: string;
+  state: string;
+  traffic: Record<string, string>;
+}) {
+  return {
+    nome: data.name,
+    razao_social: data.type === "PJ" ? data.name : "",
+    nome_fantasia: data.fantasyName ?? "",
+    responsavel: data.responsible,
+    cpf: data.type === "PF" ? data.document : "",
+    cnpj: data.type === "PJ" ? data.document : "",
+    telefone: data.phone,
+    email: data.email,
+    cep: data.cep,
+    rua: data.street,
+    numero: data.number,
+    complemento: data.complement,
+    bairro: data.neighborhood,
+    cidade: data.city,
+    estado: data.state,
+    tipo_pessoa: data.type === "PF" ? "Pessoa Física" : "Pessoa Jurídica",
+    origem_trafego: data.traffic,
+  };
+}
+async function deliverSignupWebhook(id: string, lead: Record<string, unknown>) {
+  const { getDb, schema } = await import("@/lib/db/index.server");
+  const { eq } = await import("drizzle-orm");
+  const db = getDb();
+  try {
+    const [config] = await db
+      .select({ value: schema.platformSettings.value })
+      .from(schema.platformSettings)
+      .where(eq(schema.platformSettings.key, "signup_webhook"))
+      .limit(1);
+    const webhook = config?.value as
+      { enabled?: boolean; url?: string; secret?: string } | undefined;
+    if (webhook?.enabled && webhook.url) {
+      const { sendSignupWebhook } = await import("@/lib/landing/signup-webhook.server");
+      const { decryptCredential } = await import("@/lib/billing/mercado-pago-config.server");
+      await sendSignupWebhook(webhook.url, lead, id, decryptCredential(webhook.secret));
+      await db
+        .update(schema.signupRequests)
+        .set({ webhookStatus: "sent" })
+        .where(eq(schema.signupRequests.id, id));
+    } else
+      await db
+        .update(schema.signupRequests)
+        .set({ webhookStatus: "disabled" })
+        .where(eq(schema.signupRequests.id, id));
+  } catch (error) {
+    console.error(
+      "signup webhook delivery failed",
+      error instanceof Error ? error.message : "unknown error",
+    );
+    await db
+      .update(schema.signupRequests)
+      .set({ webhookStatus: "failed" })
+      .where(eq(schema.signupRequests.id, id))
+      .catch(() => undefined);
+  }
+}
 const inputSchema = z.object({
   action: z.literal("request"),
   type: z.enum(["PF", "PJ"]),
@@ -133,8 +207,10 @@ export const Route = createFileRoute("/api/public/signup")({
                 "public signup email delivery failed",
                 error instanceof Error ? error.message : "unknown error",
               );
+              if (error instanceof Error && error.message === "SMTP_DISABLED") throw error;
               throw new Error("SIGNUP_EMAIL_DELIVERY_FAILED");
             }
+            await deliverSignupWebhook(id, webhookPayload(clean));
             return Response.json(
               { ok: true },
               { status: 202, headers: { "cache-control": "no-store" } },
@@ -184,7 +260,7 @@ export const Route = createFileRoute("/api/public/signup")({
             if (existing) throw new Error("EMAIL_EXISTS");
             const claimed = await tx
               .update(schema.signupRequests)
-              .set({ usedAt: new Date(), webhookStatus: "pending" })
+              .set({ usedAt: new Date() })
               .where(
                 and(eq(schema.signupRequests.id, row.id), isNull(schema.signupRequests.usedAt)),
               )
@@ -248,54 +324,12 @@ export const Route = createFileRoute("/api/public/signup")({
               completedAt: new Date(),
             });
             signupId = row.id;
-            lead = {
-              nome: data.name,
-              razao_social: data.type === "PJ" ? data.name : "",
-              nome_fantasia: data.fantasyName ?? "",
-              responsavel: data.responsible,
-              cpf: data.type === "PF" ? data.document : "",
-              cnpj: data.type === "PJ" ? data.document : "",
-              telefone: data.phone,
-              email: data.email,
-              cep: data.cep,
-              rua: data.street,
-              numero: data.number,
-              complemento: data.complement,
-              bairro: data.neighborhood,
-              cidade: data.city,
-              estado: data.state,
-              tipo_pessoa: data.type === "PF" ? "Pessoa Física" : "Pessoa Jurídica",
-              origem_trafego: data.traffic,
-            };
+            lead = row.webhookStatus === "sent" ? null : webhookPayload(data);
             return user!.id;
           });
           const { createSession } = await import("@/lib/auth/session.server");
           await createSession(accountId);
-          try {
-            const [config] = await db
-              .select({ value: schema.platformSettings.value })
-              .from(schema.platformSettings)
-              .where(eq(schema.platformSettings.key, "signup_webhook"))
-              .limit(1);
-            const webhook = config?.value as { enabled?: boolean; url?: string } | undefined;
-            if (webhook?.enabled && webhook.url) {
-              const { sendSignupWebhook } = await import("@/lib/landing/signup-webhook.server");
-              await sendSignupWebhook(webhook.url, lead!, signupId);
-              await db
-                .update(schema.signupRequests)
-                .set({ webhookStatus: "sent" })
-                .where(eq(schema.signupRequests.id, signupId));
-            } else
-              await db
-                .update(schema.signupRequests)
-                .set({ webhookStatus: "disabled" })
-                .where(eq(schema.signupRequests.id, signupId));
-          } catch {
-            await db
-              .update(schema.signupRequests)
-              .set({ webhookStatus: "failed" })
-              .where(eq(schema.signupRequests.id, signupId));
-          }
+          if (lead) await deliverSignupWebhook(signupId, lead);
           return Response.json(
             { ok: true, redirect: "/studio" },
             { headers: { "cache-control": "no-store" } },
@@ -306,6 +340,11 @@ export const Route = createFileRoute("/api/public/signup")({
             return fail(400, "Requisição inválida.");
           if (message === "INVALID_LINK")
             return fail(400, "Link expirado, já utilizado ou aberto em outra conexão/navegador.");
+          if (message === "SMTP_DISABLED")
+            return fail(
+              503,
+              "O envio de e-mails está desativado. A equipe deve habilitá-lo na Torre.",
+            );
           if (message === "EMAIL_EXISTS" || message.includes("SMTP_"))
             return fail(409, "Não foi possível concluir. Verifique o e-mail ou tente novamente.");
           if (message === "SIGNUP_EMAIL_DELIVERY_FAILED")

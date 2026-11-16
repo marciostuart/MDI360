@@ -12,6 +12,7 @@ export function SignupSettings() {
   const query = useQuery({ queryKey: ["signup-admin"], queryFn: () => fetchSignupAdmin() });
   const [enabled, setEnabled] = useState(false);
   const [url, setUrl] = useState("");
+  const [secret, setSecret] = useState("");
   useEffect(() => {
     if (query.data) {
       setEnabled(query.data.webhook.enabled);
@@ -19,9 +20,10 @@ export function SignupSettings() {
     }
   }, [query.data]);
   const save = useMutation({
-    mutationFn: () => saveSignupWebhook({ data: { enabled, url } }),
+    mutationFn: () => saveSignupWebhook({ data: { enabled, url, secret } }),
     onSuccess: () => {
       toast.success("Configuração do pré-cadastro salva.");
+      setSecret("");
       void client.invalidateQueries({ queryKey: ["signup-admin"] });
     },
     onError: () => toast.error("Webhook inválido ou não autorizado. Use HTTPS público."),
@@ -40,20 +42,31 @@ export function SignupSettings() {
         <CardHeader>
           <CardTitle>Integração do pré-cadastro</CardTitle>
           <CardDescription>
-            O webhook recebe os dados após o lead confirmar o e-mail; payload JSON e envio com chave
-            de idempotência.
+            O webhook recebe os dados no envio do formulário, com chave de idempotência e assinatura
+            HMAC opcional compatível com o M7CRM.
           </CardDescription>
         </CardHeader>
         <CardContent className="grid gap-4">
           <div className="flex items-center gap-3">
             <Switch checked={enabled} onCheckedChange={setEnabled} />
-            <span>Enviar leads confirmados ao webhook</span>
+            <span>Enviar pré-cadastros ao webhook</span>
           </div>
           <Input
             type="url"
             placeholder="https://..."
             value={url}
             onChange={(e) => setUrl(e.target.value)}
+          />
+          <Input
+            type="password"
+            autoComplete="new-password"
+            placeholder={
+              query.data.webhook.secretConfigured
+                ? "Segredo HMAC configurado — deixe vazio para manter"
+                : "Segredo HMAC do CRM (opcional)"
+            }
+            value={secret}
+            onChange={(e) => setSecret(e.target.value)}
           />
           <Button
             className="w-fit"

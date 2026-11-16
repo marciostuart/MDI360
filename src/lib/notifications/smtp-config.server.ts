@@ -69,6 +69,8 @@ function transporter(settings: SmtpSettings) {
 
 export async function verifySmtpConnection() {
   const settings = await getSmtpSettings();
+  if (!settings.enabled)
+    throw new Error("Envios SMTP desativados. Habilite os envios e salve a configuração.");
   await transporter(settings).verify();
   return true;
 }
@@ -101,22 +103,10 @@ export async function sendTransactionalEmail(input: {
 }
 
 export async function sendSmtpTest(recipient: string) {
-  const settings = await getSmtpSettings();
-  await transporter(settings).verify();
-  const transport = transporter(settings);
-  const info = await transport.sendMail({
-    from: { name: settings.fromName || "MDI 360", address: settings.fromEmail },
+  return sendTransactionalEmail({
     to: recipient,
-    replyTo: settings.replyTo || undefined,
     subject: "Teste de e-mail — MDI 360",
     text: "A configuração SMTP do MDI 360 foi validada com sucesso.",
     html: '<div style="font-family:Arial,sans-serif;max-width:560px;margin:auto"><h2>SMTP configurado com sucesso</h2><p>Esta mensagem confirma que o MDI 360 consegue enviar e-mails transacionais.</p><p style="color:#64748b;font-size:12px">Mensagem automática de teste da Torre de Controle.</p></div>',
-    disableFileAccess: true,
-    disableUrlAccess: true,
   });
-  return {
-    messageId: info.messageId,
-    accepted: info.accepted.map(String),
-    rejected: info.rejected.map(String),
-  };
 }

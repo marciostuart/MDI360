@@ -1,6 +1,7 @@
 import { lookup } from "node:dns/promises";
 import { BlockList, isIP } from "node:net";
 import { request as httpsRequest } from "node:https";
+import { createHmac, randomBytes } from "node:crypto";
 
 const blocked = new BlockList();
 for (const [ip, prefix] of [
@@ -24,6 +25,9 @@ blocked.addSubnet("2001::", 23, "ipv6");
 blocked.addSubnet("2002::", 16, "ipv6");
 const globalIpv6 = new BlockList();
 globalIpv6.addSubnet("2000::", 3, "ipv6");
+export function signSignupPayload(body: string, timestamp: string, nonce: string, secret: string) {
+  return `sha256=${createHmac("sha256", secret).update(`${timestamp}.${nonce}.${body}`).digest("hex")}`;
+}
 export async function webhookDestination(value: string) {
   const url = new URL(value);
   if (
@@ -60,9 +64,13 @@ export async function sendSignupWebhook(
   urlValue: string,
   payload: Record<string, unknown>,
   id: string,
+  secret = "",
 ) {
   const { url, address } = await webhookDestination(urlValue);
   const body = JSON.stringify(payload);
+  const timestamp = String(Math.floor(Date.now() / 1000));
+  const nonce = randomBytes(24).toString("hex");
+  const signature = secret ? signSignupPayload(body, timestamp, nonce, secret) : "";
   await new Promise<void>((resolve, reject) => {
     const req = httpsRequest(
       url,
@@ -73,6 +81,9 @@ export async function sendSignupWebhook(
           "content-type": "application/json",
           "content-length": Buffer.byteLength(body),
           "idempotency-key": id,
+          ...(secret
+            ? { "x-m7-timestamp": timestamp, "x-m7-nonce": nonce, "x-m7-signature": signature }
+            : {}),
         },
         lookup: (_host, _options, callback) => callback(null, address.address, address.family),
       },
