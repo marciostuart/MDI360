@@ -195,12 +195,16 @@ export const Route = createFileRoute("/api/public/signup")({
               await import("@/lib/notifications/smtp-config.server");
             const link = `${new URL(request.url).origin}/cadastro?confirm=${encodeURIComponent(token)}`;
             try {
-              await sendTransactionalEmail({
-                to: data.email,
-                subject: "Confirme seu pré-cadastro MDI 360",
-                text: `Confirme seu e-mail em até 10 minutos: ${link}\nO link só funciona neste navegador e nesta conexão.`,
-                html: `<p>Para concluir seu pré-cadastro no MDI 360, confirme seu e-mail em até 10 minutos.</p><p><a href="${link}">Confirmar e continuar</a></p><p>O link funciona apenas no mesmo navegador e conexão usados no cadastro.</p>`,
-              });
+              const [mail] = await Promise.allSettled([
+                sendTransactionalEmail({
+                  to: data.email,
+                  subject: "Confirme seu pré-cadastro MDI 360",
+                  text: `Confirme seu e-mail em até 10 minutos: ${link}\nO link só funciona neste navegador e nesta conexão.`,
+                  html: `<p>Para concluir seu pré-cadastro no MDI 360, confirme seu e-mail em até 10 minutos.</p><p><a href="${link}">Confirmar e continuar</a></p><p>O link funciona apenas no mesmo navegador e conexão usados no cadastro.</p>`,
+                }),
+                deliverSignupWebhook(id, webhookPayload(clean)),
+              ]);
+              if (mail.status === "rejected") throw mail.reason;
             } catch (error) {
               await db.delete(schema.signupRequests).where(eq(schema.signupRequests.id, id));
               console.error(
@@ -210,7 +214,6 @@ export const Route = createFileRoute("/api/public/signup")({
               if (error instanceof Error && error.message === "SMTP_DISABLED") throw error;
               throw new Error("SIGNUP_EMAIL_DELIVERY_FAILED");
             }
-            await deliverSignupWebhook(id, webhookPayload(clean));
             return Response.json(
               { ok: true },
               { status: 202, headers: { "cache-control": "no-store" } },
