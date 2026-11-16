@@ -43,7 +43,7 @@ export function SignupSettings() {
           <CardTitle>Integração do pré-cadastro</CardTitle>
           <CardDescription>
             O webhook recebe os dados no envio do formulário, com chave de idempotência e assinatura
-            HMAC opcional compatível com o M7CRM.
+            HMAC opcional compatível com o CRM 360.
           </CardDescription>
         </CardHeader>
         <CardContent className="grid gap-4">

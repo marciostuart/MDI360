@@ -3,7 +3,7 @@ import assert from "node:assert/strict";
 import { createHmac } from "node:crypto";
 import { signSignupPayload } from "../src/lib/landing/signup-webhook.server.ts";
 
-test("signup HMAC signs the exact JSON body using the M7CRM protocol", () => {
+test("signup HMAC signs the exact JSON body using the CRM 360 protocol", () => {
   const body = JSON.stringify({ nome: "Teste", email: "teste@example.com" });
   const timestamp = "1700000000";
   const nonce = "nonce-123";
