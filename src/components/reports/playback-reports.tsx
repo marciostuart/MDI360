@@ -500,8 +500,8 @@ export function PlaybackReports() {
           <div
             className={
               group === "media"
-                ? "grid gap-4 md:grid-cols-2 xl:grid-cols-[200px_280px_1fr_1fr_auto] xl:items-end"
-                : "grid gap-4 md:grid-cols-[200px_1fr_1fr_auto] md:items-end"
+                ? "grid gap-4 md:grid-cols-2 2xl:grid-cols-[200px_280px_minmax(0,1fr)_minmax(0,1fr)_auto] 2xl:items-end"
+                : "grid gap-4 md:grid-cols-2 xl:grid-cols-[minmax(0,200px)_minmax(0,1fr)_minmax(0,1fr)_auto] xl:items-end"
             }
           >
             <div className="space-y-2">

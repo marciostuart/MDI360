@@ -410,13 +410,13 @@ export function TerminalManager() {
             if (viewMode === "list") {
               return (
                 <Card key={terminal.id}>
-                  <CardContent className="flex flex-col gap-4 py-4 xl:flex-row xl:items-center">
-                    <div className="flex min-w-0 flex-1 items-center gap-3">
+                  <CardContent className="flex flex-col gap-4 py-4 2xl:flex-row 2xl:items-center">
+                    <div className="flex min-w-0 flex-1 items-center gap-3 2xl:min-w-[180px]">
                       <div className="grid size-10 shrink-0 place-items-center rounded-lg bg-muted">
                         <MonitorSmartphone className="size-5 text-muted-foreground" />
                       </div>
                       <div className="min-w-0">
-                        <p className="truncate font-medium">{terminal.name}</p>
+                        <p className="break-words font-medium">{terminal.name}</p>
                         <p className="text-xs text-muted-foreground">
                           {platform} · visto {formatLastSeen(terminal.lastSeenAt)}
                         </p>
@@ -427,7 +427,7 @@ export function TerminalManager() {
                       {terminal.online ? "online" : "offline"}
                     </Badge>
 
-                    <div className="flex flex-wrap items-center gap-x-4 gap-y-2 xl:min-w-[390px]">
+                    <div className="flex flex-wrap items-center gap-x-4 gap-y-2 2xl:shrink-0">
                       {(isAndroid ? MODES : MODES.slice(0, 1)).map(([mode, label]) => (
                         <div key={mode} className="flex items-center gap-2">
                           <Switch
@@ -457,12 +457,12 @@ export function TerminalManager() {
                       ))}
                     </div>
 
-                    <div className="min-w-0 xl:w-48">
+                    <div className="min-w-0 2xl:w-40 2xl:shrink-0">
                       <p className="text-[11px] text-muted-foreground">Playlist padrão</p>
-                      <p className="truncate text-sm">{playlist?.name ?? "Nenhuma"}</p>
+                      <p className="break-words text-sm">{playlist?.name ?? "Nenhuma"}</p>
                     </div>
 
-                    <div className="flex flex-wrap gap-2 xl:justify-end">
+                    <div className="flex flex-wrap gap-2 2xl:shrink-0 2xl:justify-end">
                       <Button variant="outline" size="sm" asChild>
                         <Link to="/studio/terminais/$deviceId" params={{ deviceId: terminal.id }}>
                           <Settings2 className="size-4" />

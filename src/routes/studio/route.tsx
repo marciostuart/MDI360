@@ -208,7 +208,7 @@ function DashboardLayout() {
               </Button>
             </div>
           ) : null}
-          <main className="min-w-0 flex-1 p-6 lg:p-10">
+          <main className="min-w-0 flex-1 p-4 sm:p-6 xl:p-8 2xl:p-10">
             {/* Nested dashboard pages render here. */}
             <Outlet />
           </main>

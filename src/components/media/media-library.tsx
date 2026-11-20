@@ -725,7 +725,7 @@ export function MediaLibrary() {
       ) : null}
 
       <div className="flex flex-wrap items-center gap-2">
-        <div className="relative min-w-[220px] flex-1">
+        <div className="relative min-w-0 flex-[1_1_220px]">
           <Search className="pointer-events-none absolute left-3 top-1/2 size-4 -translate-y-1/2 text-muted-foreground" />
           <Input
             value={search}
@@ -776,7 +776,7 @@ export function MediaLibrary() {
         <div className="divide-y divide-border overflow-hidden rounded-xl border border-border">
           {visibleItems.map((item) => (
             <div key={item.id} className="flex flex-wrap items-start gap-4 p-4">
-              <div className="min-w-[220px] flex-1 space-y-2">
+              <div className="min-w-0 flex-[1_1_220px] space-y-2">
                 <div className="flex items-center gap-2">
                   {item.kind === "video" ? (
                     <Film className="size-4 shrink-0 text-muted-foreground" />

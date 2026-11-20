@@ -326,7 +326,7 @@ export function PlaylistEditorDialog({
             </div>
           </DialogHeader>
 
-          <div className="grid min-h-0 flex-1 gap-0 overflow-hidden md:grid-cols-2">
+          <div className="grid min-h-0 flex-1 auto-rows-[minmax(20rem,auto)] gap-0 overflow-y-auto md:auto-rows-auto md:grid-cols-2 md:overflow-hidden">
             <div className="flex min-h-0 flex-col border-border p-5 md:border-r">
               <div className="relative mb-3">
                 <Search className="pointer-events-none absolute left-3 top-1/2 size-4 -translate-y-1/2 text-muted-foreground" />
