@@ -39,8 +39,11 @@ CAIXA diretamente e continuam usando o último resultado confirmado.
 
 ## Aplicativos
 
-- `android/`: Kotlin, WebView restrita ao domínio do serviço, boot, impressão
-  USB ESC/POS, teclas configuráveis e serviço persistente.
+- `android/`: Kotlin, ExoPlayer + `SurfaceView` para videos locais, WebView
+  restrita a widgets e imagens, boot, impressao USB ESC/POS, teclas
+  configuraveis e servico persistente. O inicio do video e confirmado por
+  `STATE_READY` + 250 ms no firmware alvo e o fim por `STATE_ENDED`; a troca
+  preserva a visualizacao anterior ate o proximo frame estar pronto.
 - `roku/`: BrightScript/SceneGraph, cache, widgets e relatório de exibição.
 - `electron-emitter/`: Electron para Windows e Debian/MiniOS, CUPS ou ESC/POS.
 
